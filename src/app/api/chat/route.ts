@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSessionFromCookie } from '@/lib/auth';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -20,6 +21,10 @@ function generateMockResponse(messages: ChatMessage[], consultType: string): str
 }
 
 export async function POST(req: NextRequest) {
+    // 인증 검증 (관리자/내부직원/고객 HR 모두 허용)
+    const auth = requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     try {
         const { messages, consultType = 'general' } = await req.json();
         let aiResponse: string;
@@ -41,6 +46,8 @@ export async function POST(req: NextRequest) {
         }
         return NextResponse.json({ message: aiResponse, mock: !ANTHROPIC_API_KEY });
     } catch (err) {
-        return NextResponse.json({ error: '서버 오류' }, { status: 500 });
+        console.error('[chat API] 오류:', err);
+        const message = err instanceof Error ? err.message : '서버 오류';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

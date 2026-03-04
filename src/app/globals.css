@@ -28,6 +28,11 @@
   --border-color: rgba(201, 168, 76, 0.2);
   --radius: 0.75rem;
 
+  /* 표준 색상 토큰 (인라인 스타일 대체용) */
+  --color-gold: #c9a84c;
+  --color-gold-light: #e8c87a;
+  --color-navy: #04091a;
+
   /* 화이트 (내부 업무용) */
   --admin-bg: #f1f5f9;
   --admin-surface: #ffffff;

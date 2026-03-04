@@ -1,23 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+// ── 인증 SSOT: auth.ts만 참조 (이 파일에 별도 계정 목록 금지) ──
+import { loginWithEmailFull, loginWithBiz, clearSession, getSession, type AuthUser } from './auth';
+import type { RoleType } from './mockStore';
 
-// ── 사용자 타입 ───────────────────────────────────────────────
-export type RoleType =
-    | 'super_admin' | 'admin' | 'sales' | 'lawyer'
-    | 'litigation' | 'counselor' | 'client_hr'
-    | 'hr' | 'general' | 'finance';
-
-export interface AuthUser {
-    id: string;
-    email: string;
-    name: string;
-    role: RoleType;
-    companyId?: string;
-    companyName?: string;
-    plan?: 'basic' | 'pro' | 'premium' | 'none';
-    phone?: string;
-}
+export type { RoleType, AuthUser };
 
 interface AuthContextType {
     user: AuthUser | null;
@@ -28,39 +17,9 @@ interface AuthContextType {
     isAuthenticated: boolean;
 }
 
-// ── Mock 사용자 데이터 ────────────────────────────────────────
-const MOCK_USERS: Record<string, AuthUser & { password: string }> = {
-    'admin@ibslaw.co.kr': {
-        id: 'u1', email: 'admin@ibslaw.co.kr', name: '김관리자',
-        role: 'super_admin', password: 'admin1234',
-    },
-    'sales@ibslaw.co.kr': {
-        id: 'u2', email: 'sales@ibslaw.co.kr', name: '이영업',
-        role: 'sales', password: 'sales1234',
-    },
-    'lawyer@ibslaw.co.kr': {
-        id: 'u3', email: 'lawyer@ibslaw.co.kr', name: '박변호사',
-        role: 'lawyer', password: 'lawyer1234',
-    },
-    'litigation@ibslaw.co.kr': {
-        id: 'u4', email: 'litigation@ibslaw.co.kr', name: '최송무',
-        role: 'litigation', password: 'lit1234',
-    },
-    'hr@ibslaw.co.kr': {
-        id: 'u5', email: 'hr@ibslaw.co.kr', name: '정인사',
-        role: 'hr', password: 'hr1234',
-    },
-    // 고객사 HR (사업자번호로 로그인)
-    '123-45-67890': {
-        id: 'c1u1', email: 'client@nolboo.co.kr', name: '김HR담당',
-        role: 'client_hr', companyId: 'c1', companyName: '(주)놀부NBG',
-        plan: 'pro', password: '1234',
-    },
-};
-
 const AUTH_KEY = 'ibs_auth_v1';
 
-// ── Context ────────────────────────────────────────────────────
+// ── Context ───────────────────────────────────────────────────────
 const AuthContext = createContext<AuthContextType>({
     user: null, loading: true,
     login: async () => ({}),
@@ -69,58 +28,72 @@ const AuthContext = createContext<AuthContextType>({
     isAuthenticated: false,
 });
 
-// ── 역할별 리다이렉트 맵 ──────────────────────────────────────
+// ── 역할별 리다이렉트 맵 ─────────────────────────────────────────
 export const ROLE_REDIRECT: Record<RoleType, string> = {
     super_admin: '/admin',
     admin: '/admin',
-    sales: '/admin',
+    sales: '/admin/leads',
     lawyer: '/lawyer',
     litigation: '/litigation',
-    client_hr: '/client-portal',
+    client_hr: '/company-hr',
     counselor: '/counselor',
     hr: '/admin',
     general: '/admin',
     finance: '/admin',
 };
 
-// ── Provider ───────────────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         try {
-            const saved = localStorage.getItem(AUTH_KEY);
-            if (saved) setUser(JSON.parse(saved));
+            // auth.ts의 getSession() 활용 — 직접 localStorage 접근 제거
+            const saved = getSession();
+            if (saved) setUser(saved);
         } catch { }
         setLoading(false);
+
+        // 다른 탭에서 로그인/로그아웃 시 현재 탭도 즉시 반영
+        const onStorage = (e: StorageEvent) => {
+            if (e.key !== AUTH_KEY) return;
+            try {
+                setUser(e.newValue ? JSON.parse(e.newValue) : null);
+            } catch {
+                setUser(null);
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
     }, []);
 
     const saveUser = (u: AuthUser | null) => {
         setUser(u);
-        if (u) localStorage.setItem(AUTH_KEY, JSON.stringify(u));
-        else localStorage.removeItem(AUTH_KEY);
     };
 
+    // ── auth.ts SSOT 함수 위임 ───────────────────────────────────
     const login = useCallback(async (email: string, password: string) => {
-        const found = MOCK_USERS[email.toLowerCase()];
-        if (!found || found.password !== password) return { error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
-        const { password: _, ...authUser } = found;
-        saveUser(authUser);
-        return {};
+        const result = loginWithEmailFull(email, password);
+        if (result.success) {
+            saveUser(result.user);
+            return {};
+        }
+        return { error: result.error };
     }, []);
 
     const loginWithBizNo = useCallback(async (bizNo: string, password: string) => {
-        const key = bizNo.replace(/[^0-9]/g, '').replace(/(\d{3})(\d{2})(\d{5})/, '$1-$2-$3');
-        const found = MOCK_USERS[key];
-        if (!found || found.password !== password) return { error: '사업자번호 또는 비밀번호가 올바르지 않습니다.' };
-        const { password: _, ...authUser } = found;
-        saveUser(authUser);
-        return {};
+        const result = loginWithBiz(bizNo, password);
+        if (result.success) {
+            saveUser(result.user);
+            return {};
+        }
+        return { error: result.error };
     }, []);
 
     const logout = useCallback(() => {
-        saveUser(null);
+        clearSession();
+        setUser(null);
     }, []);
 
     return (
@@ -132,15 +105,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() { return useContext(AuthContext); }
 
-// ── 인증 가드 훅 ───────────────────────────────────────────────
+// ── 인증 가드 훅 ─────────────────────────────────────────────────
+// window.location 직접 조작 제거 → useRouter() 사용 (App Router 호환)
 export function useRequireAuth(requiredRoles?: RoleType[]) {
     const { user, loading } = useAuth();
+    const router = useRouter();
 
-    if (typeof window !== 'undefined' && !loading) {
-        if (!user) { window.location.href = '/login'; }
-        else if (requiredRoles && !requiredRoles.includes(user.role)) {
-            window.location.href = ROLE_REDIRECT[user.role];
+    useEffect(() => {
+        if (loading) return;
+        if (!user) {
+            router.replace('/login');
+            return;
         }
-    }
-    return { user, loading, authorized: !!user && (!requiredRoles || requiredRoles.includes(user.role)) };
+        if (requiredRoles && !requiredRoles.includes(user.role)) {
+            router.replace(ROLE_REDIRECT[user.role] ?? '/');
+        }
+    }, [user, loading, router]);
+
+    return {
+        user,
+        loading,
+        authorized: !!user && (!requiredRoles || requiredRoles.includes(user.role)),
+    };
 }

@@ -131,6 +131,98 @@ function BulkToolbar({ count, onClear, onBulkStatus, onBulkAssign }: {
     );
 }
 
+// ── 리드 추가 모달 ────────────────────────────────────────
+function AddLeadModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
+    const [form, setForm] = useState({
+        companyName: '', contactName: '', contactEmail: '',
+        contactPhone: '', domain: '', privacyUrl: '',
+        storeCount: '', bizType: '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [err, setErr] = useState('');
+
+    const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleSave = () => {
+        if (!form.companyName.trim()) { setErr('회사명을 입력해주세요.'); return; }
+        setSaving(true);
+        const now = new Date().toISOString();
+        const genId = (p: string) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const lead: Lead = {
+            id: genId('lead'),
+            companyName: form.companyName.trim(),
+            domain: form.domain.trim(),
+            privacyUrl: form.privacyUrl.trim(),
+            contactName: form.contactName.trim(),
+            contactEmail: form.contactEmail.trim(),
+            contactPhone: form.contactPhone.trim(),
+            contacts: [],
+            storeCount: parseInt(form.storeCount) || 0,
+            bizType: form.bizType.trim() || '기타',
+            riskScore: 0, riskLevel: '', issueCount: 0,
+            status: 'pending',
+            memos: [], timeline: [{ id: genId('t'), createdAt: now, author: '영업팀', type: 'status_change', content: '리드 수동 추가', toStatus: 'pending' }],
+            createdAt: now, updatedAt: now, source: 'manual',
+        };
+        // localStorage 직접 저장 (leadStore와 동일한 키)
+        const existing: Lead[] = JSON.parse(localStorage.getItem('ibs_leads_v1') || '[]');
+        localStorage.setItem('ibs_leads_v1', JSON.stringify([lead, ...existing]));
+        onAdd(); onClose();
+    };
+
+    const fields: { key: string; label: string; placeholder: string; type?: string }[] = [
+        { key: 'companyName', label: '회사명 *', placeholder: '(주)교촌에프앤비' },
+        { key: 'contactName', label: '담당자 이름', placeholder: '홍길동' },
+        { key: 'contactEmail', label: '이메일', placeholder: 'contact@company.com', type: 'email' },
+        { key: 'contactPhone', label: '전화번호', placeholder: '010-1234-5678', type: 'tel' },
+        { key: 'storeCount', label: '가맹점 수', placeholder: '100', type: 'number' },
+        { key: 'bizType', label: '업종', placeholder: '외식업' },
+        { key: 'domain', label: '도메인', placeholder: 'https://company.com' },
+        { key: 'privacyUrl', label: '개인정보처리방침 URL', placeholder: 'https://company.com/privacy' },
+    ];
+
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.4)' }}
+            onClick={onClose}>
+            <motion.div initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
+                className="w-full max-w-lg rounded-2xl p-6"
+                style={{ background: '#ffffff', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-lg font-black" style={{ color: '#0f172a' }}>리드 추가</h2>
+                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" style={{ color: '#94a3b8' }} /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    {fields.map(f => (
+                        <div key={f.key} className={f.key === 'companyName' || f.key === 'privacyUrl' || f.key === 'domain' ? 'col-span-2' : ''}>
+                            <label className="block text-xs font-bold mb-1" style={{ color: '#475569' }}>{f.label}</label>
+                            <input type={f.type ?? 'text'} value={(form as Record<string, string>)[f.key]}
+                                onChange={e => set(f.key, e.target.value)}
+                                placeholder={f.placeholder}
+                                className="w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors"
+                                style={{ borderColor: '#e2e8f0', color: '#1e293b' }}
+                                onFocus={e => (e.target.style.borderColor = '#c9a84c')}
+                                onBlur={e => (e.target.style.borderColor = '#e2e8f0')} />
+                        </div>
+                    ))}
+                </div>
+                {err && <p className="text-xs mb-3 font-semibold" style={{ color: '#dc2626' }}>{err}</p>}
+                <div className="flex gap-2">
+                    <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-slate-50"
+                        style={{ borderColor: '#e2e8f0', color: '#64748b' }}>취소</button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                        style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
+                        {saving ? '저장 중…' : '추가하기'}
+                    </button>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
 // ── 슬라이드 패널: 연락처 탭 ──────────────────────────────
 function ContactTab({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
     const [editing, setEditing] = useState<string | null>(null);
@@ -749,7 +841,7 @@ const TYPE_LABEL_DRIP: Record<string, string> = {
     legal_tip: '📋 법률 팁', case_study: '📊 케이스 분석', risk_alert: '⚠️ 리스크 알림', cta: '🎯 CTA'
 };
 
-function DripTab() {
+function DripTab({ onSelectLead }: { onSelectLead: (leadId: string) => void }) {
     const [members, setMembers] = useState<DripMember[]>([]);
     const [sendingId, setSendingId] = useState<string | null>(null);
 
@@ -783,7 +875,7 @@ function DripTab() {
                 ].map(k => (
                     <div key={k.label} className="p-4 rounded-xl border" style={{ background: k.bg, borderColor: k.border }}>
                         <div className="text-2xl font-black mb-0.5" style={{ color: k.color }}>{k.value}</div>
-                        <div className="text-xs font-semibold" style={{ color: '#64748b' }}>{k.label}</div>
+                        <div className="text-xs font-semibold" style={{ color: '#374151' }}>{k.label}</div>
                     </div>
                 ))}
             </div>
@@ -795,7 +887,7 @@ function DripTab() {
                     {DRIP_SEQUENCE.map((email, i) => (
                         <div key={i} className="flex-shrink-0 p-3 rounded-xl bg-white border border-slate-200 text-center w-28">
                             <div className="text-base font-black mb-1" style={{ color: '#b8960a' }}>D+{email.day}</div>
-                            <div className="text-[10px] mb-1" style={{ color: '#94a3b8' }}>{TYPE_LABEL_DRIP[email.contentType]}</div>
+                            <div className="text-[10px] mb-1 font-semibold" style={{ color: '#6b7280' }}>{TYPE_LABEL_DRIP[email.contentType]}</div>
                             <div className="text-[10px]" style={{ color: '#64748b' }}>
                                 {email.subject.replace(/^\[IBS 법률\]\s*|.*?—\s*/g, '').slice(0, 18)}...
                             </div>
@@ -816,11 +908,13 @@ function DripTab() {
                         const daysSince = Math.floor((Date.now() - new Date(member.joinedAt).getTime()) / 86400000);
                         const nextEmail = DRIP_SEQUENCE.find(e => !member.sentDays.includes(e.day));
                         return (
-                            <div key={member.id} className="p-4 rounded-xl border border-slate-200 bg-white">
+                            <div key={member.id}
+                                className="p-4 rounded-xl border border-slate-200 bg-white cursor-pointer hover:border-amber-300 hover:shadow-sm transition-all"
+                                onClick={() => onSelectLead(member.leadId)}>
                                 <div className="flex items-start justify-between mb-3">
                                     <div>
                                         <h3 className="font-bold text-sm" style={{ color: '#1e293b' }}>{member.companyName}</h3>
-                                        <p className="text-xs" style={{ color: '#64748b' }}>{member.contactEmail} · D+{daysSince}일</p>
+                                        <p className="text-xs font-semibold" style={{ color: '#374151' }}>{member.contactEmail} · D+{daysSince}일</p>
                                     </div>
                                     <span className="text-xs px-2.5 py-0.5 rounded-full font-bold border"
                                         style={{ background: `${STATUS_COLOR_DRIP[member.dripStatus]} 12`, color: STATUS_COLOR_DRIP[member.dripStatus], borderColor: `${STATUS_COLOR_DRIP[member.dripStatus]} 30` }}>
@@ -889,9 +983,66 @@ export default function LeadsPage() {
     const [filterRisk, setFilterRisk] = useState<string>('all');
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [activePanel, setActivePanel] = useState<Lead | null>(null);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [uploadMsg, setUploadMsg] = useState('');
+    const excelInputRef = useRef<HTMLInputElement>(null);
 
     const reload = () => setLeads(leadStore.getAll());
     useEffect(() => { reload(); }, []);
+
+    // ── CSV/엑셀 텍스트 파서 ──────────────────────────────────
+    const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const text = ev.target?.result as string;
+                const lines = text.split(/\r?\n/).filter(Boolean);
+                if (lines.length < 2) { setUploadMsg('데이터가 없습니다.'); return; }
+                // 헤더: 회사명,담당자,이메일,전화,가맹점수,업종,도메인
+                const rows = lines.slice(1).map(line => {
+                    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                    return {
+                        companyName: cols[0] ?? '',
+                        contactName: cols[1] ?? '',
+                        contactEmail: cols[2] ?? '',
+                        contactPhone: cols[3] ?? '',
+                        storeCount: parseInt(cols[4]) || 0,
+                        bizType: cols[5] ?? '기타',
+                        domain: cols[6] ?? '',
+                        privacyUrl: cols[7] ?? '',
+                    };
+                }).filter(r => r.companyName);
+
+                if (rows.length === 0) { setUploadMsg('유효한 행이 없습니다.'); return; }
+
+                const now = new Date().toISOString();
+                const genId = (p: string) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+                const newLeads: Lead[] = rows.map(r => ({
+                    id: genId('lead'),
+                    companyName: r.companyName,
+                    domain: r.domain, privacyUrl: r.privacyUrl,
+                    contactName: r.contactName, contactEmail: r.contactEmail, contactPhone: r.contactPhone,
+                    contacts: [], storeCount: r.storeCount, bizType: r.bizType,
+                    riskScore: 0, riskLevel: '' as const, issueCount: 0, status: 'pending' as LeadStatus,
+                    memos: [],
+                    timeline: [{ id: genId('t'), createdAt: now, author: '시스템', type: 'status_change' as const, content: 'CSV 업로드', toStatus: 'pending' as LeadStatus }],
+                    createdAt: now, updatedAt: now, source: 'excel' as const,
+                }));
+
+                const existing = leadStore.getAll();
+                localStorage.setItem('ibs_leads_v1', JSON.stringify([...newLeads, ...existing]));
+                reload();
+                setUploadMsg(`✅ ${rows.length}건 업로드 완료`);
+                setTimeout(() => setUploadMsg(''), 3000);
+            } catch {
+                setUploadMsg('파일 파싱 오류. CSV 형식을 확인해주세요.');
+            }
+            e.target.value = '';
+        };
+        reader.readAsText(file, 'UTF-8');
+    };
 
     const filtered = leads.filter(l => {
         const q = search.toLowerCase();
@@ -930,8 +1081,8 @@ export default function LeadsPage() {
     };
 
     return (
-        <div className="min-h-screen pt-20 pb-16" style={{ background: '#f1f5f9' }}>
-            <div className={`mx - auto px - 4 transition - all duration - 300 ${activePanel ? 'max-w-[calc(100%-496px)]' : 'max-w-6xl'} `}>
+        <div className="min-h-screen pt-20 pb-16" style={{ background: '#f8f9fc' }}>
+            <div className={`mx-auto px-4 transition-all duration-300 ${activePanel ? 'max-w-[calc(100%-496px)]' : 'max-w-6xl'}`}>
 
                 {/* 헤더 */}
                 <div className="mb-6">
@@ -940,11 +1091,19 @@ export default function LeadsPage() {
                             <h1 className="admin-page-title">영업 리드</h1>
                             <p className="text-base mt-1" style={{ color: '#64748b' }}>프랜차이즈 본사 잠재 고객 관리</p>
                         </div>
-                        <div className="flex gap-2">
-                            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition-colors" style={{ color: '#475569' }}>
+                        <div className="flex gap-2 items-center">
+                            {/* 숨겨진 파일 input (CSV/엑셀) */}
+                            <input ref={excelInputRef} type="file" accept=".csv,.xlsx,.xls"
+                                className="hidden" onChange={handleExcelUpload} />
+                            {uploadMsg && <span className="text-xs font-semibold" style={{ color: '#16a34a' }}>{uploadMsg}</span>}
+                            <button
+                                onClick={() => excelInputRef.current?.click()}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition-colors" style={{ color: '#475569' }}>
                                 <Upload className="w-4 h-4" /> 엑셀 업로드
                             </button>
-                            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
                                 style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
                                 <Plus className="w-4 h-4" /> 리드 추가
                             </button>
@@ -1028,7 +1187,7 @@ export default function LeadsPage() {
                                                     : <Square className="w-4 h-4" />}
                                             </button>
                                         </th>
-                                        {['회사명', '위험도', '가맹점', '이슈', '상태', '담당 변호사', ''].map(h => (
+                                        {['회사명', '위험도', '가맹점', '이슈', '상태', '담당 변호사', '전화번호', '메모', ''].map(h => (
                                             <th key={h} className="px-4 py-3 text-left admin-label whitespace-nowrap">{h}</th>
                                         ))}
                                     </tr>
@@ -1038,7 +1197,7 @@ export default function LeadsPage() {
                                         <tr key={lead.id}
                                             onClick={() => openPanel(lead)}
                                             className="cursor-pointer transition-colors hover:bg-slate-50"
-                                            style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f1f5f9' : 'none', background: selected.has(lead.id) ? '#eef2ff' : undefined }}>
+                                            style={{ borderBottom: i < filtered.length - 1 ? '1px solid #e5e7eb' : 'none', background: selected.has(lead.id) ? '#eef2ff' : undefined }}>
                                             <td className="px-4 py-3.5" onClick={e => { e.stopPropagation(); toggleSelect(lead.id); }}>
                                                 {selected.has(lead.id)
                                                     ? <CheckSquare className="w-4 h-4" style={{ color: '#6366f1' }} />
@@ -1046,7 +1205,7 @@ export default function LeadsPage() {
                                             </td>
                                             <td className="px-4 py-3.5">
                                                 <p className="font-bold text-base" style={{ color: '#1e293b' }}>{lead.companyName}</p>
-                                                <p className="text-sm" style={{ color: '#64748b' }}>{lead.contactName} · {lead.contactEmail}</p>
+                                                <p className="text-sm font-medium" style={{ color: '#374151' }}>{lead.contactName} · {lead.contactEmail}</p>
                                             </td>
                                             <td className="px-4 py-3.5"><RiskBadge level={lead.riskLevel} /></td>
                                             <td className="px-4 py-3.5 text-base font-semibold" style={{ color: '#475569' }}>{lead.storeCount.toLocaleString()}개</td>
@@ -1054,7 +1213,32 @@ export default function LeadsPage() {
                                                 <span className="text-base font-bold" style={{ color: lead.issueCount >= 4 ? '#dc2626' : '#d97706' }}>{lead.issueCount}건</span>
                                             </td>
                                             <td className="px-4 py-3.5"><StatusBadge status={lead.status} /></td>
-                                            <td className="px-4 py-3.5 text-sm" style={{ color: '#94a3b8' }}>{lead.assignedLawyer ?? '—'}</td>
+                                            <td className="px-4 py-3.5 text-sm font-semibold" style={{ color: '#6b7280' }}>{lead.assignedLawyer ?? '—'}</td>
+                                            {/* 전화번호 */}
+                                            <td className="px-4 py-3.5">
+                                                {lead.contactPhone ? (
+                                                    <a href={`tel:${lead.contactPhone}`}
+                                                        className="flex items-center gap-1 text-sm font-medium whitespace-nowrap"
+                                                        style={{ color: '#2563eb' }}
+                                                        onClick={e => e.stopPropagation()}>
+                                                        <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                                                        {lead.contactPhone}
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-sm" style={{ color: '#cbd5e1' }}>—</span>
+                                                )}
+                                            </td>
+                                            {/* 메모 (최신순) */}
+                                            <td className="px-4 py-3.5" style={{ maxWidth: 160 }}>
+                                                {lead.memos.length > 0 ? (
+                                                    <p className="text-sm truncate" style={{ color: '#475569', maxWidth: 160 }}
+                                                        title={lead.memos[lead.memos.length - 1].content}>
+                                                        {lead.memos[lead.memos.length - 1].content}
+                                                    </p>
+                                                ) : (
+                                                    <span className="text-sm" style={{ color: '#cbd5e1' }}>—</span>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3.5">
                                                 <ChevronDown className="w-4 h-4 -rotate-90" style={{ color: '#cbd5e1' }} />
                                             </td>
@@ -1076,7 +1260,7 @@ export default function LeadsPage() {
                 )}
 
                 {/* 드립 캠페인 탭 */}
-                {tab === 'drip' && <DripTab />}
+                {tab === 'drip' && <DripTab onSelectLead={(leadId) => { const l = leads.find(x => x.id === leadId); if (l) openPanel(l); }} />}
             </div>
 
             {/* 슬라이드 패널 오버레이 */}
@@ -1088,6 +1272,13 @@ export default function LeadsPage() {
                             onClick={closePanel} />
                         <SlidePanel lead={activePanel} onClose={closePanel} onUpdate={updatePanel} />
                     </>
+                )}
+            </AnimatePresence>
+
+            {/* 리드 추가 모달 */}
+            <AnimatePresence>
+                {showAddModal && (
+                    <AddLeadModal onClose={() => setShowAddModal(false)} onAdd={reload} />
                 )}
             </AnimatePresence>
         </div>

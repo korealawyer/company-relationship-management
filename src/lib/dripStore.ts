@@ -1,6 +1,8 @@
 // lib/dripStore.ts — 미결제 회원 드립 캠페인 자동화
 // Phase 2: 실제 스케줄러(Cron/Inngest)로 교체
 
+const DRIP_STORE_KEY = 'ibs_drip_v1';
+
 export type DripStatus = 'active' | 'paused' | 'completed' | 'converted';
 
 export interface DripEmail {
@@ -157,12 +159,14 @@ IBS 구독 서비스로 월 {monthlyFee}원에 관리하시면:
     },
 ];
 
-// ── 인메모리 드립 멤버 저장소 ─────────────────────────────────
-let _members: DripMember[] = [
+// ── localStorage 기반 드립 멤버 저장소 ───────────────────────
+// 초기 Mock 데이터: tempPassword는 실제 값 대신 플레이스홀더로 표기
+// (실제 임시 비밀번호는 register() 호출 시 생성하여 이메일 발송 후 파기 예정)
+const INITIAL_MEMBERS: DripMember[] = [
     {
         id: 'drip_001', leadId: 'lead_002', companyName: '(주)메가커피',
         contactEmail: 'ops@megacoffee.net', contactName: '이운영',
-        bizRegNo: '123-45-67890', tempPassword: 'IBS2026!',
+        bizRegNo: '12345678901', tempPassword: '[발송 완료 — 저장 안 함]',
         joinedAt: '2026-03-01T14:00:00Z', subscribed: false,
         dripStatus: 'active', sentDays: [1, 4], lastSentAt: '2026-03-05T09:00:00Z',
         riskLevel: 'MEDIUM', issueCount: 2,
@@ -170,60 +174,93 @@ let _members: DripMember[] = [
     {
         id: 'drip_002', leadId: 'lead_004', companyName: '(주)파리바게뜨',
         contactEmail: 'info@paris.co.kr', contactName: '정담당',
-        bizRegNo: '345-67-89012', tempPassword: 'IBS2026!',
+        bizRegNo: '34567890120', tempPassword: '[발송 완료 — 저장 안 함]',
         joinedAt: '2026-02-28T10:00:00Z', subscribed: false,
         dripStatus: 'active', sentDays: [1, 4, 8, 14], lastSentAt: '2026-03-14T09:00:00Z',
         riskLevel: 'MEDIUM', issueCount: 1,
     },
 ];
 
+function loadMembers(): DripMember[] {
+    if (typeof window === 'undefined') return [...INITIAL_MEMBERS];
+    try {
+        const raw = localStorage.getItem(DRIP_STORE_KEY);
+        if (!raw) {
+            localStorage.setItem(DRIP_STORE_KEY, JSON.stringify(INITIAL_MEMBERS));
+            return [...INITIAL_MEMBERS];
+        }
+        return JSON.parse(raw) as DripMember[];
+    } catch {
+        return [...INITIAL_MEMBERS];
+    }
+}
+
+function saveMembers(members: DripMember[]): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(DRIP_STORE_KEY, JSON.stringify(members));
+}
+
 export const dripStore = {
-    getAll: () => [..._members],
-    getById: (id: string) => _members.find(m => m.id === id),
-    getByLeadId: (leadId: string) => _members.find(m => m.leadId === leadId),
-    getByBizRegNo: (bizRegNo: string) => _members.find(m => m.bizRegNo === bizRegNo.replace(/-/g, '')),
+    getAll: () => loadMembers(),
+    getById: (id: string) => loadMembers().find(m => m.id === id),
+    getByLeadId: (leadId: string) => loadMembers().find(m => m.leadId === leadId),
+    getByBizRegNo: (bizRegNo: string) => {
+        const digits = bizRegNo.replace(/-/g, '');
+        return loadMembers().find(m => m.bizRegNo === digits);
+    },
 
     register: (data: {
         leadId: string; companyName: string; contactEmail: string; contactName: string;
         bizRegNo: string; riskLevel: string; issueCount: number;
     }): DripMember => {
-        const existing = _members.find(m => m.leadId === data.leadId);
+        const members = loadMembers();
+        const existing = members.find(m => m.leadId === data.leadId);
         if (existing) return existing;
 
-        // 임시 비밀번호 생성 (6자리 숫자)
+        // 임시 비밀번호 생성 — 이메일 발송에만 사용하고 저장 안 함
+        // TODO(Phase 3): 실제 이메일 발송 API 연동 (sendEmail(data.contactEmail, tempPw))
         const tempPw = `IBS${Math.floor(100000 + Math.random() * 900000)}`;
+        // ⚠️ tempPw를 절대 저장하지 않음: 발송 후 즉시 폐기
+        console.log(`[dripStore] 임시 비밀번호 생성 (발송 전용, 저장 안 함): ${data.contactEmail}`);
+        void tempPw; // TODO(Phase 3): await sendEmail(data.contactEmail, tempPw);
+
         const member: DripMember = {
-            id: `drip_${Date.now()}`,
+            id: typeof crypto !== 'undefined' && crypto.randomUUID
+                ? `drip_${crypto.randomUUID()}`
+                : `drip_${Date.now()}`,
             ...data,
             bizRegNo: data.bizRegNo.replace(/-/g, ''),
-            tempPassword: tempPw,
+            tempPassword: '[발송 완료 — 저장 안 함]', // 항상 마스킹 상태로 저장
             joinedAt: new Date().toISOString(),
             subscribed: false,
             dripStatus: 'active',
             sentDays: [],
         };
-        _members.push(member);
+        saveMembers([...members, member]);
         return member;
     },
 
+
     markSent: (id: string, day: number) => {
-        _members = _members.map(m => m.id !== id ? m : {
+        const updated = loadMembers().map(m => m.id !== id ? m : {
             ...m,
             sentDays: [...m.sentDays, day],
             lastSentAt: new Date().toISOString(),
         });
+        saveMembers(updated);
     },
 
     markSubscribed: (id: string) => {
-        _members = _members.map(m => m.id !== id ? m : {
-            ...m, subscribed: true, subscribedAt: new Date().toISOString(), dripStatus: 'converted',
-        });
+        const updated = loadMembers().map(m => m.id !== id ? m : ({
+            ...m, subscribed: true, subscribedAt: new Date().toISOString(), dripStatus: 'converted' as DripStatus,
+        } satisfies DripMember));
+        saveMembers(updated);
     },
 
     getPendingEmails: () => {
         const now = Date.now();
         const pending: { member: DripMember; email: DripEmail }[] = [];
-        _members.filter(m => m.dripStatus === 'active' && !m.subscribed).forEach(member => {
+        loadMembers().filter(m => m.dripStatus === 'active' && !m.subscribed).forEach(member => {
             const daysSinceJoin = Math.floor((now - new Date(member.joinedAt).getTime()) / 86400000);
             DRIP_SEQUENCE.forEach(email => {
                 if (email.day <= daysSinceJoin && !member.sentDays.includes(email.day)) {

@@ -54,8 +54,9 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
 // 현재 사용자 역할 — Phase 2에서 실제 인증으로 교체
 const ROLE_KEY = 'ibs_role';
 export function getCurrentRole(): RoleType {
-    if (typeof window === 'undefined') return 'super_admin';
-    return (localStorage.getItem(ROLE_KEY) as RoleType) ?? 'super_admin';
+    // ⚠️ SSR 컨텍스트에서 최고 권한 반환 방지 — 'sales'로 폴백
+    if (typeof window === 'undefined') return 'sales';
+    return (localStorage.getItem(ROLE_KEY) as RoleType) ?? 'sales';
 }
 export function setCurrentRole(role: RoleType) {
     localStorage.setItem(ROLE_KEY, role);
@@ -432,15 +433,17 @@ function saveLit(cs: LitigationCase[]) {
 }
 
 // ── 자동화 파이프라인 ─────────────────────────────────────────
-function runAutoPipeline(companyId: string, delay = 0) {
-    setTimeout(() => {
+// 재귀 setTimeout → async Promise 체이닝 (메모리 누수 제거, 명시적 종료 조건)
+async function runAutoPipeline(companyId: string): Promise<void> {
+    const delay = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
+
+    // Step 1: 자동 영업 컨펌
+    await delay(500);
+    {
         const settings = loadAuto();
         const all = load();
         const c = all.find(x => x.id === companyId);
-        if (!c) return;
-
-        // Step 1: 자동 영업 컨펌
-        if (c.status === 'analyzed' && settings.autoSalesConfirm) {
+        if (c && c.status === 'analyzed' && settings.autoSalesConfirm) {
             const now = new Date().toLocaleString('ko-KR', { hour12: false });
             c.status = 'sales_confirmed';
             c.salesConfirmed = true;
@@ -449,12 +452,16 @@ function runAutoPipeline(companyId: string, delay = 0) {
             c.updatedAt = new Date().toISOString();
             save(all);
             addLog({ type: 'auto_confirm', label: '영업 자동 컨펌', companyName: c.name, detail: `분석완료 → AI가 자동으로 영업 컨펌 처리 (담당: AI 자동)` });
-            runAutoPipeline(companyId, 800);
-            return;
         }
+    }
 
-        // Step 2: 자동 변호사 배정
-        if (c.status === 'sales_confirmed' && settings.autoAssignLawyer && !c.assignedLawyer) {
+    // Step 2: 자동 변호사 배정
+    await delay(800);
+    {
+        const settings = loadAuto();
+        const all = load();
+        const c = all.find(x => x.id === companyId);
+        if (c && c.status === 'sales_confirmed' && settings.autoAssignLawyer && !c.assignedLawyer) {
             const s = loadAuto();
             const lawyer = LAWYERS[s.lawyerRoundRobin % LAWYERS.length];
             s.lawyerRoundRobin = (s.lawyerRoundRobin + 1) % LAWYERS.length;
@@ -464,11 +471,16 @@ function runAutoPipeline(companyId: string, delay = 0) {
             c.updatedAt = new Date().toISOString();
             save(all);
             addLog({ type: 'auto_assign', label: '변호사 자동 배정', companyName: c.name, detail: `라운드로빈 → ${lawyer} 자동 배정 완료` });
-            return;
         }
+    }
 
-        // Step 3: 변호사 컨펌 후 자동 이메일 발송
-        if (c.status === 'lawyer_confirmed' && settings.autoSendEmail && !c.emailSentAt) {
+    // Step 3: 변호사 컨펌 후 자동 이메일 발송
+    await delay(800);
+    {
+        const settings = loadAuto();
+        const all = load();
+        const c = all.find(x => x.id === companyId);
+        if (c && c.status === 'lawyer_confirmed' && settings.autoSendEmail && !c.emailSentAt) {
             const now = new Date().toLocaleString('ko-KR', { hour12: false });
             c.status = 'emailed';
             c.emailSentAt = `${now} (자동발송)`;
@@ -476,9 +488,8 @@ function runAutoPipeline(companyId: string, delay = 0) {
             c.updatedAt = new Date().toISOString();
             save(all);
             addLog({ type: 'auto_email', label: '이메일 자동 발송', companyName: c.name, detail: `변호사 컨펌 → ${c.email}로 자동 발송 완료` });
-            return;
         }
-    }, delay);
+    }
 }
 
 export const store = {
@@ -549,7 +560,7 @@ export const store = {
                 c.updatedAt = new Date().toISOString();
                 save(all);
                 addLog({ type: 'ai_analysis', label: 'AI 분석 완료', companyName: c.name, detail: `이슈 ${c.issues.length}건 발견, AI 수정문구 초안 자동 생성 완료` });
-                runAutoPipeline(companyId, 500);
+                runAutoPipeline(companyId);
             }
         }, 3000);
     },
@@ -557,7 +568,7 @@ export const store = {
     salesConfirm(companyId: string, by: string): Company[] {
         const now = new Date().toLocaleString('ko-KR', { hour12: false });
         const result = store.update(companyId, { salesConfirmed: true, salesConfirmedAt: now, salesConfirmedBy: by, status: 'sales_confirmed' });
-        runAutoPipeline(companyId, 500);
+        runAutoPipeline(companyId);
         return result;
     },
 
@@ -574,7 +585,7 @@ export const store = {
     lawyerConfirm(companyId: string): Company[] {
         const now = new Date().toLocaleString('ko-KR', { hour12: false });
         const result = store.update(companyId, { lawyerConfirmed: true, lawyerConfirmedAt: now, status: 'lawyer_confirmed' });
-        runAutoPipeline(companyId, 800);
+        runAutoPipeline(companyId);
         return result;
     },
 
@@ -758,12 +769,13 @@ function genAiAnswer(category: ConsultCategory, body: string): { answer: string;
 
 const CONSULT_KEY = 'ibs_consult_v1';
 
-// 라운드로빈 배정
-let _lawyerIdx = 0;
+// 라운드로빈 배정 — AutoSettings.lawyerRoundRobin(localStorage)으로 통일 관리
+// 이전의 인메모리 let _lawyerIdx 제거: 새고침 시리셋 문제 해결
 function assignNextLawyer(): string {
-    const l = LAWYERS[_lawyerIdx % LAWYERS.length];
-    _lawyerIdx++;
-    return l;
+    const s = loadAuto();
+    const lawyer = LAWYERS[s.lawyerRoundRobin % LAWYERS.length];
+    saveAuto({ ...s, lawyerRoundRobin: (s.lawyerRoundRobin + 1) % LAWYERS.length });
+    return lawyer;
 }
 
 const DEFAULT_CONSULTATIONS: Consultation[] = [

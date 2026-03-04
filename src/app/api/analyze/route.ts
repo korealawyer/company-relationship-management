@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSessionFromCookie } from '@/lib/auth';
 
-const MOCK_ISSUES = [
+// 데모 분석 결과 (실제 배포 시: OpenAI API + Puppeteer로 URL 실제 분석)
+const DEMO_ISSUES = [
     {
         id: 1, level: 'HIGH', title: '수집 항목 법정 기재 누락',
         law: '개인정보 보호법 제30조 제1항 제1호',
@@ -24,24 +26,71 @@ const MOCK_ISSUES = [
     },
 ];
 
-export async function POST(request: NextRequest) {
-    const body = await request.json();
-    const { url, companyId } = body;
+// URL 기반 최소 리스크 추정 (데모 수준)
+function estimateRiskLevel(url: string): 'HIGH' | 'MEDIUM' | 'LOW' {
+    if (!url) return 'HIGH';
+    // HTTPS 미사용 시 HIGH
+    if (!url.startsWith('https://')) return 'HIGH';
+    // 짧은 URL은 정책 페이지를 지정하지 않은 가능성
+    if (url.length < 20) return 'MEDIUM';
+    // https로 시작하고 30자 이상이면 LOW가 가능
+    if (url.length >= 30) return 'LOW';
+    return 'MEDIUM'; // 기본: 데모 모드에서는 MEDIUM
+}
 
-    if (!url && !companyId) {
-        return NextResponse.json({ success: false, error: 'URL 또는 companyId 필요' }, { status: 400 });
+export async function POST(request: NextRequest) {
+    // 인증 검증
+    const auth = requireSessionFromCookie(request);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+    // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
+    let body: { url?: string; companyId?: string };
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json(
+            { success: false, error: '잘못된 요청 형식입니다. JSON Content-Type을 확인하세요.' },
+            { status: 400 }
+        );
     }
 
-    // Simulate AI processing delay (in production: OpenAI API call)
+    const { url, companyId } = body;
+
+    // ── 필수 파라미터 검증 ──
+    if (!url && !companyId) {
+        return NextResponse.json(
+            { success: false, error: 'url 또는 companyId 중 하나는 필수입니다.' },
+            { status: 400 }
+        );
+    }
+
+    // ── URL 형식 기본 검증 ──
+    if (url) {
+        try {
+            new URL(url);
+        } catch {
+            return NextResponse.json(
+                { success: false, error: '유효한 URL 형식이 아닙니다. (예: https://example.com/privacy)' },
+                { status: 422 }
+            );
+        }
+    }
+
+    // ── 분석 시뮬레이션 (실제 배포 시 OpenAI + Puppeteer로 교체) ──
+    // ⚠️ 데모 모드: 아래 결과는 URL을 실제로 분석하지 않음
     await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const riskLevel = estimateRiskLevel(url ?? '');
 
     return NextResponse.json({
         success: true,
-        message: 'AI 분석 완료 (Mock)',
-        analysisId: `analysis-${Date.now()}`,
-        issueCount: MOCK_ISSUES.length,
-        issues: MOCK_ISSUES,
-        riskLevel: 'HIGH',
+        isDemoMode: true, // 클라이언트가 데모임을 인지할 수 있도록 플래그 명시
+        message: 'AI 분석 완료 (데모 모드 — 실제 URL 분석은 계약 후 제공)',
+        analysisId: `demo-${Date.now()}`,
+        analyzedUrl: url ?? null,
+        issueCount: DEMO_ISSUES.length,
+        issues: DEMO_ISSUES,
+        riskLevel,
         completedAt: new Date().toISOString(),
     });
 }

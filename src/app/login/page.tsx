@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ShieldCheck, Mail, Eye, EyeOff, AlertCircle, ArrowRight,
@@ -32,7 +32,7 @@ const ROLE_ICONS: Record<string, { icon: React.ReactNode; label: string; color: 
 };
 
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '';
@@ -76,6 +76,7 @@ export default function LoginPage() {
         if (result.success) {
             // 쿠키 설정 (미들웨어용)
             setCookie('ibs_session', result.user.id, 1);
+            setCookie('ibs_role', result.user.role, 1);
             const dest = from || ROLE_HOME[result.user.role] || '/';
             router.replace(dest);
         } else {
@@ -91,6 +92,7 @@ export default function LoginPage() {
         const result = loginWithBiz(bizNum, bizPassword);
         if (result.success) {
             setCookie('ibs_session', result.user.id, 1);
+            setCookie('ibs_role', result.user.role, 1);
             router.replace(from || '/dashboard');
         } else {
             setBizError(result.error);
@@ -168,9 +170,9 @@ export default function LoginPage() {
                                         <div className="grid grid-cols-2 gap-2">
                                             {[
                                                 { email: 'admin@ibslaw.kr', pw: 'admin123', role: 'super_admin', dest: '/admin/leads' },
-                                                { email: 'lawyer1@ibslaw.kr', pw: 'lawyer123', role: 'lawyer', dest: '/lawyer/privacy-review' },
+                                                { email: 'lawyer1@ibslaw.kr', pw: 'lawyer123', role: 'lawyer', dest: '/lawyer' },
                                                 { email: 'sales@ibslaw.kr', pw: 'sales123', role: 'sales', dest: '/admin/leads' },
-                                                { email: 'counselor@ibslaw.kr', pw: 'counsel123', role: 'counselor', dest: '/employee' },
+                                                { email: 'counselor@ibslaw.kr', pw: 'counsel123', role: 'counselor', dest: '/counselor' },
                                             ].map((h) => {
                                                 const ri = ROLE_ICONS[h.role];
                                                 return (
@@ -182,6 +184,7 @@ export default function LoginPage() {
                                                             const result = loginWithEmail(h.email, h.pw);
                                                             if (result.success) {
                                                                 setCookie('ibs_session', result.user.id, 1);
+                                                                setCookie('ibs_role', result.user.role, 1);
                                                                 router.replace(h.dest);
                                                             } else {
                                                                 setError(result.error);
@@ -295,6 +298,7 @@ export default function LoginPage() {
                                             const result = loginWithBiz('123-45-67890', '1234');
                                             if (result.success) {
                                                 setCookie('ibs_session', result.user.id, 1);
+                                                setCookie('ibs_role', result.user.role, 1);
                                                 router.replace('/client-portal');
                                             } else { setBizError(result.error); setBizLoading(false); }
                                         }}
@@ -389,5 +393,17 @@ export default function LoginPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center" style={{ background: '#04091a' }}>
+                <div className="text-sm" style={{ color: 'rgba(240,244,255,0.4)' }}>로딩 중...</div>
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }

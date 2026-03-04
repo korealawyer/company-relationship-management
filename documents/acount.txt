@@ -1,0 +1,8 @@
+슈퍼어드민	admin@ibslaw.kr	admin123
+영업팀	sales@ibslaw.kr	sales123
+변호사 1	lawyer1@ibslaw.kr	lawyer123
+변호사 2	lawyer2@ibslaw.kr	lawyer123
+송무팀	lit@ibslaw.kr	lit123
+HR(내부)	hr@ibslaw.kr	hr123
+EAP 상담사	counselor@ibslaw.kr	counsel123
+고객사 HR	hr@client.com	hr1234

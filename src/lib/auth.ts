@@ -1,5 +1,8 @@
-// src/lib/auth.ts — 인증 시스템 (localStorage 기반 JWT-like mock)
+// src/lib/auth.ts — 인증 시스템 (localStorage 기반 Mock)
+// ⚠️ Phase 3 전환 시: Supabase Auth + JWT로 교체 예정
+// 계정 정보 단일 소스: 이 파일이 SSOT (AuthContext.tsx의 MOCK_USERS 참조 금지)
 
+import { NextRequest } from 'next/server';
 import { RoleType } from './mockStore';
 
 export interface AuthUser {
@@ -9,9 +12,13 @@ export interface AuthUser {
     role: RoleType;
     companyId?: string;
     companyName?: string;
-    avatar?: string;
+    avatar?: string;       // 프로필 이미지 URL
+    // ⚠️ passwordHash: Phase 3에서 Supabase Auth 전환 후 완전 제거
+    // 현재: 평문 저장 임시 방편 — 절대 프로덕션 배포 금지
+    passwordHash?: string;
     loginAt: string;
 }
+
 
 export const AUTH_KEY = 'ibs_auth_v1';
 export const SIGNUP_KEY = 'ibs_users_v1';      // 가입한 일반사용자
@@ -52,14 +59,16 @@ export interface PendingMember {
     status: 'pending' | 'approved' | 'rejected';
 }
 
-// ── 역할별 Mock 계정 ────────────────────────────────────────────
-// 실제 배포 시 → 백엔드 API + JWT로 교체
+// ── 역할별 Mock 계정 (단일 소스 — SSOT) ──────────────────────────
+// ⚠️ Phase 3: Supabase Auth 전환 후 이 블록 전체 제거
+// 계정 기준: documents/acount.txt
+// AuthContext.tsx에 별도 MOCK_USERS 정의 금지 — 반드시 이 파일만 사용
 export const MOCK_ACCOUNTS: Array<{
     email: string;
-    password: string;
+    password: string; // TODO(Phase 3): bcrypt hash로 교체
     user: AuthUser;
 }> = [
-        // 내부 직원 계정
+        // 내부 직원 계정 (ibslaw.kr 도메인 통일)
         {
             email: 'admin@ibslaw.kr',
             password: 'admin123',
@@ -90,13 +99,12 @@ export const MOCK_ACCOUNTS: Array<{
             password: 'hr123',
             user: { id: 'u6', name: 'HR 담당', email: 'hr@ibslaw.kr', role: 'hr', loginAt: '' },
         },
-        // EAP 심리상담사 계정
         {
             email: 'counselor@ibslaw.kr',
             password: 'counsel123',
             user: { id: 'u7', name: '이상담 상담사', email: 'counselor@ibslaw.kr', role: 'counselor' as RoleType, loginAt: '' },
         },
-        // 고객사 HR 담당자 계정
+        // 고객사 HR 담당자
         {
             email: 'hr@client.com',
             password: 'hr1234',
@@ -104,12 +112,32 @@ export const MOCK_ACCOUNTS: Array<{
         },
     ];
 
+// ── API 라우트용 서버사이드 세션 검증 ──────────────────────────
+// middleware.ts의 쿠키 기반 인증을 API 라우트 내부에서 이중 검증하는 헬퍼
+// ⚠️ Phase 3: JWT 서명 검증으로 교체 (현재는 쿠키 존재 여부만 확인)
+export function requireSessionFromCookie(req: NextRequest): { ok: true; role: string } | { ok: false; status: number; error: string } {
+    const sessionCookie = req.cookies.get('ibs_session') || req.cookies.get('ibs_auth');
+    if (!sessionCookie?.value) {
+        return { ok: false, status: 401, error: '로그인이 필요합니다.' };
+    }
+    const roleCookie = req.cookies.get('ibs_role');
+    if (!roleCookie?.value) {
+        return { ok: false, status: 401, error: '역할 정보가 없습니다. 다시 로그인하세요.' };
+    }
+    return { ok: true, role: roleCookie.value };
+}
+
+// 역할이 허용 목록에 포함되는지 검증
+export function assertRole(role: string, allowed: RoleType[]): boolean {
+    return allowed.includes(role as RoleType);
+}
+
 // 역할별 로그인 후 이동 경로
 export const ROLE_HOME: Record<RoleType, string> = {
     super_admin: '/admin',
     admin: '/admin',
     sales: '/admin/leads',       // 영업팀 → 리드 목록 직행
-    lawyer: '/lawyer/privacy-review', // 변호사 → 조문 검토 직행
+    lawyer: '/lawyer',              // 변호사 → 검토 대기 대시보드
     litigation: '/litigation',
     general: '/general',
     hr: '/hr',
@@ -141,29 +169,23 @@ export function clearSession(): void {
     localStorage.removeItem(AUTH_KEY);
 }
 
-// ── 이메일 로그인 (내부 직원) ────────────────────────────────
+// ── 이메일 로그인 ─────────────────────────────────────────────
+// @deprecated loginWithEmailFull 사용 권장 (가입 사용자 포함 검색)
 export function loginWithEmail(
     email: string,
     password: string
 ): { success: true; user: AuthUser } | { success: false; error: string } {
-    const account = MOCK_ACCOUNTS.find(
-        (a) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
-    );
-    if (!account) {
-        return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
-    }
-    const user = { ...account.user, loginAt: new Date().toISOString() };
-    setSession(user);
-    return { success: true, user };
+    return loginWithEmailFull(email, password);
 }
 
 // ── 사업자번호 로그인 (고객사) ────────────────────────────────
-const MOCK_BIZ_ACCOUNTS: Record<string, { name: string; ceo: string }> = {
-    '1234567890': { name: '(주)놀부NBG', ceo: '김정래' },
-    '2345678901': { name: '(주)교촌에프앤비', ceo: '권원강' },
-    '3456789012': { name: '(주)파리바게뜨', ceo: '허영인' },
-    '4567890123': { name: '(주)bhc치킨', ceo: '박현종' },
-    '5678901234': { name: '(주)본죽', ceo: '김철호' },
+// 실제 배포 시: Supabase 회원 테이블의 해시화된 비밀번호로 교체
+const MOCK_BIZ_ACCOUNTS: Record<string, { name: string; ceo: string; password: string }> = {
+    '1234567890': { name: '(주)놀부NBG', ceo: '김정래', password: '1234' },
+    '2345678901': { name: '(주)교촌에프앤비', ceo: '권원강', password: '1234' },
+    '3456789012': { name: '(주)파리바게뜨', ceo: '허영인', password: '1234' },
+    '4567890123': { name: '(주)bhc치킨', ceo: '박현종', password: '1234' },
+    '5678901234': { name: '(주)본죽', ceo: '김철호', password: '1234' },
 };
 
 export function loginWithBiz(
@@ -175,8 +197,8 @@ export function loginWithBiz(
     if (!biz) {
         return { success: false, error: '등록되지 않은 사업자번호입니다.' };
     }
-    // 비번 검증 (mock: 4자 이상이면 통과)
-    if (password.length < 4) {
+    // 비밀번호 검증: 등록된 비밀번호와 정확히 일치해야 함
+    if (biz.password !== password) {
         return { success: false, error: '비밀번호가 올바르지 않습니다.' };
     }
     const user: AuthUser = {
@@ -214,19 +236,27 @@ function saveUsers(users: AuthUser[]) {
 }
 
 // ── 회원가입 ─────────────────────────────────────────────────
+// ⚠️ Phase 3 필수: bcryptjs로 해싱 후 저장. 현재는 mock 전용 평문 저장.
 export function signUp(name: string, email: string, password: string): { success: true; user: AuthUser } | { success: false; error: string } {
+    // 최소 비밀번호 길이 검증
+    if (password.length < 6) {
+        return { success: false, error: '비밀번호는 6자 이상이어야 합니다.' };
+    }
     const all = loadUsers();
     if (all.find(u => u.email.toLowerCase() === email.toLowerCase())) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
     }
     const user: AuthUser = {
-        id: `u_${Date.now()}`,
+        id: typeof crypto !== 'undefined' && crypto.randomUUID
+            ? `u_${crypto.randomUUID()}`
+            : `u_${Date.now()}`,
         name,
         email,
-        role: 'client_hr' as RoleType,  // 기본: 일반 고객
+        role: 'client_hr' as RoleType,
         loginAt: new Date().toISOString(),
     };
-    saveUsers([...all, { ...user, avatar: password }]); // mock: avatar에 pw 저장
+    // TODO(Phase 3): passwordHash = await bcrypt.hash(password, 12); — 평문 저장 제거
+    saveUsers([...all, { ...user, passwordHash: password }]);
     setSession(user);
     return { success: true, user };
 }
@@ -242,7 +272,7 @@ export function loginWithEmailFull(email: string, password: string): { success: 
     }
     // 2) 일반 가입 계정 체크
     const users = loadUsers();
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.avatar === password);
+    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && (u as AuthUser & { passwordHash?: string }).passwordHash === password);
     if (found) {
         const user = { ...found, loginAt: new Date().toISOString() };
         setSession(user);

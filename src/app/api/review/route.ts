@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSessionFromCookie } from '@/lib/auth';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -21,6 +22,10 @@ function mockAnalysis(text: string): ReviewResult {
 }
 
 export async function POST(req: NextRequest) {
+    // 인증 검증 (변호사/관리자만 접근 허용)
+    const auth = requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     try {
         const { text } = await req.json();
         if (!text || text.trim().length < 10) return NextResponse.json({ error: '내용이 너무 짧습니다.' }, { status: 400 });
@@ -42,5 +47,8 @@ export async function POST(req: NextRequest) {
             result = mockAnalysis(text);
         }
         return NextResponse.json({ result, mock: !ANTHROPIC_API_KEY });
-    } catch { return NextResponse.json({ error: '분석 중 오류' }, { status: 500 }); }
+    } catch (err) {
+        console.error('[review API] 오류:', err);
+        return NextResponse.json({ error: '분석 중 오류' }, { status: 500 });
+    }
 }

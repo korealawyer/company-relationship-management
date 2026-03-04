@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -36,8 +36,8 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     ],
     // 영업팀
     sales: [
+        { href: '/employee', label: 'CRM' },
         { href: '/admin/leads', label: '영업 리드' },
-        { href: '/admin/drip', label: '드립 캠페인' },
         { href: '/admin/email-preview', label: '이메일 미리보기' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
@@ -45,6 +45,7 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     ],
     // 변호사
     lawyer: [
+        { href: '/lawyer', label: '대시보드' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
     ],
@@ -56,7 +57,7 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     admin: [
         { href: '/admin', label: 'KPI' },
         { href: '/admin/leads', label: '영업 리드' },
-        { href: '/admin/drip', label: '드립 캠페인' },
+        { href: '/employee', label: 'CRM' },
         { href: '/admin/email-preview', label: '이메일 미리보기' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
@@ -64,7 +65,7 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     super_admin: [
         { href: '/admin', label: 'KPI' },
         { href: '/admin/leads', label: '영업 리드' },
-        { href: '/admin/drip', label: '드립 캠페인' },
+        { href: '/employee', label: 'CRM' },
         { href: '/admin/email-preview', label: '이메일 미리보기' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
@@ -96,13 +97,33 @@ const INTERNAL: string[] = ['sales', 'lawyer', 'litigation', 'admin', 'super_adm
 // ── 사용자 메뉴 드롭다운 ─────────────────────────────────
 function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
     const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, right: 0 });
+    const btnRef = React.useRef<HTMLButtonElement>(null);
+    const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const meta = ROLE_META[user.role] ?? { label: user.role, color: '#94a3b8' };
 
+    const openMenu = () => {
+        // 닫기 타이머 취소
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+        if (btnRef.current) {
+            const r = btnRef.current.getBoundingClientRect();
+            setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+        }
+        setOpen(true);
+    };
+
+    // 지연 닫기: 버튼→간격→드롭다운 이동 중 닫히지 않도록 150ms 유예
+    const scheduleClose = () => {
+        closeTimer.current = setTimeout(() => setOpen(false), 150);
+    };
+
     return (
-        <div className="relative" onMouseLeave={() => setOpen(false)}>
+        <div>
             <button
-                onMouseEnter={() => setOpen(true)}
-                onClick={() => setOpen(v => !v)}
+                ref={btnRef}
+                onMouseEnter={openMenu}
+                onMouseLeave={scheduleClose}
+                onClick={() => open ? setOpen(false) : openMenu()}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }}
             >
@@ -120,11 +141,23 @@ function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
 
             <AnimatePresence>
                 {open && (
+                    /* fixed로 렌더링 → 어떤 fixed 사이드바/캔버스에도 가려지지 않음 */
                     <motion.div
                         initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 6 }} transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-full mt-2 w-52 rounded-xl overflow-hidden z-50"
-                        style={{ background: 'rgba(13,27,62,0.98)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 16px 40px rgba(0,0,0,0.5)' }}>
+                        className="fixed w-52 rounded-xl overflow-hidden"
+                        onMouseEnter={() => {
+                            // 드롭다운 위로 마우스 진입 시 닫기 타이머 취소
+                            if (closeTimer.current) clearTimeout(closeTimer.current);
+                        }}
+                        onMouseLeave={scheduleClose}
+                        style={{
+                            top: pos.top, right: pos.right,
+                            zIndex: 99999,
+                            background: 'rgba(13,27,62,0.98)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+                        }}>
 
                         {/* 유저 정보 */}
                         <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -135,13 +168,13 @@ function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
                             )}
                         </div>
 
-                        {/* 내 페이지 */}
-                        <Link href="/my-page"
+                        {/* 내 대시보드 */}
+                        <Link href={user ? (LINKS_BY_ROLE[user.role]?.[0]?.href ?? '/dashboard') : '/dashboard'}
                             className="flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-white/5"
                             style={{ color: 'rgba(240,244,255,0.75)' }}
                             onClick={() => setOpen(false)}>
                             <User className="w-4 h-4" />
-                            내 페이지
+                            내 대시보드
                         </Link>
 
                         {/* 로그아웃 */}
@@ -172,10 +205,21 @@ export default function Navbar() {
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
-    // 세션 감지 (pathname 변경 시마다 갱신)
+    // 세션 감지 (pathname 변경 시 갱신 + 타 탭 로그아웃 동기화)
     useEffect(() => {
         setUser(getSession());
     }, [pathname]);
+
+    // 다른 탭에서 로그아웃 시 현재 탭도 즉시 반영
+    useEffect(() => {
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === 'ibs_auth_v1') {
+                setUser(e.newValue ? getSession() : null);
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, []);
 
     const handleLogout = () => {
         clearSession();
@@ -218,7 +262,7 @@ export default function Navbar() {
                     {/* 데스크탑 메뉴 — 플랫 */}
                     <div className="hidden lg:flex items-center gap-1">
                         {links.map((link) => {
-                            const active = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+                            const active = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href + '/'));
                             return (
                                 <Link key={link.href} href={link.href}
                                     className="relative px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 group"
@@ -290,10 +334,10 @@ export default function Navbar() {
                                     <div className="px-3 py-2 text-xs" style={{ color: 'rgba(240,244,255,0.35)' }}>
                                         {user.name} · {ROLE_META[user.role]?.label}
                                     </div>
-                                    <Link href="/my-page" onClick={() => setMobileOpen(false)}
+                                    <Link href={user ? (LINKS_BY_ROLE[user.role]?.[0]?.href ?? '/dashboard') : '/dashboard'} onClick={() => setMobileOpen(false)}
                                         className="block px-3 py-2.5 rounded-lg text-sm font-medium"
                                         style={{ color: 'rgba(240,244,255,0.75)' }}>
-                                        내 페이지
+                                        내 대시보드
                                     </Link>
                                     <button onClick={() => { handleLogout(); setMobileOpen(false); }}
                                         className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium"
