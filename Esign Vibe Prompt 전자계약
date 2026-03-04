@@ -1,0 +1,162 @@
+# ⚡ 바이브코딩 프롬프트: 전자계약 (E-Sign) 기능
+
+> **franchise-consulting** 프로젝트에 그대로 붙여넣으세요.
+
+---
+
+## 📋 프롬프트 전문 (복사해서 AI에게 전달)
+
+```
+You are adding a full-featured electronic contract (e-sign) system to an existing Next.js 14 App Router project.
+
+## 🎯 Project Context
+- Path: c:\projects\franchise-consulting
+- Stack: Next.js 14 (App Router), TypeScript, Tailwind CSS, Framer Motion, Lucide React, Supabase
+- Design system: Dark background (#04091a), gold accent (#c9a84c / #e8c87a), glassmorphism cards
+- Existing contracts folder: src/app/contracts/ (already exists with some files)
+- Auth: existing middleware.ts handles session via Supabase
+
+## 📁 Files to Create/Modify
+
+### 1. src/app/contracts/page.tsx — Contract Dashboard
+A full contract management dashboard with:
+- Header with "전자계약" title + "새 계약 만들기" gold button
+- Stats row: 총 계약 수 / 서명 대기 / 완료 / 만료 임박 (animated numbers)
+- Filter tabs: 전체 / 대기중 / 완료 / 만료
+- Contract list: each row shows document name, counterparty name, status badge, created date, action buttons (서명요청 / 보기 / 다운로드)
+- Status badges: 대기중(amber), 완료(green), 만료(red), 서명중(blue)
+- Empty state with CTA when no contracts
+- Use framer-motion for list item animations (stagger)
+- All mock data inline (no API needed yet)
+
+### 2. src/app/contracts/new/page.tsx — New Contract Flow
+3-step wizard matching ModuSign UX:
+
+**Step 1 - 문서 업로드:**
+- Large drag-and-drop zone with dotted border, uploads icon
+- File input (accept .pdf, .docx)
+- OR "템플릿 선택" section below with 5 preset contract templates:
+  - 프리랜서 용역계약서
+  - 비밀유지계약서 (NDA)
+  - 가맹계약서
+  - 임대차계약서
+  - 근로계약서
+- Each template card: icon + name + "선택" button
+- "선택됨" state with gold border + checkmark
+- On file upload or template select → auto-advance to Step 2 after 0.8s
+
+**Step 2 - 서명인 설정:**
+- Left panel: signer list with avatar, name, email, role badge, status
+  - Role options: 서명인 / 참조인 / 승인자
+  - Add signer form: name input + email input + role select + "추가" button
+  - "나도 서명" toggle (pre-adds current user as signer)
+- Right panel: document thumbnail preview
+  - Mock PDF page layout with gray lines
+  - Draggable signature field placeholder boxes
+  - "서명 위치 클릭으로 지정" instruction
+- Bottom: "서명 요청 발송" primary button (gold gradient)
+
+**Step 3 - 완료:**
+- Success animation (confetti or scale-up checkmark)
+- Summary: document name, recipient count, estimated completion time
+- Audit trail preview: 4 timeline items (업로드→발송→열람→서명)
+- Two CTAs: "대시보드로 돌아가기" + "다른 계약 만들기"
+
+Step indicator at top: [1 문서업로드] → [2 서명인설정] → [3 완료]
+Active step: gold filled circle. Done step: checkmark. Future: gray outline.
+
+### 3. src/app/contracts/sign/[token]/page.tsx — Signer Page (Public)
+Public page for contract recipients (no auth required):
+
+- Top bar: document name + law firm logo + "IBS 법률사무소 전자계약 서비스"
+- Document viewer: scrollable mock PDF with content + signature field boxes
+- Right sidebar (sticky):
+  - Signer info card: name, email, role
+  - "서명하기" button → opens signature modal
+  - Progress: n/N 서명 필드 완료
+- Signature Modal:
+  - Tabs: [직접 서명] [이름 입력] [도장]
+  - Direct draw: HTML5 Canvas (400x200) with mouse/touch support
+    - Clear button to reset canvas
+    - Pen color: dark blue (#1a2744)
+  - Text input tab: name field + font style selector (3 options)
+  - "서명 완료" button: disabled until canvas has strokes or text entered
+- After sign: full-page success screen
+  - "✅ 서명이 완료되었습니다"
+  - Download signed PDF button (mock)
+  - Seal: "IBS 법률사무소 전자계약 · 감사추적 보존 10년"
+
+### 4. src/app/api/contracts/route.ts — Mock API
+GET /api/contracts → returns list of mock contracts
+POST /api/contracts → creates new contract, returns {id, token, signingUrl}
+Both endpoints return proper JSON, no DB connection needed yet (in-memory mock).
+
+### 5. src/app/contracts/[id]/page.tsx — Contract Detail
+- Document preview (mock PDF mockup)
+- Status timeline (audit trail): each event with icon, description, timestamp
+  - Icons: 📤 업로드 / 📨 발송 / 👁 열람 / ✅ 서명 / 🔒 완료
+- Signers panel: each signer with avatar, status, last activity time
+- Actions: 재발송 / 서명 취소 / PDF 다운로드 / 복사본 만들기
+- "법적 효력 확인서" button → mock modal with hash + timestamp
+
+### 6. Update src/app/contracts/layout.tsx (create if not exists)
+Wrap contracts section with a shared sidebar/nav matching the rest of the app.
+Import existing Navbar/sidebar patterns from the project.
+
+## 🎨 Design Requirements
+- Match existing dark theme exactly: background #04091a, cards with rgba(255,255,255,0.04) + 1px border rgba(255,255,255,0.08)
+- Gold primary: linear-gradient(135deg, #e8c87a, #c9a84c)
+- Use framer-motion for: page transitions (opacity+y), step transitions (AnimatePresence), list stagger (0.05s delay per item)
+- Lucide React icons throughout
+- Status badges: rounded-full, small font, colored bg at 0.15 opacity
+- All Korean UI text (labels, buttons, messages)
+- Mobile responsive: stack columns on small screens
+
+## 📦 No new dependencies needed
+- Everything uses existing: framer-motion, lucide-react, tailwind
+- Canvas API is native browser
+- No external e-sign SDK
+
+## 🔗 Navigation
+Add "전자계약" to the existing sidebar/navbar with FileSignature icon from lucide-react, linking to /contracts.
+
+## ✅ Acceptance Criteria
+1. /contracts shows dashboard with mock contracts list
+2. /contracts/new completes full 3-step flow with animations
+3. /contracts/sign/[token] allows drawing a signature on canvas and completing
+4. /contracts/[id] shows audit trail and signers
+5. No TypeScript errors
+6. No new npm packages required
+```
+
+---
+
+## 🗂️ 예상 생성 파일 목록
+
+| 파일 | 역할 |
+|------|------|
+| `src/app/contracts/page.tsx` | 계약 대시보드 |
+| `src/app/contracts/new/page.tsx` | 새 계약 3단계 위자드 |
+| `src/app/contracts/sign/[token]/page.tsx` | 수신인 서명 페이지 (공개) |
+| `src/app/contracts/[id]/page.tsx` | 계약 상세 + 감사추적 |
+| `src/app/contracts/layout.tsx` | 컨트랙트 섹션 레이아웃 |
+| `src/app/api/contracts/route.ts` | 목업 API |
+
+---
+
+## ⚙️ 실행 방법
+
+```bash
+# franchise-consulting 디렉토리에서
+cd c:\projects\franchise-consulting
+npm run dev
+# → http://localhost:3000/contracts
+```
+
+---
+
+## 🔑 핵심 포인트
+
+> **법적 효력 문구는 "당사자 간 전자적 합의" 수준으로만 표기**
+> 공인전자서명이 아니므로 "전자서명법 제3조 공인전자서명"이라고 표기하면 안 됨.
+> 대신: "감사추적 보존 · 당사자 서명 확인" 정도가 적합.

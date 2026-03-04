@@ -1,0 +1,450 @@
+# 로펌 All-in-One Retainer Platform — 통합 개발 명세서
+> **프로젝트**: `c:\projects\franchise-consulting` | **스택**: Next.js 14 App Router + TypeScript  
+> **기준일**: 2026-03-01 | **백엔드**: Supabase | **결제**: KCP | **AI**: Claude Sonnet 3.7
+
+---
+
+## 📌 Phase 0 — 이미 구축된 것 (건드리지 말 것)
+
+| 기능 | URL | 완성도 | 비고 |
+|------|-----|--------|------|
+| 메인 랜딩 | `/` | 80% | 다크 프리미엄, Framer Motion |
+| 영업 CRM | `/admin` | 80% | 파이프라인, 라운드로빈 배정 |
+| 변호사 워크플로우 | `/lawyer` | 70% | AI초안 비교, 가맹상담 큐 |
+| 송무팀 포털 | `/litigation` | 70% | 운영 중 |
+| 상담 접수 | `/consultation` | 80% | AI 시뮬레이션 |
+| 임직원 포털 | `/employee` | 70% | 자료실, 계약 현황 |
+| 인증 UI | `/login` | 20% | UI만, 실 인증 없음 |
+| 알림 | — | 10% | 미구현 |
+| 실제 AI | — | 10% | Mock 데이터 |
+| 백엔드/DB | — | 0% | localStorage 전용 |
+
+---
+
+## 🗂️ 역할(Role) 체계
+
+```
+RoleType
+  ├── super_admin   — 전체 접근
+  ├── admin         — 관리자 KPI
+  ├── sales         — 영업 CRM
+  ├── lawyer        — 변호사 검토
+  ├── litigation    — 송무팀
+  ├── counselor     — EAP 심리상담사 ← 후개발
+  ├── client_hr     — 고객사 HR 담당자
+  ├── hr            — 로펌 내부 인사팀
+  ├── general       — 로펌 내부 총무팀
+  └── finance       — 로펌 내부 회계팀
+```
+
+---
+
+## ⚙️ 기술 스펙 (공통)
+
+- **디자인**: 기존 다크 프리미엄 테마 유지 (`#04091a` 배경, `#c9a84c` 골드 포인트)
+- **폰트**: Noto Sans KR (기존 layout.tsx 상속)
+- **애니메이션**: Framer Motion (기존 패턴 유지)
+- **인증**: `useRequireAuth()` 훅으로 모든 보호 페이지 래핑
+- **AI**: Claude Sonnet 3.7 API (자문 1차 답변, 문서 초안, 판례 RAG)
+- **백엔드**: Supabase (PostgreSQL + Auth + Storage + Realtime)
+- **결제**: KCP (정기 구독 + 단건 결제)
+- **상태**: Supabase DB (localStorage 완전 대체)
+
+---
+
+# 🟢 Phase 1 — 오픈 전 선개발 (에러 최소, 확장성 우선)
+
+> **원칙**: 연동 레이어 최소화. 각 기능이 독립적으로 작동 후 연결. 확장 포인트 미리 설계.
+
+---
+
+## [P1-1] 백엔드 기반 구축 — CRITICAL FIRST
+
+**순서**: 이것 없이 아무것도 실 운영 안 됨. 가장 먼저 완료.
+
+### Supabase 스키마
+
+```sql
+-- 회사 (고객사)
+companies (id, biz_no, name, plan, status, assigned_lawyer_id, created_at)
+
+-- 사용자
+users (id, email, role, company_id, name, phone, created_at)
+
+-- 상담
+consultations (id, company_id, user_id, category, urgency, title, content,
+               ai_draft, lawyer_draft, status, callback_phone, created_at)
+
+-- 이슈 (개인정보 검토 등)
+issues (id, company_id, title, original_text, ai_draft, risk_level,
+        law_refs, reviewed, memo, created_at)
+
+-- 결제/구독
+subscriptions (id, company_id, plan, amount, status, started_at, expires_at)
+
+-- [확장 포인트] 추후 추가될 테이블들
+-- eap_sessions, legal_cases, contracts, timesheets, referrals
+```
+
+### 파일
+
+```
+src/lib/
+├── supabase.ts          # Supabase 클라이언트 초기화
+├── auth.ts              # 기존 → Supabase Auth로 교체
+├── AuthContext.tsx      # 기존 → Supabase session 기반
+└── mockStore.ts         # Phase 1 완료 후 deprecated
+```
+
+---
+
+## [P1-2] 실제 인증 시스템
+
+**파일**: `src/lib/auth.ts`, `src/middleware.ts`, `src/app/login/page.tsx`
+
+```
+로그인 방식:
+├── 로펌 내부 (이메일 + 비밀번호) → role 기반 리다이렉트
+└── 고객사 (사업자등록번호 + 비밀번호) → /client-portal로
+
+역할별 리다이렉트:
+  super_admin → /admin
+  sales       → /admin
+  lawyer      → /lawyer
+  litigation  → /litigation
+  client_hr   → /client-portal
+```
+
+---
+
+## [P1-3] AI 챗봇 — 정보수집 + 트리아지
+
+**파일**: `src/app/chat/page.tsx`, `src/app/api/chat/route.ts`
+
+> **목적**: 법률·심리·경영 상담 전 정보를 체계적으로 수집 → 담당자에게 요약 전달  
+> **확장 포인트**: 나중에 EAP 예약, 소송 접수, 계약 검토와 연결
+
+```
+플로우:
+사용자 입력
+  ↓
+챗봇: "어떤 도움이 필요하세요?"
+  ├── [법률] → 사건 유형 선택 → 경위·상대방·증거 수집 → consultation 테이블 저장
+  ├── [심리/EAP] → 간이 문항 3개 (PHQ-9 축약) → 위험도 판단 → 상담사 배정 큐
+  └── [경영·노무] → 이슈 유형 → 핵심 사실 수집 → 자문팀 배정
+
+결과:
+  - 수집 내용 → Supabase consultations 저장
+  - 변호사/상담사 대시보드에 요약본 자동 표시
+  - 고객에게 "접수번호 발급, X시간 내 답변" 안내
+```
+
+**API 구조**:
+```typescript
+// src/app/api/chat/route.ts
+// Claude Sonnet 3.7 호출
+// system prompt: 로펌 특화 정보수집 전문 어시스턴트
+// 대화 히스토리: Supabase에 저장 (추후 RAG 학습 데이터로 활용)
+```
+
+---
+
+## [P1-4] 세일즈 랜딩 페이지
+
+**파일**: `src/app/sales/page.tsx`  
+**역할**: B2B 영업팀이 고객사에게 전달하는 전문 소개 페이지
+
+```
+섹션 구성:
+1. 히어로 — "법률·경영·심리, 하나의 플랫폼으로 해결"
+2. 서비스 3종 소개 (법률/EAP/경영자문) — 아이콘 카드
+3. 가격표 (Basic/Pro/Premium) — 클릭 시 바로 신청
+4. 도입 효과 수치 — "외부 법무법인 대비 최대 70% 절감"
+5. 도입 프로세스 — 5단계 애니메이션 타임라인
+6. CTA — "무료 상담 신청" (이름·회사명·전화번호·이메일 폼)
+7. 신청 완료 → 영업팀 /admin에 리드 자동 등록
+```
+
+---
+
+## [P1-5] 구독 플랜 & KCP 결제
+
+**파일**: `src/app/pricing/page.tsx`, `src/app/api/payment/route.ts`
+
+```
+플랜 구성:
+┌─────────────┬──────────────┬─────────────────┐
+│   Basic     │     Pro      │    Premium      │
+│  ₩990,000/월│ ₩2,490,000/월│  ₩4,990,000/월  │
+├─────────────┼──────────────┼─────────────────┤
+│ AI 챗봇     │ AI 챗봇      │ AI 챗봇          │
+│ 법률자문 3건│ 법률자문 10건 │ 법률자문 무제한  │
+│ 상담 5회/월 │ 상담 무제한   │ 상담 무제한      │
+│             │              │ 전담 변호사 지정  │
+│             │              │ 경영자문 포함    │
+└─────────────┴──────────────┴─────────────────┘
+
+KCP 연동:
+  - 정기 결제 (월별 자동 청구)
+  - 결제 완료 → subscriptions 테이블 업데이트 → 즉시 접속 활성화
+  - [확장 포인트] 추후 세금계산서 자동 발행 연동 가능
+```
+
+---
+
+## [P1-6] 고객사 셀프 온보딩
+
+**파일**: `src/app/onboarding/page.tsx`
+
+```
+Step 1: 사업자번호 입력 → 국세청 API 자동 조회 (회사명 자동 완성)
+Step 2: 담당자 정보 입력 (이름·직함·이메일·전화)
+Step 3: 플랜 선택 → KCP 결제
+Step 4: 비밀번호 설정
+Step 5: 완료 → /client-portal 즉시 접속
+
+온보딩 완료 후:
+  - 영업팀 /admin에 신규 고객사 자동 등록
+  - 카카오 알림톡 발송: "가입 완료, 담당 변호사: OOO"
+  - [확장 포인트] 임직원 CSV 업로드 → 일괄 초대 (후개발)
+```
+
+---
+
+## [P1-7] 고객사 포털 (기본)
+
+**파일**: `src/app/client-portal/page.tsx`  
+**역할**: `client_hr`이 보는 통합 현황판
+
+```
+레이아웃:
+┌──────────────────────────────────────────┐
+│  [회사명] | 플랜: Pro | 만료: 2027-03-01  │
+├──────────────────────────────────────────┤
+│  이번달 이용 현황                          │
+│  법률자문 3/10건 | 심리상담 7건            │
+├──────────────────────────────────────────┤
+│  진행 중인 상담 목록 (status별 필터)       │
+│  AI 챗봇으로 새 상담 시작 [버튼]           │
+├──────────────────────────────────────────┤
+│  공지사항 / 규제 변경 알림 (간단 버전)     │
+└──────────────────────────────────────────┘
+
+[확장 포인트]
+- 소송 현황 섹션 (후개발 시 추가)
+- 조직건강지수 위젯 (EAP 연동 후 추가)
+- 월간 리포트 다운로드 (후개발)
+```
+
+---
+
+## [P1-8] 전자계약 (기본)
+
+**파일**: `src/app/contracts/page.tsx`, `src/app/contracts/[id]/page.tsx`
+
+> **방식**: 외부 API 연동 없이 자체 구현 (에러 최소화) → 추후 모두사인 API 교체 가능
+
+```
+기능:
+1. 계약서 템플릿 선택 (서비스 이용계약, 자문 계약, 수임 계약)
+2. 내용 편집 (Rich Text Editor — TipTap or Quill)
+3. URL 생성 → 상대방에게 링크 발송 (이메일 or 카카오)
+4. 상대방: 링크 접속 → 내용 확인 → 서명 (이름 + 날짜 입력)
+5. 양쪽 서명 완료 → PDF 자동 생성 → Supabase Storage 보관
+6. 필요 시 등기우편 요청 플래그 (영업팀 manual 처리)
+
+[확장 포인트]
+- 모두사인/DocuSign API 교체 시 URL만 변경
+- 전자서명 법적 효력 강화 (공인인증 연동)
+```
+
+---
+
+## [P1-9] 계약서 AI 검토 (기본)
+
+**파일**: `src/app/legal/review/page.tsx`, `src/app/api/review/route.ts`
+
+> **확장 가능 구조 우선**: 지금은 Claude API만, 나중에 RAG 레이어 추가
+
+```
+기능:
+1. 계약서 업로드 (PDF/DOCX → 텍스트 추출)
+2. Claude Sonnet 3.7 → 조항별 리스크 분석
+   - 리스크 레벨 (HIGH/MED/LOW) + 근거 조항
+   - 대안 문구 제안
+3. 결과 표시 (원문 ↔ AI 분석 2단 패널)
+4. 변호사 수정·확인 후 고객사 전달
+
+API 구조 (확장 가능):
+  /api/review
+    ├── extractText()      # PDF → 텍스트
+    ├── analyzeWithAI()    # Claude 호출 (→ 추후 RAG 레이어 삽입 위치)
+    └── saveResult()       # Supabase 저장
+
+[확장 포인트 — 후개발]
+- 대법원 판례 DB RAG 파이프라인 삽입 (analyzeWithAI 교체)
+- 레드라인(Redline) 편집기
+- 법령정보센터 API 연동
+```
+
+---
+
+# 🟡 Phase 2 — 오픈 후 개발 (운영 피드백 반영)
+
+> 오픈 후 실제 고객 데이터 보고 우선순위 조정
+
+---
+
+## [P2-1] 소송 관리 (간소화)
+
+**파일**: `src/app/legal/cases/page.tsx`
+
+```
+간소화 버전:
+- 사건 목록 (목록·상태·담당 변호사)
+- 기일 등록 + D-3 알림
+- 서류 업로드 (Supabase Storage)
+- 진행 타임라인
+
+[후개발]
+- 소송비용 추적
+- 반소/항소 자동 감지
+- 집행 단계 관리
+```
+
+---
+
+## [P2-2] EAP 심리상담 모듈
+
+**파일**: `src/app/eap/`, `src/app/counselor/`
+
+```
+Phase 1 챗봇이 이미 심리 정보 수집 → 여기서 본격 상담으로 확장
+
+구성:
+- /eap              EAP 홈 (자가진단 + 예약 + 일기)
+- /eap/diagnosis    PHQ-9 / GAD-7 / MBI 정식 진단
+- /eap/booking      상담사·변호사 예약 캘린더
+- /eap/journal      마음일기 (감정 트렌드)
+- /counselor        상담사 포털 (SOAP 노트, 법률 이관)
+```
+
+---
+
+## [P2-3] 컴플라이언스 모듈
+
+```
+- 공정거래법 자동 체크리스트 (가맹사업법)
+- 개인정보법 컴플라이언스 스코어
+- 규제 변경 자동 알림
+- PIA 연간 진단 자동화
+```
+
+---
+
+## [P2-4] 로펌 내부 운영 도구
+
+```
+- 변호사/상담사 KPI 대시보드 (처리건수, 만족도, 수임료 기여)
+- 타임시트 (업무시간 기록 → 고객사 확인 가능)
+- 수임료 정산 자동화 (인센티브 계산)
+- 내부 지식베이스 (판례 요약, 계약서 템플릿)
+```
+
+---
+
+## [P2-5] 데이터/리포트
+
+```
+- 월간 법무 리스크 리포트 (PDF 자동 생성)
+- 조직 건강 트렌드 (EAP 익명 데이터)
+- 비용 절감 계산기 ("외부 로펌 대비 절감액")
+- 업종 벤치마크
+```
+
+---
+
+## [P2-6] 파트너 포털
+
+```
+- 가맹거래사/노무사 협력 포털
+- 리퍼럴 추적 + 수수료 자동 정산
+- 화이트라벨 옵션
+```
+
+---
+
+## [P2-7] 계약서 AI RAG 고도화
+
+```
+Phase 1 API 구조 확장 (analyzeWithAI 교체):
+- 대법원 판례 DB 벡터화 (Supabase pgvector)
+- 법령정보센터 API 연동
+- 레드라인 편집기
+- 신뢰도 점수 + 판례 인용
+```
+
+---
+
+## [P2-8] 알림 시스템
+
+```
+트리거 → 카카오 알림톡 + 이메일(Resend)
+- 상담 접수 확인
+- 변호사 답변 완료
+- 기일 D-3/D-1 알림
+- 구독 만료 D-7
+- 고위험 자가진단 결과 (상담사 알림)
+```
+
+---
+
+## [P2-9] 세금계산서 자동 발행 (간단하면 P1 이전 가능)
+
+```
+- KCP 결제 완료 웹훅 → 국세청 홈택스 API 연동
+- 자동 발행 or 반자동 (로펌 담당자 확인 후 발행)
+```
+
+---
+
+## 📁 신규 파일 목록 (Phase 1)
+
+```
+src/app/
+├── chat/page.tsx                    # AI 챗봇 (정보수집)
+├── client-portal/page.tsx           # 고객사 포털
+├── contracts/
+│   ├── page.tsx                     # 계약서 목록
+│   └── [id]/page.tsx               # 계약서 상세/서명
+├── legal/
+│   └── review/page.tsx             # 계약서 AI 검토
+├── onboarding/page.tsx              # 셀프 온보딩
+├── pricing/page.tsx                 # 구독 플랜
+├── sales/page.tsx                   # 세일즈 랜딩
+└── api/
+    ├── chat/route.ts               # Claude 챗봇
+    ├── payment/route.ts            # KCP 결제
+    └── review/route.ts             # 계약서 분석
+
+src/lib/
+├── supabase.ts                      # Supabase 클라이언트
+├── auth.ts                          # Supabase Auth 기반 교체
+└── AuthContext.tsx                  # Supabase session 기반
+```
+
+---
+
+## 🔢 Phase 1 개발 순서
+
+| 순서 | 항목 | 이유 |
+|------|------|------|
+| 1 | **Supabase 백엔드** | 모든 기능의 기반 |
+| 2 | **실제 인증** | 없으면 역할 분리 불가 |
+| 3 | **AI 챗봇** | 핵심 차별화 + 즉시 시연 가능 |
+| 4 | **고객사 포털 (기본)** | 고객 진입점 |
+| 5 | **세일즈 랜딩** | 영업 즉시 시작 |
+| 6 | **구독 플랜 + KCP** | 실제 매출 인식 |
+| 7 | **셀프 온보딩** | 스케일 가능한 고객 유치 |
+| 8 | **전자계약 (기본)** | 계약 체결 디지털화 |
+| 9 | **계약서 AI 검토 (기본)** | 변호사 처리량 증가 |
