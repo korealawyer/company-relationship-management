@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Scale, Plus, X, CheckCircle2, Clock, AlertTriangle,
-    ChevronDown, ChevronUp, Calendar,
+    ChevronDown, ChevronUp, Calendar, Lock,
     Gavel,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import {
     LIT_STATUS_LABEL, LIT_STATUS_COLOR,
     LAWYERS, LITIGATION_TYPES, COURTS,
 } from '@/lib/mockStore';
+import { getSession } from '@/lib/auth';
 
 // 라이트 테마용 상태 텍스트 색상
 const STATUS_TEXT_MAP: Record<LitigationStatus, string> = {
@@ -59,7 +60,7 @@ function DeadlineBadge({ d }: { d: LitigationDeadline }) {
     );
 }
 
-function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void }) {
+function CaseCard({ lit, onUpdate, readOnly }: { lit: LitigationCase; onUpdate: () => void; readOnly?: boolean }) {
     const [expanded, setExpanded] = useState(false);
     const [editNote, setEditNote] = useState(lit.notes);
     const [editResult, setEditResult] = useState(lit.result);
@@ -76,6 +77,7 @@ function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void
     };
 
     const toggleDeadline = (d: LitigationDeadline) => {
+        if (readOnly) return;
         const now = new Date().toLocaleString('ko-KR', { hour12: false });
         store.updateDeadline(lit.id, d.id, { completed: !d.completed, completedAt: !d.completed ? now : '' });
         onUpdate();
@@ -162,20 +164,27 @@ function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void
                                     {/* 상태 변경 */}
                                     <div className="mt-4">
                                         <p className="text-xs font-bold mb-2" style={{ color: '#64748b' }}>사건 상태</p>
-                                        <div className="flex flex-wrap gap-1">
-                                            {STATUSES.map(s => (
-                                                <button key={s}
-                                                    onClick={() => { store.updateLit(lit.id, { status: s }); onUpdate(); }}
-                                                    className="text-[10px] px-2 py-1 rounded-full font-bold transition-all"
-                                                    style={{
-                                                        background: lit.status === s ? LIT_STATUS_COLOR[s] : '#f1f5f9',
-                                                        color: lit.status === s ? STATUS_TEXT_MAP[s] : '#64748b',
-                                                        border: `1px solid ${lit.status === s ? STATUS_TEXT_MAP[s] + '40' : '#e2e8f0'}`,
-                                                    }}>
-                                                    {LIT_STATUS_LABEL[s]}
-                                                </button>
-                                            ))}
-                                        </div>
+                                        {readOnly ? (
+                                            <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ background: '#fef9ec', border: '1px solid #fde68a' }}>
+                                                <Lock className="w-3.5 h-3.5" style={{ color: '#d97706' }} />
+                                                <span className="text-xs font-bold" style={{ color: '#d97706' }}>영업팀은 상태를 변경할 수 없습니다</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-1">
+                                                {STATUSES.map(s => (
+                                                    <button key={s}
+                                                        onClick={() => { store.updateLit(lit.id, { status: s }); onUpdate(); }}
+                                                        className="text-[10px] px-2 py-1 rounded-full font-bold transition-all"
+                                                        style={{
+                                                            background: lit.status === s ? LIT_STATUS_COLOR[s] : '#f1f5f9',
+                                                            color: lit.status === s ? STATUS_TEXT_MAP[lit.status] : '#64748b',
+                                                            border: `1px solid ${lit.status === s ? STATUS_TEXT_MAP[lit.status] + '40' : '#e2e8f0'}`,
+                                                        }}>
+                                                        {LIT_STATUS_LABEL[s]}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -207,9 +216,10 @@ function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void
                                             style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#1e293b' }} />
                                     </div>
                                     <button onClick={saveNotes}
-                                        className="text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                        disabled={readOnly}
+                                        className="text-xs px-3 py-1.5 rounded-lg font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                         style={{ background: saving ? '#dcfce7' : '#fffbeb', color: saving ? '#16a34a' : '#b8960a', border: `1px solid ${saving ? '#86efac' : '#fde68a'}` }}>
-                                        {saving ? '✓ 저장됨' : '저장'}
+                                        {saving ? '✓ 저장됨' : readOnly ? '🔒 저장 불가' : '저장'}
                                     </button>
                                 </div>
                             </div>
@@ -339,9 +349,18 @@ export default function LitigationPage() {
     const [cases, setCases] = useState<LitigationCase[]>([]);
     const [filterStatus, setFilterStatus] = useState<LitigationStatus | 'all'>('all');
     const [showAdd, setShowAdd] = useState(false);
+    const [userRole, setUserRole] = useState<string>('');
 
     const refresh = useCallback(() => setCases([...store.getLitAll()]), []);
-    useEffect(() => { refresh(); const id = setInterval(refresh, 30_000); return () => clearInterval(id); }, [refresh]);
+    useEffect(() => {
+        refresh();
+        const session = getSession();
+        setUserRole(session?.role ?? '');
+        const id = setInterval(refresh, 30_000);
+        return () => clearInterval(id);
+    }, [refresh]);
+
+    const readOnly = userRole === 'sales';
 
     const filtered = filterStatus === 'all' ? cases : cases.filter(c => c.status === filterStatus);
     const totalClaim = cases.reduce((s, c) => s + c.claimAmount, 0);
@@ -361,9 +380,16 @@ export default function LitigationPage() {
                             {urgentAll.length > 0 && <span style={{ color: '#d97706' }}> · ⚠ 긴급 기한 {urgentAll.length}건</span>}
                         </p>
                     </div>
-                    <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}>
-                        <Plus className="w-4 h-4 mr-1" /> 신규 사건
-                    </Button>
+                    {!readOnly ? (
+                        <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}>
+                            <Plus className="w-4 h-4 mr-1" /> 신규 사건
+                        </Button>
+                    ) : (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+                            style={{ background: '#fef9ec', border: '1px solid #fde68a', color: '#d97706' }}>
+                            <Lock className="w-3.5 h-3.5" />읽기 전용
+                        </div>
+                    )}
                 </div>
 
                 {/* 긴급 기한 배너 */}
@@ -412,7 +438,7 @@ export default function LitigationPage() {
                 <div className="space-y-3">
                     <AnimatePresence>
                         {filtered.map(lit => (
-                            <CaseCard key={lit.id} lit={lit} onUpdate={refresh} />
+                            <CaseCard key={lit.id} lit={lit} onUpdate={refresh} readOnly={readOnly} />
                         ))}
                     </AnimatePresence>
                     {filtered.length === 0 && (

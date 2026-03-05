@@ -1,3 +1,21 @@
 .agent/
 .agent
 
+# dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output
+.next/
+**/.next/
+out/
+
+# env files
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# vercel
+.vercel
+

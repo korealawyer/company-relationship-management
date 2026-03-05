@@ -7,7 +7,7 @@ import {
     Clock, CheckCircle2, Users, Send, Play, RefreshCw,
     User, FileText, Activity, MessageSquare, Upload,
     Calendar, Clipboard, Copy, Edit3, Save, PhoneCall,
-    Eye, Scale, CheckCheck, ChevronRight, Gavel
+    Eye, Scale, CheckCheck, ChevronRight, Gavel, RotateCcw
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -580,7 +580,7 @@ const CLAUSE_MOCK = [
         level: 'LOW' as const,
         original: '(열람·정정·삭제 요청 방법 없음)',
         risk: '시정 권고',
-        draft: `제9조(정보주체 권리 행사) \n이용자는 언제든지 열람·정정·삭제·처리정지를 요구할 수 있습니다.\n문의: privacy @ibslaw.co.kr`,
+        draft: `제9조(정보주체 권리 행사) \n이용자는 언제든지 열람·정정·삭제·처리정지를 요구할 수 있습니다.\n문의: dhk@ibslaw.co.kr`,
         checked: false,
     },
 ];
@@ -988,6 +988,16 @@ export default function LeadsPage() {
     const [uploadMsg, setUploadMsg] = useState('');
     const excelInputRef = useRef<HTMLInputElement>(null);
 
+    const [undoVisible, setUndoVisible] = useState(false);
+    const [undoTimer, setUndoTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+    const showUndoToast = () => {
+        if (undoTimer) clearTimeout(undoTimer);
+        setUndoVisible(true);
+        const t = setTimeout(() => setUndoVisible(false), 5000);
+        setUndoTimer(t);
+    };
+
     const reload = () => setLeads(leadStore.getAll());
     useEffect(() => { reload(); }, []);
 
@@ -1062,11 +1072,11 @@ export default function LeadsPage() {
 
     const handleBulkStatus = (status: LeadStatus) => {
         selected.forEach(id => leadStore.updateStatus(id, status, '영업팀'));
-        reload(); setSelected(new Set());
+        reload(); setSelected(new Set()); showUndoToast();
     };
     const handleBulkAssign = (lawyer: string) => {
         selected.forEach(id => leadStore.update(id, { assignedLawyer: lawyer }));
-        reload(); setSelected(new Set());
+        reload(); setSelected(new Set()); showUndoToast();
     };
 
     const openPanel = (lead: Lead, tab?: 'contact' | 'email' | 'clause' | 'timeline' | 'memo') => { setActivePanelTab(tab ?? 'contact'); setActivePanel(lead); };
@@ -1083,6 +1093,36 @@ export default function LeadsPage() {
 
     return (
         <div className="min-h-screen px-4 py-8" style={{ background: '#f8f9fc' }}>
+
+            {/* 실행 취소 토스트 */}
+            <AnimatePresence>
+                {undoVisible && (
+                    <motion.div
+                        key="undo-toast-leads"
+                        initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 24, scale: 0.95 }}
+                        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl"
+                        style={{ background: '#1e293b', border: '1px solid #334155', minWidth: 240 }}>
+                        <span className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>변경이 적용됐어요</span>
+                        <button
+                            onClick={() => {
+                                leadStore.undo();
+                                reload();
+                                if (activePanel) setActivePanel(leadStore.getById(activePanel.id) ?? null);
+                                setUndoVisible(false);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90"
+                            style={{ background: '#c9a84c', color: '#0a0e1a' }}>
+                            <RotateCcw className="w-3.5 h-3.5" />실행 취소
+                        </button>
+                        <button onClick={() => setUndoVisible(false)} style={{ color: '#64748b' }}>
+                            <X className="w-4 h-4" />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className={`mx-auto px-4 transition-all duration-300 ${activePanel ? 'max-w-[calc(100%-496px)]' : 'max-w-[1600px]'}`}>
 
                 {/* 헤더 */}

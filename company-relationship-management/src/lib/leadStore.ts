@@ -74,6 +74,21 @@ export interface Lead {
 
 // ── localStorage 키 ─────────────────────────────────────────
 const LEAD_STORE_KEY = 'ibs_leads_v1';
+const LEAD_HISTORY_KEY = 'ibs_leads_history_v1';
+const MAX_HISTORY = 15;
+
+// ── 히스토리 (실행 취소) ──────────────────────────────────────
+function pushHistory(): void {
+    if (typeof window === 'undefined') return;
+    try {
+        const current = localStorage.getItem(LEAD_STORE_KEY);
+        if (!current) return;
+        const history: string[] = JSON.parse(localStorage.getItem(LEAD_HISTORY_KEY) ?? '[]');
+        history.push(current);
+        if (history.length > MAX_HISTORY) history.shift();
+        localStorage.setItem(LEAD_HISTORY_KEY, JSON.stringify(history));
+    } catch { /* ignore */ }
+}
 
 // ── Mock 초기 데이터 ──────────────────────────────────────
 function makeTimeline(events: Omit<LeadTimelineEvent, 'id'>[]): LeadTimelineEvent[] {
@@ -84,8 +99,8 @@ const INITIAL_LEADS: Lead[] = [
     {
         id: 'lead_001', companyName: '(주)샐러디', domain: 'saladday.co.kr',
         privacyUrl: 'https://saladday.co.kr/privacy',
-        contactName: '김마케팅', contactEmail: 'marketing@saladday.co.kr', contactPhone: '02-1234-5678',
-        contacts: [{ id: 'c1', name: '김마케팅', role: '마케팅 팀장', department: '마케팅팀', phone: '02-1234-5678', email: 'marketing@saladday.co.kr', isPrimary: true }],
+        contactName: '김마케팅', contactEmail: 'dhk@ibslaw.co.kr', contactPhone: '02-1234-5678',
+        contacts: [{ id: 'c1', name: '김마케팅', role: '마케팅 팀장', department: '마케팅팀', phone: '02-1234-5678', email: 'dhk@ibslaw.co.kr', isPrimary: true }],
         storeCount: 180, bizType: '외식(샐러드)', riskScore: 78, riskLevel: 'HIGH', issueCount: 4, status: 'analyzed',
         memos: [],
         timeline: makeTimeline([
@@ -97,8 +112,8 @@ const INITIAL_LEADS: Lead[] = [
     {
         id: 'lead_002', companyName: '(주)메가커피', domain: 'megacoffee.net',
         privacyUrl: 'https://megacoffee.net/privacy',
-        contactName: '이운영', contactEmail: 'ops@megacoffee.net', contactPhone: '02-2345-6789',
-        contacts: [{ id: 'c2', name: '이운영', role: '운영 이사', department: '운영본부', phone: '02-2345-6789', email: 'ops@megacoffee.net', isPrimary: true }],
+        contactName: '이운영', contactEmail: 'dhk@ibslaw.co.kr', contactPhone: '02-2345-6789',
+        contacts: [{ id: 'c2', name: '이운영', role: '운영 이사', department: '운영본부', phone: '02-2345-6789', email: 'dhk@ibslaw.co.kr', isPrimary: true }],
         storeCount: 2800, bizType: '외식(카페)', riskScore: 65, riskLevel: 'MEDIUM', issueCount: 2, status: 'lawyer_confirmed',
         emailSentAt: '2026-03-01T14:00:00Z',
         memos: [{ id: 'm1', createdAt: '2026-03-01T14:00:00Z', author: '박영업', content: '이메일 발송 완료. 담당자 회신 대기.' }],
@@ -113,8 +128,8 @@ const INITIAL_LEADS: Lead[] = [
     {
         id: 'lead_003', companyName: '(주)BBQ치킨', domain: 'bbq.co.kr',
         privacyUrl: 'https://bbq.co.kr/privacy',
-        contactName: '최법무', contactEmail: 'legal@bbq.co.kr', contactPhone: '02-3456-7890',
-        contacts: [{ id: 'c3', name: '최법무', role: '법무 담당', department: '법무팀', phone: '02-3456-7890', email: 'legal@bbq.co.kr', isPrimary: true }],
+        contactName: '최법무', contactEmail: 'dhk@ibslaw.co.kr', contactPhone: '02-3456-7890',
+        contacts: [{ id: 'c3', name: '최법무', role: '법무 담당', department: '법무팀', phone: '02-3456-7890', email: 'dhk@ibslaw.co.kr', isPrimary: true }],
         storeCount: 1800, bizType: '외식(치킨)', riskScore: 82, riskLevel: 'HIGH', issueCount: 5, status: 'sales_confirmed',
         memos: [],
         timeline: makeTimeline([
@@ -127,8 +142,8 @@ const INITIAL_LEADS: Lead[] = [
     {
         id: 'lead_004', companyName: '(주)파리바게뜨', domain: 'paris.co.kr',
         privacyUrl: 'https://paris.co.kr/privacy',
-        contactName: '정담당', contactEmail: 'info@paris.co.kr', contactPhone: '02-4567-8901',
-        contacts: [{ id: 'c4', name: '정담당', role: '담당자', department: '총무팀', phone: '02-4567-8901', email: 'info@paris.co.kr', isPrimary: true }],
+        contactName: '정담당', contactEmail: 'dhk@ibslaw.co.kr', contactPhone: '02-4567-8901',
+        contacts: [{ id: 'c4', name: '정담당', role: '담당자', department: '총무팀', phone: '02-4567-8901', email: 'dhk@ibslaw.co.kr', isPrimary: true }],
         storeCount: 3400, bizType: '식품(베이커리)', riskScore: 45, riskLevel: 'MEDIUM', issueCount: 1, status: 'emailed',
         emailSentAt: '2026-02-28T10:00:00Z',
         memos: [
@@ -147,8 +162,8 @@ const INITIAL_LEADS: Lead[] = [
     {
         id: 'lead_005', companyName: '(주)교촌치킨', domain: 'kyochon.com',
         privacyUrl: 'https://kyochon.com/privacy',
-        contactName: '홍기획', contactEmail: 'plan@kyochon.com', contactPhone: '02-5678-9012',
-        contacts: [{ id: 'c5', name: '홍기획', role: '기획 팀장', department: '전략기획팀', phone: '02-5678-9012', email: 'plan@kyochon.com', isPrimary: true }],
+        contactName: '홍기획', contactEmail: 'dhk@ibslaw.co.kr', contactPhone: '02-5678-9012',
+        contacts: [{ id: 'c5', name: '홍기획', role: '기획 팀장', department: '전략기획팀', phone: '02-5678-9012', email: 'dhk@ibslaw.co.kr', isPrimary: true }],
         storeCount: 1200, bizType: '외식(치킨)', riskScore: 91, riskLevel: 'HIGH', issueCount: 6, status: 'pending',
         memos: [],
         timeline: makeTimeline([
@@ -195,6 +210,24 @@ function genId(prefix = 'id'): string {
 export const leadStore = {
     getAll: () => loadLeads(),
     getById: (id: string) => loadLeads().find(l => l.id === id),
+    canUndo: (): boolean => {
+        if (typeof window === 'undefined') return false;
+        try {
+            const h: string[] = JSON.parse(localStorage.getItem(LEAD_HISTORY_KEY) ?? '[]');
+            return h.length > 0;
+        } catch { return false; }
+    },
+    undo: (): Lead[] | null => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const h: string[] = JSON.parse(localStorage.getItem(LEAD_HISTORY_KEY) ?? '[]');
+            if (h.length === 0) return null;
+            const prev = h.pop()!;
+            localStorage.setItem(LEAD_HISTORY_KEY, JSON.stringify(h));
+            localStorage.setItem(LEAD_STORE_KEY, prev);
+            return JSON.parse(prev) as Lead[];
+        } catch { return null; }
+    },
     add: (leads: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'memos' | 'timeline' | 'contacts'>[]) => {
         const now = new Date().toISOString();
         const newLeads: Lead[] = leads.map((l) => ({
@@ -212,10 +245,12 @@ export const leadStore = {
         return newLeads;
     },
     update: (id: string, patch: Partial<Lead>) => {
+        pushHistory();
         const all = loadLeads().map(l => l.id === id ? { ...l, ...patch, updatedAt: new Date().toISOString() } : l);
         saveLeads(all);
     },
     updateStatus: (id: string, nextStatus: LeadStatus, author: string = '영업팀') => {
+        pushHistory();
         const all = loadLeads().map(l => {
             if (l.id !== id) return l;
             const event: LeadTimelineEvent = {
@@ -232,6 +267,7 @@ export const leadStore = {
         saveLeads(all);
     },
     addMemo: (id: string, memo: Omit<LeadMemo, 'id' | 'createdAt'>) => {
+        pushHistory();
         const now = new Date().toISOString();
         const all = loadLeads().map(l => {
             if (l.id !== id) return l;

@@ -37,7 +37,7 @@ const AI_DRAFTS: Record<string, string> = {
 3. 삭제 요구
 4. 처리정지 요구
 
-문의: 개인정보보호 담당자 privacy@ibslaw.co.kr
+문의: 개인정보보호 담당자 dhk@ibslaw.co.kr
 
 [AI 생성 초안 — 변호사 검토 필요]`,
 };

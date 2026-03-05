@@ -12,7 +12,7 @@ const SMTP_CONFIGURED = !!(
 );
 
 const FROM_NAME = process.env.SMTP_FROM_NAME || 'IBS 법률사무소';
-const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'info@ibslaw.co.kr';
+const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'dhk@ibslaw.co.kr';
 const FROM = `${FROM_NAME} <${FROM_EMAIL}>`;
 
 // nodemailer transporter (SMTP 설정 시 실 발송)
@@ -77,7 +77,7 @@ function buildHookEmail(leadId: string, lawyerNote: string) {
     <h2 style="color:#c9a84c;margin:0">${FROM_NAME}</h2>
     <p style="color:#94a3b8;margin:4px 0 0">프랜차이즈 전문 법률 서비스</p>
   </div>
-  <h3 style="color:#1e293b">${lead.contactName} 担당자님께</h3>
+  <h3 style="color:#1e293b">${lead.contactName} 담당자님께</h3>
   <p style="color:#374151;line-height:1.6">
     안녕하세요. IBS 법률사무소 AI 분석 시스템이 귀사(<strong>${lead.companyName}</strong>)의
     개인정보처리방침을 검토한 결과를 전달드립니다.

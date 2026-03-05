@@ -165,7 +165,7 @@ IBS 구독 서비스로 월 {monthlyFee}원에 관리하시면:
 const INITIAL_MEMBERS: DripMember[] = [
     {
         id: 'drip_001', leadId: 'lead_002', companyName: '(주)메가커피',
-        contactEmail: 'ops@megacoffee.net', contactName: '이운영',
+        contactEmail: 'dhk@ibslaw.co.kr', contactName: '이운영',
         bizRegNo: '12345678901', tempPassword: '[발송 완료 — 저장 안 함]',
         joinedAt: '2026-03-01T14:00:00Z', subscribed: false,
         dripStatus: 'active', sentDays: [1, 4], lastSentAt: '2026-03-05T09:00:00Z',
@@ -173,7 +173,7 @@ const INITIAL_MEMBERS: DripMember[] = [
     },
     {
         id: 'drip_002', leadId: 'lead_004', companyName: '(주)파리바게뜨',
-        contactEmail: 'info@paris.co.kr', contactName: '정담당',
+        contactEmail: 'dhk@ibslaw.co.kr', contactName: '정담당',
         bizRegNo: '34567890120', tempPassword: '[발송 완료 — 저장 안 함]',
         joinedAt: '2026-02-28T10:00:00Z', subscribed: false,
         dripStatus: 'active', sentDays: [1, 4, 8, 14], lastSentAt: '2026-03-14T09:00:00Z',
