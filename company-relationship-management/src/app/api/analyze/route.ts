@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
+import { callClaude, parseAIJson, hasAIKey, mockDelay } from '@/lib/ai';
 
-// 데모 분석 결과 (실제 배포 시: OpenAI API + Puppeteer로 URL 실제 분석)
+// Mock 분석 결과 (AI 키 없을 때 사용)
 const DEMO_ISSUES = [
     {
         id: 1, level: 'HIGH', title: '수집 항목 법정 기재 누락',
@@ -26,16 +27,22 @@ const DEMO_ISSUES = [
     },
 ];
 
-// URL 기반 최소 리스크 추정 (데모 수준)
+interface AnalysisIssue {
+    id: number;
+    level: string;
+    title: string;
+    law: string;
+    problem: string;
+    solution: string;
+    fine: string;
+}
+
 function estimateRiskLevel(url: string): 'HIGH' | 'MEDIUM' | 'LOW' {
     if (!url) return 'HIGH';
-    // HTTPS 미사용 시 HIGH
     if (!url.startsWith('https://')) return 'HIGH';
-    // 짧은 URL은 정책 페이지를 지정하지 않은 가능성
     if (url.length < 20) return 'MEDIUM';
-    // https로 시작하고 30자 이상이면 LOW가 가능
     if (url.length >= 30) return 'LOW';
-    return 'MEDIUM'; // 기본: 데모 모드에서는 MEDIUM
+    return 'MEDIUM';
 }
 
 export async function POST(request: NextRequest) {
@@ -43,8 +50,8 @@ export async function POST(request: NextRequest) {
     const auth = requireSessionFromCookie(request);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
-    let body: { url?: string; companyId?: string };
+    // 입력값 파싱
+    let body: { url?: string; companyId?: string; companyName?: string };
     try {
         body = await request.json();
     } catch {
@@ -54,9 +61,8 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { url, companyId } = body;
+    const { url, companyId, companyName } = body;
 
-    // ── 필수 파라미터 검증 ──
     if (!url && !companyId) {
         return NextResponse.json(
             { success: false, error: 'url 또는 companyId 중 하나는 필수입니다.' },
@@ -64,11 +70,8 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // ── URL 형식 기본 검증 ──
     if (url) {
-        try {
-            new URL(url);
-        } catch {
+        try { new URL(url); } catch {
             return NextResponse.json(
                 { success: false, error: '유효한 URL 형식이 아닙니다. (예: https://example.com/privacy)' },
                 { status: 422 }
@@ -76,21 +79,54 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // ── 분석 시뮬레이션 (실제 배포 시 OpenAI + Puppeteer로 교체) ──
-    // ⚠️ 데모 모드: 아래 결과는 URL을 실제로 분석하지 않음
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // AI 분석
+    if (hasAIKey && url) {
+        try {
+            const result = await callClaude({
+                system: `한국 개인정보보호법 전문 AI 분석기입니다.
+URL 기반으로 개인정보처리방침을 분석합니다.
+반드시 JSON만 반환하세요:
+{"riskLevel":"HIGH|MEDIUM|LOW","issues":[{"id":1,"level":"HIGH|MEDIUM|LOW","title":"","law":"","problem":"","solution":"","fine":""}]}`,
+                messages: [{
+                    role: 'user',
+                    content: `회사명: ${companyName || '알수없음'}\n개인정보처리방침 URL: ${url}\n\n이 URL의 개인정보처리방침을 분석하여 법적 리스크와 이슈를 찾아주세요.`,
+                }],
+                maxTokens: 4000,
+            });
 
-    const riskLevel = estimateRiskLevel(url ?? '');
+            const parsed = parseAIJson<{ riskLevel?: string; issues?: AnalysisIssue[] }>(result.text, {});
+            const issues = parsed.issues || DEMO_ISSUES;
+            const riskLevel = (['HIGH', 'MEDIUM', 'LOW'].includes(parsed.riskLevel || '') ? parsed.riskLevel : estimateRiskLevel(url)) as 'HIGH' | 'MEDIUM' | 'LOW';
 
+            return NextResponse.json({
+                success: true,
+                isDemoMode: false,
+                message: 'AI 분석 완료',
+                analysisId: `ai-${Date.now()}`,
+                analyzedUrl: url,
+                issueCount: issues.length,
+                issues,
+                riskLevel,
+                completedAt: new Date().toISOString(),
+                aiUsage: result.usage,
+            });
+        } catch (err) {
+            console.error('[analyze API] AI 오류, Mock 폴백:', err);
+            // AI 실패 시 Mock으로 폴백
+        }
+    }
+
+    // Mock 모드
+    await mockDelay(500);
     return NextResponse.json({
         success: true,
-        isDemoMode: true, // 클라이언트가 데모임을 인지할 수 있도록 플래그 명시
-        message: 'AI 분석 완료 (데모 모드 — 실제 URL 분석은 계약 후 제공)',
+        isDemoMode: true,
+        message: 'AI 분석 완료 (데모 모드 — 실제 URL 분석은 API 키 설정 후 제공)',
         analysisId: `demo-${Date.now()}`,
         analyzedUrl: url ?? null,
         issueCount: DEMO_ISSUES.length,
         issues: DEMO_ISSUES,
-        riskLevel,
+        riskLevel: estimateRiskLevel(url ?? ''),
         completedAt: new Date().toISOString(),
     });
 }

@@ -180,6 +180,7 @@ function LoginContent() {
                                                     { email: 'lawyer1@ibslaw.kr', pw: 'lawyer123', role: 'lawyer', dest: '/lawyer' },
                                                     { email: 'sales@ibslaw.kr', pw: 'sales123', role: 'sales', dest: '/admin/leads' },
                                                     { email: 'counselor@ibslaw.kr', pw: 'counsel123', role: 'counselor', dest: '/counselor' },
+                                                    { email: 'lit@ibslaw.kr', pw: 'lit123', role: 'litigation', dest: '/litigation' },
                                                 ].map((h) => {
                                                     const ri = ROLE_ICONS[h.role];
                                                     return (

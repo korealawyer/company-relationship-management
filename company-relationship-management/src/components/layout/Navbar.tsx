@@ -33,12 +33,13 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
         { href: '/sales', label: '서비스 소개' },
         { href: '/chat', label: '법률 상담' },
         { href: '/pricing', label: '요금제' },
-        { href: '/client-portal', label: '고객 포털' },
+        { href: '/about', label: '회사 소개' },
+        { href: '/help', label: 'FAQ' },
     ],
     // 영업팀
     sales: [
+        { href: '/admin/leads', label: '영업 현황판' },
         { href: '/employee', label: 'CRM' },
-        { href: '/admin/leads', label: '영업 리드' },
         { href: '/admin/email-preview', label: '이메일 미리보기' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
@@ -56,20 +57,22 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     ],
     // 관리자 / 슈퍼어드민
     admin: [
-        { href: '/admin', label: 'KPI' },
-        { href: '/admin/leads', label: '영업 리드' },
+        { href: '/admin/leads', label: '영업 현황판' },
         { href: '/employee', label: 'CRM' },
-        { href: '/admin/email-preview', label: '이메일 미리보기' },
-        { href: '/lawyer/privacy-review', label: '조문 검토' },
-        { href: '/litigation', label: '송무 대시보드' },
+        { href: '/admin/reports', label: '리포트' },
+        { href: '/admin/ai-dashboard', label: 'AI 현황' },
+        { href: '/litigation', label: '송무' },
+        { href: '/admin', label: 'KPI' },
+        { href: '/settings', label: '설정' },
     ],
     super_admin: [
-        { href: '/admin', label: 'KPI' },
-        { href: '/admin/leads', label: '영업 리드' },
+        { href: '/admin/leads', label: '영업 현황판' },
         { href: '/employee', label: 'CRM' },
-        { href: '/admin/email-preview', label: '이메일 미리보기' },
-        { href: '/lawyer/privacy-review', label: '조문 검토' },
-        { href: '/litigation', label: '송무 대시보드' },
+        { href: '/admin/reports', label: '리포트' },
+        { href: '/admin/ai-dashboard', label: 'AI 현황' },
+        { href: '/litigation', label: '송무' },
+        { href: '/admin', label: 'KPI' },
+        { href: '/settings', label: '설정' },
     ],
     // EAP 상담사
     counselor: [
@@ -79,11 +82,12 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     client_hr: [
         { href: '/chat', label: '법률 문의' },
         { href: '/company-hr', label: '사용 현황' },
-        { href: '/pricing', label: '요금제' },
+        { href: '/contracts', label: '계약서' },
+        { href: '/notifications', label: '알림' },
     ],
     // 기타 내부
-    general: [{ href: '/general', label: '총무 포털' }],
-    hr: [{ href: '/hr', label: '인사 포털' }],
+    general: [{ href: '/admin', label: 'KPI' }],
+    hr: [{ href: '/admin', label: 'KPI' }],
     finance: [{ href: '/admin', label: 'KPI' }],
 };
 

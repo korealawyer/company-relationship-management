@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Clock, ArrowLeft, Scale, MessageSquare, List } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -168,10 +168,11 @@ function ClauseRow({ c, note, onNote }: { c: Clause; note: string; onNote: (v: s
 // ── 메인 ──────────────────────────────────────────────────────
 export default function PrivacyReviewPage({
     searchParams,
-}: { searchParams: Promise<{ leadId?: string; company?: string }> }) {
+}: { searchParams: Promise<{ leadId?: string; company?: string; embed?: string }> }) {
     const params = React.use(searchParams);
     const leadId = params.leadId || 'lead_001';
     const company = params.company || '(주)샐러디';
+    const isEmbed = params.embed === 'true';
 
     const router = useRouter();
     const [notes, setNotes] = useState<Record<string, string>>({});
@@ -179,10 +180,10 @@ export default function PrivacyReviewPage({
     const [confirming, setConfirming] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
     const [elapsed, setElapsed] = useState(0);
-    const t0 = useRef(Date.now());
+    const [t0] = useState(() => Date.now());
 
     useEffect(() => {
-        const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0.current) / 1000)), 1000);
+        const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
         return () => clearInterval(id);
     }, []);
 
@@ -245,76 +246,78 @@ export default function PrivacyReviewPage({
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fc', fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
-            <div style={{ maxWidth: 1600, margin: '0 auto', padding: '32px 16px' }}>
+            <div style={{ maxWidth: 1600, margin: '0 auto', padding: isEmbed ? '8px' : '32px 16px' }}>
 
-                {/* ── 상단 헤더 ──────────────────────────────────────── */}
-                <div style={{
-                    background: '#ffffff', borderRadius: 16, border: '1px solid #e5e7eb',
-                    padding: '14px 24px', marginBottom: 20,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <Link href="/admin/leads">
-                            <button style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                                <ArrowLeft size={13} /> 목록
-                            </button>
-                        </Link>
-                        <div>
-                            <span style={{ fontWeight: 900, color: '#1e293b', fontSize: 15 }}>{company}</span>
-                            <span style={{ color: '#64748b', fontSize: 13, marginLeft: 10 }}>개인정보처리방침 검토</span>
-                            <span style={{ color: '#dc2626', fontSize: 12, marginLeft: 10, fontWeight: 700 }}>🔴 {highN}건</span>
-                            <span style={{ color: '#d97706', fontSize: 12, marginLeft: 6, fontWeight: 700 }}>🟡 {medN}건</span>
+                {/* ── 상단 헤더 ─ embed 시 숨김 ──────────────────────────────────────────── */}
+                {!isEmbed && (
+                    <div style={{
+                        background: '#ffffff', borderRadius: 16, border: '1px solid #e5e7eb',
+                        padding: '14px 24px', marginBottom: 20,
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <Link href="/admin/leads">
+                                <button style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                                    <ArrowLeft size={13} /> 목록
+                                </button>
+                            </Link>
+                            <div>
+                                <span style={{ fontWeight: 900, color: '#1e293b', fontSize: 15 }}>{company}</span>
+                                <span style={{ color: '#64748b', fontSize: 13, marginLeft: 10 }}>개인정보처리방침 검토</span>
+                                <span style={{ color: '#dc2626', fontSize: 12, marginLeft: 10, fontWeight: 700 }}>🔴 {highN}건</span>
+                                <span style={{ color: '#d97706', fontSize: 12, marginLeft: 6, fontWeight: 700 }}>🟡 {medN}건</span>
+                            </div>
                         </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        {/* 타이머 */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8f9fc', borderRadius: 8, padding: '5px 14px', border: '1px solid #e5e7eb' }}>
-                            <Clock size={13} color={timerCol} />
-                            <span style={{ fontWeight: 900, color: timerCol, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{mm}:{ss}</span>
-                        </div>
-                        {/* 지시수 배지 */}
-                        {noteN > 0 && (
-                            <span style={{ background: '#eff6ff', color: '#2563eb', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '3px 10px', border: '1px solid #bfdbfe' }}>
-                                지시 {noteN}건
-                            </span>
-                        )}
-                        {/* 목록 보기 */}
-                        <Link href="/admin/leads" style={{ textDecoration: 'none' }}>
-                            <button style={{
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            {/* 타이머 */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8f9fc', borderRadius: 8, padding: '5px 14px', border: '1px solid #e5e7eb' }}>
+                                <Clock size={13} color={timerCol} />
+                                <span style={{ fontWeight: 900, color: timerCol, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{mm}:{ss}</span>
+                            </div>
+                            {/* 지시수 배지 */}
+                            {noteN > 0 && (
+                                <span style={{ background: '#eff6ff', color: '#2563eb', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '3px 10px', border: '1px solid #bfdbfe' }}>
+                                    지시 {noteN}건
+                                </span>
+                            )}
+                            {/* 목록 보기 */}
+                            <Link href="/admin/leads" style={{ textDecoration: 'none' }}>
+                                <button style={{
+                                    display: 'flex', alignItems: 'center', gap: 5,
+                                    background: '#f8f9fc', color: '#64748b',
+                                    border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px',
+                                    fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                                }}>
+                                    <List size={14} />
+                                    목록 보기
+                                </button>
+                            </Link>
+                            {/* 컨펌 완료 · 목록 보기 */}
+                            <button onClick={handleConfirmAndGoList} disabled={confirming} style={{
                                 display: 'flex', alignItems: 'center', gap: 5,
-                                background: '#f8f9fc', color: '#64748b',
-                                border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px',
-                                fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                                background: confirming ? '#e0e7ff' : '#ffffff', color: '#2563eb',
+                                border: '1.5px solid #93c5fd', borderRadius: 8, padding: '8px 14px',
+                                fontWeight: 800, fontSize: 13, cursor: confirming ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 1px 6px rgba(37,99,235,0.1)',
                             }}>
-                                <List size={14} />
-                                목록 보기
+                                <MessageSquare size={14} />
+                                {confirming ? '처리 중...' : '컨펌 완료 · 목록 보기'}
                             </button>
-                        </Link>
-                        {/* 컨펌 완료 · 목록 보기 */}
-                        <button onClick={handleConfirmAndGoList} disabled={confirming} style={{
-                            display: 'flex', alignItems: 'center', gap: 5,
-                            background: confirming ? '#e0e7ff' : '#ffffff', color: '#2563eb',
-                            border: '1.5px solid #93c5fd', borderRadius: 8, padding: '8px 14px',
-                            fontWeight: 800, fontSize: 13, cursor: confirming ? 'not-allowed' : 'pointer',
-                            boxShadow: '0 1px 6px rgba(37,99,235,0.1)',
-                        }}>
-                            <MessageSquare size={14} />
-                            {confirming ? '처리 중...' : '컨펌 완료 · 목록 보기'}
-                        </button>
-                        {/* 컨펌 완료 · 다음 회사 */}
-                        <button onClick={handleConfirm} disabled={confirming} style={{
-                            display: 'flex', alignItems: 'center', gap: 7,
-                            background: confirming ? '#86efac' : 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff',
-                            border: 'none', borderRadius: 9, padding: '9px 24px',
-                            fontWeight: 900, fontSize: 15, cursor: confirming ? 'not-allowed' : 'pointer',
-                            boxShadow: '0 2px 12px rgba(22,163,74,0.25)',
-                        }}>
-                            <CheckCircle2 size={17} />
-                            {confirming ? '처리 중...' : '컨펌 완료 · 다음 회사'}
-                        </button>
+                            {/* 컨펌 완료 · 다음 회사 */}
+                            <button onClick={handleConfirm} disabled={confirming} style={{
+                                display: 'flex', alignItems: 'center', gap: 7,
+                                background: confirming ? '#86efac' : 'linear-gradient(135deg,#16a34a,#15803d)', color: '#fff',
+                                border: 'none', borderRadius: 9, padding: '9px 24px',
+                                fontWeight: 900, fontSize: 15, cursor: confirming ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 2px 12px rgba(22,163,74,0.25)',
+                            }}>
+                                <CheckCircle2 size={17} />
+                                {confirming ? '처리 중...' : '컨펌 완료 · 다음 회사'}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* ── 컬럼 레이블 ─────────────────────────────────────── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', background: '#f1f5f9', borderRadius: '12px 12px 0 0', border: '1px solid #e5e7eb', borderBottom: 'none' }}>

@@ -139,8 +139,8 @@ export const ROLE_HOME: Record<RoleType, string> = {
     sales: '/admin/leads',       // 영업팀 → 리드 목록 직행
     lawyer: '/lawyer',              // 변호사 → 검토 대기 대시보드
     litigation: '/litigation',
-    general: '/general',
-    hr: '/hr',
+    general: '/admin',
+    hr: '/admin',
     finance: '/admin',
     counselor: '/counselor',
     client_hr: '/company-hr',    // 고객사 HR → EAP 사용현황 포털

@@ -28,6 +28,7 @@ export default function ContractsPage() {
     const [contractTitle, setContractTitle] = useState('');
     const [partyEmail, setPartyEmail] = useState('');
     const [created, setCreated] = useState(false);
+    const [signToken] = useState(() => Math.random().toString(36).slice(2, 10));
 
     const handleCreate = () => {
         if (!selectedTemplate || !contractTitle) return;
@@ -112,7 +113,7 @@ export default function ContractsPage() {
                                     style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
                                     <p className="text-xs font-bold mb-1" style={{ color: '#4ade80' }}>서명 링크 (복사 후 발송)</p>
                                     <p className="text-xs font-mono break-all" style={{ color: 'rgba(240,244,255,0.7)' }}>
-                                        https://app.ibslaw.co.kr/contracts/sign/{Math.random().toString(36).slice(2, 10)}
+                                        https://app.ibslaw.co.kr/contracts/sign/{signToken}
                                     </p>
                                 </div>
                                 <div className="flex gap-3 justify-center">

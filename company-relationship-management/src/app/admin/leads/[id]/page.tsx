@@ -6,15 +6,10 @@ import Link from 'next/link';
 import { leadStore, calcSubscription, type Lead, type LeadMemo, type LeadStatus } from '@/lib/leadStore';
 
 const STATUS_LABEL: Record<string, string> = {
-    pending: '미분석', analyzed: 'AI 분석완료', sales_confirmed: '변호사 검토 요청',
-    lawyer_confirmed: '변호사 컨펌', emailed: '이메일 발송', in_contact: '연락 중',
-    contracted: '계약 완료', failed: '실패',
+    pending: '대기', analyzed: '분석완료', sales_confirmed: '영업컨펌',
+    lawyer_confirmed: '변호사컨펌', emailed: '발송완료', in_contact: '연락중',
+    contracted: '계약완료', failed: '실패',
 };
-const STATUS_OPTIONS: { value: LeadStatus; label: string }[] = [
-    { value: 'in_contact', label: '연락 중' },
-    { value: 'contracted', label: '계약 완료' },
-    { value: 'failed', label: '실패' },
-];
 
 export default function LeadDetailPage({ params }: { params: Promise<{ id: string }> | { id: string } }) {
     const [lead, setLead] = useState<Lead | null>(null);
@@ -47,10 +42,7 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
         setMemoText('');
     };
 
-    const changeStatus = (status: LeadStatus) => {
-        leadStore.update(lead.id, { status });
-        setLead(leadStore.getById(lead.id)!);
-    };
+
 
     return (
         <div className="min-h-screen pt-20 pb-12" style={{ background: '#04091a' }}>
@@ -186,22 +178,16 @@ export default function LeadDetailPage({ params }: { params: Promise<{ id: strin
                             </button>
                         </div>
 
-                        {/* 상태 변경 */}
+                        {/* 현재 상태 */}
                         <div className="p-5 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                            <h3 className="font-black text-sm mb-3" style={{ color: '#f0f4ff' }}>상태 변경</h3>
-                            <div className="space-y-2">
-                                {STATUS_OPTIONS.map(opt => (
-                                    <button key={opt.value} onClick={() => changeStatus(opt.value)}
-                                        className="w-full py-2 rounded-lg text-sm font-bold text-left px-3"
-                                        style={{
-                                            background: lead.status === opt.value ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.04)',
-                                            color: lead.status === opt.value ? '#c9a84c' : 'rgba(240,244,255,0.6)',
-                                            border: lead.status === opt.value ? '1px solid rgba(201,168,76,0.25)' : '1px solid transparent'
-                                        }}>
-                                        {lead.status === opt.value && '✓ '}{opt.label}
-                                    </button>
-                                ))}
+                            <h3 className="font-black text-sm mb-3" style={{ color: '#f0f4ff' }}>현재 상태</h3>
+                            <div className="py-3 px-4 rounded-lg text-sm font-bold text-center"
+                                style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.25)' }}>
+                                ✓ {STATUS_LABEL[lead.status]}
                             </div>
+                            <p className="text-xs text-center mt-2" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                                상태 변경은 CRM에서 관리됩니다
+                            </p>
                         </div>
                     </div>
                 </div>

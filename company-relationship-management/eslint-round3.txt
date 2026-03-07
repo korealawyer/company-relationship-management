@@ -1,0 +1,179 @@
+﻿
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\admin\email-preview\page.tsx
+    2:27  warning  'useEffect' is defined but never used                @typescript-eslint/no-unused-vars
+    3:10  warning  'motion' is defined but never used                   @typescript-eslint/no-unused-vars
+    3:18  warning  'AnimatePresence' is defined but never used          @typescript-eslint/no-unused-vars
+    4:21  warning  'Eye' is defined but never used                      @typescript-eslint/no-unused-vars
+    4:32  warning  'Edit3' is defined but never used                    @typescript-eslint/no-unused-vars
+    7:24  warning  'DRIP_SEQUENCE' is defined but never used            @typescript-eslint/no-unused-vars
+   12:7   warning  'BASE_PREHEADER' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  110:12  warning  'editTab' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  110:21  warning  'setEditTab' is assigned a value but never used      @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\admin\leads\[id]\page.tsx
+   3:10   warning  'motion' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+   4:67   warning  'CheckCircle2' is defined but never used                                                                   @typescript-eslint/no-unused-vars
+   4:81   warning  'Clock' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+   4:103  warning  'Plus' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+   6:55   warning  'LeadMemo' is defined but never used                                                                       @typescript-eslint/no-unused-vars
+   6:70   warning  'LeadStatus' is defined but never used                                                                     @typescript-eslint/no-unused-vars
+  18:12   warning  'resolvedId' is assigned a value but never used                                                            @typescript-eslint/no-unused-vars
+  28:8    warning  React Hook useEffect has a missing dependency: 'params'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\admin\leads\page.tsx
+     6:5   warning  'Building2' is defined but never used                                  @typescript-eslint/no-unused-vars
+     6:29  warning  'AlertTriangle' is defined but never used                              @typescript-eslint/no-unused-vars
+     6:44  warning  'TrendingUp' is defined but never used                                 @typescript-eslint/no-unused-vars
+     7:5   warning  'Clock' is defined but never used                                      @typescript-eslint/no-unused-vars
+     7:26  warning  'Users' is defined but never used                                      @typescript-eslint/no-unused-vars
+     8:5   warning  'User' is defined but never used                                       @typescript-eslint/no-unused-vars
+     8:11  warning  'FileText' is defined but never used                                   @typescript-eslint/no-unused-vars
+     8:46  warning  'Upload' is defined but never used                                     @typescript-eslint/no-unused-vars
+     9:15  warning  'Clipboard' is defined but never used                                  @typescript-eslint/no-unused-vars
+    10:5   warning  'Eye' is defined but never used                                        @typescript-eslint/no-unused-vars
+    10:10  warning  'Scale' is defined but never used                                      @typescript-eslint/no-unused-vars
+    10:50  warning  'RotateCcw' is defined but never used                                  @typescript-eslint/no-unused-vars
+    12:8   warning  'Link' is defined but never used                                       @typescript-eslint/no-unused-vars
+    14:49  warning  'LeadTimelineEvent' is defined but never used                          @typescript-eslint/no-unused-vars
+   122:10  warning  'ContactTab' is defined but never used                                 @typescript-eslint/no-unused-vars
+   122:29  warning  'onUpdate' is defined but never used                                   @typescript-eslint/no-unused-vars
+   123:12  warning  'editing' is assigned a value but never used                           @typescript-eslint/no-unused-vars
+   123:21  warning  'setEditing' is assigned a value but never used                        @typescript-eslint/no-unused-vars
+   168:10  warning  'ScriptTab' is defined but never used                                  @typescript-eslint/no-unused-vars
+   224:10  warning  'TimelineTab' is defined but never used                                @typescript-eslint/no-unused-vars
+   266:27  warning  'm' is assigned a value but never used                                 @typescript-eslint/no-unused-vars
+   301:10  warning  'MemoTab' is defined but never used                                    @typescript-eslint/no-unused-vars
+   347:10  warning  'EmailPreviewTab' is defined but never used                            @typescript-eslint/no-unused-vars
+   489:10  warning  'ClauseReviewTab' is defined but never used                            @typescript-eslint/no-unused-vars
+   489:28  warning  'lead' is defined but never used                                       @typescript-eslint/no-unused-vars
+   635:38  warning  'onUpdate' is defined but never used                                   @typescript-eslint/no-unused-vars
+   637:11  warning  'subscription' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+   897:9   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1054:69  warning  'i' is defined but never used                                          @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\admin\page.tsx
+  6:24  warning  'Mail' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\api\drip\route.ts
+   6:7   warning  'ANTHROPIC_KEY' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  89:41  warning  'html' is defined but never used                    @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\api\email\route.ts
+  67:41  warning  'lawyerNote' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\api\leads\upload\route.ts
+  42:15  warning  'now' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\api\review\route.ts
+  12:23  warning  'text' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\chat\page.tsx
+  4:61  warning  'Phone' is defined but never used         @typescript-eslint/no-unused-vars
+  4:68  warning  'CheckCircle2' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\client-portal\page.tsx
+    5:5   warning  'Scale' is defined but never used  @typescript-eslint/no-unused-vars
+  194:54  warning  'idx' is defined but never used    @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\contracts\[id]\page.tsx
+   4:41  warning  'AlertTriangle' is defined but never used  @typescript-eslint/no-unused-vars
+  35:46  warning  'params' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\contracts\page.tsx
+  4:47  warning  'AlertTriangle' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\counselor\page.tsx
+  4:10  warning  'motion' is defined but never used        @typescript-eslint/no-unused-vars
+  6:5   warning  'Heart' is defined but never used         @typescript-eslint/no-unused-vars
+  6:12  warning  'Users' is defined but never used         @typescript-eslint/no-unused-vars
+  6:19  warning  'Clock' is defined but never used         @typescript-eslint/no-unused-vars
+  6:26  warning  'CheckCircle2' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\employee\page.tsx
+     9:38  warning  'Phone' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+    16:48  warning  'fillTemplate' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+    38:7   warning  'STATUS_DESC' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   130:11  warning  'router' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   398:11  warning  'excelInputRef' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   420:11  warning  'handleExcelUpload' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   639:39  warning  'i' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   766:47  warning  'totalPages' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+   781:61  warning  Expected an assignment or function call and instead saw an expression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-expressions
+  1090:23  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\employee\page.tsx:1090:23
+  1088 |     const [sending, setSending] = useState<string | null>(null);
+  1089 |
+> 1090 |     useEffect(() => { setMembers(dripStore.getAll()); }, []);
+       |                       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  1091 |
+  1092 |     const refresh = () => setMembers(dripStore.getAll());
+  1093 |     const pending = dripStore.getPendingEmails();  react-hooks/set-state-in-effect
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\employee\upload\page.tsx
+    6:44  warning  'X' is defined but never used                                          @typescript-eslint/no-unused-vars
+    7:16  warning  'Trash2' is defined but never used                                     @typescript-eslint/no-unused-vars
+   46:12  warning  'headers' is assigned a value but never used                           @typescript-eslint/no-unused-vars
+  450:65  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\lawyer\page.tsx
+  3:18  warning  'AnimatePresence' is defined but never used  @typescript-eslint/no-unused-vars
+  6:51  warning  'Clock' is defined but never used            @typescript-eslint/no-unused-vars
+  7:19  warning  'ChevronDown' is defined but never used      @typescript-eslint/no-unused-vars
+  7:32  warning  'ChevronUp' is defined but never used        @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\lawyer\privacy-review\page.tsx
+  188:8  warning  React Hook useEffect has a missing dependency: 't0'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\legal\review\page.tsx
+  4:71  warning  'CheckCircle2' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\litigation\page.tsx
+  6:5  warning  'Scale' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\pricing\page.tsx
+  5:22  warning  'MessageSquare' is defined but never used  @typescript-eslint/no-unused-vars
+  6:19  warning  'ArrowRight' is defined but never used     @typescript-eslint/no-unused-vars
+  7:36  warning  'AlertTriangle' is defined but never used  @typescript-eslint/no-unused-vars
+  8:20  warning  'Gavel' is defined but never used          @typescript-eslint/no-unused-vars
+  8:27  warning  'Building2' is defined but never used      @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\sales\page.tsx
+  4:17  warning  'Shield' is defined but never used       @typescript-eslint/no-unused-vars
+  4:43  warning  'TrendingUp' is defined but never used   @typescript-eslint/no-unused-vars
+  4:81  warning  'Phone' is defined but never used        @typescript-eslint/no-unused-vars
+  4:94  warning  'ChevronDown' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\app\signup\page.tsx
+   6:5   warning  'Building2' is defined but never used      @typescript-eslint/no-unused-vars
+   6:22  warning  'MessageSquare' is defined but never used  @typescript-eslint/no-unused-vars
+  13:51  warning  'INVITE_CODES' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\components\landing\FaqSection.tsx
+  6:21  warning  'fadeUp' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\components\layout\Navbar.tsx
+   10:15  warning  'RoleType' is defined but never used                                   @typescript-eslint/no-unused-vars
+  142:99  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  237:11  warning  'isInternal' is assigned a value but never used                        @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\lib\AuthContext.tsx
+  40:21  warning  'setLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\lib\landingData.ts
+  4:50  warning  'CheckCircle2' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\lib\mock\consultStore.ts
+  11:49  warning  '_body' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\1gmla\OneDrive\Documents\antigravity\company-relationship-management\company-relationship-management\src\lib\mock\store.ts
+  129:22  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+??105 problems (1 error, 104 warnings)
+

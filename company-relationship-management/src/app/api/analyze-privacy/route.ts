@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+import { requireSessionFromCookie } from '@/lib/auth';
+import { callClaude, parseAIJson, hasAIKey, mockDelay } from '@/lib/ai';
+import { buildRAGContext } from '@/lib/rag/vectorSearch';
 
 // ── 타입 ──────────────────────────────────────────────────
 export interface PrivacyClause {
@@ -19,7 +20,7 @@ export interface PrivacyAnalysis {
     url: string;
     companyName: string;
     analyzedAt: string;
-    overallScore: number; // 0~100, 높을수록 위험
+    overallScore: number;
     overallLevel: 'HIGH' | 'MEDIUM' | 'LOW';
     clauses: PrivacyClause[];
 }
@@ -87,34 +88,45 @@ function buildMockAnalysis(leadId: string, companyName: string, url: string): Pr
 }
 
 export async function POST(req: NextRequest) {
+    // A3: 인증 검증 추가
+    const auth = requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     try {
         const { leadId, companyName, url, text } = await req.json();
         if (!leadId || !companyName) return NextResponse.json({ error: 'leadId, companyName 필수' }, { status: 400 });
 
         let analysis: PrivacyAnalysis;
 
-        if (ANTHROPIC_API_KEY && (url || text)) {
-            // 실 Claude 분석
-            const content = text || `개인정보처리방침 URL: ${url} — 내용을 분석해주세요`;
-            const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: { 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY },
-                body: JSON.stringify({
-                    model: 'claude-sonnet-4-5', max_tokens: 4000,
+        if (hasAIKey && (url || text)) {
+            try {
+                const content = text || `개인정보처리방침 URL: ${url} — 내용을 분석해주세요`;
+                const ragContext = buildRAGContext(`개인정보처리방침 ${companyName} 수집 제공 파기 안전조치`);
+                const result = await callClaude({
                     system: `한국 개인정보보호법 전문 AI. 개인정보처리방침을 조문별 분석해 JSON으로만 응답.
-형식: {"overallScore":0-100,"overallLevel":"HIGH|MEDIUM|LOW","clauses":[{"clauseNum":"제N조","title":"","original":"","riskSummary":"","level":"HIGH|MEDIUM|LOW|OK","lawRef":"","scenario":"","fix":""}]}`,
+형식: {"overallScore":0-100,"overallLevel":"HIGH|MEDIUM|LOW","clauses":[{"clauseNum":"제N조","title":"","original":"","riskSummary":"","level":"HIGH|MEDIUM|LOW|OK","lawRef":"","scenario":"","fix":""}]}${ragContext}`,
                     messages: [{ role: 'user', content: `회사명: ${companyName}\n\n${content}` }],
-                }),
-            });
-            const data = await resp.json();
-            const parsed = JSON.parse(data.content?.[0]?.text?.match(/\{[\s\S]*\}/)?.[0] || '{}');
-            analysis = { leadId, url: url || '', companyName, analyzedAt: new Date().toISOString(), ...parsed };
+                    maxTokens: 4000,
+                });
+
+                const parsed = parseAIJson<Partial<PrivacyAnalysis>>(result.text, {});
+                analysis = {
+                    leadId, url: url || '', companyName,
+                    analyzedAt: new Date().toISOString(),
+                    overallScore: parsed.overallScore ?? 50,
+                    overallLevel: parsed.overallLevel ?? 'MEDIUM',
+                    clauses: parsed.clauses ?? [],
+                };
+            } catch (err) {
+                console.error('[analyze-privacy] AI 오류, Mock 폴백:', err);
+                analysis = buildMockAnalysis(leadId, companyName, url || '');
+            }
         } else {
-            await new Promise(r => setTimeout(r, 1200));
+            await mockDelay(1200);
             analysis = buildMockAnalysis(leadId, companyName, url || '');
         }
 
-        return NextResponse.json({ analysis, mock: !ANTHROPIC_API_KEY });
+        return NextResponse.json({ analysis, mock: !hasAIKey });
     } catch (err) {
         console.error(err);
         return NextResponse.json({ error: '분석 중 오류' }, { status: 500 });

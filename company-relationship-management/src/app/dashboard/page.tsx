@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Lock, CheckCircle2, Clock, AlertTriangle,
     Phone, Video, CreditCard, MessageSquare, Star,
     ChevronRight, Shield, Download, Send, X,
     FileText, Scale, Gavel, BadgeCheck, TrendingUp,
-    ChevronDown, ChevronUp, Mail, Bell, RefreshCw,
+    ChevronDown, ChevronUp, Mail, Bell,
     ArrowRight, Zap, Info, Award, Users, Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -90,7 +90,7 @@ function IssueCard({ issue, index, locked }: {
                                 {issue.originalText && (
                                     <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                                         <p className="text-[10px] font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.3)' }}>📄 현행 문구</p>
-                                        <p className="text-xs leading-relaxed italic" style={{ color: 'rgba(240,244,255,0.5)' }}>"{issue.originalText}"</p>
+                                        <p className="text-xs leading-relaxed italic" style={{ color: 'rgba(240,244,255,0.5)' }}>{"\""}{issue.originalText}{"\""}</p>
                                     </div>
                                 )}
                                 {/* 리스크 설명 */}
@@ -126,19 +126,16 @@ function IssueCard({ issue, index, locked }: {
 
 // ── 메인 대시보드 ─────────────────────────────────────────────
 export default function DashboardPage() {
-    const [company, setCompany] = useState<Company | null>(null);
+    const [company] = useState<Company | null>(() => {
+        // 로그인된 회사 (mock: 첫 번째 분석 완료 기업)
+        const all = store.getAll();
+        return all.find(c => c.status !== 'pending' && c.status !== 'crawling') ?? all[0] ?? null;
+    });
     const [activeTab, setActiveTab] = useState<'issues' | 'journey' | 'consult' | 'docs'>('issues');
     const [question, setQuestion] = useState('');
     const [questionSent, setQuestionSent] = useState(false);
     const [lawyer] = useState(LAWYERS[0]);
     const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
-
-    useEffect(() => {
-        // 로그인된 회사 (mock: 첫 번째 분석 완료 기업)
-        const all = store.getAll();
-        const found = all.find(c => c.status !== 'pending' && c.status !== 'crawling') ?? all[0] ?? null;
-        setCompany(found);
-    }, []);
 
     const isPaid = company?.plan === 'standard' || company?.plan === 'premium';
     const pipelineIdx = company ? ['pending', 'crawling', 'analyzed', 'sales_confirmed', 'assigned', 'reviewing', 'lawyer_confirmed', 'emailed', 'client_replied', 'subscribed'].indexOf(company.status) : 0;

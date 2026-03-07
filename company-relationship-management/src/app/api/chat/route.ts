@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+import { callClaude, hasAIKey, mockDelay } from '@/lib/ai';
+import { buildRAGContext } from '@/lib/rag/vectorSearch';
 
 interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 
@@ -21,30 +21,29 @@ function generateMockResponse(messages: ChatMessage[], consultType: string): str
 }
 
 export async function POST(req: NextRequest) {
-    // 인증 검증 (관리자/내부직원/고객 HR 모두 허용)
     const auth = requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     try {
         const { messages, consultType = 'general' } = await req.json();
-        let aiResponse: string;
-        if (ANTHROPIC_API_KEY) {
-            const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: { 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY },
-                body: JSON.stringify({
-                    model: 'claude-sonnet-4-5', max_tokens: 1024,
-                    system: '당신은 IBS 법률사무소의 AI 상담 어시스턴트입니다. 법률·심리·경영 상담 정보를 수집하고 전문가에게 연결합니다. 항상 한국어로 응답하세요.',
+
+        if (hasAIKey) {
+            try {
+                const lastQuestion = messages[messages.length - 1]?.content || '';
+                const ragContext = buildRAGContext(lastQuestion);
+                const result = await callClaude({
+                    system: `당신은 IBS 법률사무소의 AI 상담 어시스턴트입니다. 법률·심리·경영 상담 정보를 수집하고 전문가에게 연결합니다. 항상 한국어로 응답하세요. 마크다운 형식을 사용하여 깔끔하게 응답하세요.${ragContext}`,
                     messages: messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })),
-                }),
-            });
-            const data = await resp.json();
-            aiResponse = data.content?.[0]?.text || '죄송합니다. 응답 생성 중 문제가 발생했습니다.';
-        } else {
-            await new Promise(r => setTimeout(r, 800));
-            aiResponse = generateMockResponse(messages, consultType);
+                    maxTokens: 1024,
+                });
+                return NextResponse.json({ message: result.text, mock: false, usage: result.usage });
+            } catch (err) {
+                console.error('[chat API] AI 오류, Mock 폴백:', err);
+            }
         }
-        return NextResponse.json({ message: aiResponse, mock: !ANTHROPIC_API_KEY });
+
+        await mockDelay(800);
+        return NextResponse.json({ message: generateMockResponse(messages, consultType), mock: true });
     } catch (err) {
         console.error('[chat API] 오류:', err);
         const message = err instanceof Error ? err.message : '서버 오류';

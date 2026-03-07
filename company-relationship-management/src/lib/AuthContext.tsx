@@ -33,17 +33,13 @@ export const ROLE_REDIRECT = ROLE_HOME;
 
 // ── Provider ──────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [loading, setLoading] = useState(true);
+    // lazy initializer로 초기 세션 로드 (useEffect 내 setState 회피)
+    const [user, setUser] = useState<AuthUser | null>(() => {
+        try { return getSession(); } catch { return null; }
+    });
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        try {
-            // auth.ts의 getSession() 활용 — 직접 localStorage 접근 제거
-            const saved = getSession();
-            if (saved) setUser(saved);
-        } catch { }
-        setLoading(false);
-
         // 다른 탭에서 로그인/로그아웃 시 현재 탭도 즉시 반영
         const onStorage = (e: StorageEvent) => {
             if (e.key !== AUTH_KEY) return;

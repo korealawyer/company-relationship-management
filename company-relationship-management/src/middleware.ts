@@ -6,7 +6,7 @@ const PROTECTED: Record<string, string[]> = {
     '/lawyer': ['super_admin', 'admin', 'sales', 'lawyer'],
     '/litigation': ['super_admin', 'admin', 'sales', 'litigation', 'lawyer'],
     '/client-portal': ['client_hr'],
-    '/consultation': ['client_hr', 'super_admin', 'lawyer'],
+
     '/contracts': ['super_admin', 'lawyer', 'client_hr'],
     '/legal': ['super_admin', 'lawyer', 'client_hr'],
     '/eap': ['client_hr', 'counselor'],
@@ -14,12 +14,15 @@ const PROTECTED: Record<string, string[]> = {
     '/employee': ['sales', 'admin', 'super_admin', 'lawyer', 'litigation'],
     '/company-hr': ['client_hr', 'super_admin'],
     '/dashboard': ['super_admin', 'admin', 'sales', 'lawyer', 'litigation', 'hr', 'general', 'finance', 'counselor', 'client_hr'],
+    '/settings': ['super_admin', 'admin'],
+    '/notifications': ['super_admin', 'admin', 'sales', 'lawyer', 'litigation', 'counselor', 'client_hr'],
+    '/profile': ['super_admin', 'admin', 'sales', 'lawyer', 'litigation', 'counselor', 'client_hr', 'hr', 'general', 'finance'],
 };
 
 // 퍼블릭 경로 (인증 불필요)
 // '/'는 정확 일치만, 나머지는 prefix 매칭 허용
 const PUBLIC_EXACT = ['/', '/chat'];
-const PUBLIC_PREFIX = ['/login', '/pricing', '/sales', '/onboarding', '/signup', '/landing', '/legal'];
+const PUBLIC_PREFIX = ['/login', '/pricing', '/sales', '/onboarding', '/signup', '/landing', '/legal', '/about', '/help'];
 
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
@@ -77,6 +80,9 @@ export const config = {
         '/dashboard/:path*',
         '/counselor/:path*',
         '/employee/:path*',
-        '/consultation/:path*',
+        '/settings/:path*',
+        '/notifications/:path*',
+        '/profile/:path*',
+
     ],
 };

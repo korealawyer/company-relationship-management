@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
                 storeCount: (mapped.storeCount as number) || 0,
                 bizType: (mapped.bizType as string) || '미분류',
                 riskScore: 0,
-                riskLevel: '' as '',
+                riskLevel: '' as const,
                 issueCount: 0,
                 status: 'pending' as LeadStatus,
                 source: 'excel' as const,

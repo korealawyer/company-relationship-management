@@ -1,8 +1,8 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Search, Plus, CheckSquare, Square, ChevronDown, X,
+    Search, Plus, CheckSquare, Square, ChevronDown, ChevronUp, X,
     Building2, Phone, Mail, AlertTriangle, TrendingUp,
     Clock, CheckCircle2, Users, Send, Play, RefreshCw,
     User, FileText, Activity, MessageSquare, Upload,
@@ -15,10 +15,18 @@ import {
 } from '@/lib/leadStore';
 import { dripStore, DRIP_SEQUENCE, type DripMember } from '@/lib/dripStore';
 
+// ── 색상 시스템 (employee 페이지와 동일) ─────────────────────────
+const T = {
+    heading: '#0f172a', body: '#1e293b', sub: '#475569',
+    muted: '#64748b', faint: '#94a3b8',
+    border: '#d1d5db', borderSub: '#e5e7eb',
+    bg: '#f8f9fc', card: '#ffffff', rowHover: '#f1f5f9',
+};
+
 // ── 상태 메타 ─────────────────────────────────────────────
 const STATUS_META: Record<LeadStatus, { label: string; color: string; bg: string; border: string }> = {
     pending: { label: '대기', color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1' },
-    analyzed: { label: '검토완료', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
+    analyzed: { label: '분석완료', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
     sales_confirmed: { label: '영업컨펌', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
     lawyer_confirmed: { label: '변호사컨펌', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
     emailed: { label: '발송완료', color: '#b8960a', bg: '#fefce8', border: '#fde047' },
@@ -72,12 +80,10 @@ function RiskBadge({ level }: { level: string }) {
 }
 
 // ── 일괄 변경 툴바 ────────────────────────────────────────
-function BulkToolbar({ count, onClear, onBulkStatus, onBulkAssign }: {
+function BulkToolbar({ count, onClear, onBulkAssign }: {
     count: number; onClear: () => void;
-    onBulkStatus: (s: LeadStatus) => void;
     onBulkAssign: (l: string) => void;
 }) {
-    const [showStatus, setShowStatus] = useState(false);
     const [showAssign, setShowAssign] = useState(false);
     return (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4 border"
@@ -86,28 +92,7 @@ function BulkToolbar({ count, onClear, onBulkStatus, onBulkAssign }: {
             <span className="font-bold text-sm" style={{ color: '#b8960a' }}>{count}개 선택됨</span>
             <div className="h-5 w-px bg-slate-200" />
             <div className="relative">
-                <button onClick={() => { setShowStatus(v => !v); setShowAssign(false); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border bg-white hover:bg-slate-50 transition-colors"
-                    style={{ color: '#475569', borderColor: '#e2e8f0' }}>
-                    상태 변경 <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {showStatus && (
-                    <div className="absolute top-full left-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
-                        {STATUS_ORDER.map(s => {
-                            const m = STATUS_META[s];
-                            return (
-                                <button key={s} onClick={() => { onBulkStatus(s); setShowStatus(false); }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 transition-colors">
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: m.color }} />
-                                    <span style={{ color: m.color }} className="font-semibold">{m.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-            <div className="relative">
-                <button onClick={() => { setShowAssign(v => !v); setShowStatus(false); }}
+                <button onClick={() => { setShowAssign(v => !v); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border bg-white hover:bg-slate-50 transition-colors"
                     style={{ color: '#475569', borderColor: '#e2e8f0' }}>
                     변호사 배정 <ChevronDown className="w-3.5 h-3.5" />
@@ -131,97 +116,7 @@ function BulkToolbar({ count, onClear, onBulkStatus, onBulkAssign }: {
     );
 }
 
-// ── 리드 추가 모달 ────────────────────────────────────────
-function AddLeadModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
-    const [form, setForm] = useState({
-        companyName: '', contactName: '', contactEmail: '',
-        contactPhone: '', domain: '', privacyUrl: '',
-        storeCount: '', bizType: '',
-    });
-    const [saving, setSaving] = useState(false);
-    const [err, setErr] = useState('');
 
-    const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-
-    const handleSave = () => {
-        if (!form.companyName.trim()) { setErr('회사명을 입력해주세요.'); return; }
-        setSaving(true);
-        const now = new Date().toISOString();
-        const genId = (p: string) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-        const lead: Lead = {
-            id: genId('lead'),
-            companyName: form.companyName.trim(),
-            domain: form.domain.trim(),
-            privacyUrl: form.privacyUrl.trim(),
-            contactName: form.contactName.trim(),
-            contactEmail: form.contactEmail.trim(),
-            contactPhone: form.contactPhone.trim(),
-            contacts: [],
-            storeCount: parseInt(form.storeCount) || 0,
-            bizType: form.bizType.trim() || '기타',
-            riskScore: 0, riskLevel: '', issueCount: 0,
-            status: 'pending',
-            memos: [], timeline: [{ id: genId('t'), createdAt: now, author: '영업팀', type: 'status_change', content: '리드 수동 추가', toStatus: 'pending' }],
-            createdAt: now, updatedAt: now, source: 'manual',
-        };
-        // localStorage 직접 저장 (leadStore와 동일한 키)
-        const existing: Lead[] = JSON.parse(localStorage.getItem('ibs_leads_v1') || '[]');
-        localStorage.setItem('ibs_leads_v1', JSON.stringify([lead, ...existing]));
-        onAdd(); onClose();
-    };
-
-    const fields: { key: string; label: string; placeholder: string; type?: string }[] = [
-        { key: 'companyName', label: '회사명 *', placeholder: '(주)교촌에프앤비' },
-        { key: 'contactName', label: '담당자 이름', placeholder: '홍길동' },
-        { key: 'contactEmail', label: '이메일', placeholder: 'contact@company.com', type: 'email' },
-        { key: 'contactPhone', label: '전화번호', placeholder: '010-1234-5678', type: 'tel' },
-        { key: 'storeCount', label: '가맹점 수', placeholder: '100', type: 'number' },
-        { key: 'bizType', label: '업종', placeholder: '외식업' },
-        { key: 'domain', label: '도메인', placeholder: 'https://company.com' },
-        { key: 'privacyUrl', label: '개인정보처리방침 URL', placeholder: 'https://company.com/privacy' },
-    ];
-
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.4)' }}
-            onClick={onClose}>
-            <motion.div initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
-                className="w-full max-w-lg rounded-2xl p-6"
-                style={{ background: '#ffffff', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}
-                onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-lg font-black" style={{ color: '#0f172a' }}>리드 추가</h2>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" style={{ color: '#94a3b8' }} /></button>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                    {fields.map(f => (
-                        <div key={f.key} className={f.key === 'companyName' || f.key === 'privacyUrl' || f.key === 'domain' ? 'col-span-2' : ''}>
-                            <label className="block text-xs font-bold mb-1" style={{ color: '#475569' }}>{f.label}</label>
-                            <input type={f.type ?? 'text'} value={(form as Record<string, string>)[f.key]}
-                                onChange={e => set(f.key, e.target.value)}
-                                placeholder={f.placeholder}
-                                className="w-full px-3 py-2 rounded-lg border text-sm outline-none transition-colors"
-                                style={{ borderColor: '#e2e8f0', color: '#1e293b' }}
-                                onFocus={e => (e.target.style.borderColor = '#c9a84c')}
-                                onBlur={e => (e.target.style.borderColor = '#e2e8f0')} />
-                        </div>
-                    ))}
-                </div>
-                {err && <p className="text-xs mb-3 font-semibold" style={{ color: '#dc2626' }}>{err}</p>}
-                <div className="flex gap-2">
-                    <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-slate-50"
-                        style={{ borderColor: '#e2e8f0', color: '#64748b' }}>취소</button>
-                    <button onClick={handleSave} disabled={saving}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
-                        style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                        {saving ? '저장 중…' : '추가하기'}
-                    </button>
-                </div>
-            </motion.div>
-        </motion.div>
-    );
-}
 
 // ── 슬라이드 패널: 연락처 탭 ──────────────────────────────
 function ContactTab({ lead, onUpdate }: { lead: Lead; onUpdate: () => void }) {
@@ -733,23 +628,20 @@ function ClauseReviewTab({ lead }: { lead: Lead }) {
 
 // ── 슬라이드 패널 ─────────────────────────────────────────
 const PANEL_TABS = [
-    { key: 'contact', label: '연락처', icon: <User className="w-3.5 h-3.5" /> },
-    { key: 'email', label: '이메일', icon: <Mail className="w-3.5 h-3.5" /> },
+    { key: 'email', label: '이메일 미리보기', icon: <Mail className="w-3.5 h-3.5" /> },
     { key: 'clause', label: '조문 검토', icon: <Gavel className="w-3.5 h-3.5" /> },
-    { key: 'timeline', label: '진행', icon: <Activity className="w-3.5 h-3.5" /> },
-    { key: 'memo', label: '메모', icon: <MessageSquare className="w-3.5 h-3.5" /> },
 ] as const;
 
-function SlidePanel({ lead, onClose, onUpdate, initialTab }: { lead: Lead; onClose: () => void; onUpdate: () => void; initialTab?: 'contact' | 'email' | 'clause' | 'timeline' | 'memo' }) {
-    const [tab, setTab] = useState<'contact' | 'email' | 'clause' | 'timeline' | 'memo'>(initialTab ?? 'contact');
+function SlidePanel({ lead, onClose, onUpdate, initialTab }: { lead: Lead; onClose: () => void; onUpdate: () => void; initialTab?: 'email' | 'clause' }) {
+    const [tab, setTab] = useState<'email' | 'clause'>(initialTab && (initialTab === 'email' || initialTab === 'clause') ? initialTab : 'email');
     const subscription = calcSubscription(lead.storeCount);
 
     return (
         <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="fixed top-0 right-0 h-full w-[520px] shadow-2xl z-50 flex flex-col"
-            style={{ background: '#ffffff', borderLeft: '1px solid #e2e8f0' }}>
+            className="fixed top-0 right-0 h-full shadow-2xl z-50 flex flex-col"
+            style={{ width: '66vw', background: '#ffffff', borderLeft: '1px solid #e2e8f0' }}>
 
             {/* 패널 헤더 - 테이블 컬럼과 동일한 레이아웃 */}
             <div className="border-b" style={{ borderColor: '#e2e8f0' }}>
@@ -818,13 +710,15 @@ function SlidePanel({ lead, onClose, onUpdate, initialTab }: { lead: Lead; onClo
                 ))}
             </div>
 
-            {/* 탭 컨텐츠 */}
-            <div className="flex-1 overflow-y-auto p-5">
-                {tab === 'contact' && <ContactTab lead={lead} onUpdate={onUpdate} />}
-                {tab === 'email' && <EmailPreviewTab lead={lead} />}
-                {tab === 'clause' && <ClauseReviewTab lead={lead} />}
-                {tab === 'timeline' && <TimelineTab lead={lead} onUpdate={onUpdate} />}
-                {tab === 'memo' && <MemoTab lead={lead} onUpdate={onUpdate} />}
+            <div className="flex-1 overflow-hidden">
+                {tab === 'email' && (
+                    <iframe src={`/admin/email-preview?leadId=${lead.id}&company=${encodeURIComponent(lead.companyName)}`}
+                        className="w-full h-full border-none" />
+                )}
+                {tab === 'clause' && (
+                    <iframe src={`/lawyer/privacy-review?leadId=${lead.id}&company=${encodeURIComponent(lead.companyName)}`}
+                        className="w-full h-full border-none" />
+                )}
             </div>
         </motion.div>
     );
@@ -842,10 +736,9 @@ const TYPE_LABEL_DRIP: Record<string, string> = {
 };
 
 function DripTab({ onSelectLead }: { onSelectLead: (leadId: string) => void }) {
-    const [members, setMembers] = useState<DripMember[]>([]);
+    const [members, setMembers] = useState<DripMember[]>(() => dripStore.getAll());
     const [sendingId, setSendingId] = useState<string | null>(null);
-
-    useEffect(() => setMembers(dripStore.getAll()), []);
+    const [nowMs] = useState(() => Date.now());
 
     const sendNow = async (memberId: string, day: number) => {
         setSendingId(`${memberId}_${day} `);
@@ -905,7 +798,7 @@ function DripTab({ onSelectLead }: { onSelectLead: (leadId: string) => void }) {
             ) : (
                 <div className="space-y-3">
                     {members.map(member => {
-                        const daysSince = Math.floor((Date.now() - new Date(member.joinedAt).getTime()) / 86400000);
+                        const daysSince = Math.floor((nowMs - new Date(member.joinedAt).getTime()) / 86400000);
                         const nextEmail = DRIP_SEQUENCE.find(e => !member.sentDays.includes(e.day));
                         return (
                             <div key={member.id}
@@ -976,84 +869,20 @@ function calcSubscription(storeCount: number) {
 
 // ── 메인 페이지 ───────────────────────────────────────────
 export default function LeadsPage() {
-    const [leads, setLeads] = useState<Lead[]>([]);
+    const [leads, setLeads] = useState<Lead[]>(() => leadStore.getAll());
     const [tab, setTab] = useState<'leads' | 'drip'>('leads');
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
     const [filterRisk, setFilterRisk] = useState<string>('all');
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [activePanel, setActivePanel] = useState<Lead | null>(null);
-    const [activePanelTab, setActivePanelTab] = useState<'contact' | 'email' | 'clause' | 'timeline' | 'memo'>('contact');
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [uploadMsg, setUploadMsg] = useState('');
-    const excelInputRef = useRef<HTMLInputElement>(null);
-
-    const [undoVisible, setUndoVisible] = useState(false);
-    const [undoTimer, setUndoTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-
-    const showUndoToast = () => {
-        if (undoTimer) clearTimeout(undoTimer);
-        setUndoVisible(true);
-        const t = setTimeout(() => setUndoVisible(false), 5000);
-        setUndoTimer(t);
-    };
+    const [activePanelTab, setActivePanelTab] = useState<'email' | 'clause'>('email');
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [memoInput, setMemoInput] = useState('');
+    const [pageSize, setPageSize] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const reload = () => setLeads(leadStore.getAll());
-    useEffect(() => { reload(); }, []);
-
-    // ── CSV/엑셀 텍스트 파서 ──────────────────────────────────
-    const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const text = ev.target?.result as string;
-                const lines = text.split(/\r?\n/).filter(Boolean);
-                if (lines.length < 2) { setUploadMsg('데이터가 없습니다.'); return; }
-                // 헤더: 회사명,담당자,이메일,전화,가맹점수,업종,도메인
-                const rows = lines.slice(1).map(line => {
-                    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                    return {
-                        companyName: cols[0] ?? '',
-                        contactName: cols[1] ?? '',
-                        contactEmail: cols[2] ?? '',
-                        contactPhone: cols[3] ?? '',
-                        storeCount: parseInt(cols[4]) || 0,
-                        bizType: cols[5] ?? '기타',
-                        domain: cols[6] ?? '',
-                        privacyUrl: cols[7] ?? '',
-                    };
-                }).filter(r => r.companyName);
-
-                if (rows.length === 0) { setUploadMsg('유효한 행이 없습니다.'); return; }
-
-                const now = new Date().toISOString();
-                const genId = (p: string) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-                const newLeads: Lead[] = rows.map(r => ({
-                    id: genId('lead'),
-                    companyName: r.companyName,
-                    domain: r.domain, privacyUrl: r.privacyUrl,
-                    contactName: r.contactName, contactEmail: r.contactEmail, contactPhone: r.contactPhone,
-                    contacts: [], storeCount: r.storeCount, bizType: r.bizType,
-                    riskScore: 0, riskLevel: '' as const, issueCount: 0, status: 'pending' as LeadStatus,
-                    memos: [],
-                    timeline: [{ id: genId('t'), createdAt: now, author: '시스템', type: 'status_change' as const, content: 'CSV 업로드', toStatus: 'pending' as LeadStatus }],
-                    createdAt: now, updatedAt: now, source: 'excel' as const,
-                }));
-
-                const existing = leadStore.getAll();
-                localStorage.setItem('ibs_leads_v1', JSON.stringify([...newLeads, ...existing]));
-                reload();
-                setUploadMsg(`✅ ${rows.length}건 업로드 완료`);
-                setTimeout(() => setUploadMsg(''), 3000);
-            } catch {
-                setUploadMsg('파일 파싱 오류. CSV 형식을 확인해주세요.');
-            }
-            e.target.value = '';
-        };
-        reader.readAsText(file, 'UTF-8');
-    };
 
     const filtered = leads.filter(l => {
         const q = search.toLowerCase();
@@ -1070,16 +899,13 @@ export default function LeadsPage() {
     };
     const toggleAll = () => setSelected(selected.size === filtered.length ? new Set() : new Set(filtered.map(l => l.id)));
 
-    const handleBulkStatus = (status: LeadStatus) => {
-        selected.forEach(id => leadStore.updateStatus(id, status, '영업팀'));
-        reload(); setSelected(new Set()); showUndoToast();
-    };
+
     const handleBulkAssign = (lawyer: string) => {
         selected.forEach(id => leadStore.update(id, { assignedLawyer: lawyer }));
-        reload(); setSelected(new Set()); showUndoToast();
+        reload(); setSelected(new Set());
     };
 
-    const openPanel = (lead: Lead, tab?: 'contact' | 'email' | 'clause' | 'timeline' | 'memo') => { setActivePanelTab(tab ?? 'contact'); setActivePanel(lead); };
+    const openPanel = (lead: Lead, tab?: 'email' | 'clause') => { setActivePanelTab(tab ?? 'email'); setActivePanel(lead); };
     const closePanel = () => setActivePanel(null);
     const updatePanel = () => { reload(); if (activePanel) setActivePanel(leadStore.getById(activePanel.id) ?? null); };
 
@@ -1092,119 +918,107 @@ export default function LeadsPage() {
     };
 
     return (
-        <div className="min-h-screen px-4 py-8" style={{ background: '#f8f9fc' }}>
+        <div className="min-h-screen px-4 py-8 max-w-[1600px] mx-auto" style={{ background: T.bg }}>
 
-            {/* 실행 취소 토스트 */}
-            <AnimatePresence>
-                {undoVisible && (
-                    <motion.div
-                        key="undo-toast-leads"
-                        initial={{ opacity: 0, y: 24, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 24, scale: 0.95 }}
-                        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl"
-                        style={{ background: '#1e293b', border: '1px solid #334155', minWidth: 240 }}>
-                        <span className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>변경이 적용됐어요</span>
-                        <button
-                            onClick={() => {
-                                leadStore.undo();
-                                reload();
-                                if (activePanel) setActivePanel(leadStore.getById(activePanel.id) ?? null);
-                                setUndoVisible(false);
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:opacity-90"
-                            style={{ background: '#c9a84c', color: '#0a0e1a' }}>
-                            <RotateCcw className="w-3.5 h-3.5" />실행 취소
-                        </button>
-                        <button onClick={() => setUndoVisible(false)} style={{ color: '#64748b' }}>
-                            <X className="w-4 h-4" />
-                        </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
-            <div className={`mx-auto px-4 transition-all duration-300 ${activePanel ? 'max-w-[calc(100%-496px)]' : 'max-w-[1600px]'}`}>
 
-                {/* 헤더 */}
-                <div className="mb-6">
-                    <div className="flex items-start justify-between py-5">
-                        <div>
-                            <h1 className="admin-page-title">영업 리드</h1>
-                            <p className="text-base mt-1" style={{ color: '#64748b' }}>프랜차이즈 본사 잠재 고객 관리</p>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                            {/* 숨겨진 파일 input (CSV/엑셀) */}
-                            <input ref={excelInputRef} type="file" accept=".csv,.xlsx,.xls"
-                                className="hidden" onChange={handleExcelUpload} />
-                            {uploadMsg && <span className="text-xs font-semibold" style={{ color: '#16a34a' }}>{uploadMsg}</span>}
-                            <button
-                                onClick={() => excelInputRef.current?.click()}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition-colors" style={{ color: '#475569' }}>
-                                <Upload className="w-4 h-4" /> 엑셀 업로드
-                            </button>
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors"
-                                style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                                <Plus className="w-4 h-4" /> 리드 추가
-                            </button>
-                        </div>
+            <div className={`transition-all duration-300 ${activePanel ? 'mr-[66vw]' : ''}`}>
+
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 className="text-2xl font-black" style={{ color: T.heading }}>📋 영업 현황판</h1>
+                        <p className="text-sm mt-0.5" style={{ color: T.muted }}>
+                            영업 파이프라인 모니터링 · 관리자 전용 | {leads.length}개 리드
+                        </p>
                     </div>
+                </div>
 
-                    {/* 요약 KPI */}
-                    <div className="grid grid-cols-4 gap-3 mb-5">
-                        {[
-                            { label: '전체 리드', value: counts.total, color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
-                            { label: '위험 건수', value: counts.high, color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
-                            { label: '신규 대기', value: counts.pending, color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1' },
-                            { label: '계약 완료', value: counts.contracted, color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
-                        ].map(k => (
-                            <div key={k.label} className="admin-card p-4 flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black"
-                                    style={{ background: k.bg, color: k.color }}>
-                                    {k.value}
-                                </div>
-                                <span className="text-sm font-semibold" style={{ color: '#475569' }}>{k.label}</span>
+                {/* 요약 KPI */}
+                <div className="grid grid-cols-4 gap-3 mb-5">
+                    {[
+                        { label: '전체 리드', value: counts.total, color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
+                        { label: '위험 건수', value: counts.high, color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+                        { label: '신규 대기', value: counts.pending, color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1' },
+                        { label: '계약 완료', value: counts.contracted, color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+                    ].map(k => (
+                        <div key={k.label} className="p-4 flex items-center gap-3 rounded-xl"
+                            style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-black"
+                                style={{ background: k.bg, color: k.color }}>
+                                {k.value}
                             </div>
-                        ))}
-                    </div>
+                            <span className="text-sm font-semibold" style={{ color: T.sub }}>{k.label}</span>
+                        </div>
+                    ))}
+                </div>
 
-                    {/* 탭 */}
-                    <div className="flex gap-1 mb-4">
-                        {([['leads', '📋 리드 목록'], ['drip', '📧 드립 캠페인']] as const).map(([k, label]) => (
-                            <button key={k} onClick={() => setTab(k)}
-                                className="px-4 py-2 rounded-xl text-sm font-bold transition-colors"
-                                style={{ background: tab === k ? '#ffffff' : 'transparent', color: tab === k ? '#1e293b' : '#94a3b8', boxShadow: tab === k ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', border: tab === k ? '1px solid #e2e8f0' : '1px solid transparent' }}>
-                                {label}
-                            </button>
-                        ))}
-                    </div>
+                {/* 탭 */}
+                <div className="flex gap-1 mb-4">
+                    {([['leads', '📋 리드 목록'], ['drip', '📧 드립 캠페인']] as const).map(([k, label]) => (
+                        <button key={k} onClick={() => setTab(k)}
+                            className="px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+                            style={{ background: tab === k ? T.card : 'transparent', color: tab === k ? T.body : T.faint, boxShadow: tab === k ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', border: tab === k ? `1px solid ${T.border}` : '1px solid transparent' }}>
+                            {label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* 리드 목록 탭 */}
                 {tab === 'leads' && (
                     <div>
-                        {/* 필터 + 검색 */}
-                        <div className="admin-card p-4 mb-4">
-                            <div className="grid grid-cols-4 gap-3">
-                                <div className="relative col-span-2">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#94a3b8' }} />
-                                    <input value={search} onChange={e => setSearch(e.target.value)}
-                                        placeholder="회사명, 담당자명 검색..."
-                                        className="input-white pl-9 text-base w-full" style={{ background: '#f8fafc' }} />
-                                </div>
-                                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as LeadStatus | 'all')}
-                                    className="input-white px-3 text-base" style={{ background: '#f8fafc' }}>
-                                    <option value="all">전체 상태</option>
-                                    {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+                        {/* 파이프라인 필터 */}
+                        <div className="mb-5 overflow-x-auto pb-1">
+                            <div className="flex gap-1 min-w-max items-center">
+                                <button onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                                    style={{ background: filterStatus === 'all' ? '#fffbeb' : T.card, border: `1px solid ${filterStatus === 'all' ? '#fde68a' : T.border}`, color: filterStatus === 'all' ? '#b8960a' : T.sub }}>
+                                    전체 <span>{leads.length}</span>
+                                </button>
+                                {STATUS_ORDER.filter(s => s !== 'failed').map(s => {
+                                    const cnt = leads.filter(l => l.status === s).length;
+                                    const m = STATUS_META[s];
+                                    return (
+                                        <React.Fragment key={s}>
+                                            <ChevronDown className="w-3 h-3 -rotate-90 flex-shrink-0" style={{ color: T.faint }} />
+                                            <button onClick={() => { setFilterStatus(s); setCurrentPage(1); }}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                                                style={{ background: filterStatus === s ? m.bg : T.card, border: `1px solid ${filterStatus === s ? m.color + '60' : T.border}`, color: filterStatus === s ? m.color : T.sub }}>
+                                                {m.label} <span>{cnt}</span>
+                                            </button>
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 검색 + 위험도 필터 + 보기개수 */}
+                        <div className="mb-4 flex gap-3 items-center">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T.faint }} />
+                                <input value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                                    placeholder="회사명, 담당자명, 이메일 검색..."
+                                    className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm font-medium"
+                                    style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} />
+                            </div>
+                            <select value={filterRisk} onChange={e => { setFilterRisk(e.target.value); setCurrentPage(1); }}
+                                className="px-3 py-2.5 rounded-xl text-sm font-medium"
+                                style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none' }}>
+                                <option value="all">위험도 전체</option>
+                                <option value="HIGH">위험</option>
+                                <option value="MEDIUM">주의</option>
+                                <option value="LOW">양호</option>
+                            </select>
+                            <div className="flex items-center gap-2">
+                                <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="px-2 py-2 rounded-xl text-xs font-bold"
+                                    style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none' }}>
+                                    {[10, 20, 50, 100].map(n => (
+                                        <option key={n} value={n}>{n}개씩</option>
+                                    ))}
                                 </select>
-                                <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
-                                    className="input-white px-3 text-base" style={{ background: '#f8fafc' }}>
-                                    <option value="all">위험도 전체</option>
-                                    <option value="HIGH">위험</option>
-                                    <option value="MEDIUM">주의</option>
-                                    <option value="LOW">양호</option>
-                                </select>
+                                <span className="text-xs whitespace-nowrap" style={{ color: T.faint }}>
+                                    {filtered.length}건 중 {Math.min((currentPage - 1) * pageSize + 1, filtered.length)}–{Math.min(currentPage * pageSize, filtered.length)}
+                                </span>
                             </div>
                         </div>
 
@@ -1212,106 +1026,175 @@ export default function LeadsPage() {
                         <AnimatePresence>
                             {selected.size > 0 && (
                                 <BulkToolbar count={selected.size} onClear={() => setSelected(new Set())}
-                                    onBulkStatus={handleBulkStatus} onBulkAssign={handleBulkAssign} />
+                                    onBulkAssign={handleBulkAssign} />
                             )}
                         </AnimatePresence>
 
                         {/* 테이블 */}
-                        <div className="admin-card overflow-hidden">
-                            <table className="w-full">
+                        <div className="rounded-2xl overflow-hidden" style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
+                            <table className="w-full text-sm">
                                 <thead>
-                                    <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                                        <th className="px-4 py-3 text-left">
-                                            <button onClick={toggleAll} style={{ color: '#94a3b8' }}>
+                                    <tr style={{ background: '#f8f9fc', borderBottom: `2px solid ${T.border}` }}>
+                                        <th className="px-3 py-3 text-left">
+                                            <button onClick={toggleAll} style={{ color: T.faint }}>
                                                 {selected.size === filtered.length && filtered.length > 0
                                                     ? <CheckSquare className="w-4 h-4" style={{ color: '#6366f1' }} />
                                                     : <Square className="w-4 h-4" />}
                                             </button>
                                         </th>
-                                        {['회사명', '위험도', '가맹점', '이슈', '상태', '담당 변호사', '전화번호', '메모', '빠른 작업', ''].map(h => (
-                                            <th key={h} className="px-4 py-3 text-left admin-label whitespace-nowrap">{h}</th>
+                                        {['회사명', '위험도', '가맹점', '이슈', '상태', '영업컨펌', '담당 변호사', '전화번호', '메모', '상세'].map(h => (
+                                            <th key={h} className="py-3 px-3 text-left text-xs font-black whitespace-nowrap tracking-wide" style={{ color: '#b8960a' }}>{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filtered.map((lead, i) => (
-                                        <tr key={lead.id}
-                                            onClick={() => openPanel(lead)}
-                                            className="cursor-pointer transition-colors hover:bg-slate-50"
-                                            style={{ borderBottom: i < filtered.length - 1 ? '1px solid #e5e7eb' : 'none', background: selected.has(lead.id) ? '#eef2ff' : undefined }}>
-                                            <td className="px-4 py-3.5" onClick={e => { e.stopPropagation(); toggleSelect(lead.id); }}>
-                                                {selected.has(lead.id)
-                                                    ? <CheckSquare className="w-4 h-4" style={{ color: '#6366f1' }} />
-                                                    : <Square className="w-4 h-4" style={{ color: '#cbd5e1' }} />}
-                                            </td>
-                                            <td className="px-4 py-3.5">
-                                                <p className="font-bold text-base" style={{ color: '#1e293b' }}>{lead.companyName}</p>
-                                                <p className="text-sm font-medium" style={{ color: '#374151' }}>{lead.contactName} · {lead.contactEmail}</p>
-                                            </td>
-                                            <td className="px-4 py-3.5"><RiskBadge level={lead.riskLevel} /></td>
-                                            <td className="px-4 py-3.5 text-base font-semibold" style={{ color: '#475569' }}>{lead.storeCount.toLocaleString()}개</td>
-                                            <td className="px-4 py-3.5">
-                                                <span className="text-base font-bold" style={{ color: lead.issueCount >= 4 ? '#dc2626' : '#d97706' }}>{lead.issueCount}건</span>
-                                            </td>
-                                            <td className="px-4 py-3.5"><StatusBadge status={lead.status} /></td>
-                                            <td className="px-4 py-3.5 text-sm font-semibold" style={{ color: '#6b7280' }}>{lead.assignedLawyer ?? '—'}</td>
-                                            {/* 전화번호 */}
-                                            <td className="px-4 py-3.5">
-                                                {lead.contactPhone ? (
-                                                    <a href={`tel:${lead.contactPhone}`}
-                                                        className="flex items-center gap-1 text-sm font-medium whitespace-nowrap"
-                                                        style={{ color: '#2563eb' }}
-                                                        onClick={e => e.stopPropagation()}>
-                                                        <Phone className="w-3.5 h-3.5 flex-shrink-0" />
-                                                        {lead.contactPhone}
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-sm" style={{ color: '#cbd5e1' }}>—</span>
+                                    {(() => {
+                                        const start = (currentPage - 1) * pageSize;
+                                        const paginated = filtered.slice(start, start + pageSize);
+                                        return paginated.map((lead, i) => (
+                                            <React.Fragment key={lead.id}>
+                                                <tr
+                                                    className="transition-colors"
+                                                    style={{ borderBottom: `1px solid ${T.borderSub}`, background: selected.has(lead.id) ? '#eef2ff' : undefined }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = selected.has(lead.id) ? '#eef2ff' : T.rowHover)}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = selected.has(lead.id) ? '#eef2ff' : 'transparent')}>
+                                                    <td className="px-4 py-3.5" onClick={e => { e.stopPropagation(); toggleSelect(lead.id); }}>
+                                                        {selected.has(lead.id)
+                                                            ? <CheckSquare className="w-4 h-4" style={{ color: '#6366f1' }} />
+                                                            : <Square className="w-4 h-4" style={{ color: '#cbd5e1' }} />}
+                                                    </td>
+                                                    <td className="py-3.5 px-3">
+                                                        <div>
+                                                            <p className="font-black text-sm" style={{ color: T.body }}>{lead.companyName}</p>
+                                                            <p className="text-[10px] mt-0.5" style={{ color: T.muted }}>{lead.contactName} · {lead.contactEmail}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3.5 px-3"><RiskBadge level={lead.riskLevel} /></td>
+                                                    <td className="py-3.5 px-3">
+                                                        <span className="text-xs font-black" style={{ color: T.body }}>{lead.storeCount.toLocaleString()}</span>
+                                                    </td>
+                                                    <td className="py-3.5 px-3">
+                                                        <span className="text-xs font-black" style={{ color: lead.issueCount >= 4 ? '#dc2626' : lead.issueCount >= 2 ? '#d97706' : '#16a34a' }}>{lead.issueCount}건</span>
+                                                    </td>
+                                                    <td className="py-3.5 px-3"><StatusBadge status={lead.status} /></td>
+                                                    {/* 영업컨펌 담당자 */}
+                                                    <td className="py-3.5 px-3">
+                                                        <span className="text-xs font-semibold" style={{ color: T.muted }}>{(lead as unknown as Record<string, string>).salesConfirmedBy ?? '—'}</span>
+                                                    </td>
+                                                    <td className="py-3.5 px-3 text-xs font-semibold" style={{ color: T.muted }}>{lead.assignedLawyer ?? '—'}</td>
+                                                    {/* 전화번호 */}
+                                                    <td className="py-3.5 px-3">
+                                                        {lead.contactPhone ? (
+                                                            <a href={`tel:${lead.contactPhone}`}
+                                                                className="flex items-center gap-1 text-xs font-medium whitespace-nowrap"
+                                                                style={{ color: '#2563eb' }}
+                                                                onClick={e => e.stopPropagation()}>
+                                                                <Phone className="w-3 h-3 flex-shrink-0" />
+                                                                {lead.contactPhone}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-xs" style={{ color: T.faint }}>—</span>
+                                                        )}
+                                                    </td>
+                                                    {/* 메모 (최신순) */}
+                                                    <td className="py-3.5 px-3" style={{ maxWidth: 140 }}>
+                                                        {lead.memos.length > 0 ? (
+                                                            <p className="text-xs truncate" style={{ color: T.sub, maxWidth: 140 }}
+                                                                title={lead.memos[lead.memos.length - 1].content}>
+                                                                {lead.memos[lead.memos.length - 1].content}
+                                                            </p>
+                                                        ) : (
+                                                            <span className="text-xs" style={{ color: T.faint }}>—</span>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="py-3.5 px-3">
+                                                        <button
+                                                            onClick={e => { e.stopPropagation(); setExpandedId(expandedId === lead.id ? null : lead.id); }}
+                                                            className="p-2 rounded-xl transition-colors"
+                                                            style={{
+                                                                background: expandedId === lead.id ? '#eef2ff' : '#f8f9fc',
+                                                                border: `1px solid ${expandedId === lead.id ? '#c7d2fe' : '#e5e7eb'}`,
+                                                            }}
+                                                            title={expandedId === lead.id ? '접기' : '펼치기'}>
+                                                            {expandedId === lead.id
+                                                                ? <ChevronUp className="w-5 h-5" style={{ color: '#6366f1' }} />
+                                                                : <ChevronDown className="w-5 h-5" style={{ color: '#64748b' }} />}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {/* 확장 행 */}
+                                                {expandedId === lead.id && (
+                                                    <tr style={{ background: '#f8fafc' }}>
+                                                        <td colSpan={11} className="px-4 py-3" style={{ borderBottom: `1px solid ${T.borderSub}` }}>
+                                                            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                                                                <div className="flex gap-2">
+                                                                    <textarea rows={3} value={memoInput} onChange={e => setMemoInput(e.target.value)}
+                                                                        placeholder="메모 입력..."
+                                                                        className="flex-1 px-3 py-2 rounded-lg text-xs resize-none"
+                                                                        style={{ border: `1px solid ${T.border}`, outline: 'none', color: T.body }} />
+                                                                    <button onClick={() => {
+                                                                        if (!memoInput.trim()) return;
+                                                                        const now = new Date().toISOString();
+                                                                        const newMemo = { id: `m_${Date.now()}`, content: memoInput.trim(), author: '관리자', createdAt: now };
+                                                                        leadStore.update(lead.id, { memos: [...lead.memos, newMemo] });
+                                                                        setMemoInput('');
+                                                                        reload();
+                                                                    }}
+                                                                        className="self-stretch px-4 rounded-lg text-xs font-bold"
+                                                                        style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#0a0e1a' }}>
+                                                                        추가
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
                                                 )}
-                                            </td>
-                                            {/* 메모 (최신순) */}
-                                            <td className="px-4 py-3.5" style={{ maxWidth: 160 }}>
-                                                {lead.memos.length > 0 ? (
-                                                    <p className="text-sm truncate" style={{ color: '#475569', maxWidth: 160 }}
-                                                        title={lead.memos[lead.memos.length - 1].content}>
-                                                        {lead.memos[lead.memos.length - 1].content}
-                                                    </p>
-                                                ) : (
-                                                    <span className="text-sm" style={{ color: '#cbd5e1' }}>—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3.5">
-                                                <div className="flex items-center gap-1">
-                                                    <Link href={`/lawyer/privacy-review?leadId=${lead.id}&company=${encodeURIComponent(lead.companyName)}`}
-                                                        onClick={e => e.stopPropagation()}
-                                                        className="p-1.5 rounded-lg hover:bg-indigo-50 transition-colors group" title="조문 검토">
-                                                        <Gavel className="w-3.5 h-3.5" style={{ color: '#94a3b8' }} />
-                                                    </Link>
-                                                    <button onClick={e => { e.stopPropagation(); openPanel(lead, 'email'); }}
-                                                        className="p-1.5 rounded-lg hover:bg-amber-50 transition-colors group" title="이메일 발송">
-                                                        <Mail className="w-3.5 h-3.5" style={{ color: '#94a3b8' }} />
-                                                    </button>
-                                                    <button onClick={e => { e.stopPropagation(); openPanel(lead, 'memo'); }}
-                                                        className="p-1.5 rounded-lg hover:bg-green-50 transition-colors group" title="메모">
-                                                        <MessageSquare className="w-3.5 h-3.5" style={{ color: '#94a3b8' }} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3.5">
-                                                <ChevronDown className="w-4 h-4 -rotate-90" style={{ color: '#cbd5e1' }} />
-                                            </td>
-                                        </tr>
-                                    ))}
+                                            </React.Fragment>
+                                        ));
+                                    })()}
                                 </tbody>
                             </table>
                             {filtered.length === 0 && (
-                                <div className="text-center py-16" style={{ color: '#94a3b8' }}>
-                                    <AlertTriangle className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                    <p className="font-semibold">검색 결과가 없습니다</p>
+                                <div className="text-center py-16" style={{ color: T.faint }}>
+                                    <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                    <p className="font-medium">검색 결과가 없습니다</p>
+                                </div>
+                            )}
+
+                            {/* 페이지 전환 */}
+                            {filtered.length > 0 && Math.ceil(filtered.length / pageSize) > 1 && (
+                                <div className="flex items-center justify-center py-3" style={{ borderTop: `1px solid ${T.borderSub}` }}>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}
+                                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-30"
+                                            style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body }}>
+                                            ← 이전
+                                        </button>
+                                        {Array.from({ length: Math.ceil(filtered.length / pageSize) }, (_, i) => i + 1).slice(
+                                            Math.max(0, currentPage - 3), currentPage + 2
+                                        ).map(p => (
+                                            <button key={p} onClick={() => setCurrentPage(p)}
+                                                className="w-8 h-8 rounded-lg text-xs font-bold transition-colors"
+                                                style={{
+                                                    background: p === currentPage ? '#eef2ff' : 'transparent',
+                                                    border: p === currentPage ? '1px solid #c7d2fe' : '1px solid transparent',
+                                                    color: p === currentPage ? '#6366f1' : T.muted,
+                                                }}>
+                                                {p}
+                                            </button>
+                                        ))}
+                                        <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(filtered.length / pageSize), p + 1))}
+                                            disabled={currentPage >= Math.ceil(filtered.length / pageSize)}
+                                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-30"
+                                            style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body }}>
+                                            다음 →
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
-                        <p className="text-sm mt-2 text-right" style={{ color: '#94a3b8' }}>
+                        <p className="text-xs mt-2 text-right font-medium" style={{ color: T.faint }}>
                             총 {filtered.length}건{selected.size > 0 && ` · ${selected.size}개 선택`}
                         </p>
                     </div>
@@ -1333,12 +1216,6 @@ export default function LeadsPage() {
                 )}
             </AnimatePresence>
 
-            {/* 리드 추가 모달 */}
-            <AnimatePresence>
-                {showAddModal && (
-                    <AddLeadModal onClose={() => setShowAddModal(false)} onAdd={reload} />
-                )}
-            </AnimatePresence>
-        </div>
+        </div >
     );
 }

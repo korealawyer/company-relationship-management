@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users, MessageSquare, Clock, ShieldCheck, Building2, Download,
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
     getSession, getPendingByCompany, approvePending,
-    rejectPending, type PendingMember
+    rejectPending, requestAffiliation, type PendingMember
 } from '@/lib/auth';
 
 // ── 목업 데이터 ────────────────────────────────────────────
@@ -73,20 +73,18 @@ function StatCard({ icon, label, value, sub, color }: {
 export default function CompanyHRPage() {
     const [tab, setTab] = useState<'stats' | 'members'>('stats');
     const [period, setPeriod] = useState('6개월');
-    const [pending, setPending] = useState<PendingMember[]>([]);
-    const [companyId, setCompanyId] = useState('c2'); // 기본값
+    const [pending, setPending] = useState<PendingMember[]>(() => getPendingByCompany((() => {
+        const s = getSession();
+        return s?.companyId ?? 'c2';
+    })()));
+    const [companyId] = useState(() => {
+        const s = getSession();
+        return s?.companyId ?? 'c2';
+    });
 
     const maxBar = Math.max(...MONTHLY.map(m => m.total));
 
-    // 세션에서 companyId 가져오기
-    useEffect(() => {
-        const s = getSession();
-        if (s?.companyId) setCompanyId(s.companyId);
-    }, []);
-
-    const loadPending = () => setPending(getPendingByCompany(companyId));
-
-    useEffect(() => { loadPending(); }, [companyId]);
+    const loadPending = useCallback(() => setPending(getPendingByCompany(companyId)), [companyId]);
 
     const pendingCount = pending.filter(p => p.status === 'pending').length;
 
@@ -95,7 +93,6 @@ export default function CompanyHRPage() {
 
     // 목업 pending 추가 (테스트용)
     const addMockPending = () => {
-        const { requestAffiliation } = require('@/lib/auth');
         requestAffiliation({ name: '김가맹점주', email: 'test@franchise.com', phone: '010-1234-5678', companyId, companyName: COMPANY.name, message: '교촌 서초점 점주입니다' });
         loadPending();
     };
@@ -303,7 +300,7 @@ export default function CompanyHRPage() {
                                 <div>
                                     <p className="text-sm font-black" style={{ color: '#f0f4ff' }}>소속 가입 신청 관리</p>
                                     <p className="text-xs mt-0.5" style={{ color: 'rgba(240,244,255,0.35)' }}>
-                                        회원가입 시 "소속 신청"을 선택한 구성원 목록입니다. 본인 확인 후 승인해주세요.
+                                        회원가입 시 {"\""}소속 신청{"\""} 을 선택한 구성원 목록입니다. 본인 확인 후 승인해주세요.
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
@@ -344,7 +341,7 @@ export default function CompanyHRPage() {
                                 <div className="text-center py-16 rounded-2xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                                     <Users className="w-10 h-10 mx-auto mb-3" style={{ color: 'rgba(240,244,255,0.15)' }} />
                                     <p className="text-sm font-black mb-1" style={{ color: 'rgba(240,244,255,0.3)' }}>소속 신청이 없습니다</p>
-                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.18)' }}>구성원이 가입 시 "소속 신청"을 선택하면 여기 표시됩니다.</p>
+                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.18)' }}>구성원이 가입 시 {"\""} 소속 신청{"\""} 을 선택하면 여기 표시됩니다.</p>
                                     <button onClick={addMockPending} className="mt-4 px-4 py-2 rounded-lg text-xs font-bold"
                                         style={{ background: 'rgba(201,168,76,0.08)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.15)' }}>
                                         테스트 데이터 추가해보기
@@ -371,7 +368,7 @@ export default function CompanyHRPage() {
                                                 <p className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>{p.email}{p.phone && ` · ${p.phone}`}</p>
                                                 {p.message && (
                                                     <p className="text-[11px] mt-1 px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(240,244,255,0.5)' }}>
-                                                        "{p.message}"
+                                                        {"\""}{p.message}{"\""}
                                                     </p>
                                                 )}
                                                 <p className="text-[10px] mt-1" style={{ color: 'rgba(240,244,255,0.2)' }}>

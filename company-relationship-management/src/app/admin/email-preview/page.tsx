@@ -85,9 +85,10 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string): st
 
 export default function EmailPreviewPage({
     searchParams,
-}: { searchParams: Promise<{ leadId?: string }> }) {
+}: { searchParams: Promise<{ leadId?: string; embed?: string }> }) {
     const params = React.use(searchParams);
     const leadId = params.leadId || 'lead_001';
+    const isEmbed = params.embed === 'true';
     const lead = leadStore.getById(leadId);
     const sub = calcSubscription(lead?.storeCount || 0);
 
@@ -126,49 +127,51 @@ export default function EmailPreviewPage({
     };
 
     return (
-        <div className="min-h-screen px-4 py-8 max-w-[1600px] mx-auto" style={{ background: '#f8f9fc' }}>
-            {/* 상단 헤더 */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <Link href="/admin/leads">
-                        <button className="flex items-center gap-1.5 text-sm font-medium rounded-lg px-3 py-1.5 transition-colors hover:bg-slate-100" style={{ color: '#64748b' }}>
-                            <ArrowLeft className="w-4 h-4" /> 리드 목록
-                        </button>
-                    </Link>
-                    <div className="h-5 w-px" style={{ background: '#d1d5db' }} />
-                    <div>
-                        <span className="text-base font-black" style={{ color: '#1e293b' }}>이메일 미리보기 — {lead?.companyName}</span>
-                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
-                            {lead?.riskLevel} {lead?.issueCount}건
-                        </span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    {/* 뷰 토글 */}
-                    <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #d1d5db' }}>
-                        {(['desktop', 'mobile'] as const).map(m => (
-                            <button key={m} onClick={() => setViewMode(m)}
-                                className="px-3 py-1.5 text-xs font-bold transition-colors"
-                                style={{ background: viewMode === m ? '#fffbeb' : '#ffffff', color: viewMode === m ? '#b8960a' : '#94a3b8', borderRight: m === 'desktop' ? '1px solid #d1d5db' : 'none' }}>
-                                {m === 'desktop' ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
+        <div className={isEmbed ? 'px-2 py-3' : 'min-h-screen px-4 py-8 max-w-[1600px] mx-auto'} style={{ background: '#f8f9fc' }}>
+            {/* 상단 헤더 — embed 시 숨김 */}
+            {!isEmbed && (
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                        <Link href="/admin/leads">
+                            <button className="flex items-center gap-1.5 text-sm font-medium rounded-lg px-3 py-1.5 transition-colors hover:bg-slate-100" style={{ color: '#64748b' }}>
+                                <ArrowLeft className="w-4 h-4" /> 리드 목록
                             </button>
-                        ))}
-                    </div>
-                    {sent ? (
-                        <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold"
-                            style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac' }}>
-                            <CheckCircle2 className="w-4 h-4" /> 발송 완료!
+                        </Link>
+                        <div className="h-5 w-px" style={{ background: '#d1d5db' }} />
+                        <div>
+                            <span className="text-base font-black" style={{ color: '#1e293b' }}>이메일 미리보기 — {lead?.companyName}</span>
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+                                {lead?.riskLevel} {lead?.issueCount}건
+                            </span>
                         </div>
-                    ) : (
-                        <button onClick={handleSend} disabled={sending}
-                            className="flex items-center gap-2 px-5 py-2 rounded-lg font-black text-sm disabled:opacity-50"
-                            style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#0a0e1a' }}>
-                            {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                            발송 확정
-                        </button>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {/* 뷰 토글 */}
+                        <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #d1d5db' }}>
+                            {(['desktop', 'mobile'] as const).map(m => (
+                                <button key={m} onClick={() => setViewMode(m)}
+                                    className="px-3 py-1.5 text-xs font-bold transition-colors"
+                                    style={{ background: viewMode === m ? '#fffbeb' : '#ffffff', color: viewMode === m ? '#b8960a' : '#94a3b8', borderRight: m === 'desktop' ? '1px solid #d1d5db' : 'none' }}>
+                                    {m === 'desktop' ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
+                                </button>
+                            ))}
+                        </div>
+                        {sent ? (
+                            <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold"
+                                style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #86efac' }}>
+                                <CheckCircle2 className="w-4 h-4" /> 발송 완료!
+                            </div>
+                        ) : (
+                            <button onClick={handleSend} disabled={sending}
+                                className="flex items-center gap-2 px-5 py-2 rounded-lg font-black text-sm disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#0a0e1a' }}>
+                                {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                발송 확정
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* 메인 레이아웃 */}
             <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 160px)' }}>

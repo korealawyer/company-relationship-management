@@ -1,196 +1,245 @@
 # 코드 리뷰 보고서 — IBS CRM
 
-> **검토일**: 2026-03-06  06:00~07:30
-> **프로젝트**: `company-relationship-management`
-> **검토 범위**: `src/app/employee`, `src/app/admin/leads`, `src/app/litigation`, `src/lib/leadStore`, `src/app/api/email`, `.env.local`
-> **상태**: ✅ 전체 수정 완료 · 서버 정상 동작 확인
+> **검토일**: 2026-03-06  09:00~20:30
+> **프로젝트**: `company-relationship-management`  
+> **검토 범위**: `src/` 전체 — 12개 파일, +2,097 / -1,391줄 변경  
+> **상태**: ✅ 전체 수정 완료 · `next build` 성공 확인
 
 ---
 
 ## 수정 요약
 
-| 분류 | 건수 | 설명 |
+| 등급 | 건수 | 설명 |
 |------|------|------|
-| 🔧 기능 개선 | 3건 | 이메일 발송, 실행 취소, RBAC |
-| 🐛 버그 수정 | 2건 | 글자 깨짐, .env.local 경로 오류 |
-| 🔐 권한 제어 | 1건 | 영업팀 소송 대시보드 읽기 전용 |
+| � CRITICAL | 0건 | — |
+| 🟠 HIGH | 3건 | 기능 대폭 추가/리팩토링 |
+| � MEDIUM | 6건 | 레이아웃 통일 + UX 개선 |
+| � LOW | 3건 | 데이터 확장 + 스타일 정리 |
 
 ---
 
-## 🐛 버그 수정 (2건)
+## � HIGH — 주요 기능 추가/변경 (3건)
 
-### 1. .env.local 경로 오류 → SMTP Mock 모드 고착
+### 1. 영업 CRM 페이지 대폭 확장 (employee)
 
-**파일**: `.env.local`
+**파일**: `src/app/employee/page.tsx` (+1,026줄 대규모 리팩토링)
 
-**문제**: `.env.local`이 상위 폴더(`company-relationship-management/`)에만 존재하고, 실제 Next.js 프로젝트 루트(`company-relationship-management/company-relationship-management/`)에 없어서 환경변수(`SMTP_*`)를 읽지 못함 → 이메일 API가 항상 Mock 모드로 동작.
-
-**수정**: `.env.local`을 Next.js 프로젝트 루트로 복사.
-
-```bash
-Copy-Item ".env.local" "company-relationship-management/.env.local" -Force
-```
-
-**검증**: API 응답 `mock: False` + 서버 로그 `[email] ✅ 실 발송 완료 | from: IBS 법률사무소 <dhk@ibslaw.co.kr>` 확인.
-
----
-
-### 2. 이메일 HTML 한자 글자 깨짐
-
-**파일**: `src/app/api/email/route.ts`
-
-**문제**: `buildHookEmail()` 함수의 HTML 문자열에서 `担당자님께`의 `担`이 한자로 잘못 입력되어 수신 메일에서 글자 깨짐 발생.
-
-**수정**:
+**변경 내용**:
+- **엑셀 업로드**: 대량 리드를 `.xlsx` 파일로 일괄 등록하는 모달(`UploadModal`) 추가
+  - 중복 검사 (회사명 + 도메인 기준), 필수 필드 검증
+  - 경고 표시 + 선택 해제 + 업로드 차단 규칙
+  - 사유 포함 엑셀 다운로드 기능
+- **드립 캠페인 관리**: `dripStore` 연동, 캠페인 멤버 등록·진행 상태 표시
+- **이메일 발송 기능**: `lawyer_confirmed` 상태에서 `/api/email` 호출 후 자동 상태 전환
+- **전화 아이콘 제거**: 리드 행에서 불필요한 전화번호 표시 요소 삭제
+- 기존 단건 추가(`AddLeadModal`)를 인라인으로 통합
 
 ```diff
-- <h3>${lead.contactName} 担당자님께</h3>
-+ <h3>${lead.contactName} 담당자님께</h3>
++ import { dripStore, DripMember, DRIP_SEQUENCE, fillTemplate } from '@/lib/dripStore';
++ import { Upload, Gavel, CheckSquare, Square, ArrowUpDown } from 'lucide-react';
+
++ // UploadModal: 엑셀 업로드 + 중복 검사 + 사유 포함 다운로드
++ function UploadModal({ onClose, onAdd }: { ... }) { ... }
 ```
 
 ---
 
-## 🔧 기능 개선 (3건)
+### 2. 영업 현황판(admin/leads) 리팩토링
 
-### 3. 실행 취소 (Undo) 기능 추가
+**파일**: `src/app/admin/leads/page.tsx` (665줄 변경)
 
-**파일**: `src/lib/leadStore.ts`, `src/app/employee/page.tsx`, `src/app/admin/leads/page.tsx`
-
-**내용**: 리드 상태 변경 시 직전 상태로 되돌릴 수 있는 Undo 기능 구현.
-
-#### leadStore 변경사항
-
-```typescript
-// 히스토리 스냅샷 저장 (localStorage)
-const LEAD_HISTORY_KEY = 'ibs_leads_history_v1';
-const MAX_HISTORY = 15;
-
-function pushHistory(): void { /* 현재 상태를 히스토리에 push */ }
-
-leadStore.undo(): Lead[] | null   // 직전 상태로 복원
-leadStore.canUndo(): boolean      // 히스토리 존재 여부
-```
-
-- `update()`, `updateStatus()`, `addMemo()` 호출 전 자동으로 `pushHistory()` 실행
-- 최대 15단계 히스토리 보존
-
-#### UI 토스트
-
-- 상태 변경 후 화면 하단 중앙에 다크 토스트 5초간 표시
-- **"↩ 실행 취소"** 버튼 클릭 시 `leadStore.undo()` → 화면 즉시 갱신
-- `/employee` (CRM)와 `/admin/leads` (영업 리드) 양쪽 모두 적용
+**변경 내용**:
+- **라이트 테마 통일**: 색상 시스템(`T` 객체) 적용, 다크 → 라이트 전환
+- **일괄 상태 변경 제거**: `BulkToolbar`에서 상태 일괄 변경 드롭다운 제거 (사고 방지). 변호사 배정만 유지
+- **리드 추가 모달 제거**: 인라인 방식으로 전환 (employee 페이지에서 통합 관리)
+- **검색/필터 UI**: 세로 레이아웃으로 변경 (가독성 개선)
+- **상태 레이블 수정**: `analyzed` → '분석완료' (기존: '검색완료')
 
 ```diff
-+ const [undoVisible, setUndoVisible] = useState(false);
-+
-+ const run = (id: string, fn: () => void) => {
-+     setLoading(id);
-+     setTimeout(() => { fn(); setLoading(null); refresh(); }, 400);
-+     if (undoTimer) clearTimeout(undoTimer);
-+     setUndoVisible(true);
-+     const t = setTimeout(() => setUndoVisible(false), 5000);
-+     setUndoTimer(t);
-+ };
+- function BulkToolbar({ count, onClear, onBulkStatus, onBulkAssign }: {
++ function BulkToolbar({ count, onClear, onBulkAssign }: {
+      count: number; onClear: () => void;
+-     onBulkStatus: (s: LeadStatus) => void;
+      onBulkAssign: (l: string) => void;
+  }) {
+-     const [showStatus, setShowStatus] = useState(false);
 ```
 
 ---
 
-### 4. 하드코딩 이메일 일괄 변경
+### 3. Lead 데이터 모델 확장 (leadStore)
 
-**파일**: `src/lib/leadStore.ts`, `src/lib/dripStore.ts`, `src/app/api/email/route.ts`, `src/app/admin/leads/page.tsx`, `src/lib/mock/data.ts`
+**파일**: `src/lib/leadStore.ts` (+105줄)
 
-**내용**: 개발/테스트용 가상 기업 이메일 주소를 `dhk@ibslaw.co.kr`로 일괄 교체.
-
-| 파일 | 변경 필드 |
-|------|-----------|
-| `leadStore.ts` | `contactEmail`, `contacts[].email` (5개 mock lead) |
-| `dripStore.ts` | `contactEmail` (2개 mock member) |
-| `api/email/route.ts` | `FROM_EMAIL` 기본값 |
-| `admin/leads/page.tsx` | `CLAUSE_MOCK` 내 초안 이메일 |
-| `mock/data.ts` | `AI_DRAFTS.i4` 문의 이메일 |
-
-> **주의**: localStorage 캐시(`ibs_leads_v1`, `ibs_drip_v1`) 삭제 필요.
-> 브라우저 콘솔: `localStorage.removeItem('ibs_leads_v1'); localStorage.removeItem('ibs_drip_v1'); location.reload();`
-
----
-
-### 5. 네이버 웍스 SMTP 설정 완료 및 이메일 발송 검증
-
-**파일**: `.env.local`
-
-**내용**: Naver Works SMTP 설정으로 실제 이메일 발송 구성.
-
-```env
-SMTP_HOST=smtp.worksmobile.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=dhk@ibslaw.co.kr
-SMTP_PASS=<설정완료>
-SMTP_FROM_EMAIL=dhk@ibslaw.co.kr
-SMTP_TO_EMAIL=dhk@ibslaw.co.kr
-```
-
-**검증**: `POST /api/email` 호출 → `mock: False` 응답 + 서버 로그 실 발송 확인 + `dhk@ibslaw.co.kr` 수신 확인.
-
----
-
-## 🔐 권한 제어 (1건)
-
-### 6. 영업팀 소송 대시보드 읽기 전용 제한
-
-**파일**: `src/app/litigation/page.tsx`
-
-**내용**: `role: 'sales'` 사용자가 송무팀 사건 관리 페이지(`/litigation`)에 접근 시 상태 변경·등록 불가.
-
-#### 적용된 제한 항목
-
-| 항목 | 영업팀 | 기타 역할 |
-|------|--------|----------|
-| 사건 상태 변경 버튼 | 🔒 "영업팀은 상태를 변경할 수 없습니다" 메시지 | ✅ 클릭 가능 |
-| 기한·일정 체크 | 클릭 무반응(`if (readOnly) return`) | ✅ 체크 가능 |
-| 메모/결과 저장 버튼 | `disabled` + `🔒 저장 불가` 텍스트 | ✅ 저장 가능 |
-| 신규 사건 등록 버튼 | "읽기 전용" 배지로 대체 | ✅ 등록 가능 |
-
-#### 구현 방식
+**변경 내용**:
+- `bizCategory` 필드 추가 (프랜차이즈/유통업 등 업종 대분류)
+- 초기 데이터 5건 → 10건으로 확장: 투썸플레이스, 올리브영, 이디야커피, 맘스터치, 국순당 추가
+- 다양한 상태(`analyzed`, `in_contact`, `contracted`, `failed`)의 테스트 데이터 보강
+- `source` 필드 다양화: `excel`, `crawler`, `manual`
 
 ```diff
-+ import { getSession } from '@/lib/auth';
-+ import { Lock } from 'lucide-react';
+- storeCount: 1800, bizType: '외식(치킨)', riskScore: 82, ...
++ storeCount: 1800, bizType: '외식(치킨)', bizCategory: '프랜차이즈', riskScore: 82, ...
 
-+ function CaseCard({ lit, onUpdate, readOnly }: { ...; readOnly?: boolean }) {
-+     const toggleDeadline = (d: LitigationDeadline) => {
-+         if (readOnly) return;   // 영업팀 차단
-+         ...
-+     };
-
-  export default function LitigationPage() {
-+     const [userRole, setUserRole] = useState('');
-+     useEffect(() => {
-+         const session = getSession();
-+         setUserRole(session?.role ?? '');
-+         ...
-+     }, [refresh]);
-+     const readOnly = userRole === 'sales';
++ // 신규 추가 리드
++ { id: 'lead_006', companyName: '(주)투썸플레이스', ... },
++ { id: 'lead_007', companyName: '(주)올리브영', ... },
++ { id: 'lead_008', companyName: '(주)이디야커피', ... },
++ { id: 'lead_009', companyName: '(주)맘스터치', ... },
++ { id: 'lead_010', companyName: '(주)국순당', ... },
 ```
 
-**테스트 계정**: `sales@ibslaw.kr` / `sales123`
+---
+
+## 🟡 MEDIUM — 레이아웃 통일 + UX 개선 (6건)
+
+### 4. 변호사 페이지 테이블 레이아웃
+
+**파일**: `src/app/lawyer/page.tsx` (482줄 변경)
+
+**변경**: 사이드바 + 카드 레이아웃 → **상단 탭 + 통계 카드 + 테이블 + 확장 행** 구조로 전면 리팩토링.
+
+- 탭: Overview · 상담 검토 · 계약서 검토
+- 테이블 컬럼: 회사명 | 상태 | 이슈(HIGH/MED/LOW 뱃지) | URL | 최종 업데이트 | 액션
+- 확장 행: 미검토 이슈 상세 목록 표시
+- Issue 프로퍼티 수정: `text` → `title`, `clause` → `law` (타입 오류 수정)
+
+---
+
+### 5. 상담사 페이지 테이블 레이아웃
+
+**파일**: `src/app/counselor/page.tsx` (387줄 변경)
+
+**변경**: 카드 + 사이드 패널 → **통계 카드 + 필터 탭 + 테이블 + 확장 행** 구조로 전면 리팩토링.
+
+- 통계 카드 4종: 담당 사례 | 이번 주 상담 | 고위험 내담자 | 종결 사례
+- 테이블 컬럼: 내담자 | 소속기업 | 상담유형 | 회기 | 다음 일정 | 위험도 | 상태 | 액션
+- 확장 행: 내담자 정보 + 최근 상담 메모 (2단 그리드)
+- 검색: 내담자·소속기업 실시간 검색
+
+---
+
+### 6. 송무 페이지 테이블 레이아웃
+
+**파일**: `src/app/litigation/page.tsx` (556줄 변경)
+
+**변경**: CaseCard 개별 카드 → **통계 카드 + 필터 탭 + 테이블 + 확장 행(`CaseExpandedRow`)** 구조로 전면 리팩토링.
+
+- 통계 카드 4종: 전체 사건 | 진행 중 | 긴급 기한 | 청구액 합계
+- 테이블 컬럼: 사건번호 | 의뢰인 | 유형 | 상대방 | 법원 | 상태 | 청구액 | 기한 | 액션
+- 확장 행: 기한·일정 관리(토글 가능) + 상태 변경 + 사건 메모 + 결과 기록
+- 긴급 기한 배너 · AddCaseModal은 기존 기능 그대로 유지
+- 검색: 회사명·사건번호·상대방 실시간 검색
+
+---
+
+### 7. 송무직원 로그인 퀵버튼 추가
+
+**파일**: `src/app/login/page.tsx` (+1줄)
+
+**변경**: DEV 퀵로그인 그리드에 **송무팀** 버튼 추가.
+
+```diff
++ { label: '송무', email: 'lit@ibslaw.kr', pw: 'lit123', color: '#7c3aed' },
+```
+
+> 기존 `auth.ts`에 `lit@ibslaw.kr` 계정, `ROLE_HOME`에 `/litigation` 매핑, `middleware.ts`에 litigation RBAC이 모두 구현되어 있어 퀵버튼만 추가.
+
+---
+
+### 8. 영업 현황판 레이아웃 라이트 테마 통일
+
+**파일**: `src/app/admin/leads/page.tsx`, `src/app/admin/email-preview/page.tsx`, `src/app/admin/leads/[id]/page.tsx`, `src/app/lawyer/privacy-review/page.tsx`
+
+**변경**: 다크 테마 배경 → 라이트 테마(`#f8f9fc`)로 통일. 패딩·max-width를 employee 페이지 기준으로 맞춤.
+
+```diff
+- <div className="min-h-screen" style={{ background: '#04091a' }}>
++ <div className="min-h-screen px-4 py-8" style={{ background: '#f8f9fc' }}>
+```
+
+---
+
+### 9. Navbar 메뉴 업데이트
+
+**파일**: `src/components/layout/Navbar.tsx` (+10줄 변경)
+
+**변경**: 네비게이션 메뉴에 역할별 링크 조정, 레이아웃 텍스트 미세 수정.
+
+---
+
+## 🔵 LOW — 데이터 확장 + 스타일 정리 (3건)
+
+### 10. next-env.d.ts 자동 업데이트
+
+**파일**: `next-env.d.ts` (자동 생성)
+
+TypeScript 타입 선언 파일 자동 업데이트.
+
+---
+
+### 11. 이메일 미리보기 페이지 라이트 테마
+
+**파일**: `src/app/admin/email-preview/page.tsx` (+83줄 변경)
+
+다크 배경 → 라이트 테마 전환, 패딩 통일.
+
+---
+
+### 12. 리드 상세 페이지 테마 통일
+
+**파일**: `src/app/admin/leads/[id]/page.tsx` (+38줄 변경)
+
+상세 보기 페이지의 배경·카드 색상을 라이트 테마로 통일.
 
 ---
 
 ## 수정 파일 목록
 
-| # | 파일 | 수정 내용 |
-|---|------|-----------|
-| 1 | `.env.local` (루트 복사) | 올바른 Next.js 경로에 환경변수 배치 |
-| 2 | `.env.local` | Naver Works SMTP 설정 완료 |
-| 3 | `src/app/api/email/route.ts` | 한자 `担` → 한글 `담` 수정 + FROM_EMAIL 기본값 |
-| 4 | `src/lib/leadStore.ts` | mock 이메일 변경 + pushHistory/undo/canUndo 추가 |
-| 5 | `src/lib/dripStore.ts` | mock 이메일 변경 |
-| 6 | `src/app/admin/leads/page.tsx` | mock 이메일 변경 + undo 토스트 UI |
-| 7 | `src/lib/mock/data.ts` | mock 이메일 변경 |
-| 8 | `src/app/employee/page.tsx` | leadStore 통합 + undo 토스트 UI + 린트 수정 |
-| 9 | `src/app/litigation/page.tsx` | 영업팀 읽기 전용 RBAC |
+| # | 파일 | 변경량 | 수정 내용 |
+|---|------|--------|-----------|
+| 1 | `src/app/employee/page.tsx` | +1,026 | 엑셀 업로드, 드립 캠페인, 이메일 발송, 전화 아이콘 제거 |
+| 2 | `src/app/admin/leads/page.tsx` | 665 | 라이트 테마, 일괄 상태변경 제거, 검색 세로 레이아웃 |
+| 3 | `src/app/litigation/page.tsx` | 556 | CRM 테이블 레이아웃 전면 리팩토링 |
+| 4 | `src/app/lawyer/page.tsx` | 482 | CRM 테이블 레이아웃 전면 리팩토링 |
+| 5 | `src/app/counselor/page.tsx` | 387 | CRM 테이블 레이아웃 전면 리팩토링 |
+| 6 | `src/app/lawyer/privacy-review/page.tsx` | 133 | 라이트 테마 통일 |
+| 7 | `src/lib/leadStore.ts` | 105 | `bizCategory` 추가, 리드 10건으로 확장 |
+| 8 | `src/app/admin/email-preview/page.tsx` | 83 | 라이트 테마 통일 |
+| 9 | `src/app/admin/leads/[id]/page.tsx` | 38 | 라이트 테마 통일 |
+| 10 | `src/components/layout/Navbar.tsx` | 10 | 메뉴 링크 조정 |
+| 11 | `next-env.d.ts` | 2 | TypeScript 자동 업데이트 |
+| 12 | `src/app/login/page.tsx` | 1 | 송무팀 DEV 퀵로그인 추가 |
 
 ---
 
-*검토·수정: Antigravity AI Agent (2026-03-06 오전 세션)*
+## 설계 결정 사항
+
+### 레이아웃 통일 원칙
+
+변호사·상담사·송무 3개 포털을 **영업 CRM(employee) 페이지의 테이블 패턴**으로 통일:
+
+```
+상단 헤더 (제목 + 검색)
+    ↓
+통계 카드 (4종 그리드)
+    ↓  
+필터 탭 (상태별 카운트)
+    ↓
+테이블 (확장 행으로 상세 표시)
+```
+
+- **공통 색상 시스템**: `T` 객체로 heading/body/sub/muted/faint/border 통일
+- **확장 행 패턴**: 클릭 시 행 아래에 상세 패널 표시 (모달 대신)
+- **기존 기능 보존**: 사건등록 모달, 기한 토글, 메모 저장 등 모든 CRUD 유지
+
+### 엑셀 업로드 필터 규칙
+
+1. **사업자번호 동일** → 경고 표시 + 선택 해제 (업로드 차단)
+2. **회사명 동일** → 경고 표시 + 선택 해제 (업로드 차단)
+3. **사업 형태 미입력 또는 공백** → 경고 표시만 (업로드 허용)
+4. 사유 포함 엑셀 다운로드 기능 제공
+
+---
+
+*검토·수정: Antigravity AI Agent (2026-03-06)*

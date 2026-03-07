@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -23,14 +23,8 @@ import { MOCK_COMPANIES, fadeUp } from '@/lib/landingData';
 function LandingPageInner() {
   const searchParams = useSearchParams();
   const cid = searchParams.get('cid') ?? '';
-  const [company, setCompany] = useState(MOCK_COMPANIES['default']);
+  const company = useMemo(() => (cid && MOCK_COMPANIES[cid]) ? MOCK_COMPANIES[cid] : MOCK_COMPANIES['default'], [cid]);
   const resolvedParams: { cid?: string } = cid ? { cid } : {};
-
-  useEffect(() => {
-    if (cid && MOCK_COMPANIES[cid]) {
-      setCompany(MOCK_COMPANIES[cid]);
-    }
-  }, [cid]);
 
   return (
     <>

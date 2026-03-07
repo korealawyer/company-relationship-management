@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Phone, ChevronRight, Send, Loader2 } from 'lucide-react';
 
 const faqs = [
-    { q: '무료 검토는 어떻게 받나요?', a: '이메일 또는 전화로 홈페이지 URL을 알려주시면 AI가 자동 분석 후 48시간 내 리포트를 발송드립니다.' },
-    { q: '개인정보처리방침 위반 시 벌금은?', a: '「개인정보 보호법」 위반 시 최대 3,000만원 과징금과 징역 5년 이하 형사처벌이 가능합니다.' },
-    { q: '분석에 얼마나 걸리나요?', a: 'AI 1차 분석은 10분 이내이며, 변호사 교차 검증을 포함한 최종 리포트는 48시간 내 제공됩니다.' },
-    { q: '구독 취소는 언제든 가능한가요?', a: '월 단위 자동 갱신이며, 언제든 취소 가능합니다. 취소 시 해당 월 말까지 서비스가 유지됩니다.' },
+    { q: '무료 검토는 어떻게 받나요?', a: '' },
+    { q: '개인정보처리방침 위반 시 벌금은?', a: '' },
+    { q: '분석에 얼마나 걸리나요?', a: '' },
+    { q: '구독 취소는 언제든 가능한가요?', a: '' },
 ];
 
 // 내부 업무 경로 — 챗봇 미노출
-const INTERNAL_PATHS = ['/admin', '/lawyer', '/employee'];
+const INTERNAL_PATHS = ['/admin', '/lawyer', '/employee', '/counselor', '/litigation'];
 
 export default function FloatingChatbot() {
     const pathname = usePathname();
@@ -23,20 +23,45 @@ export default function FloatingChatbot() {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    // 스크롤 하단 유지 — hooks는 반드시 조건 return 전에 호출
+    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
     // 내부 업무 경로에서는 챗봇 미노출
     if (INTERNAL_PATHS.some(p => pathname?.startsWith(p))) return null;
 
-    const handleFaq = (faq: typeof faqs[number]) => {
-        setMessages(prev => [
-            ...prev,
-            { role: 'user', text: faq.q },
-        ]);
+    // A2: API 호출로 AI 응답 받기
+    const callChat = async (userText: string) => {
         setLoading(true);
-        setTimeout(() => {
-            setMessages(prev => [...prev, { role: 'bot', text: faq.a }]);
+        try {
+            const chatHistory = [
+                ...messages.filter(m => m.role === 'user').map(m => ({ role: 'user' as const, content: m.text })),
+                { role: 'user' as const, content: userText },
+            ];
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ messages: chatHistory, consultType: 'general' }),
+            });
+
+            if (res.status === 401) {
+                setMessages(prev => [...prev, { role: 'bot', text: '🔒 로그인 후 AI 상담을 이용하실 수 있습니다.\n오른쪽 상단의 로그인 버튼을 눌러주세요!' }]);
+                return;
+            }
+
+            const data = await res.json();
+            setMessages(prev => [...prev, { role: 'bot', text: data.message || '죄송합니다, 응답을 생성하지 못했습니다.' }]);
+        } catch {
+            setMessages(prev => [...prev, { role: 'bot', text: '네트워크 오류가 발생했습니다. 아래 버튼으로 전문 상담원에게 직접 연결해 주세요.' }]);
+        } finally {
             setLoading(false);
-        }, 800);
+        }
+    };
+
+    const handleFaq = (faq: typeof faqs[number]) => {
+        setMessages(prev => [...prev, { role: 'user', text: faq.q }]);
+        callChat(faq.q);
     };
 
     const handleSend = () => {
@@ -44,14 +69,7 @@ export default function FloatingChatbot() {
         const userMsg = input.trim();
         setInput('');
         setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-        setLoading(true);
-        setTimeout(() => {
-            setMessages(prev => [
-                ...prev,
-                { role: 'bot', text: '죄송합니다, 해당 질문은 전문 상담원 연결이 필요합니다. 아래 버튼으로 바로 연결하세요! 😊' }
-            ]);
-            setLoading(false);
-        }, 1000);
+        callChat(userMsg);
     };
 
     return (
@@ -106,7 +124,7 @@ export default function FloatingChatbot() {
                                 <p className="font-bold text-sm text-white">임팩트 AI 어시스턴트</p>
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                    <span className="text-xs" style={{ color: 'rgba(240,244,255,0.5)' }}>온라인</span>
+                                    <span className="text-xs" style={{ color: 'rgba(240,244,255,0.5)' }}>AI 온라인</span>
                                 </div>
                             </div>
                         </div>
@@ -138,6 +156,7 @@ export default function FloatingChatbot() {
                                     </div>
                                 </div>
                             )}
+                            <div ref={bottomRef} />
                         </div>
 
                         {/* FAQ Chips */}
@@ -146,7 +165,8 @@ export default function FloatingChatbot() {
                                 <button
                                     key={i}
                                     onClick={() => handleFaq(faq)}
-                                    className="text-xs px-2.5 py-1 rounded-full transition-all hover:opacity-100"
+                                    disabled={loading}
+                                    className="text-xs px-2.5 py-1 rounded-full transition-all hover:opacity-100 disabled:opacity-40"
                                     style={{
                                         background: 'rgba(201,168,76,0.12)',
                                         border: '1px solid rgba(201,168,76,0.25)',
@@ -164,9 +184,10 @@ export default function FloatingChatbot() {
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                onKeyDown={(e) => e.key === 'Enter' && !loading && handleSend()}
                                 placeholder="질문을 입력하세요..."
-                                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                                disabled={loading}
+                                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none disabled:opacity-50"
                                 style={{
                                     background: 'rgba(255,255,255,0.06)',
                                     border: '1px solid rgba(201,168,76,0.2)',
@@ -175,7 +196,8 @@ export default function FloatingChatbot() {
                             />
                             <button
                                 onClick={handleSend}
-                                className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 btn-gold"
+                                disabled={loading || !input.trim()}
+                                className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 btn-gold disabled:opacity-30"
                             >
                                 <Send className="w-4 h-4 text-[#04091a]" />
                             </button>

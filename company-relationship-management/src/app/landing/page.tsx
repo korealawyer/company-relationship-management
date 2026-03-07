@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Shield, AlertTriangle, CheckCircle2, Phone, Video, CreditCard, Lock } from 'lucide-react';
@@ -14,17 +14,12 @@ const RISK_COLOR: Record<string, string> = { HIGH: '#f87171', MEDIUM: '#fb923c',
 function LandingContent() {
     const searchParams = useSearchParams();
     const leadId = searchParams.get('cid') || '';
-    const [lead, setLead] = useState<Lead | null>(null);
+    const [lead] = useState<Lead | null>(() => leadStore.getById(leadId) || null);
     const [showLogin, setShowLogin] = useState(false);
     const [bizRegNo, setBizRegNo] = useState('');
     const [logging, setLogging] = useState(false);
     const [loggedIn, setLoggedIn] = useState(false);
     const [loginError, setLoginError] = useState('');
-
-    useEffect(() => {
-        const l = leadStore.getById(leadId);
-        setLead(l || null);
-    }, [leadId]);
 
     if (!lead) return (
         <div className="min-h-screen flex items-center justify-center" style={{ background: '#04091a' }}>

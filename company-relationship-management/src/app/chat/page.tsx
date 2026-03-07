@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Loader2, Scale, Brain, Briefcase, Phone, CheckCircle2, ArrowRight, Lock, LogIn } from 'lucide-react';
+import { Send, Bot, User, Loader2, Scale, Brain, Briefcase, ArrowRight, Lock, LogIn } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import Link from 'next/link';
 
@@ -172,20 +172,61 @@ export default function ChatPage() {
     // 미인증 → 로그인 게이트
     if (!isAuthenticated) return <LoginGate />;
 
+    // A5: Streaming helper — reads SSE response and updates message in real-time
+    const streamChat = async (chatMessages: Message[], type: string) => {
+        setLoading(true);
+        // Add empty assistant message that we'll stream into
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+        try {
+            const res = await fetch('/api/chat-stream', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ messages: chatMessages, consultType: type }),
+            });
+            if (!res.ok || !res.body) throw new Error('Stream failed');
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.text) {
+                            setMessages(prev => {
+                                const updated = [...prev];
+                                const last = updated[updated.length - 1];
+                                if (last?.role === 'assistant') last.content += parsed.text;
+                                return updated;
+                            });
+                        }
+                    } catch { /* skip */ }
+                }
+            }
+        } catch {
+            setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.role === 'assistant' && !last.content) {
+                    last.content = '죄송합니다. 일시적 오류가 발생했습니다.';
+                }
+                return updated;
+            });
+        }
+        setLoading(false);
+    };
+
     const selectType = async (type: string) => {
         setConsultType(type);
         setStep('chat');
-        setLoading(true);
-        try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ messages: [], consultType: type }),
-            });
-            const data = await res.json();
-            setMessages([{ role: 'assistant', content: data.message }]);
-        } catch { setMessages([{ role: 'assistant', content: '안녕하세요. 어떤 도움이 필요하신가요?' }]); }
-        setLoading(false);
+        await streamChat([], type);
     };
 
     const send = async () => {
@@ -194,17 +235,7 @@ export default function ChatPage() {
         const newMsgs = [...messages, userMsg];
         setMessages(newMsgs);
         setInput('');
-        setLoading(true);
-        try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ messages: newMsgs, consultType }),
-            });
-            const data = await res.json();
-            setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-        } catch { setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 일시적 오류가 발생했습니다.' }]); }
-        setLoading(false);
+        await streamChat(newMsgs, consultType);
     };
 
     return (

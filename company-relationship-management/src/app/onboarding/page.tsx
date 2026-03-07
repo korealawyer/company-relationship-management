@@ -11,6 +11,25 @@ const PLANS = [
     { id: 'premium', name: 'Premium', price: 4990000, color: '#a78bfa' },
 ];
 
+interface InputRowProps {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder: string;
+    type?: string;
+}
+
+function InputRow({ label, value, onChange, placeholder, type = 'text' }: InputRowProps) {
+    return (
+        <div>
+            <label className="block text-sm font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.7)' }}>{label}</label>
+            <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type}
+                className="w-full px-4 py-3 rounded-xl outline-none text-sm"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }} />
+        </div>
+    );
+}
+
 export default function OnboardingPage() {
     const router = useRouter();
     const [step, setStep] = useState(0);
@@ -43,15 +62,6 @@ export default function OnboardingPage() {
         }
         setStep(s => s + 1);
     };
-
-    const InputRow = ({ label, value, onChange, placeholder, type = 'text' }: any) => (
-        <div>
-            <label className="block text-sm font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.7)' }}>{label}</label>
-            <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} type={type}
-                className="w-full px-4 py-3 rounded-xl outline-none text-sm"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }} />
-        </div>
-    );
 
     return (
         <div className="min-h-screen pt-20 pb-12 px-4" style={{ background: '#04091a' }}>

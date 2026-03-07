@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import Link from 'next/link';
 import { AlertTriangle, Search, Loader2, Phone, Video, ChevronDown, BadgeCheck, Zap, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -97,8 +97,7 @@ function UrlAnalyzer() {
 function AnimatedNumber({ target, suffix = '' }: { target: number; suffix?: string }) {
     const [count, setCount] = useState(0);
     const ref = useRef(null);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { useInView } = require('framer-motion');
+
     const inView = useInView(ref, { once: true });
 
     useEffect(() => {

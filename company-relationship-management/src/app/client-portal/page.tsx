@@ -181,7 +181,7 @@ export default function ClientPortalPage() {
                                 </span>
                             </h2>
                             {!isFree && (
-                                <Link href="/consultation">
+                                <Link href="/chat">
                                     <button className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
                                         style={{ background: 'rgba(201,168,76,0.1)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.2)' }}>
                                         <Plus className="w-3 h-3" /> 상담 추가
@@ -360,7 +360,7 @@ export default function ClientPortalPage() {
                             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                             <h3 className="font-black text-sm mb-3" style={{ color: '#c9a84c' }}>빠른 메뉴</h3>
                             {[
-                                { href: '/consultation', label: '법률 상담 접수', icon: '⚖️' },
+                                { href: '/chat', label: '법률 상담 접수', icon: '⚖️' },
                                 { href: '/contracts', label: '전자계약 서명', icon: '✍️' },
                                 { href: '/pricing', label: '구독 플랜 보기', icon: '🏆' },
                                 { href: '/sales', label: '전문 상담 신청', icon: '📞' },
