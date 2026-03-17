@@ -1,0 +1,840 @@
+# ⚡ 바이브코딩 프롬프트: 유기적 문서전달 & 누적 코멘트 시스템
+
+> **company-relationship-management** 프로젝트 — Sprint B/C 핵심 Sticky Feature  
+> 기준: `_strategy/DOCUMENT_COMMENT_SYSTEM.md` v2.4 | 목표: 1000억 ARR 핵심 잠금 기능  
+> **Sprint 순서**: Sprint B (DocComment) 완료 후 → Sprint C (Esign 전자계약) 진행
+
+---
+
+## 🗂️ 현재 프로젝트 상태 (2026-03-10 기준 실측)
+
+> **개발 전 반드시 확인할 것**
+
+| 항목 | 현재 상태 |
+|------|-----------|
+| `src/app/documents/` | ❌ **미존재** — 신규 생성 필요 |
+| `src/app/documents/requests/` | ❌ **미존재** — 신규 생성 필요 |
+| `src/app/client-portal/` | ✅ 존재 (`page.tsx` 1개) |
+| `src/components/layout/` | ✅ Navbar.tsx + FloatingChatbot.tsx (Sidebar 없음) |
+| `src/components/documents/` | ❌ **미존재** — 신규 생성 필요 |
+| `src/app/api/documents/` | ❌ **미존재** — 신규 생성 필요 |
+
+### 🔑 네비게이션 추가 타겟 파일
+```
+사이드바 역할 파일: src/components/layout/Navbar.tsx
+  - 이 파일에 "📂 문서 허브" 메뉴 항목 추가
+  - href: "/documents", icon: FolderOpen (lucide-react)
+  - 전체 재작성 금지 — 기존 메뉴 항목 이후 append 방식으로만 추가
+```
+
+---
+
+## 🎯 직관성 & 사용성 요구사항 (UX Update — 2026-03-10)
+
+> **원칙**: "1번 봐도 바로 아는 UI" — 변호사·사무장·기업HR이 설명 없이 첫날부터 쓸 수 있어야 한다.
+
+### 1. 첫 진입 경험 (Empty State & Onboarding)
+
+| 상태 | UI 표시 |
+|---|---|
+| 문서 0건 | 중앙 빈 상태: 📂 아이콘 + "아직 등록된 문서가 없습니다" + [첫 문서 업로드하기] gold CTA |
+| 코멘트 0건 | 우측 패널: 💬 + "이 문서에 대한 첫 코멘트를 남겨보세요" + 코멘트 입력창 자동 포커스 |
+| 문서 선택 전 | 중앙 뷰어: 회색 점선 사각형 + "← 좌측에서 문서를 선택하면 여기에 표시됩니다" |
+| 의뢰 0건 | 수신함 빈 상태: ✅ + "처리할 의뢰가 없습니다. 수고하셨어요 🎉" |
+
+### 2. 로딩 & 에러 상태
+
+```
+로딩 (Skeleton UI):
+  - 문서 목록 Skeleton: 높이 72px 카드 × 5개 (shimmer 애니메이션)
+  - 뷰어 Skeleton: 가로선 × 15개 (텍스트 시뮬레이션)
+  - 코멘트 Skeleton: 원형 아바타 + 2줄 텍스트 × 3개
+
+에러 상태:
+  - 문서 로드 실패: ⚠️ "문서를 불러오지 못했습니다" + [다시 시도] 버튼 (gold outline)
+  - 코멘트 전송 실패: 입력창 빨간 border + "전송 실패. 다시 시도해주세요" 인라인 메시지
+  - Optimistic UI: 코멘트 전송 즉시 UI 반영 → 실패 시 롤백 + 에러 표시
+```
+
+### 3. 직관적 인터랙션 패턴
+
+| 패턴 | 구현 |
+|---|---|
+| 문서 카드 호버 | 카드 배경 살짝 밝아짐 + 우측 "열기 →" 텍스트 페이드인 |
+| 긴급 문서 강조 | 🔴 긴급 카드: 좌측 border 빨간색 + 제목 글자 살짝 굵게 |
+| 미해결 코멘트 배지 | 숫자 배지 pulse 애니메이션 (3초 간격, 긴급 문서일 때만) |
+| 코멘트 유형 선택 | 버튼 클릭 시 입력창 배경색이 해당 유형 색으로 즉시 변경 (미리보기 효과) |
+| 파일 드래그 | 전체 3패널 위로 드래그 시 오버레이 표시: "여기에 놓으면 업로드됩니다 📂" |
+| [해결] 버튼 | 클릭 시 코멘트가 fade-out → 아래로 이동 (resolved 영역) + 초록 체크 토스트 |
+
+### 4. 키보드 단축키 & 접근성
+
+```
+/ (슬래시)          — 문서 검색창 즉시 포커스
+Ctrl + Enter        — 코멘트 전송
+Ctrl + Shift + A    — 승인 코멘트 유형 선택
+Ctrl + Shift + R    — 수정요청 코멘트 유형 선택
+Esc                 — 코멘트 입력 취소 / 패널 닫기
+↑ ↓ 화살표          — 문서 목록 카드 탐색 (포커스 시)
+Enter               — 포커스된 문서 열기
+```
+단축키 힌트: 각 버튼 우측에 회색 소형 텍스트로 단축키 표시 (예: `Ctrl+↵`)
+
+### 5. 모바일 UX (Bottom Sheet 패턴)
+
+```
+모바일 (< 768px) 전용:
+  - 기본 화면: 문서 목록 풀스크린
+  - 문서 카드 탭 → Bottom Sheet 슬라이드업 (코멘트 50% 높이)
+  - Bottom Sheet 상단: 문서 제목 + 드래그 핸들 (회색 바)
+  - 하단 고정 바 (Floating Action Bar):
+      [📄 문서 보기] [💬 코멘트 N] [⬆ 업로드] — 3 버튼, gold active
+  - 코멘트 입력 시: 키보드 올라오면 Bottom Sheet 자동 조정 (resize 이벤트)
+  - 스와이프 다운 → Bottom Sheet 닫기
+```
+
+### 6. 사용성 검증 기준 (PM 체크리스트)
+
+| # | 체크 | 기준 |
+|---|---|---|
+| U1 | 문서 업로드 → 목록 반영 | 3초 이내 |
+| U2 | 코멘트 입력 → 전송 → UI 반영 | 즉시 (Optimistic) |
+| U3 | 빈 상태에서 CTA 클릭 → 업로드 페이지 이동 | 1-tap |
+| U4 | 모바일 문서 선택 → 코멘트 입력까지 | 3-tap 이내 |
+| U5 | 긴급 문서를 목록에서 식별 | 1초 이내 (색상 코딩) |
+| U6 | @멘션 자동완성 dropdown | `@` 입력 후 200ms 이내 표시 |
+
+---
+
+## 📋 프롬프트 전문 (복사해서 AI에게 전달)
+
+```
+You are adding a full-featured document hub & threaded comment system to an existing Next.js 14 App Router project.
+
+## 🎯 Project Context
+- Path: c:\projects\company-relationship-management
+- Stack: Next.js 14 (App Router), TypeScript, Tailwind CSS, Framer Motion, Lucide React, Supabase
+- Design system: Dark background (#04091a), gold accent (#c9a84c / #e8c87a), glassmorphism cards
+- Auth: existing middleware.ts handles session via Supabase
+- Multi-tenant: Supabase RLS, each law firm isolated by tenant_id (JWT claim)
+  ⚠️ 필드명 통일: 코드 전체에서 law_firm_id 대신 tenant_id 사용 (Esign 프롬프트와 일치, contracts 테이블 RLS 키와 동일)
+- Roles: CORP_HR / STAFF / LAWYER / PARTNER_LAWYER / SALES / SALES_MANAGER / CLIENT / FIRM_ADMIN / SUPER_ADMIN
+
+## 🔑 공유 Mock 데이터 통일 원칙 (Esign Sprint C와 반드시 동일하게 유지)
+```
+corp-1 = 삼성전자 서비스   (DocComment company_id === Esign client_company_id)
+corp-2 = 교촌에프앤비
+corp-3 = 롯데GRS
+tenant-001 = 로펌 테넌트  (양쪽 tenant_id 동일)
+
+이 값들이 다르면 Sprint C에서 DocComment 역방향 INSERT가 깨짐.
+```
+
+## 📂 실제 프로젝트 파일 현황 (2026-03-10 기준)
+
+### 이미 존재하는 파일 (수정 대상):
+- src/components/layout/Navbar.tsx — 공통 네비게이션 (사이드바 역할 포함)
+- src/app/client-portal/page.tsx — 클라이언트 포털 (신규 서브페이지 추가 필요)
+
+### 신규 생성할 파일 (전부 새로 만들 것):
+- src/app/documents/ — 이 폴더 자체가 없음
+- src/components/documents/ — 이 폴더 자체가 없음
+- src/app/api/documents/ — 이 폴더 자체가 없음
+
+⚠️ 사이드바 주의: Sidebar.tsx 파일은 존재하지 않음.
+    네비게이션 추가는 반드시 src/components/layout/Navbar.tsx 파일을 수정할 것.
+    전체 재작성 금지 — 기존 메뉴 항목 배열에 append 방식으로 추가.
+
+## 🏗️ Architecture Overview
+
+"1번 입력 → 전 팀 자동 활용" 원칙:
+- 문서 업로드 → 메타데이터 자동 결합 → 사건·기업·담당자별 자동 분류
+- 코멘트 스레드 → @태그 → 실시간 알림 → 승인 이력 자동 기록
+- 모든 이벤트 → automation_logs 자동 기록
+
+## 📁 Files to Create/Modify — Sprint B (P0)
+
+### 1. src/app/documents/page.tsx — 문서 허브 메인 (3패널 레이아웃)
+
+3-panel layout (데스크톱):
+
+**Left Panel — 문서 목록 (30% width):**
+  - 검색 인풋 (전체 문서 제목 필터)
+  - 긴급도 필터 탭: [전체] [🔴 긴급] [🟡 검토대기] [✅ 완료]
+  - 문서 카드 리스트 (stagger animation):
+    - 문서 제목 + doc_type 배지
+    - 상태 배지: draft(gray) / reviewing(amber) / approved(green) / rejected(red) / sent(blue)
+    - 업로더 + 날짜
+    - 미해결 코멘트 수 → 빨간 배지
+    - 선택 시 gold left border + 배경 강조
+  - 폴더 섹션 (문서 목록 하단):
+    - 사건별 폴더 트리 (case 이름으로 그룹)
+    - 기업별 폴더 (corporate_client 이름으로 그룹)
+    - 각 폴더 클릭 → 해당 문서만 필터
+
+**Center Panel — 문서 뷰어 (45% width):**
+  - 선택된 문서 헤더: 제목 + 버전 배지 (v1, v2...) + 상태 배지
+  - 문서 생성주체 배지:
+    - 📤 우리 제출 (blue)
+    - 📥 상대방 제출 (orange)
+    - 🏛️ 법원 문건 (purple)
+    - 📋 내부 생성 (gray)
+  - Mock PDF 뷰어:
+    - 흰 배경 카드 안에 회색 줄로 텍스트 시뮬레이션
+    - 텍스트 선택 시 우클릭 메뉴: "이 부분에 코멘트 달기"
+    - 각 코멘트가 달린 위치에 노란 말풍선 아이콘 (page_ref 표시)
+  - 하단 액션 바: [버전 비교] [다운로드] [코멘트 추가] [📝 전자서명 요청]
+    - [📝 전자서명 요청] 버튼: doc_type이 'contract'인 경우에만 표시 (gold outline 버튼)
+    - 클릭 시 → `/admin/contracts/new?document_id=[id]&client_company_id=[company_id]` 로 이동
+    - LAWYER / PARTNER_LAWYER / SALES_MANAGER / FIRM_ADMIN 역할만 표시
+
+**Right Panel — 코멘트 패널 (25% width):**
+  - 패널 헤더: "💬 코멘트 (N)" + [미해결만 보기] 토글
+  - 코멘트 스레드 목록 (GitHub PR 스타일):
+    - 루트 코멘트: 아바타 + 이름 + 역할 배지 + 시각 + 코멘트 유형 아이콘
+    - 코멘트 유형별 스타일:
+      - 📌 일반: 기본 배경
+      - ✅ 승인: 초록 배경 rgba(74,222,128,0.08) + 초록 border
+      - ⚠️ 수정요청: 주황 배경 rgba(251,146,60,0.08) + 주황 border
+      - 🔔 공지: 파란 배경 rgba(96,165,250,0.08) + 파란 border + "전체 읽음 요청" 배지
+    - 답글은 왼쪽 들여쓰기 + 구분선 (스레드 구조)
+    - 미해결 코멘트: [✔ 해결] 버튼 표시
+    - 해결된 코멘트: 흐릿하게 + "해결됨 · [이름] · [날짜]" 표시
+    - 이모지 반응 버튼 (👍 ❤️ ✅)
+  - 코멘트 입력창 (하단 고정):
+    - textarea (Ctrl+Enter 전송)
+    - @멘션 자동완성 (팀원 목록 dropdown)
+    - 유형 선택 버튼: [📌 일반] [✅ 승인] [⚠️ 수정요청] [🔔 공지]
+    - 첨부파일 버튼 + 전송 버튼 (gold gradient)
+    - 단축키 안내: Ctrl+Shift+A(승인) / Ctrl+Shift+R(수정요청)
+
+**모바일 레이아웃:**
+  - 탭 네비게이션: [📄 문서] [💬 코멘트]
+  - 하단 바: [빠른 승인 ✅] [수정요청 ⚠️] [코멘트 💬]
+
+---
+
+### 2. src/app/documents/upload/page.tsx — 문서 업로드
+
+드래그&드롭 업로드 존:
+  - 점선 border + 업로드 아이콘 + "PDF, DOCX 파일을 드래그하거나 클릭하세요"
+  - 파일 선택 시 → 파일명 + 크기 + 미리보기 썸네일 표시
+  - accept: ".pdf,.docx"
+
+메타데이터 폼 (업로드 후 노출):
+  - 문서 제목 (필수)
+  - 문서 유형 select:
+    contract / court_filing / opinion / board_minutes / director_appointment /
+    shareholder_notice / officer_contract / retainer_report / closure_report /
+    timecost_invoice / compliance_report
+  - 문서 생성주체 select: 우리 제출 / 상대방 제출 / 법원 문건 / 내부 생성
+  - 긴급도 select: 일반 / 긴급 / 최우선
+  - 연관 사건 select (사건 목록 dropdown — mock data)
+  - 연관 기업 select (기업 목록 dropdown — mock data)
+  - 초기 수신자 @태그 (업로드 완료 시 알림 받을 팀원)
+
+업로드 후 동작:
+  - 성공 애니메이션 (scale-up 체크마크)
+  - "문서가 업로드되었습니다. [담당 변호사명]에게 자동 알림이 발송되었습니다." 메시지
+  - [문서 바로 열기] [다른 문서 업로드] CTA
+
+---
+
+### 3. src/app/api/documents/route.ts — Mock API
+
+GET /api/documents
+  - query: ?case_id=&company_id=&status=&urgency=&doc_source=
+  - mock 문서 목록 반환 (최소 8개 다양한 타입/상태)
+
+POST /api/documents
+  - body: { title, doc_type, doc_source, urgency, case_id?, company_id?, uploaded_by }
+  - 반환: { id, version: 1, status: 'draft', created_at }
+
+GET /api/documents/[id]/comments
+  - 해당 문서의 코멘트 스레드 전체 반환 (트리 구조)
+
+POST /api/documents/[id]/comments
+  - body: { content, comment_type, parent_id?, tagged_users?, page_ref?, text_ref? }
+  - 반환: 생성된 코멘트 객체
+
+PATCH /api/documents/[id]/comments/[commentId]/resolve
+  - 코멘트 해결 처리 → is_resolved: true
+
+All in-memory mock. No DB connection needed yet.
+
+---
+
+### 4. src/app/api/document-requests/route.ts — 문서 의뢰 Mock API (신규)
+
+GET /api/document-requests
+  - query: ?status=pending|in_progress|completed|delivered&assigned_to=me
+  - 의뢰 목록 반환 (최소 5개 다양한 상태)
+
+POST /api/document-requests
+  - body: { title, doc_type, description, urgency, company_id, requested_by_client_name, deadline? }
+  - 반환: { id, status: 'pending', created_at, request_number: 'DR-2026-001' }
+
+PATCH /api/document-requests/[id]/assign
+  - body: { assignee_id, assignee_name, assignee_role }
+  - 반환: { status: 'in_progress' }
+
+PATCH /api/document-requests/[id]/deliver
+  - body: { document_id }  — 작성 완료 문서와 연결
+  - 반환: { status: 'delivered', delivered_at }
+
+All in-memory mock. No DB connection needed yet.
+
+---
+
+### 5. src/app/documents/requests/page.tsx — 내부팀 의뢰 수신함 (신규)
+
+**접근 권한: LAWYER / STAFF / SALES / SALES_MANAGER / PARTNER_LAWYER / FIRM_ADMIN**
+
+헤더:
+  - "📥 문서 의뢰 수신함" + 미처리 건수 배지 (빨간 숫자)
+  - 필터 탭: [전체] [⏳ 대기중] [🔧 진행중] [✅ 완료전달]
+  - "내 담당만 보기" 토글
+
+의뢰 카드 리스트 (stagger animation):
+  - 의뢰 번호 배지 (DR-2026-001 형식, gold)
+  - 문서 제목 + 의뢰 기업명 + 요청자 이름
+  - 문서 유형 배지 (계약서/의사록/서면 등)
+  - 긴급도 배지: 🔴 긴급 / 🟡 일반 / ⚪ 낮음
+  - 마감 D-day 표시 (D-3 이하 빨간색, D-7 이하 주황색)
+  - 담당자 배정 상태: "미배정" (amber 배지) / "이OO 변호사" (초록 배지)
+  - 상태별 액션 버튼:
+    - 대기중: [내가 받기] [배정하기] 버튼
+    - 진행중: [문서 업로드하여 전달] 버튼
+    - 완료전달: [배송 확인] 링크
+
+카드 클릭 → 우측 사이드 패널 슬라이드:
+  - 의뢰 상세 내용 (기업 요청 사유 전문)
+  - 기업고객 담당자 정보 (이름, 직책, 이메일)
+  - 관련 사건/계약 링크
+  - 의뢰 타임라인 (접수 → 배정 → 작성중 → 전달완료)
+  - [이 의뢰로 문서 업로드] gold CTA 버튼 → `/documents/upload?request_id=[id]`
+
+---
+
+### 6. src/app/client-portal/document-requests/page.tsx — 기업고객 의뢰 목록 (신규)
+
+**접근 권한: CLIENT / CORP_HR만 접근 (본인 company_id 기준 RLS)**
+
+헤더:
+  - "📋 문서 작성 의뢰 현황" + "새 의뢰 신청" gold 버튼
+
+의뢰 현황 카드 (기업고객 뷰):
+  - 의뢰 번호 + 제목 + 문서 유형
+  - 진행 상태 스텝퍼 (수평 4단계):
+    ① 접수완료 → ② 담당자 배정 → ③ 작성중 → ④ ✅ 전달완료
+    현재 단계: gold 강조 + 나머지: gray
+  - 예상 완료일 / 마감 D-day
+  - 전달완료 시: [문서 확인하기] gold CTA → `/client-portal/documents/[doc_id]`
+
+빈 상태 (Empty State):
+  - "아직 의뢰한 문서가 없습니다."
+  - [첫 번째 문서 의뢰하기] CTA 버튼
+
+---
+
+### 7. src/app/client-portal/document-requests/new/page.tsx — 기업고객 의뢰 신청 폼 (신규)
+
+**접근 권한: CLIENT / CORP_HR**
+
+의뢰 신청 폼:
+  - 문서 제목 (필수) — 예: "2026년 3월 이사회 의사록 작성 요청"
+  - 문서 유형 select:
+    계약서 / 이사회 의사록 / 주주총회 의사록 / 임원선임서류 / 내용증명 / 법률의견서 / 기타
+  - 요청 상세 설명 textarea (500자 이하)
+    placeholder: "작성이 필요한 내용, 특이사항, 포함될 당사자 정보 등을 입력해주세요"
+  - 긴급도 select: 일반(7영업일) / 빠른처리(3영업일+수수료) / 긴급(1영업일+수수료)
+  - 참고 파일 첨부 (선택) — 드래그&드롭, .pdf/.docx/.hwp
+  - 희망 완료일 date picker
+
+제출 후 동작:
+  - 성공 애니메이션 + 의뢰 번호 발급 (DR-2026-XXX)
+  - "의뢰가 접수되었습니다. 담당 변호사가 배정되면 알림을 드립니다." 메시지
+  - 예상 처리 시간 안내
+  - [의뢰 현황 확인] CTA
+
+---
+
+### 8. src/app/client-portal/documents/[id]/page.tsx — 기업고객 전달 문서 확인 (신규)
+
+**접근 권한: CLIENT / CORP_HR — 본인 company_id 문서만 열람 가능**
+
+문서 헤더:
+  - 문서 제목 + 전달일시 + 담당 변호사 이름
+  - "✅ 법무팀 검토 완료" 씰 배지
+  - [PDF 다운로드] [의견 보내기] 버튼
+
+Mock PDF 뷰어 (스크롤 가능):
+  - 흰 배경 카드 안 텍스트 시뮬레이션
+  - 의뢰한 내용 기반으로 렌더링
+
+기업고객 피드백 섹션 (하단):
+  - "이 문서에 대한 의견이 있으신가요?" 안내
+  - textarea + [수정 요청] [확인 완료] 버튼
+  - 확인 완료 클릭 → 초록 체크 + "담당자에게 확인 완료 알림이 발송되었습니다."
+
+---
+
+### 9. src/app/documents/[id]/page.tsx — 문서 상세 (단일 문서 전용 뷰)
+
+문서 헤더 카드:
+  - 제목 + 버전 히스토리 드롭다운 (v1, v2...)
+  - 상태 배지 + 생성주체 배지
+  - 담당 변호사 + 연관 사건 + 기업명
+  - 결재 현황: "1차승인 ✅ 이OO변호사 (03-05)" / "최종승인 ⏳ 대기중"
+
+2-column 레이아웃:
+  Left (60%): 문서 뷰어 (위와 동일)
+  Right (40%): 코멘트 전체 + 입력창 + 결재 라인
+
+결재 라인 섹션 (코멘트 패널 상단):
+  순서: 담당변호사(1차) → 파트너변호사(최종) → [계약건] 영업관리자
+  각 단계: 아바타 + 이름 + 상태(대기중/승인/반려) + 날짜
+  현재 단계 → gold 강조
+
+---
+
+### 10. src/components/documents/CommentThread.tsx — 재사용 컴포넌트
+
+props:
+  - comments: Comment[]
+  - currentUser: { id, name, role }
+  - onAddComment: (content, type, parentId?) => void
+  - onResolve: (commentId) => void
+
+내부 구현:
+  - 재귀 렌더링으로 무한 depth 스레드 지원
+  - 코멘트 유형별 색상/아이콘/배경 map
+  - @멘션 파싱 → gold 색상 강조 표시
+  - framer-motion AnimatePresence로 새 코멘트 slide-in
+
+---
+
+### 11. src/components/documents/DocumentUploadZone.tsx — 재사용 컴포넌트
+
+props:
+  - onFileSelect: (file: File) => void
+  - accept?: string (default: ".pdf,.docx")
+
+내부:
+  - dragover/dragleave/drop 이벤트 처리
+  - 드래그 중: border gold + 배경 rgba(201,168,76,0.05)
+  - 파일 유효성 검사 (5MB 이하, PDF/DOCX만)
+
+---
+
+## 🎨 Design Requirements
+- Background: #04091a
+- Cards: rgba(255,255,255,0.03~0.05) + border rgba(255,255,255,0.07~0.1)
+- Gold primary: linear-gradient(135deg, #e8c87a, #c9a84c)
+- 코멘트 유형별 색상:
+  - 일반: rgba(255,255,255,0.03)
+  - 승인: rgba(74,222,128,0.08) + border rgba(74,222,128,0.2)
+  - 수정요청: rgba(251,146,60,0.08) + border rgba(251,146,60,0.2)
+  - 공지: rgba(96,165,250,0.08) + border rgba(96,165,250,0.2)
+- 생성주체 배지 색상:
+  - 우리제출(blue) / 상대제출(orange) / 법원(purple) / 내부(gray)
+- framer-motion: page fade+y, list stagger 0.05s/item, comment slide-in
+- Lucide React 아이콘 전체
+- 한국어 UI 텍스트 전체
+- 모바일 반응형
+
+## 📦 No new dependencies needed
+- framer-motion, lucide-react, tailwind 기존 그대로
+
+## 🔗 Navigation (중요 — 실제 파일 기준)
+네비게이션 파일: **src/components/layout/Navbar.tsx** (Sidebar.tsx 없음!)
+"📂 문서 허브" 추가 (FolderOpen 아이콘) → /documents
+파일을 통째로 재작성하지 말고, 기존 navItems 배열에 항목만 추가할 것.
+
+⚠️ **사이드바 충돌 방지 (Sprint C 전자계약과 중복 방지):**
+- Sprint B에서 추가한 '문서 허브' 항목을 삭제하거나 덮어쓰지 말 것
+- Sprint C에서는 '전자계약'(/admin/contracts)을 별도로 추가함
+- Navbar.tsx를 통째로 재작성하지 말고, 항목만 append 방식으로 추가할 것
+
+## ✅ Acceptance Criteria
+1. /documents — 3패널 레이아웃, 문서 선택 시 중앙 뷰어 + 우측 코멘트 동시 표시
+2. /documents/upload — 드래그&드롭 + 메타데이터 폼 완결
+3. /documents/[id] — 결재 라인 표시 + 코멘트 스레드 전체 작동
+4. 코멘트 추가 → 즉시 스레드에 반영 (UI 업데이트)
+5. 코멘트 해결 처리 → 시각적으로 흐릿해짐 + "해결됨" 표시
+6. @멘션 → gold 색상 강조
+7. 코멘트 유형별 배경색/아이콘 올바르게 표시
+8. TypeScript 에러 없음
+9. 추가 npm 패키지 없음
+
+**UX 직관성 추가 기준 (2026-03-10 업데이트):**
+10. 문서 0건 Empty State + [첫 문서 업로드하기] CTA 표시
+11. 문서 선택 전 중앙 패널에 선택 안내 메시지 표시
+12. Skeleton 로딩 UI (문서 목록, 뷰어, 코멘트)
+13. 코멘트 전송 실패 시 인라인 에러 + [다시 시도] 표시
+14. 코멘트 유형 선택 시 입력창 배경 즉시 변경
+15. 모바일 Bottom Sheet 패턴 작동
+16. / 단축키로 검색창 포커스, Ctrl+Enter 전송 작동
+```
+
+---
+
+## 🗂️ 전체 생성 파일 목록
+
+| 파일 | 역할 | Sprint | 현재 존재 여부 |
+|------|------|--------|--------------|
+| `src/app/documents/page.tsx` | 문서 허브 메인 (3패널) | B | ❌ 신규 |
+| `src/app/documents/upload/page.tsx` | 드래그&드롭 업로드 + 메타데이터 | B | ❌ 신규 |
+| `src/app/documents/[id]/page.tsx` | 문서 상세 + 결재 라인 | B | ❌ 신규 |
+| `src/app/documents/requests/page.tsx` | **내부팀 의뢰 수신함** | B-2 | ❌ 신규 |
+| `src/app/api/documents/route.ts` | Mock API (문서 CRUD) | B | ❌ 신규 |
+| `src/app/api/document-requests/route.ts` | **Mock API (의뢰 CRUD)** | B-2 | ❌ 신규 |
+| `src/app/client-portal/document-requests/page.tsx` | **기업고객 의뢰 현황 목록** | B-2 | ❌ 신규 |
+| `src/app/client-portal/document-requests/new/page.tsx` | **기업고객 의뢰 신청 폼** | B-2 | ❌ 신규 |
+| `src/app/client-portal/documents/[id]/page.tsx` | **기업고객 전달 문서 확인** | B-2 | ❌ 신규 |
+| `src/components/documents/CommentThread.tsx` | 재사용 코멘트 스레드 컴포넌트 | B | ❌ 신규 |
+| `src/components/documents/DocumentUploadZone.tsx` | 재사용 드래그&드롭 컴포넌트 | B | ❌ 신규 |
+| `src/components/layout/Navbar.tsx` | **네비게이션에 문서 허브 추가** | B | ✅ 수정 |
+
+---
+
+## ⚙️ 실행 방법
+
+```bash
+cd c:\projects\company-relationship-management
+npm run dev
+# → http://localhost:3000/documents
+```
+
+---
+
+## 🔑 핵심 가이드
+
+### 1. Mock 데이터 구조 (최소 8개 문서)
+
+```typescript
+const MOCK_DOCUMENTS = [
+  { id: 'd1', title: '삼성전자_서비스이용계약_v3.pdf', doc_type: 'contract',
+    doc_source: 'internal', status: 'reviewing', urgency: 'urgent',
+    version: 3, case_id: 'case-1', company_id: 'corp-1',
+    uploaded_by: '이OO 변호사', created_at: '2026-03-08', unresolved_comments: 3 },
+  { id: 'd2', title: '준비서면_2026-03-15.pdf', doc_type: 'court_filing',
+    doc_source: 'our_filing', status: 'approved', urgency: 'critical',
+    version: 1, case_id: 'case-1', uploaded_by: '이OO 변호사',
+    created_at: '2026-03-05', unresolved_comments: 0 },
+  { id: 'd3', title: '답변서_상대방_2026-03-10.pdf', doc_type: 'court_filing',
+    doc_source: 'opponent', status: 'reviewing', urgency: 'urgent',
+    version: 1, case_id: 'case-1', uploaded_by: '최OO 송무직원',
+    created_at: '2026-03-10', unresolved_comments: 1 },
+  { id: 'd4', title: '이사회의사록_교촌에프앤비_2026-03.pdf', doc_type: 'board_minutes',
+    doc_source: 'internal', status: 'draft', urgency: 'normal',
+    version: 1, company_id: 'corp-2', uploaded_by: '기업HR박OO',
+    created_at: '2026-03-09', unresolved_comments: 2 },
+  { id: 'd5', title: 'NDA_신규거래처_ABC물산.pdf', doc_type: 'contract',
+    doc_source: 'internal', status: 'sent', urgency: 'normal',
+    version: 1, company_id: 'corp-1', uploaded_by: '김OO 파트너변호사',
+    created_at: '2026-03-07', unresolved_comments: 0 },
+  { id: 'd6', title: '법원_명령서_2026-03-11.pdf', doc_type: 'court_filing',
+    doc_source: 'court', status: 'reviewing', urgency: 'critical',
+    version: 1, case_id: 'case-2', uploaded_by: '최OO 송무직원',
+    created_at: '2026-03-11', unresolved_comments: 4 },
+  { id: 'd7', title: '임원선임_의사록_롯데GRS_2026.pdf', doc_type: 'director_appointment',
+    doc_source: 'internal', status: 'approved', urgency: 'normal',
+    version: 2, company_id: 'corp-3', uploaded_by: '이OO 담당변호사',
+    created_at: '2026-03-04', unresolved_comments: 0 },
+  { id: 'd8', title: '수임계약서_홍길동_2026-03.pdf', doc_type: 'retainer_report',
+    doc_source: 'internal', status: 'draft', urgency: 'normal',
+    version: 1, case_id: 'case-3', uploaded_by: '사무장최OO',
+    created_at: '2026-03-10', unresolved_comments: 1 },
+];
+```
+
+### 2. 코멘트 Mock 데이터 구조 (스레드 포함)
+
+```typescript
+const MOCK_COMMENTS = [
+  {
+    id: 'c1', document_id: 'd1', parent_id: null,
+    author: { name: '김OO 파트너변호사', role: 'PARTNER_LAWYER' },
+    comment_type: 'notice',  // 📌일반 | ✅approval | ⚠️revision_request | 🔔notice
+    content: '3조 2항 검토 필요합니다. @이OO변호사 @기업HR박OO 확인 부탁드립니다.',
+    tagged_users: ['이OO변호사', '기업HR박OO'],
+    page_ref: 3, text_ref: '제3조 제2항',
+    is_resolved: false,
+    created_at: '2026-03-10T09:00:00',
+    replies: [
+      {
+        id: 'c2', parent_id: 'c1',
+        author: { name: '이OO 담당변호사', role: 'LAWYER' },
+        comment_type: 'revision_request',
+        content: '3조 2항 리스크 확인했습니다. 손해배상 한도 조항 수정 요청드립니다.',
+        is_resolved: false,
+        created_at: '2026-03-10T10:30:00',
+        replies: []
+      }
+    ]
+  },
+];
+```
+
+### 3. 결재 라인 순서 원칙
+
+```
+담당변호사 (1차 검토·⚠️수정요청) 
+→ 기업HR (확인 코멘트) 
+→ 담당변호사 (수정안 업로드) 
+→ 파트너변호사 (✅ 최종승인) 
+→ 영업팀관리자 (계약 결재 — 계약 문서 한정)
+```
+
+### 4. Supabase 연결 시 DB 스키마 참조
+
+```
+연결 시 _strategy/DOCUMENT_COMMENT_SYSTEM.md 섹션 "📐 DB 스키마" 참조:
+  - documents 테이블 (tenant_id RLS 기준)  ← law_firm_id 아님
+  - document_comments 테이블 (스레드 구조: parent_id)
+  - document_reads 테이블 (읽음 추적)
+  - document_approvals 테이블 (법적 이력 보존)
+  - automation_logs 테이블 (모든 이벤트 기록)
+  - document_requests 테이블 (문서 의뢰 워크플로우 전용) ← 신규
+RLS 정책: 02_MULTITENANT_ARCHITECTURE.md 섹션 5 참조
+```
+
+### 5. 문서 의뢰 Mock 데이터 구조
+
+```typescript
+const MOCK_DOCUMENT_REQUESTS = [
+  {
+    id: 'dr1',
+    request_number: 'DR-2026-001',
+    title: '2026년 3월 이사회 의사록 작성',
+    doc_type: 'board_minutes',
+    description: '3월 정기 이사회에서 결의한 임원 선임 건 및 자본금 증자 건 의사록 작성 요청드립니다.',
+    urgency: 'urgent',
+    status: 'in_progress',          // pending | in_progress | completed | delivered
+    company_id: 'corp-2',
+    company_name: '교촌에프앤비',
+    requested_by: '박OO HR팀장',
+    assignee: { name: '이OO 담당변호사', role: 'LAWYER' },
+    deadline: '2026-03-15',
+    created_at: '2026-03-10T09:00:00',
+    linked_document_id: null,
+  },
+  {
+    id: 'dr2',
+    request_number: 'DR-2026-002',
+    title: '신규 거래처 NDA 계약서 검토 및 수정',
+    doc_type: 'contract',
+    description: 'ABC물산과의 NDA 초안을 첨부합니다. 독소조항 검토 후 수정본 전달 부탁드립니다.',
+    urgency: 'normal',
+    status: 'pending',
+    company_id: 'corp-1',
+    company_name: '삼성전자 서비스',
+    requested_by: '김OO 법무팀장',
+    assignee: null,                  // 미배정
+    deadline: '2026-03-18',
+    created_at: '2026-03-10T11:30:00',
+    linked_document_id: null,
+  },
+  {
+    id: 'dr3',
+    request_number: 'DR-2026-003',
+    title: '임원 선임 등기 관련 법률의견서',
+    doc_type: 'opinion',
+    description: '신임 대표이사 선임에 따른 등기 절차 및 법적 요건 의견서 발급 요청',
+    urgency: 'normal',
+    status: 'delivered',
+    company_id: 'corp-3',
+    company_name: '롯데GRS',
+    requested_by: '최OO 총무팀',
+    assignee: { name: '이OO 담당변호사', role: 'LAWYER' },
+    deadline: '2026-03-12',
+    created_at: '2026-03-08T10:00:00',
+    linked_document_id: 'd7',        // 전달된 문서 ID
+    delivered_at: '2026-03-11T15:00:00',
+    client_confirmed: false,
+  },
+];
+```
+
+### 6. 알림 플로우 (Mock 기반)
+
+```
+[기업고객 의뢰 제출]
+  → automation_logs 기록 (trigger_type: 'doc_request_created')
+  → 내부팀 알림: "[DR-2026-001] 교촌에프앤비에서 문서 작성을 의뢰했습니다."
+
+[내부팀 담당자 배정]
+  → automation_logs 기록 (trigger_type: 'doc_request_assigned')
+  → 기업고객 알림: "의뢰하신 문서에 이OO 변호사가 배정되었습니다."
+
+[내부팀 문서 전달 완료]
+  → automation_logs 기록 (trigger_type: 'doc_request_delivered')
+  → 기업고객 알림: "작성이 완료된 문서가 포털에 등록되었습니다. [문서 확인하기]"
+  → 기업고객 포털 배지 업데이트 (새 문서 N건)
+
+[기업고객 확인 완료]
+  → automation_logs 기록 (trigger_type: 'doc_request_confirmed_by_client')
+  → 담당 변호사 알림: "교촌에프앤비 박OO님이 문서를 확인 완료했습니다."
+```
+
+---
+
+## 🔗 Esign 전자계약 연동 포인트 (Sprint C)
+
+### DocComment → Esign (순방향)
+```
+[전자서명 요청] 버튼 클릭 (documents/[id] 액션바)
+  → /admin/contracts/new?document_id=[id]&client_company_id=[company_id]
+  → Esign 4단계 위자드에 문서 자동 채워짐
+  → Step 0이 "로펌→고객사" 또는 "고객사→거래처" 선택으로 시작
+```
+
+### Esign → DocComment (역방향)
+```
+서명 완료 이벤트 → documents 테이블 자동 INSERT:
+  { doc_type: 'contract', doc_source: 'internal', status: 'approved',
+    tenant_id: [tenant_id], company_id: [client_company_id] }
+
+→ document_approvals INSERT:
+  { approval_type: 'esign_completed', legal_binding: TRUE,
+    approver_name: [counterparty_name], approved_at: [서명완료시각] }
+
+→ automation_logs INSERT:
+  { trigger_type: 'esign_completed', related_document_id: [documents.id],
+    related_contract_id: [contracts.id] }
+  ⚠️ automation_logs의 trigger_type은 반드시 `src/lib/constants/automation.ts`에서만 관리.
+  전체 트리거 목록 (Sprint B/B-2):
+    'document_uploaded' | 'document_comment_added' | 'document_comment_resolved'
+    'document_approved' | 'document_rejected'
+    'doc_request_created' | 'doc_request_assigned' | 'doc_request_delivered' | 'doc_request_confirmed_by_client'
+  Sprint C 트리거: 'esign_sent' | 'esign_viewed' | 'esign_completed' | 'esign_expired' | 'esign_resent'
+  C3 트리거: 'consent_completed' | 'subscription_activated' | 'payment_success' | 'payment_failed'
+  MVP 트리거: 'case_created' | 'hearing_added' | 'hearing_alert_sent'
+
+→ 기업고객 포털 자동 배포:
+  /client-portal/documents/[doc_id] 에서 확인 가능
+  (client-portal 새 문서 배지 카운트 +1)
+
+Storage 경로: corporate/{client_company_id}/contracts/ (private bucket)
+```
+
+### 전체 3단계 원클릭 워크플로우 URL 체인
+```
+① /client-portal/document-requests/new  (기업고객 의뢰 접수)
+② /documents/requests                   (내부팀 배정·작성)
+③ /documents/upload?request_id=[dr-id]  (문서 업로드)
+④ /documents/[id]                       [📝 전자서명 요청] 버튼
+   조건: doc_type === 'contract' AND document_requests.status === 'delivered'
+⑤ /admin/contracts/new?document_id=[id]&client_company_id=[cid]  (Esign Step 1 자동 바인딩)
+```
+
+### 필드명 통일
+```
+DocComment: tenant_id (JWT claim) ← Esign: tenant_id (RLS 격리 키) 동일
+두 시스템 모두 tenant_id를 기준으로 RLS 격리. law_firm_id 사용 금지.
+```
+
+---
+
+## 🏆 MoSCoW 우선순위
+
+### MUST — Sprint B (문서 허브 + 코멘트)
+
+| # | 기능 | 파일 |
+|---|---|---|
+| M1 | 3패널 문서 허브 메인 | `documents/page.tsx` |
+| M2 | 드래그&드롭 업로드 + 메타데이터 폼 | `documents/upload/page.tsx` |
+| M3 | 코멘트 스레드 (4가지 유형 + 답글) | `CommentThread.tsx` |
+| M4 | @멘션 자동완성 + gold 강조 | `CommentThread.tsx` |
+| M5 | 코멘트 해결 처리 (resolve) | `CommentThread.tsx` |
+| M6 | 문서 생성주체 배지 (4가지) | `documents/page.tsx` |
+| M7 | 결재 라인 표시 | `documents/[id]/page.tsx` |
+| M8 | Mock API (문서 CRUD) | `api/documents/route.ts` |
+
+### MUST — Sprint B-2 (문서 의뢰 워크플로우)
+
+| # | 기능 | 파일 | 페르소나 |
+|---|---|---|---|
+| M9 | **기업고객 의뢰 신청 폼** | `client-portal/document-requests/new/page.tsx` | 기업HR/클라이언트 |
+| M10 | **기업고객 의뢰 현황 목록** (4단계 스텝퍼) | `client-portal/document-requests/page.tsx` | 기업HR/클라이언트 |
+| M11 | **내부팀 의뢰 수신함** (배정·처리) | `documents/requests/page.tsx` | 변호사/송무직원/영업팀 |
+| M12 | **기업고객 전달 문서 확인 페이지** | `client-portal/documents/[id]/page.tsx` | 기업HR/클라이언트 |
+| M13 | **문서 의뢰 Mock API** | `api/document-requests/route.ts` | 내부 연동 |
+| M14 | **알림 플로우** (접수→배정→전달→확인 4단계) | `automation_logs` mock 연동 | 전 사용자 |
+
+### SHOULD — Sprint C
+
+| # | 기능 |
+|---|---|
+| S1 | 이해충돌 자동 체크 (신건등록 + 문서공유 시) |
+| S2 | 기업 법인 대시보드 7섹션 (`/lawyer/corporate/[id]`) |
+| S3 | 리스크 레이더 D-day 색상 코딩 |
+| S4 | TC/TM 타임시트 연동 청구서 자동 발송 |
+| S5 | 은행 계좌 자동 연동 (오픈뱅킹 API) |
+| S6 | 불변기일 AI 전용 추적 |
+| S7 | Esign 전자계약 ↔ documents 테이블 통합 (역방향 자동 INSERT 포함) |
+| S8 | 의뢰 긴급도별 수수료 자동 청구 연동 (청구 모듈) |
+| S9 | document_requests → Esign 전자서명 원클릭 전환 (URL 체인: ①의뢰→②배정→③업로드→④전자서명 요청→⑤Esign위자드) |
+
+---
+
+## ✅ Acceptance Criteria 검증표
+
+### Sprint B — 문서 허브 & 코멘트
+
+| # | 기준 | 검증 방법 |
+|---|---|---|
+| AC1 | `/documents` 3패널 동시 표시 | 문서 클릭 → 뷰어 + 코멘트 즉시 변경 |
+| AC2 | 4가지 코멘트 유형 배경색 구분 | 각 유형 선택 → 색상 확인 |
+| AC3 | @멘션 자동완성 작동 | `@` 입력 → dropdown 표시 |
+| AC4 | 코멘트 해결 처리 | [해결] 클릭 → 흐릿해짐 + 해결됨 텍스트 |
+| AC5 | 업로드 플로우 완결 | 파일 드래그 → 메타데이터 → 성공 화면 |
+| AC6 | 결재 라인 단계 표시 | `/documents/[id]` 상단 결재 현황 확인 |
+| AC7 | 미해결 코멘트 배지 | 문서 목록 카드 우측 빨간 숫자 배지 |
+| AC8 | TypeScript 에러 없음 | `npx tsc --noEmit` |
+
+### Sprint B-2 — 문서 의뢰 워크플로우
+
+| # | 기준 | 검증 방법 |
+|---|---|---|
+| AC9 | 기업고객이 의뢰 신청 → 의뢰 번호 발급 | `/client-portal/document-requests/new` 폼 제출 → DR-2026-XXX 표시 |
+| AC10 | 기업고객 의뢰 목록에 4단계 스텝퍼 표시 | `/client-portal/document-requests` → 각 의뢰 진행 단계 시각 확인 |
+| AC11 | 내부팀 수신함에 미배정 의뢰 표시 | `/documents/requests` → 대기중 카드 + [내가 받기] 버튼 |
+| AC12 | [내가 받기] → 배정 완료 + 상태 변경 | 클릭 후 카드 상태 "진행중" + 담당자명 표시 |
+| AC13 | [문서 업로드하여 전달] → documents 연결 | `/documents/upload?request_id=dr1` → 업로드 후 의뢰 status: delivered |
+| AC14 | 기업고객 포털에 전달 문서 노출 | `/client-portal/documents/[id]` → PDF 뷰어 + [확인 완료] 버튼 |
+| AC15 | 기업고객 [확인 완료] → 담당자에게 알림 | 클릭 후 "담당자에게 알림 발송" 토스트 표시 |
+| AC16 | 기업고객은 타사 문서 열람 불가 | 다른 company_id 문서 URL 접근 → 403 안내 |
+
+---
+
+## 🔄 문서 의뢰 전체 플로우 요약
+
+```
+기업고객 (CLIENT/CORP_HR)
+  └─ /client-portal/document-requests/new
+       ↓ 의뢰 제출 (DR-2026-XXX 발급)
+       ↓ 내부팀 알림 발송
+
+내부팀 (LAWYER / STAFF / SALES)
+  └─ /documents/requests (수신함)
+       ↓ [내가 받기] 클릭 → 담당자 배정
+       ↓ 기업고객 "배정완료" 알림
+       ↓ 문서 작성 후 /documents/upload?request_id=dr1
+       ↓ 전달 완료 처리 → status: delivered
+       ↓ 기업고객 "전달완료" 알림
+
+기업고객 (CLIENT/CORP_HR)
+  └─ /client-portal/document-requests
+       ↓ 스텝퍼 4단계: ④ 전달완료 gold 표시
+       ↓ [문서 확인하기] 클릭
+  └─ /client-portal/documents/[id]
+       ↓ PDF 뷰어 + [확인 완료] 클릭
+       ↓ 담당 변호사에게 확인 알림 발송
+```
+
+---
+
+*연계 문서: [`_strategy/DOCUMENT_COMMENT_SYSTEM.md`] | [`02_MULTITENANT_ARCHITECTURE.md`] | [`Esign Vibe Prompt 전자계약`]*  
+*Sprint B → Sprint B-2 (의뢰 워크플로우) → Sprint C (Esign 전자계약) 순서로 진행*

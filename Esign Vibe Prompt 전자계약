@@ -1,0 +1,748 @@
+# ⚡ 바이브코딩 프롬프트: 전자계약 (E-Sign) 기능 v2.0
+
+> **company-relationship-management** 프로젝트용 — Phase 2 아키텍처 반영  
+> 범위: **로펌↔클라이언트** + **클라이언트↔제3자(거래처)** 통합 계약 플랫폼  
+> **Sprint 순서**: Sprint B (DocComment Vibe Prompt) 완료 후 이 Sprint C를 시작할 것
+
+---
+
+## 🗂️ 현재 프로젝트 상태 (2026-03-10 기준 실측)
+
+> **개발 전 반드시 확인할 것**
+
+| 항목 | 현재 상태 | 작업 지시 |
+|------|-----------|----------|
+| `src/app/contracts/page.tsx` | ✅ 존재 (dark theme, 기본 CRUD) | `/admin/contracts`로 이동 후 확장 |
+| `src/app/contracts/new/page.tsx` | ✅ 존재 (기본 폼) | `/admin/contracts/new`로 이동 후 Step 0~3 확장 |
+| `src/app/contracts/[id]/page.tsx` | ✅ 존재 (기본 상세) | `/admin/contracts/[id]`로 이동 후 감사추적 추가 |
+| `src/app/contracts/sign/` | ✅ 폴더 존재, **page.tsx 없음** | `sign/[token]/page.tsx` 신규 생성 |
+| `src/app/admin/contracts/` | ❌ **미존재** | 위 파일들 이동 후 새 폴더 생성 |
+| `src/app/api/contracts/` | ❌ **미존재** | `route.ts` 신규 생성 |
+| `src/components/layout/Navbar.tsx` | ✅ 존재 (네비게이션 담당) | "전자계약" 메뉴 항목 추가 |
+
+### 🔑 네비게이션 추가 타겟 파일
+```
+사이드바 역할 파일: src/components/layout/Navbar.tsx
+  ⚠️ Sidebar.tsx 파일은 존재하지 않음. Navbar.tsx에만 추가할 것.
+  - "📝 전자계약" 메뉴 항목 추가 (FileSignature 아이콘)
+  - href: "/admin/contracts"
+  - Sprint B에서 추가된 "📂 문서 허브"(/documents) 항목 아래에 append
+  - 파일 전체 재작성 절대 금지
+```
+
+### 🔄 기존 /contracts 파일 처리 방침
+```
+기존 파일들을 /admin/contracts로 이동(복사) 후 기능 확장:
+  src/app/contracts/page.tsx  →  src/app/admin/contracts/page.tsx  (탭 2개 추가)
+  src/app/contracts/new/page.tsx  →  src/app/admin/contracts/new/page.tsx  (Step 0 추가)
+  src/app/contracts/[id]/page.tsx  →  src/app/admin/contracts/[id]/page.tsx  (감사추적 추가)
+
+기존 /contracts 경로 처리:
+  src/app/contracts/page.tsx → redirect to /admin/contracts (사용자 북마크 보호)
+```
+
+---
+
+## 🎯 직관성 & 사용성 요구사항 (UX Update — 2026-03-10)
+
+> **원칙**: "주요 사용자(사무장·영업팀) 위주로 전자계약 전체 경험을 3분 안에 완료할 수 있어야 한다."
+
+### 1. Step 0 발신주체 선택 카드 UX 강화
+
+```
+카드 2개 디자인 (2-Card Selection):
+  [🏛️ 로펌이 고객사에게 발송]                    [🏢 고객사가 거래처에게 발송]
+  수임계약서 · 자문계약서                   가맹계약서 · NDA · 용역계약서
+  
+  도움말 텍스트 (카드 하단, 회색 소형):
+  "로펌이 의뢰인 기업에게 직접 서명요청"  "로펌 개입없이 기업이 거래처에 발송"
+  
+  카드 hover 상태:
+  - 배경: rgba(201,168,76,0.08) (gold 계열 색상으로 구분)
+  - border: 2px solid #c9a84c
+  - 우측 상단 "추천" 배지 페이드인 ("연 100~500건 매출")
+  
+  선택된 상태:
+  - Gold gradient border 4px
+  - 좌측 상단 체크마크 아이콘 (gold)
+  - 0.5s 후 Step 1로 자동 진행 (인디케이터 애니메이션 효과 표시)
+  
+  Breadcrumb (항상 상단 표시):
+  [🏛️ 로펌 발신] > [Step 1: 문서] > [Step 2: 서명인] > [Step 3: 완료]
+  선택된 모드가 첫 번째 항목으로 고정되어 표시
+```
+
+### 2. Step 진행률 & 안내 모델
+
+```
+Step 인디케이터 (0번부터 3번):
+  [0] → [1] → [2] → [3]
+  
+  현재 단계: Gold 테두리 원 + 흰색 숫자
+  완료 단계: Gold 체크마크
+  향후 단계: 회색 원 (outline)
+  단계간 progress 라인 (0%부터 채워지는 gold bar)
+
+단계별 안내 힌트 (단계 필드 아래 회색 텍스트):
+  Step 0: "한 번만 선택하면 다음 단계로 자동 이동됩니다"
+  Step 1: "템플릿을 선택하거나 PDF를 직접 업로드하세요"
+  Step 2: "서명인의 이름과 이메일을 입력하세요"
+  Step 3: "짠! 서명 요청이 발송되었습니다 🙌"
+
+[이전 단계로] 버튼 (Step 1 이후부터 좌측 하단):
+  ghost 버튼 (흰색 텍스트: "← 이전단계로 돌아가기")
+  Step 0로는 이동 불가 (목적 외 내비게이션 유도 방지)
+```
+
+### 3. 서명 페이지 (외부 수신인) UX
+
+```
+모바일 서명 (주 사용 환경):
+  - 화면 상단 1/3: 로펌 이름 + 문서명
+  - 화면 하단 2/3: 서명 Canvas (터치 지원)
+  - Sticky 하단 바: [지우기] [완료] 버튼
+  - Canvas 넘침 방지: 스크롤 중 Canvas 선택 비활성화 (touch-action: none)
+  
+서명 전 체크리스트 스티커:
+  "서명 전 다음 사항을 확인하세요" 스티커 (accordion):
+  - [ ] 문서 내용 읽음
+  - [ ] 서명 내용 이해 확인
+  - [ ] 개인정보 처리방침 인지 (모두 불체크 시 서명 버튼 비활성)
+  모든 체크박스가 해제되면 서명 버튼 비활성화
+
+오류 표시 및 유효성 체크:
+  Canvas에 서명 데이터 없으면 [서명 완료] 비활성 + "서명을 그린 후 완료를 눌러주세요" tooltip
+  이름 입력 필드 값이 3자 이하면 [서명 완료] 비활성
+```
+
+### 4. 로드맵 + 로딩 & 에러 상태
+
+```
+로딩 Skeleton:
+  - 계약 목록: 카드 × 5 shimmer
+  - Step 1 템플릿 목록: 3개 카드 shimmer (애니메이션 카드)
+  - Mock PDF 영역: 높이 400px 회색 shimmer 블록
+
+에러 복구:
+  - 이메일 형식 오류: 빨간 border + "이메일 형식을 확인해주세요"
+  - Step 3 발송 실패: "발송 실패 — 잘못된 정보가 있는지 확인해주세요 [Step 2로 돌아가기]" (gold link)
+  - API Error: toast 에러 + "네트워크 연결을 확인한 후 다시 시도해주세요" + [재시도] 버튼
+
+성공 애니메이션 (Step 3):
+  - react-confetti 참조 (npm없이 CSS keyframe으로): 입자 10개 fall
+  - 체크마크 아이콘 scale 0 → 1.2 → 1 (spring 애니메이션)
+  - 성공 모달 자동 닫기 없음 (사용자가 CTA 선택할 때까지)
+```
+
+### 5. 보안 & 코멘트 UX
+
+| 상황 | UI 처리 |
+|---|---|
+| 신뢰도 증진 | 서명 페이지 상단 연한 색상 bar (서브 도메인 환경 맞춰 변경 가능) |
+| 링크 만료 임박 | 24시간 남은 서명링크: 만료 D-1 배지 (주황) + 알림 토스트 |
+| 링크 만료됨 | 서명 페이지: 회색 오버레이 + "이 서명 링크는 만료되었습니다. 담당자에게 재발송을 요청하세요." |
+| 인증 불필요 안내 | 서명 페이지 상단에 로펌 로고 + "별도 인증 없이 접근 가능 (토큰 보안)" 안내 |
+
+### 6. 사용성 검증 기준 (PM 체크리스트)
+
+| # | 체크 | 기준 |
+|---|---|---|
+| U1 | Step 0 카드 선택 → Step 1 자동 이동 | 0.5s 이내 |
+| U2 | 템플릿 선택 → Step 2 자동 이동 | 0.8s 이내 |
+| U3 | 서명 완료 → Step 3 성공 화면 | 1초 이내 |
+| U4 | 모바일 Canvas 서명 (터치) | 연속 드로잉 끊김 없음 |
+| U5 | 서명 링크 외부인 접속 | 3단계 클릭 이내 완료 (3탭 이내) |
+| U6 | 발신주체 정보 (Breadcrumb) | 모든 Step에서 항상 표시 |
+
+> [!IMPORTANT]
+> **경로 처리 방침 (개발 전 필독)**  
+> 현재 `src/app/contracts/` 아래에 `page.tsx`, `new/page.tsx`, `[id]/page.tsx`가 이미 존재합니다.  
+> 개발 방향: **기존 파일을 `src/app/admin/contracts/`로 이동(복사)한 뒤 확장**합니다.  
+> 기존 `/contracts` 경로는 삭제하거나 `/admin/contracts`로 redirect 처리하세요.  
+> `src/app/contracts/sign/` 폴더는 존재하나 `page.tsx`가 없으므로 **신규 생성**합니다.
+
+---
+
+## 🎯 비즈니스 컨텍스트 (개발 전 필독)
+
+```
+3가지 계약 시나리오를 모두 지원해야 한다:
+
+[Level 1] 로펌 → 클라이언트 (기업)
+  로펌이 수임계약·자문계약을 기업 의뢰인에게 발송
+  → 빈도: 연 1~5건 (낮음)
+
+[Level 2] 클라이언트 (기업) → 제3자 (거래처)
+  기업 의뢰인이 자신의 상대방에게 NDA·가맹계약·용역계약 등 발송
+  → 빈도: 연 50~500건 (높음) ← 핵심 수익 볼륨
+  → 건당 과금: 3,000~10,000원 수익 발생
+
+[Level 3] 내부 결재 (미래 옵션 — 현재 미구현)
+
+contract_initiated_by 필드로 발신 주체 구분:
+  "law_firm"   → Level 1
+  "client"     → Level 2
+```
+
+---
+
+## 📋 프롬프트 전문 (복사해서 AI에게 전달)
+
+```
+You are adding a full-featured electronic contract (e-sign) system to an existing Next.js 14 App Router project.
+
+## 🎯 Project Context
+- Path: c:\projects\company-relationship-management
+- Stack: Next.js 14 (App Router), TypeScript, Tailwind CSS, Framer Motion, Lucide React, Supabase
+- Design system: Dark background (#04091a), gold accent (#c9a84c / #e8c87a), glassmorphism cards
+- Auth: existing middleware.ts handles session via Supabase
+- Multi-tenant: Supabase RLS, each law firm tenant is isolated by tenant_id
+  ⚠️ 필드명 통일: DocComment 프롬프트와 동일하게 tenant_id 사용 (law_firm_id 사용 금지)
+- Roles: CORP_HR / STAFF / LAWYER / PARTNER_LAWYER / SALES / SALES_MANAGER / CLIENT / FIRM_ADMIN / SUPER_ADMIN
+
+## 🔑 공유 Mock 데이터 통일 원칙 (DocComment Sprint B와 반드시 동일하게 유지)
+```
+corp-1 = 삼성전자 서비스   (Esign client_company_id === DocComment company_id)
+corp-2 = 교촌에프앤비
+corp-3 = 롯데GRS
+tenant-001 = 로펌 테넌트  (양쪽 tenant_id 동일)
+
+이 값들이 다르면 서명 완료 시 DocComment 역방향 INSERT가 깨짐.
+```
+
+## 📂 실제 프로젝트 파일 현황 (2026-03-10 기준)
+
+### 이미 존재하는 파일 (이동 후 확장할 것):
+- src/app/contracts/page.tsx — 기존 계약 목록 (다크 테마 ✅, 발신주체 탭 ❌)
+- src/app/contracts/new/page.tsx — 기존 계약 생성 폼 (Step 0 없음 ❌)
+- src/app/contracts/[id]/page.tsx — 기존 계약 상세 (감사추적 없음 ❌)
+- src/components/layout/Navbar.tsx — 공통 네비게이션 (사이드바 역할, 전자계약 항목 추가 필요)
+
+### 이미 존재하는 폴더 (파일 추가 필요):
+- src/app/contracts/sign/ — 폴더 존재하나 page.tsx 없음 → [token]/page.tsx 신규 생성
+
+### 신규 생성할 폴더/파일:
+- src/app/admin/contracts/ — 이 폴더 자체가 없음 (위 파일들 이동 후 기능 확장)
+- src/app/api/contracts/ — route.ts 신규 생성
+
+⚠️ 사이드바 주의: Sidebar.tsx 파일은 존재하지 않음.
+    네비게이션 추가는 반드시 src/components/layout/Navbar.tsx를 수정할 것.
+    Navbar.tsx를 통째로 재작성하지 말고, 기존 메뉴 배열에 항목만 추가.
+    Sprint B에서 추가된 "📂 문서 허브"(/documents) 항목 아래에 "📝 전자계약"을 append.
+
+## 🏗️ Architecture: Two Contract Origins
+
+ALL contracts have these key fields:
+  - tenant_id: string          — 로펌 테넌트 식별 (RLS 격리)
+  - contract_initiated_by: "law_firm" | "client"
+  - client_company_id: string  — 연관된 고객사 ID
+  - counterparty_name: string  — 계약 상대방
+  - counterparty_email: string — 서명 요청받는 외부인 이메일
+
+계약 발신 주체에 따라 UI 컨텍스트가 달라짐:
+  law_firm  → 수임계약, 자문계약 (로펌이 기업에 발송)
+  client    → 가맹계약, NDA, 용역계약 등 (기업이 거래처에 발송)
+
+## 📁 Files to Create/Modify
+
+### STEP 1: 기존 파일 이동 & 확장 (우선 처리)
+
+기존 /contracts 파일들을 /admin/contracts 로 복사한 뒤 기능 추가:
+  src/app/contracts/page.tsx → src/app/admin/contracts/page.tsx
+    [추가] 상단 탭: [로펌 발신 계약] / [고객사 발신 계약]
+    [추가] Stats row: 총 계약 수 / 서명 대기 / 완료 / 만료 임박
+    [유지] 기존 목록 레이아웃 (다크 테마 동일)
+
+  src/app/contracts/new/page.tsx → src/app/admin/contracts/new/page.tsx
+    [추가] Step 0 — 발신주체 선택 2-Card UI
+    [변경] 기존 폼 → 4단계 위자드로 재구성
+    [변경] 기존 라이트 테마 → 다크 테마 (#04091a) 통일
+
+  src/app/contracts/[id]/page.tsx → src/app/admin/contracts/[id]/page.tsx
+    [추가] 발신주체 배지 (law_firm: blue / client: purple)
+    [추가] 감사추적 타임라인 (📤→📨→👁→✅→🔒)
+
+기존 /contracts redirect 처리:
+  src/app/contracts/page.tsx → redirect to /admin/contracts
+
+### STEP 2: 신규 파일 생성
+
+### 1. src/app/admin/contracts/page.tsx — 全계약 대시보드 (어드민용)
+Header: "전자계약 관리" + "새 계약 만들기" gold button
+
+**상단 탭 2개:**
+  [로펌 발신 계약] — law_firm 계약만 표시 (수임계약 등)
+  [고객사 발신 계약] — client 계약만 표시 (거래처와의 계약)
+
+Stats row (탭별 따로):
+  총 계약 수 / 서명 대기 / 완료 / 만료 임박 (animated numbers)
+
+Contract list columns:
+  문서명 | 발신: [로펌명 or 고객사명] | 수신: 상대방 | 상태 | 날짜 | 액션
+
+Status badges:
+  대기중(amber) / 완료(green) / 만료(red) / 서명중(blue)
+
+Action buttons per row:
+  서명요청 / 상세보기 / PDF다운로드 / 재발송
+
+Use framer-motion list stagger (0.05s per item).
+All mock data inline for now.
+
+---
+
+### 2. src/app/admin/contracts/new/page.tsx — 새 계약 발송 (4-Step Wizard)
+
+**Step 0 — 발신 주체 선택 (NEW):**
+  두 개의 큰 카드 버튼:
+  
+  [🏛️ 로펌이 고객사에게 발송]
+    - 수임계약서, 자문계약서
+    - 로펌 → 기업 의뢰인 서명 요청
+    
+  [🏢 고객사가 거래처에게 발송]
+    - 가맹계약서, NDA, 용역계약서, 임대차계약서 등
+    - 기업 의뢰인 → 외부 상대방 서명 요청
+    
+  선택 즉시 Step 1로 이동.
+  선택된 모드는 상단 breadcrumb에 항상 표시.
+
+**Step 1 — 문서 업로드:**
+  - Drag-and-drop zone (accept .pdf, .docx)
+  - "템플릿 선택" 섹션 — 선택된 발신 주체에 따라 다른 템플릿 표시:
+  
+    law_firm 모드:
+      📋 수임계약서
+      📋 법률자문 계약서
+      📋 소송위임장
+      
+    client 모드:
+      📋 가맹계약서
+      📋 비밀유지계약서 (NDA)
+      📋 프리랜서 용역계약서
+      📋 임대차계약서
+      📋 근로계약서
+      
+  Template card: icon + name + "선택" button
+  "선택됨" state: gold border + checkmark
+  선택 후 0.8s 뒤 자동 Step 2 이동.
+
+**Step 2 — 서명인 설정:**
+  왼쪽 패널:
+    client 모드일 때: "고객사 선택" dropdown (client_company_id)
+    상대방 정보: counterparty_name + counterparty_email
+    역할 선택: 서명인 / 참조인 / 승인자
+    "나도 서명" toggle (현재 유저 서명인 추가)
+    "서명인 추가" 버튼
+    
+  오른쪽 패널:
+    Mock PDF 미리보기
+    드래그 가능한 서명 위치 지정 박스
+    "서명 위치 클릭으로 지정" 안내
+    
+  하단: "서명 요청 발송" gold gradient button
+
+**Step 3 — 완료:**
+  성공 애니메이션 (confetti or 확대 체크마크)
+  요약: 문서명, 수신인 수, 예상 완료 시간
+  감사추적 타임라인: 업로드 → 발송 → 열람 → 서명
+  
+  ⚠️ **DocComment 역방향 연동 (Sprint C 핵심 — Mock에서도 시뮬레이션 필요):**
+  서명 완료 시 다음을 자동 처리 (API POST /api/contracts 서명완료 핸들러에서 순서대로 호출):
+  1. POST /api/documents  → { doc_type: 'contract', status: 'approved', tenant_id, company_id: client_company_id }
+  2. POST /api/document-approvals → { approval_type: 'esign_completed', legal_binding: true, approver_name: counterparty_name }
+  3. POST /api/automation-logs → { trigger_type: 'esign_completed', related_document_id, related_contract_id }
+     (trigger_type: 'esign_completed' — DocComment automation_logs와 동일 타입 사용)
+  4. client-portal 새 문서 배지 카운트 +1 (mock에서는 localStorage or state로 시뮬레이션)
+
+  사용자에게 표시:
+  - "포털에 계약서가 자동 등록되었습니다. (문서 허브 > 계약서)"
+  - 기업고객에게: "서명이 완료되었습니다. [포털에서 확인하기]"
+  CTA: [대시보드로 돌아가기] + [다른 계약 만들기] + [포털에서 서명된 문서 확인 → /client-portal/documents/[doc_id]]
+
+Step indicator: [0 발신주체] → [1 문서업로드] → [2 서명인설정] → [3 완료]
+Active: gold filled. Done: checkmark. Future: gray outline.
+
+---
+
+### 3. src/app/contracts/sign/[token]/page.tsx — 수신인 서명 페이지 (공개, 인증 불필요)
+
+⚠️ 경로: /admin/contracts가 아닌 /contracts/sign/[token] — 외부인 공개 접근 경로 유지
+
+상단 바:
+  - 문서명 + 로펌 로고
+  - "○○ 법률사무소 · 간편 전자서명 서비스"
+  - ⚠️ 절대 금지 문구: "법적 효력 보장", "공인전자서명", "전자서명법상 효력"
+  - ✅ 허용 문구: "당사자 간 전자적 합의 기록", "감사추적 보존"
+
+문서 뷰어: 스크롤 가능한 mock PDF + 서명 필드 박스
+
+오른쪽 사이드바 (sticky):
+  서명인 정보 카드 (이름, 이메일, 역할)
+  "서명하기" 버튼 → 서명 모달 오픈
+  진행률: n/N 서명 필드 완료
+
+서명 모달:
+  탭: [직접 서명] [이름 입력] [도장]
+  [직접 서명]: HTML5 Canvas 400x200, 마우스/터치 지원
+    지우기 버튼 / 펜 색상 dark blue (#1a2744)
+  [이름 입력]: 이름 입력 + 폰트 스타일 3종 선택
+  "서명 완료" 버튼: canvas 획 or 텍스트 없으면 비활성
+
+완료 후 전체화면 성공:
+  "✅ 서명이 완료되었습니다"
+  서명된 PDF 다운로드 (mock)
+  씰: "○○ 법률사무소 · 당사자 간 전자적 합의 기록 보존"
+
+---
+
+### 4. src/app/api/contracts/route.ts — Mock API
+
+GET /api/contracts
+  query param: ?initiated_by=law_firm|client
+  → 필터된 mock 계약 목록 반환
+
+POST /api/contracts
+  body: { initiated_by, template_type, counterparty_name, counterparty_email, client_company_id?, tenant_id }
+  → { id, token, signingUrl, initiated_by }
+
+In-memory mock, no DB yet.
+
+Supabase 연결 시 반드시:
+  - contracts 테이블에 tenant_id, contract_initiated_by, client_company_id 컬럼 포함
+  - RLS: tenant_id = auth.jwt() ->> 'tenant_id'
+  - PDF storage: private bucket + signed URL (1시간 만료)
+
+---
+
+### 5. src/app/admin/contracts/[id]/page.tsx — 계약 상세 + 감사추적
+
+계약 메타 카드:
+  발신 주체 배지: [로펌 발신] or [고객사 발신] (색상 구분)
+  문서명 / 상태 / 생성일 / 만료일
+
+문서 미리보기 (mock PDF)
+
+감사추적 타임라인:
+  📤 업로드 / 📨 발송 / 👁 열람 / ✅ 서명 / 🔒 완료
+  각 항목: 아이콘 + 설명 + 타임스탬프
+
+서명인 패널:
+  각 서명인: 아바타, 이름, 이메일, 역할, 상태, 마지막 활동 시각
+
+액션:
+  재발송 / 서명 취소 / PDF 다운로드 / 복사본 만들기
+  "합의 기록 확인서" 버튼 → hash + timestamp mock 모달
+
+---
+
+### 6. src/app/admin/contracts/layout.tsx — 레이아웃
+
+기존 admin sidebar/navbar 패턴과 일치하게 wrap.
+"전자계약" 메뉴 항목: FileSignature 아이콘 (lucide-react) → /admin/contracts
+
+⚠️ **Navbar.tsx 수정 방침 (Sprint B DocComment와 동시 개발 시):**
+- Sprint B에서 '문서 허브'(/documents)가 Navbar.tsx에 이미 추가됨
+- '전자계약'(/admin/contracts)을 '문서 허브' 아래에 **추가**할 것 (별도 append)
+- Navbar.tsx 파일을 전체 재작성하지 말고, 항목만 insert할 것
+
+## 🔐 역할 권한 체계 (DocComment와 동일하게 적용)
+
+| 페이지 | 접근 가능 역할 |
+|--------|---------------|
+| `/admin/contracts` (대시보드) | LAWYER / PARTNER_LAWYER / SALES_MANAGER / FIRM_ADMIN |
+| `/admin/contracts/new` (새 계약 발송) | LAWYER / PARTNER_LAWYER / SALES_MANAGER |
+| `/admin/contracts/[id]` (어드민 상세) | LAWYER / PARTNER_LAWYER / SALES_MANAGER / FIRM_ADMIN |
+| `/contracts/sign/[token]` (수신인 서명) | 공개 (인증 불필요 — 새션 없이 토큰으로 접근) |
+| 고객사 발신 Level 2 계약 생성 | CORP_HR / CLIENT |
+
+## 🎨 Design Requirements
+- Background: #04091a
+- Cards: rgba(255,255,255,0.04) + border rgba(255,255,255,0.08)
+- Gold primary: linear-gradient(135deg, #e8c87a, #c9a84c)
+- 로펌 발신 배지 색상: blue (신뢰/공식)
+- 고객사 발신 배지 색상: purple (비즈니스/거래)
+- framer-motion: page fade+y, step AnimatePresence, list stagger 0.05s
+- Lucide React 아이콘 전체 사용
+- 한국어 UI 텍스트 전체
+- 모바일 반응형
+
+## 📦 추가 패키지 불필요
+- framer-motion, lucide-react, tailwind 기존 그대로
+- Canvas API 네이티브
+- 외부 E-Sign SDK 사용 안 함
+
+## ✅ Acceptance Criteria
+1. /admin/contracts — 탭 구분된 전체 계약 대시보드
+2. /admin/contracts/new — Step 0(발신주체선택) 포함 4단계 플로우
+3. /contracts/sign/[token] — canvas 서명 완료까지 작동
+4. /admin/contracts/[id] — 발신주체 배지 + 감사추적 표시
+5. TypeScript 에러 없음
+6. 추가 npm 패키지 없음
+7. 클레임 방지 문구 적용 여부
+
+**UX 직관성 추가 기준 (2026-03-10 업데이트):**
+8. Step 0 카드 hover gold 배경 변환 + 선택 후 0.5s 내 Step 1 자동 이동
+9. Breadcrumb에 선택된 발신주체 표시 (모든 Step 유지)
+10. Skeleton 로딩 UI (계약목록, 템플릿, Mock PDF)
+11. 모바일 Canvas 터치 끊김 없이 연속 드로잉 (touch-action: none)
+12. 서명 전 체크리스트 스티커 미해제 시 [서명 완료] 비활성
+13. Step 3 성공 애니메이션 (scale spring + 입자 fall 구현)
+14. 토큰 만료 시 만료 고지 화면 + 재발송 안내
+```
+
+---
+
+## 🗂️ 생성 파일 목록
+
+| 파일 | 역할 | 현재 존재 여부 | 작업 |
+|------|------|--------------|------|
+| `src/app/admin/contracts/page.tsx` | 전체 계약 대시보드 (탭: 로펌발신/고객사발신) | ❌ | 기존 `/contracts/page.tsx` 이동 + 탭 추가 |
+| `src/app/admin/contracts/new/page.tsx` | 새 계약 4단계 위자드 (Step 0: 발신주체선택 추가) | ❌ | 기존 `/contracts/new/page.tsx` 이동 + Step 0 추가 |
+| `src/app/admin/contracts/[id]/page.tsx` | 계약 상세 + 발신주체 배지 + 감사추적 | ❌ | 기존 `/contracts/[id]/page.tsx` 이동 + 기능 추가 |
+| `src/app/admin/contracts/layout.tsx` | 어드민 레이아웃 연동 | ❌ | 신규 생성 |
+| `src/app/contracts/sign/[token]/page.tsx` | 수신인 서명 페이지 (공개, 인증 불필요) | ❌ (폴더만 존재) | 신규 생성 |
+| `src/app/contracts/page.tsx` | 기존 경로 → `/admin/contracts` redirect | ✅ | redirect 처리 |
+| `src/app/api/contracts/route.ts` | Mock API (initiated_by 필터 지원) | ❌ | 신규 생성 |
+| `src/components/layout/Navbar.tsx` | 네비게이션에 전자계약 추가 | ✅ | 항목 append (전체 재작성 금지) |
+
+---
+
+## ⚙️ 실행 방법
+
+```bash
+cd c:\projects\company-relationship-management
+npm run dev
+# → http://localhost:3000/admin/contracts
+```
+
+---
+
+## 🔑 핵심 가이드
+
+### 1. 클레임 방지 문구 원칙
+
+| ❌ 금지 | ✅ 허용 |
+|---|---|
+| 법적 효력 보장 | 당사자 간 전자적 합의 기록 |
+| 공인전자서명 | 간편 전자서명 |
+| 전자서명법상 효력 | 감사추적 보존 서비스 |
+
+### 2. 개인정보 고지 (서명 페이지 하단 필수)
+
+```
+서명인의 이름, 이메일, IP주소, 서명 시각은 감사추적 목적으로
+계약 종료 후 5년간 보존됩니다. (개인정보보호법 제21조)
+```
+
+### 3. Supabase 연결 시 DB 스키마 (미리 설계)
+
+```sql
+CREATE TABLE contracts (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       uuid NOT NULL,              -- RLS 격리 키 (⚠️ law_firm_id 사용 금지)
+  contract_initiated_by text CHECK (contract_initiated_by IN ('law_firm', 'client')),
+  client_company_id text,                     -- DocComment company_id와 동일 타입: 'corp-1' | 'corp-2' | 'corp-3'
+                                              -- ⚠️ uuid REFERENCES companies(id) 아님 — TEXT로 통일
+  template_type   text,
+  counterparty_name text,
+  counterparty_email text,
+  status          text DEFAULT 'pending' CHECK (status IN ('pending','sent','viewed','signed','completed','expired')),
+  token           uuid DEFAULT gen_random_uuid() UNIQUE,  -- 서명 링크 토큰
+  pdf_storage_path text,                       -- private bucket 경로 (signed URL 1시간 만료)
+  linked_document_id uuid REFERENCES documents(id),  -- 서명 완료 후 DocComment documents 테이블과 역방향 연결
+  created_at      timestamptz DEFAULT now(),
+  expires_at      timestamptz
+);
+
+-- RLS
+ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON contracts
+  USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+```
+
+### 4. 과금 구조 (건당)
+
+| 시나리오 | 건당 요금 |
+|---|---|
+| 로펌 발신 계약 (Level 1) | 무료 (구독 포함) |
+| 고객사 발신 계약 (Level 2) | 3,000~10,000원/건 |
+
+> 고객사가 거래처와의 계약을 연 100건 처리하면 → 월 부가 수익 30~100만원/고객사
+
+---
+
+## 🔍 Researcher Agent 분석 — 필요 기능 우선순위 정리
+> 업데이트: 2026-03-10 | 기준: 수익성 · 리스크 · 경쟁사 차별화
+
+---
+
+### 📌 TL;DR (30초 요약)
+
+| 항목 | 내용 |
+|---|---|
+| **핵심 수익 레버** | Level 2 (고객사→거래처) — 건당 3,000~10,000원 × 연 50~500건 |
+| **MVP 필수 기능** | 4단계 위자드 + Canvas 서명 + 감사추적 타임라인 |
+| **즉시 주의** | "법적 효력 보장" 문구 → 전자서명법 위반 리스크 |
+| **경쟁 차별점** | 로펌 특화 이중 발신 구조 (law_firm / client) — 국내 경쟁사 없음 |
+
+> **ARR 시뮬레이션**: 고객사 100개 × 연 100건 × 5,000원 = **연 5,000만원 추가 ARR** (구독료 외 종량제)
+
+---
+
+### ✅ MoSCoW 기능 우선순위
+
+#### MUST — MVP 즉시 구현
+
+| # | 기능 | 파일 | 근거 |
+|---|---|---|---|
+| M1 | 전체 계약 대시보드 (탭: 로펌발신/고객사발신) | `admin/contracts/page.tsx` | 수익·현황 가시화 |
+| M2 | 발신주체 선택 Step 0 (2-카드 UI) | `admin/contracts/new/page.tsx` | 이중 구조 핵심 분기점 |
+| M3 | 템플릿 선택 (발신주체별 다른 목록) | Step 1 | law_firm/client 분리 |
+| M4 | 서명인 설정 + Mock PDF 미리보기 | Step 2 | 서명 위치 지정 UX |
+| M5 | Canvas 서명 모달 (직접서명/이름입력/도장) | `contracts/sign/[token]/page.tsx` | 외부 수신인 서명 완결 |
+| M6 | 감사추적 타임라인 (📤→📨→👁→✅→🔒) | `admin/contracts/[id]/page.tsx` | 법적 증거력 확보 |
+| M7 | Mock API (initiated_by 필터 지원) | `api/contracts/route.ts` | 프론트 연동 |
+| M8 | **클레임 방지 문구** 전면 적용 | Sign 페이지 전체 | 전자서명법 리스크 차단 |
+
+#### SHOULD — Phase 2 후반 추가
+
+| # | 기능 | 근거 |
+|---|---|---|
+| S1 | Framer Motion 스태거 (0.05s/item) + confetti 완료 애니메이션 | 프리미엄 UX 차별화 |
+| S2 | 만료 임박 배지 + 자동 재발송 알림 | 계약 누락 방지 |
+| S3 | 고객사 선택 드롭다운 (client_company_id CRM 연동) | CRM 데이터 통합 |
+| S4 | "합의 기록 확인서" 해시+타임스탬프 모달 | 법적 신뢰도 강화 |
+| S5 | 개인정보 고지 배너 (서명 페이지 하단 필수) | 개인정보보호법 제21조 |
+
+#### COULD — Phase 3
+
+| # | 기능 | 근거 |
+|---|---|---|
+| C1 | 실제 Supabase Storage PDF 업로드 (signed URL 1시간 만료) | DB 완성 후 |
+| C2 | 서명 위치 드래그 실제 좌표 저장 | 고도화 |
+| C3 | 이폼싸인(eformsign) SDK 연동 | 외부 공인 연동 니즈 발생 시 |
+| C4 | 내부 결재 워크플로우 (Level 3) | 대기업 의뢰인 확보 후 |
+
+#### WON'T — 현재 범위 외
+
+- 공인전자서명 (NPKI 인증) — 법적 리스크 + 개발 복잡도
+- 계약 자동 번역 (다국어)
+- 블록체인 타임스탬프
+
+---
+
+### 🗃️ DB 인덱스 권장 (성능 최적화)
+
+```sql
+-- 기존 스키마에 추가
+CREATE INDEX ON contracts(tenant_id, status);   -- 대시보드 필터링
+CREATE INDEX ON contracts(token);               -- 서명 페이지 토큰 조회
+CREATE INDEX ON contracts(client_company_id);  -- CRM 연동 조회
+CREATE INDEX ON contracts(linked_document_id); -- DocComment documents 테이블 JOIN 조회
+```
+
+---
+
+### 5. Mock 데이터 corp ID 통일 (DocComment와 동일)
+
+```
+Esign Mock 데이터에서 client_company_id는 DocComment의 company_id와 동일한 값 사용:
+  corp-1 = 삼성전자 서비스
+  corp-2 = 교촌에프앤비
+  corp-3 = 롯데GRS
+
+예시:
+  { id: 'c1', tenant_id: 'tenant-001', contract_initiated_by: 'law_firm',
+    client_company_id: 'corp-1', counterparty_name: '삼성전자 서비스 대표', ... }
+  { id: 'c2', tenant_id: 'tenant-001', contract_initiated_by: 'client',
+    client_company_id: 'corp-2', counterparty_name: 'ABC물산 대표이사', ... }
+```
+
+### 6. document_requests → Esign 원클릭 전환 흐름
+
+```
+DocComment의 문서 의뢰 워크플로우(Sprint B-2)와 Esign 연동:
+
+전체 URL 체인 (5단계):
+  ① /client-portal/document-requests/new          기업고객 의뢰 접수 → DR-2026-XXX 발급
+  ② /documents/requests                           내부팀 수신함 → [내가 받기] → 배정
+  ③ /documents/upload?request_id=[dr-id]          문서 업로드 → status: delivered
+  ④ /documents/[id]                               [📝 전자서명 요청] 버튼 노출
+     조건: doc_type === 'contract' AND document_requests.status === 'delivered'
+     권한: LAWYER / PARTNER_LAWYER / SALES_MANAGER / FIRM_ADMIN
+  ⑤ /admin/contracts/new?document_id=[id]&client_company_id=[cid]
+     → Step 0: 발신주체 선택 (로펌발신 or 고객사발신)
+     → Step 1: document_id로 파일 정보 자동 바인딩 (업로드 생략 가능)
+
+이 흐름으로 의뢰→작성→전자서명이 원클릭 워크플로우로 연결됨
+서명 완료 후 → 역방향 INSERT로 DocComment /documents 허브에 계약서 자동 등록
+```
+
+---
+
+### ✅ Acceptance Criteria (검증 기준)
+
+| # | 기준 | 검증 방법 |
+|---|---|---|
+| AC1 | `/admin/contracts` 탭 구분 정상 작동 | 탭 클릭 → 필터 확인 |
+| AC2 | `/admin/contracts/new` Step 0~3 흐름 완결 | 각 단계 진행 → 완료 페이지 |
+| AC3 | `/contracts/sign/[token]` Canvas 서명 → 성공 화면 | 서명 후 UI 확인 |
+| AC4 | `/admin/contracts/[id]` 발신주체 배지 + 감사추적 | 상세 페이지 UI |
+| AC5 | TypeScript 에러 없음 | `npx tsc --noEmit` |
+| AC6 | 추가 npm 패키지 없음 | `package.json` diff 확인 |
+| AC7 | 클레임 방지 문구 적용 여부 | Sign 페이지 텍스트 검수 |
+| AC8 | `/contracts` → `/admin/contracts` redirect 정상 작동 | 기존 URL 접근 → 리다이렉트 확인 |
+
+---
+
+## 🔧 현재 사이트 이슈 분석 (2026-03-10 기준)
+
+### 📊 갭 분석 요약
+
+| 항목 | 프롬프트 요구 | 현재 구현 | 상태 |
+|------|-------------|----------|------|
+| 계약 대시보드 경로 | `/admin/contracts` | `/contracts` | ⚠️ 이동 필요 (기존 파일을 admin으로 이동 후 확장) |
+| 발신 주체 구분 (law_firm / client 탭) | 필수 | 없음 | ❌ 미구현 |
+| Step 0 — 발신주체 선택 카드 | 필수 | 없음 | ❌ 미구현 |
+| Canvas 서명 페이지 | `/contracts/sign/[token]` | 폴더 있으나 page.tsx 없음 | ❌ 미구현 |
+| 감사추적 타임라인 | `[id]` 어드민 페이지 | `[id]`가 서명 역할 겸용 | ⚠️ 역할 혼재 |
+| Mock API `/api/contracts` | `?initiated_by` 필터 지원 | 없음 | ❌ 미구현 |
+| 클레임 방지 문구 | 전면 적용 필수 | ✅ 안전한 문구로 이미 적용됨 | ✅ 완료 |
+| new/page.tsx 테마 | `#04091a` (다크) | ✅ dark theme 이미 사용 | ✅ 완료 |
+
+---
+
+### 📋 작업 우선순위
+
+| 순위 | 작업 | 파일 | 공수 |
+|------|------|------|------|
+| 🔴 P0 | 기존 `/contracts` 파일 → `/admin/contracts`로 이동 복사 | `page.tsx`, `new/page.tsx`, `[id]/page.tsx` | 15분 |
+| 🔴 P1 | Canvas 서명 페이지 신규 생성 | `contracts/sign/[token]/page.tsx` | 2~3h |
+| 🔴 P1 | 발신주체 선택 Step 0 추가 | `admin/contracts/new/page.tsx` | 1~2h |
+| 🔴 P1 | 대시보드 탭 2개 (로펌발신/고객사발신) 추가 | `admin/contracts/page.tsx` | 1h |
+| 🟡 P2 | Mock API 생성 (`?initiated_by` 필터) | `api/contracts/route.ts` | 30m |
+| 🟡 P2 | `[id]` 감사추적 + 발신주체 배지로 개선 | `admin/contracts/[id]/page.tsx` | 1~2h |
+| 🟢 P3 | 기존 `/contracts` → `/admin/contracts` redirect 처리 | `src/app/contracts/page.tsx` | 10분 |
+| 🟢 P3 | 개인정보 고지 배너 추가 (개보법 제21조) | `contracts/sign/[token]/page.tsx` | 30m |
+| 🟢 P3 | Navbar.tsx에 "전자계약" 메뉴 항목 추가 | `src/components/layout/Navbar.tsx` | 10분 |
+
+---
+
+### 🏅 경쟁사 비교
+
+| 항목 | 이폼싸인 | 모두싸인 | **우리 플랫폼** |
+|---|---|---|---|
+| 로펌 특화 | ❌ | ❌ | ✅ 완전 특화 |
+| 이중 발신 구조 | ❌ | ❌ | ✅ law_firm/client |
+| CRM 통합 | ❌ | ❌ | ✅ client_company_id |
+| 감사추적 UI | △ | △ | ✅ 타임라인 시각화 |
+| RLS 멀티테넌트 격리 | ❌ | ❌ | ✅ 완전 격리 |
+| 건당 종량제 내장 | ❌ | ❌ | ✅ 구독+종량제 하이브리드 |
+
+> **차별화 한 줄 요약**: "로펌 CRM에 내장된 전자계약 — 국내 경쟁사 없음"
+
+---
+
+*연계 문서: [`DocComment Vibe Prompt`] | [`_strategy/DOCUMENT_COMMENT_SYSTEM.md`] | [`02_MULTITENANT_ARCHITECTURE.md`]*  
+*Sprint B (DocComment) → Sprint B-2 (의뢰 워크플로우) → Sprint C (Esign 전자계약) 순서로 진행*

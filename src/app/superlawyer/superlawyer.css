@@ -1,0 +1,515 @@
+/**
+ * 수퍼로이어(SuperLawyer) — 프리미엄 CSS 스타일시트
+ * 
+ * 다크 테마 + 글래스모피즘 + 미세 애니메이션
+ */
+
+/* ================================================================
+   Root Layout
+   ================================================================ */
+
+.superlawyer-root {
+  position: relative;
+  min-height: 100vh;
+  background: #0a0a1a;
+  color: #e0e0f0;
+  font-family: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Background Glow Effects */
+.sl-bg-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sl-bg-glow-1 {
+  width: 600px;
+  height: 600px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  top: -200px;
+  right: -100px;
+  animation: glowFloat 8s ease-in-out infinite;
+}
+
+.sl-bg-glow-2 {
+  width: 500px;
+  height: 500px;
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+  bottom: -150px;
+  left: -100px;
+  animation: glowFloat 10s ease-in-out infinite reverse;
+}
+
+@keyframes glowFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -20px) scale(1.1); }
+}
+
+/* ================================================================
+   Toolbar
+   ================================================================ */
+
+.toolbar-actions {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: rgba(10, 10, 26, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8b5cf6;
+}
+
+.toolbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.toolbar-divider {
+  color: rgba(255, 255, 255, 0.15);
+  font-weight: 200;
+}
+
+.toolbar-doc-title {
+  font-size: 14px;
+  color: #a0a0c0;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.toolbar-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: #a0a0c0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toolbar-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0f0;
+}
+
+.toolbar-btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.toolbar-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+}
+
+.toolbar-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ================================================================
+   Main Layout
+   ================================================================ */
+
+.superlawyer-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: calc(100vh - 57px);
+  overflow: hidden;
+}
+
+/* Fact Input Panel */
+.fact-panel-container {
+  width: 400px;
+  min-width: 400px;
+  height: 100%;
+  overflow-y: auto;
+  border-right: 1px solid rgba(99, 102, 241, 0.1);
+  background: rgba(15, 15, 35, 0.6);
+  transition: width 0.4s ease, min-width 0.4s ease, opacity 0.3s ease;
+}
+
+.fact-panel-collapsed {
+  width: 320px;
+  min-width: 320px;
+}
+
+/* Editor Container */
+.editor-container {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  transition: all 0.4s ease;
+}
+
+.editor-expanded {
+  padding: 0;
+}
+
+/* ================================================================
+   Fact Input Panel Styles
+   ================================================================ */
+
+.fact-input-panel {
+  padding: 24px;
+}
+
+.panel-header {
+  margin-bottom: 24px;
+}
+
+.panel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+  color: #8b5cf6;
+  margin-bottom: 12px;
+}
+
+.panel-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f0f0ff;
+  margin: 0 0 8px 0;
+}
+
+.panel-desc {
+  font-size: 13px;
+  color: #808090;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.fact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #e0e0f0;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.05);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.form-group select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23808090' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.form-group select option {
+  background: #1a1a2e;
+  color: #e0e0f0;
+}
+
+/* Generate Button */
+.generate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+  font-family: inherit;
+}
+
+.generate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+}
+
+.generate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Spinner */
+.btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ================================================================
+   Editor Styles
+   ================================================================ */
+
+.opinion-editor-wrapper {
+  height: 100%;
+  min-height: calc(100vh - 57px);
+  background: #0f0f1f;
+}
+
+.opinion-editor-wrapper .bn-container {
+  background: #0f0f1f;
+  min-height: calc(100vh - 57px);
+}
+
+.opinion-editor-wrapper .bn-editor {
+  padding: 40px 60px;
+  max-width: 900px;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #d0d0e0;
+}
+
+/* BlockNote 다크 테마 오버라이드 */
+.opinion-editor-wrapper [data-theme="dark"] {
+  --bn-colors-editor-background: #0f0f1f;
+  --bn-colors-editor-text: #d0d0e0;
+  --bn-colors-menu-background: #1a1a2e;
+  --bn-colors-menu-text: #e0e0f0;
+  --bn-colors-tooltip-background: #1a1a2e;
+  --bn-colors-tooltip-text: #e0e0f0;
+  --bn-colors-hovered-background: rgba(99, 102, 241, 0.1);
+  --bn-colors-selected-background: rgba(99, 102, 241, 0.15);
+  --bn-colors-side-menu: rgba(255, 255, 255, 0.2);
+}
+
+/* 에디터 로딩 */
+.editor-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Empty State */
+.editor-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: calc(100vh - 57px);
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-icon {
+  color: #6366f1;
+  opacity: 0.4;
+  margin-bottom: 24px;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+.editor-empty-state h3 {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 12px 0;
+}
+
+.editor-empty-state p {
+  font-size: 15px;
+  color: #808090;
+  margin: 0 0 8px 0;
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+.empty-subtitle {
+  font-size: 13px !important;
+  color: #606070 !important;
+}
+
+/* ================================================================
+   Scrollbar
+   ================================================================ */
+
+.fact-panel-container::-webkit-scrollbar,
+.editor-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fact-panel-container::-webkit-scrollbar-track,
+.editor-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fact-panel-container::-webkit-scrollbar-thumb,
+.editor-container::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 3px;
+}
+
+.fact-panel-container::-webkit-scrollbar-thumb:hover,
+.editor-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+/* ================================================================
+   Responsive
+   ================================================================ */
+
+@media (max-width: 900px) {
+  .superlawyer-main {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .fact-panel-container,
+  .fact-panel-collapsed {
+    width: 100% !important;
+    min-width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    max-height: 50vh;
+  }
+
+  .editor-container {
+    min-height: 60vh;
+  }
+
+  .opinion-editor-wrapper .bn-editor {
+    padding: 24px 20px;
+  }
+
+  .toolbar-doc-title {
+    display: none;
+  }
+
+  .toolbar-divider {
+    display: none;
+  }
+}

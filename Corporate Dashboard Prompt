@@ -1,0 +1,224 @@
+# 🏢 기업법인 대시보드 개발 프롬프트
+*(새 Antigravity 세션에서 이 전체 내용을 그대로 붙여넣고 시작하세요)*
+
+---
+
+## 🎯 미션
+
+**기업·법인 B2B 전용 대시보드** (`/admin/corporate` 또는 `/lawyer/corporate/[id]`)를 개발해줘.
+
+이 화면은 담당 변호사가 법인 의뢰인 1개사의 **모든 법무 현황을 한 화면에서 지휘**할 수 있는 컨트롤 타워야.
+
+---
+
+## 📁 프로젝트 컨텍스트
+
+- **경로**: `c:\projects\company-relationship-management`
+- **기술 스택**: Next.js 14 App Router + TypeScript + Supabase (RLS 멀티테넌트)
+- **스타일**: Vanilla CSS + framer-motion (TailwindCSS 없음)
+- **기존 컴포넌트**: `@/components/ui/Card`, `@/components/ui/Button` 등 재사용
+- **역할 권한**: `SUPER_ADMIN | FIRM_ADMIN | LAWYER | STAFF | CLIENT`
+- **멀티테넌트**: JWT 클레임 `law_firm_id` 기반 RLS 자동 필터링
+- **색상 시스템**: Gold `#c9a84c / #e8c87a`, Dark `#1e293b`, Slate `#475569`
+
+### 기존 참고 페이지 (스타일 일관성 유지)
+- `/admin/page.tsx` — KPI 카드, 테이블 패턴
+- `/admin/leads/page.tsx` — 리드 카드, 뱃지 패턴
+
+---
+
+## 🖥️ 화면 구성 (7개 섹션)
+
+### Section 1 — 법인 헤더 (Corporate Header)
+```
+┌─────────────────────────────────────────────────┐
+│ 🏢 (주)교촌에프앤비          [Tier A] [Premium]  │
+│ 업종: 프랜차이즈 | 임직원: 1,200명 | 매출: 3,000억 │
+│ 담당: 이민지 변호사  |  법무담당자: 김철수 상무    │
+│ 자문 시작: 2024-01-15 | 만료: 2026-01-14  D-310  │
+│                              [리포트 생성] [연락] │
+└─────────────────────────────────────────────────┘
+```
+**필드**: 법인명, Tier 뱃지(A/B/C), 자문 플랜(Starter/Standard/Premium/Enterprise), 업종, 임직원 수, 매출규모, 담당변호사, 법무담당자, 자문계약 만료일 D-day 카운터
+
+---
+
+### Section 2 — 리스크 레이더 (Risk Radar) — 최상단 강조
+```
+┌──────────┬──────────┬──────────┬──────────┐
+│ 🔴 계약만료  │ 🟡 이사임기  │ 🟢 소송현황  │ ⚪ 준법점검  │
+│  3건 위험  │  2명 60일내 │  1건 진행  │  정상     │
+└──────────┴──────────┴──────────┴──────────┘
+```
+4개 리스크 카드. 빨강/노랑/초록/회색 색상 코드. 클릭 시 해당 섹션으로 스크롤.
+
+---
+
+### Section 3 — 계약 포트폴리오 (Contract Portfolio)
+테이블 컬럼: `계약명 | 상대방 | 계약 유형 | 만료일 | D-day | 자동갱신 여부 | 상태`
+
+- D-day 컬러 코딩: `≤7일 🔴`, `≤30일 🟡`, `≤60일 🟠`, `>60일 ✅`
+- 자동갱신 여부 토글 뱃지
+- 상태: `활성 / 갱신협의 / 만료 / 해지`
+- 우측 상단: `[+ 계약 추가]` 버튼
+
+---
+
+### Section 4 — 이사회 & 경영진 (Board & Directors)
+이사 목록 테이블: `이름 | 직책 | 임기 만료일 | D-day | 등기 상태`
+
+- 임기 만료 60일 이내 → 노란 강조 행
+- `[연임 절차 안내]` 버튼 (템플릿 이메일 즉시 발송)
+- 주주총회 일정 캘린더 미니뷰 (향후 3개월)
+
+---
+
+### Section 5 — 진행 사건 현황 (Active Cases)
+카드형 레이아웃:
+```
+[민사] 공급계약 분쟁 vs (주)ABC       🔴 High
+담당: 이민지 | 다음기일: 2026-04-12   D-33
+[형사] 직원 횡령 고소 건              🟡 Medium  
+담당: 박준호 | 기일 미정
+```
+- 유형 뱃지: `민사 / 형사 / 행정 / 노동 / 지식재산`
+- 리스크 레벨: High(🔴) / Medium(🟡) / Low(🟢)
+- `[+ 사건 등록]` 버튼
+
+---
+
+### Section 6 — 준법 & 규제 체크 (Compliance Checklist)
+체크리스트 UI:
+```
+✅ 개인정보처리방침 업데이트     최종: 2025-12  (정상)
+⚠️  취업규칙 최신화             최종: 2023-06  (갱신 필요)
+❌ 공정거래법 대리점법 점검      미완료          (즉시 필요)
+✅ 산업안전보건법 연간 점검      완료            (정상)
+```
+- 항목별 클릭 → 세부 가이드 슬라이드 패널
+- `[준법 리포트 PDF 생성]` 버튼
+
+---
+
+### Section 7 — 월간 법무 리포트 히스토리
+카드 그리드 (최근 6개월):
+```
+[2026년 2월 리포트]  [다운로드] [전송됨 ✅]
+[2026년 1월 리포트]  [다운로드] [전송됨 ✅]
+[2025년 12월 리포트] [다운로드] [전송됨 ✅]
+```
+- `[이달 리포트 자동생성]` — `/monthly_report` 워크플로우 트리거 버튼
+
+---
+
+## 📂 생성할 파일
+
+```
+src/app/lawyer/corporate/
+  ├── page.tsx          ← 법인 목록 (법인 카드 그리드)
+  └── [id]/
+      └── page.tsx      ← 법인 상세 대시보드 (7섹션 구현)
+```
+
+> 또는 `src/app/admin/corporate/[id]/page.tsx`로 구현해도 무방.
+
+---
+
+## 🔑 DB 스키마 (더미 데이터로 구현, 추후 Supabase 연결)
+
+```typescript
+// 법인 기본 정보
+interface CorporateClient {
+  id: string;
+  name: string;                    // "(주)교촌에프앤비"
+  tier: 'A' | 'B' | 'C';
+  retainerPlan: 'Starter' | 'Standard' | 'Premium' | 'Enterprise';
+  industry: string;
+  employeeCount: number;
+  annualRevenueRange: string;
+  assignedLawyer: string;
+  legalContact: { name: string; title: string; email: string };
+  retainerStartDate: string;
+  retainerEndDate: string;
+  riskScore: number;               // 0~10
+}
+
+// 계약
+interface Contract {
+  id: string;
+  corporateId: string;
+  name: string;
+  counterparty: string;
+  type: '공급계약' | '임대차' | '용역계약' | '라이선스' | '기타';
+  expiresAt: string;
+  autoRenew: boolean;
+  status: '활성' | '갱신협의' | '만료' | '해지';
+}
+
+// 이사
+interface Director {
+  id: string;
+  corporateId: string;
+  name: string;
+  title: string;                   // "대표이사" | "사내이사" | "감사"
+  termExpiresAt: string;
+  registrationStatus: '등기완료' | '변경필요' | '미등기';
+}
+
+// 사건
+interface Case {
+  id: string;
+  corporateId: string;
+  title: string;
+  type: '민사' | '형사' | '행정' | '노동' | '지식재산';
+  riskLevel: 'High' | 'Medium' | 'Low';
+  assignedLawyer: string;
+  nextHearingDate?: string;
+  status: '진행중' | '완료' | '항소';
+}
+```
+
+---
+
+## 🎨 디자인 가이드라인
+
+1. **전체 배경**: `#f8f9fc` (어드민과 동일)
+2. **카드**: `border-radius: 16px`, `box-shadow: 0 2px 12px rgba(0,0,0,0.06)`
+3. **Tier A**: Gold 강조 (#c9a84c), **Tier B**: Blue (#2563eb), **Tier C**: Slate (#64748b)
+4. **D-day 뱃지**: 긴박함을 색으로 즉시 전달 (빨강→노랑→초록 그라디에이션)
+5. **framer-motion**: 섹션 진입 시 `fadeInUp` 애니메이션 적용
+6. **반응형**: 모바일에서 섹션별 아코디언 접힘 처리
+
+---
+
+## ⚡ 구현 우선순위
+
+| 순서 | 구현 항목 | 이유 |
+|---|---|---|
+| 1순위 | Section 1 (헤더) + Section 2 (리스크 레이더) | 핵심 정보 한눈에 |
+| 2순위 | Section 3 (계약 포트폴리오) | 가장 많이 쓰는 기능 |
+| 3순위 | Section 4 (이사회) + Section 5 (사건) | B2B 차별화 포인트 |
+| 4순위 | Section 6 (준법) + Section 7 (리포트) | 완성도 |
+
+---
+
+## ❌ 금지사항 (Hard Constraints)
+
+- `law_firm_id` RLS 필터 없이 전체 데이터 조회 금지
+- 이사회 결의 내용 AI 자동 판단 금지 (면책 문구 필수)
+- 기업 비밀 정보 콘솔 로그 출력 금지
+- 더미 데이터는 반드시 `MOCK_DATA` 상수로 분리 (추후 API 교체 용이하게)
+
+---
+
+## 📎 참고 파일
+
+- `_agents/corporate_lawyer.md` — 기업법무 7대 영역, Tier 분류 기준
+- `_strategy/04_CORPORATE_CLIENT_PLAYBOOK.md` — 법인 고객 관리 전략
+- `_agents/workflows/contract_renewal.md` — 계약 갱신 자동화 플로우
+- `_agents/workflows/monthly_report.md` — 월간 리포트 생성 절차
+- `src/app/admin/page.tsx` — 기존 스타일 참고
+
+---
+
+*프롬프트 버전: v1.0 | 작성: 2026-03-10 | 담당: corporate_lawyer 에이전트*
