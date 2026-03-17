@@ -272,7 +272,7 @@ export const leadStore = {
 // 구독료 계산 (가맹점수 기준)
 export function calcSubscription(storeCount: number) {
     if (storeCount <= 10) return { plan: 'Basic', monthly: 99000, annual: 990000 };
-    if (storeCount <= 50) return { plan: 'Standard', monthly: 297000, annual: 2970000 };
+    if (storeCount <= 50) return { plan: 'Standard', monthly: 150000, annual: 1500000 };
     if (storeCount <= 200) return { plan: 'Pro', monthly: 594000, annual: 5940000 };
     return { plan: 'Enterprise', monthly: 990000, annual: 9900000 };
 }

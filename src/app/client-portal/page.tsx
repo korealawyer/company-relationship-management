@@ -68,11 +68,11 @@ const ISSUES: Issue[] = [
         lawRef: '제2조',
         title: '보유·이용기간 불명확',
         originalText: `회원 탈퇴 시까지`,
-        lawyerOpinion: `구독 후 상세 검토 의견을 열람하실 수 있습니다.`,
-        scenario: `구독 후 위반 시나리오를 확인하실 수 있습니다.`,
+        lawyerOpinion: `개인정보 보호법 제30조 제1항 제3호는 개인정보의 "보유 및 이용 기간"을 구체적으로 명시하도록 규정하고 있습니다.\n\n"회원 탈퇴 시까지"라는 표현은 보유기간의 상한을 특정할 수 없어 실질적으로 무기한 보유와 동일하게 해석될 소지가 있습니다. 전자상거래법 제6조에 따른 5년, 전자금융거래법 제22조에 따른 5년 등 법령상 보존 기간을 항목별로 구분하여 기재해야 합니다.\n\n또한 회원 탈퇴 후에도 법적 의무에 따라 일정 기간 보존해야 하는 정보와 즉시 파기해야 하는 정보를 분리하여 명시할 필요가 있습니다.`,
+        scenario: `정기감사 시 "보유기간 불명확"으로 시정권고가 내려집니다. 30일 내 미이행 시 과태료 1,000만원이 부과되며, 정보주체가 "삭제 요청"을 하고도 "회원 탈퇴 시까지" 조건을 근거로 거절할 경우, 별도의 정보주체 권리 침해 신고로 이어질 수 있습니다.`,
         penalty: '시정 권고 + 과태료 1,000만원',
         lawName: '개인정보 보호법 제30조 제1항 제3호',
-        locked: true,
+        locked: false,
     },
     {
         id: 'i4',
@@ -80,11 +80,11 @@ const ISSUES: Issue[] = [
         lawRef: '제3조',
         title: '정보주체 권리 행사 방법 미기재',
         originalText: `이메일 또는 전화로 문의하여 주시기 바랍니다.`,
-        lawyerOpinion: `구독 후 상세 검토 의견을 열람하실 수 있습니다.`,
-        scenario: `구독 후 위반 시나리오를 확인하실 수 있습니다.`,
+        lawyerOpinion: `개인정보 보호법 제35조(열람권), 제36조(정정·삭제권), 제37조(처리정지권)에 따르면 정보주체는 자신의 개인정보에 대해 열람, 정정, 삭제, 처리정지를 요구할 권리가 있습니다.\n\n현행 방침에는 "이메일 또는 전화"로만 안내하고 있으나, 구체적인 접수 절차, 처리 기한(10일 이내), 응답 방법 등이 명시되어 있지 않습니다. 온라인 신청 양식 또는 전용 연락처를 마련하여 정보주체가 쉽게 권리를 행사할 수 있도록 해야 합니다.`,
+        scenario: `정보주체가 개인정보 열람·삭제를 요구했으나 명확한 절차가 없어 처리가 지연될 경우, 개인정보보호위원회에 민원이 접수될 수 있습니다. 최근 소비자 인식이 높아지면서 이러한 민원이 증가하는 추세이며, 시정권고 시 공표될 수 있습니다.`,
         penalty: '시정 권고',
         lawName: '개인정보 보호법 제35조·제36조',
-        locked: true,
+        locked: false,
     },
 ];
 
@@ -400,28 +400,22 @@ export default function ClientPortalPage() {
                                     onToggle={() => setExpandedId(expandedId === issue.id ? null : issue.id)} />
                             ))}
 
-                            {/* 이슈 하단 요약 CTA */}
+                            {/* 이슈 하단 요약 */}
                             <div className="mt-6 p-6 rounded-xl text-center"
-                                style={{ background: '#fff', border: '2px dashed #daa520' }}>
+                                style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                                 <div className="flex items-center justify-center gap-2 mb-2">
-                                    <Lock className="w-5 h-5" style={{ color: '#b8860b' }} />
+                                    <CheckCircle2 className="w-5 h-5" style={{ color: '#16a34a' }} />
                                     <p className="font-bold text-base" style={{ color: '#374151' }}>
-                                        나머지 {ISSUES.filter(i => i.locked).length}건의 이슈 + 전체 수정 권고안
+                                        전체 {ISSUES.length}건 이슈 분석 완료
                                     </p>
                                 </div>
                                 <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
                                     변호사 수정 조항 · 판례 · 대응 전략 포함
                                 </p>
-                                <div className="flex items-center justify-center gap-2 mb-2">
-                                    <span className="text-xs px-2 py-1 rounded-full font-bold"
-                                        style={{ background: '#fef2f2', color: '#dc2626' }}>
-                                        🔥 미조치 시 최대 과태료 9,000만원
-                                    </span>
-                                </div>
-                                <Link href={`/checkout?plan=pro&company=${encodeURIComponent(COMPANY.name)}`}>
-                                    <button className="mt-3 px-8 py-3 rounded-xl font-bold text-white text-base"
-                                        style={{ background: 'linear-gradient(135deg, #b8860b, #daa520)', boxShadow: '0 4px 14px rgba(184,134,11,0.3)' }}>
-                                        전체 수정 시작하기 →
+                                <Link href="/consultation">
+                                    <button className="mt-1 px-8 py-3 rounded-xl font-bold text-white text-base"
+                                        style={{ background: '#111827', boxShadow: '0 4px 14px rgba(0,0,0,0.15)' }}>
+                                        법률 자문 신청하기 →
                                     </button>
                                 </Link>
                             </div>

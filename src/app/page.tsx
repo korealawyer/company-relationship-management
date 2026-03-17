@@ -9,12 +9,16 @@ import { Button } from '@/components/ui/Button';
 
 // ── 랜딩 섹션 컴포넌트 ────────────────────────────────────
 import HeroSection, { ScrollProgress } from '@/components/landing/HeroSection';
-import IssueSection from '@/components/landing/IssueSection';
-import RiskSection from '@/components/landing/RiskSection';
+import InfraMapSection from '@/components/landing/InfraMapSection';
+import UseCaseSection from '@/components/landing/UseCaseSection';
 import ServicesSection from '@/components/landing/ServicesSection';
+import FreeTierSection from '@/components/landing/FreeTierSection';
 import PricingSection from '@/components/landing/PricingSection';
 import TestimonialsSection from '@/components/landing/TestimonialsSection';
+import TrustBadgeSection from '@/components/landing/TrustBadgeSection';
 import FaqSection from '@/components/landing/FaqSection';
+
+import FeatureShowcase from '@/components/landing/FeatureShowcase';
 
 // ── Mock 회사 데이터 ────────────────────────────────────────
 import { MOCK_COMPANIES, fadeUp } from '@/lib/landingData';
@@ -31,18 +35,23 @@ function LandingPageInner() {
       <ScrollProgress />
       <div className="bg-navy-deep">
 
-        {/* ── 1. HERO ── */}
+        {/* ── 1. HERO — 플랫폼 규모감 ── */}
         <HeroSection company={company} resolvedParams={resolvedParams} />
 
         <div className="gold-divider" />
 
-        {/* ── 2. ISSUE SUMMARY ── */}
-        <IssueSection company={company} />
+        {/* ── 2. 인프라 맵 — "이 모든 걸 합니다" ── */}
+        <InfraMapSection />
 
         <div className="gold-divider" />
 
-        {/* ── 3. RISK SCENARIOS ── */}
-        <RiskSection />
+        {/* ── 3. 업종별 유즈케이스 — 사회적 증거 ── */}
+        <UseCaseSection />
+
+        <div className="gold-divider" />
+
+        {/* ── 3.5. 기능 쇼케이스 — "가입하면 바로 사용 가능" ── */}
+        <FeatureShowcase />
 
         <div className="gold-divider" />
 
@@ -51,13 +60,23 @@ function LandingPageInner() {
 
         <div className="gold-divider" />
 
-        {/* ── 5. PRICING ── */}
+        {/* ── 5. 무료 체험 + 대시보드 프리뷰 ── */}
+        <FreeTierSection />
+
+        <div className="gold-divider" />
+
+        {/* ── 6. PRICING (ROI 비교 포함) ── */}
         <PricingSection />
 
         <div className="gold-divider" />
 
-        {/* ── 6. TESTIMONIALS + 미디어 + 케이스 스터디 ── */}
+        {/* ── 7. TESTIMONIALS + 미디어 + 케이스 스터디 ── */}
         <TestimonialsSection />
+
+        <div className="gold-divider" />
+
+        {/* ── 8. 신뢰 배지 & 인증 ── */}
+        <TrustBadgeSection />
 
         <div className="gold-divider" />
 
@@ -69,12 +88,12 @@ function LandingPageInner() {
                 <Clock className="w-4 h-4" /> 지금 바로 시작하세요
               </div>
               <h2 className="text-3xl sm:text-5xl font-black mb-6 text-light">
-                오늘 조치하지 않으면<br />
-                <span className="text-danger-gradient">내일이 더 위험합니다</span>
+                이 인프라를 쓰지 않는 것이<br />
+                <span className="text-danger-gradient">오히려 손해입니다</span>
               </h2>
               <p className="text-lg mb-12 max-w-2xl mx-auto text-muted-70">
-                개인정보보호위원회 정기 점검은 예고 없이 찾아옵니다.<br />
-                지금 무료 1차 검토를 받고, 법적 리스크를 완전히 제거하세요.
+                1,200+ 기업이 이미 선택한 통합 법무 인프라.<br />
+                지금 무료 체험을 시작하고, 귀사의 법률·경영 리스크를 완전히 통제하세요.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="tel:025551234">
@@ -82,9 +101,9 @@ function LandingPageInner() {
                     <Phone className="w-6 h-6" /> 02-555-1234 지금 전화
                   </Button>
                 </a>
-                <Link href="/login">
+                <Link href="/signup">
                   <Button variant="premium" size="xl" className="gap-3 w-full sm:w-auto">
-                    <Lock className="w-6 h-6" /> 무료 리포트 지금 확인 <ArrowRight className="w-6 h-6" />
+                    <Lock className="w-6 h-6" /> 무료 체험 시작하기 <ArrowRight className="w-6 h-6" />
                   </Button>
                 </Link>
               </div>

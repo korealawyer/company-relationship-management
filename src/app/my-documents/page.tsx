@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FileText, Shield, Scale, Briefcase, FolderOpen,
@@ -28,6 +28,7 @@ interface Document {
     summary: string;
     href: string;
     starred?: boolean;
+    isDemo?: boolean;  // 데모 문서 여부
 }
 
 const DOC_TYPE_META: Record<DocType, { label: string; icon: React.ElementType; color: string }> = {
@@ -60,7 +61,7 @@ const DOCUMENTS: Document[] = [
         highRiskCount: 2,
         lawyer: '김수현 변호사',
         summary: '개인정보 과다수집, 제3자 제공 동의 절차 부재 등 4건의 법적 위험 발견. 즉시 시정 권고.',
-        href: '/client-portal',
+        href: '/dashboard',
         starred: true,
     },
     {
@@ -75,6 +76,7 @@ const DOCUMENTS: Document[] = [
         lawyer: '이지원 변호사',
         summary: '위약금 조항 불공정 거래 해당 가능성, 계약 해지 시 잔여 기간 수수료 청구 조항 주의.',
         href: '/documents/doc-2',
+        isDemo: true,
     },
     {
         id: 'doc-3',
@@ -86,6 +88,7 @@ const DOCUMENTS: Document[] = [
         lawyer: '김수현 변호사',
         summary: '정보공개서 등록 의무, 가맹금 예치 절차 적정성 검토 진행 중.',
         href: '/documents/doc-3',
+        isDemo: true,
     },
     {
         id: 'doc-4',
@@ -99,6 +102,7 @@ const DOCUMENTS: Document[] = [
         lawyer: '이지원 변호사',
         summary: '근로시간 산정 기준, 징계 절차 적법성 등 6건 검토 완료. 수정안 포함.',
         href: '/documents/doc-4',
+        isDemo: true,
     },
     {
         id: 'doc-5',
@@ -110,6 +114,7 @@ const DOCUMENTS: Document[] = [
         lawyer: '이지원 변호사',
         summary: '해고 예고의무, 해고사유서 교부의무 등 적법 절차 안내.',
         href: '/documents/doc-5',
+        isDemo: true,
     },
     {
         id: 'doc-6',
@@ -121,6 +126,7 @@ const DOCUMENTS: Document[] = [
         lawyer: '김수현 변호사',
         summary: '결제 후 담당 변호사가 최종 확인 및 발송을 진행합니다.',
         href: '/documents/doc-6',
+        isDemo: true,
     },
 ];
 
@@ -169,13 +175,28 @@ function DocumentCard({ doc }: { doc: Document }) {
             animate={{ opacity: 1, y: 0 }}
             className="group relative rounded-2xl overflow-hidden transition-all"
             style={{
-                background: '#fff',
-                border: '1px solid #e8e5de',
+                background: doc.isDemo ? '#fafaf8' : '#fff',
+                border: doc.isDemo ? '1px dashed #d1cdc4' : '1px solid #e8e5de',
+                opacity: doc.isDemo ? 0.85 : 1,
             }}
-            whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }}
+            whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(0,0,0,0.06)', opacity: 1 }}
         >
+            {/* 데모 배지 */}
+            {doc.isDemo && (
+                <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black"
+                    style={{ background: '#dbeafe', color: '#2563eb', border: '1px solid #93c5fd' }}>
+                    샘플
+                </div>
+            )}
+            {/* 내 문서 배지 */}
+            {!doc.isDemo && doc.starred && (
+                <div className="absolute top-3 right-14 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black"
+                    style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+                    ✨ 내 문서
+                </div>
+            )}
             {/* 상단 컬러 바 */}
-            <div className="h-1" style={{ background: typeMeta.color }} />
+            <div className="h-1" style={{ background: doc.isDemo ? '#d1d5db' : typeMeta.color }} />
 
             <div className="p-5">
                 {/* 헤더: 유형 + 상태 + 날짜 */}
@@ -289,7 +310,24 @@ export default function MyDocumentsPage() {
     const [filterStatus, setFilterStatus] = useState<DocStatus | 'all'>('all');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const filtered = DOCUMENTS.filter(doc => {
+    // ── 세션에서 회사명 읽기 ────────────────────────────────
+    const [companyName, setCompanyName] = useState('');
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('ibs_auth_v1');
+            if (raw) {
+                const s = JSON.parse(raw);
+                if (s?.companyName) setCompanyName(s.companyName);
+            }
+        } catch { /* ignore */ }
+    }, []);
+
+    const docs = useMemo(() =>
+        DOCUMENTS.map(d => ({ ...d, company: companyName || d.company })),
+        [companyName]
+    );
+
+    const filtered = docs.filter(doc => {
         if (filterType !== 'all' && doc.type !== filterType) return false;
         if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
         if (searchQuery && !doc.title.includes(searchQuery) && !doc.summary.includes(searchQuery)) return false;
@@ -306,7 +344,7 @@ export default function MyDocumentsPage() {
                         <div>
                             <div className="flex items-center gap-2 mb-2">
                                 <FolderOpen className="w-5 h-5" style={{ color: '#c9a84c' }} />
-                                <span className="text-xs font-bold" style={{ color: '#c9a84c' }}>(주)놀부NBG</span>
+                                <span className="text-xs font-bold" style={{ color: '#c9a84c' }}>{companyName || '기업명'}</span>
                             </div>
                             <h1 className="text-2xl font-black" style={{ color: '#111827' }}>문서함</h1>
                             <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
@@ -329,7 +367,7 @@ export default function MyDocumentsPage() {
                 </div>
 
                 {/* ── 통계 ── */}
-                <StatsRow documents={DOCUMENTS} />
+                <StatsRow documents={docs} />
 
                 {/* ── 필터 & 검색 바 ── */}
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-5">
@@ -414,16 +452,55 @@ export default function MyDocumentsPage() {
                         </Link>
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {filtered.map((doc, i) => (
-                            <motion.div key={doc.id}
-                                initial={{ opacity: 0, y: 16 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.06 }}>
-                                <DocumentCard doc={doc} />
-                            </motion.div>
-                        ))}
-                    </div>
+                    <>
+                    {/* 내 문서 섹션 */}
+                    {filtered.some(d => !d.isDemo) && (
+                        <div className="mb-6">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-1.5 h-5 rounded-full" style={{ background: '#c9a84c' }} />
+                                <h2 className="text-sm font-black" style={{ color: '#111827' }}>내 법률 문서</h2>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {filtered.filter(d => !d.isDemo).map((doc, i) => (
+                                    <motion.div key={doc.id}
+                                        initial={{ opacity: 0, y: 16 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.06 }}>
+                                        <DocumentCard doc={doc} />
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 샘플 문서 섹션 */}
+                    {filtered.some(d => d.isDemo) && (
+                        <div>
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-1.5 h-5 rounded-full" style={{ background: '#93c5fd' }} />
+                                <h2 className="text-sm font-black" style={{ color: '#6b7280' }}>이런 서비스도 제공합니다</h2>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                    style={{ background: '#dbeafe', color: '#2563eb' }}>샘플</span>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {filtered.filter(d => d.isDemo).map((doc, i) => (
+                                    <motion.div key={doc.id}
+                                        initial={{ opacity: 0, y: 16 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.06 + 0.2 }}>
+                                        <DocumentCard doc={doc} />
+                                    </motion.div>
+                                ))}
+                            </div>
+                            <div className="mt-4 p-3 rounded-xl text-center"
+                                style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                <p className="text-[11px]" style={{ color: '#0369a1' }}>
+                                    💡 위 샘플은 구독 시 실제 의뢰 가능한 서비스 예시입니다. <Link href="/consultation" className="font-bold underline">의뢰하기 →</Link>
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    </>
                 )}
 
                 {/* ── 하단 CTA 배너 ── */}

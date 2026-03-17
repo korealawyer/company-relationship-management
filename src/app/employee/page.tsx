@@ -1,11 +1,14 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getSession } from '@/lib/auth';
+import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Zap, RefreshCw, CheckCircle2, X, Plus, Search,
     Mail, ChevronDown, ChevronUp, AlertTriangle,
     Clock, Eye, Star, Bot, Phone, FileText, Send,
-    LayoutGrid, TrendingUp,
+    LayoutGrid, TrendingUp, Ticket, Copy,
+    Download, Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
@@ -13,6 +16,7 @@ import {
     STATUS_LABEL, STATUS_COLOR, STATUS_TEXT,
     PIPELINE, LAWYERS, SALES_REPS,
 } from '@/lib/mockStore';
+import { INVITE_CODES } from '@/lib/auth';
 import SlidePanel, { RiskBadge } from '@/components/crm/SlidePanel';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import SalesDashboard from '@/components/crm/SalesDashboard';
@@ -191,6 +195,14 @@ function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
 
 // ── 메인 페이지 ────────────────────────────────────────────────
 export default function EmployeePage() {
+    // 역할 체크 — 관리자만 볼 수 있는 기능 구분
+    const [role, setRole] = useState<string | null>(null);
+    useEffect(() => {
+        const s = getSession();
+        setRole(s?.role || null);
+    }, []);
+    const isAdmin = role === 'admin' || role === 'super_admin';
+
     const [companies, setCompanies] = useState<Company[]>([]);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | CaseStatus>('all');
@@ -212,6 +224,18 @@ export default function EmployeePage() {
     const [toast, setToast] = useState<string | null>(null);
     const [showDashboard, setShowDashboard] = useState(false);
     const [contractModal, setContractModal] = useState<Company | null>(null);
+    const [showInvitePanel, setShowInvitePanel] = useState(false);
+    const [copiedCode, setCopiedCode] = useState<string | null>(null);
+    const [showExcelUpload, setShowExcelUpload] = useState(false);
+    const [excelPreview, setExcelPreview] = useState<Record<string, string>[]>([]);
+    const [excelUploading, setExcelUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const copyCode = (code: string) => {
+        navigator.clipboard.writeText(code);
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(null), 2000);
+    };
 
     // 토스트 자동 해제
     useEffect(() => {
@@ -242,13 +266,108 @@ export default function EmployeePage() {
     const counts = Object.fromEntries(PIPELINE.map(s => [s, companies.filter(c => c.status === s).length]));
     const needsAction = companies.filter(c => ['analyzed', 'lawyer_confirmed', 'client_replied'].includes(c.status));
 
+    // ── Excel 다운로드 ─────────────────────────────────────────
+    const handleExcelDownload = () => {
+        const data = companies.map(c => ({
+            '기업명': c.name,
+            '사업자번호': c.biz,
+            '업종': c.bizType || '',
+            '홈페이지': c.url || c.domain || '',
+            '이메일': c.email,
+            '전화번호': c.phone,
+            '담당자': c.contactName || '',
+            '담당자 전화': c.contactPhone || '',
+            '가맹점수': c.storeCount,
+            '상태': STATUS_LABEL[c.status] || c.status,
+            '위험도': c.riskLevel || '',
+            '배정 변호사': c.assignedLawyer || '',
+            '통화 메모': c.callNote || '',
+            '플랜': c.plan || '',
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'CRM 기업목록');
+        // 열 너비 설정
+        ws['!cols'] = [
+            { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 30 },
+            { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 },
+            { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 12 },
+            { wch: 30 }, { wch: 10 },
+        ];
+        XLSX.writeFile(wb, `IBS_CRM_기업목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        setToast('📥 Excel 파일이 다운로드되었습니다');
+    };
+
+    // ── Excel 업로드 파싱 ──────────────────────────────────────
+    const handleExcelFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const wb = XLSX.read(evt.target?.result, { type: 'binary' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+                setExcelPreview(raw.slice(0, 50)); // 최대 50건 미리보기
+                setShowExcelUpload(true);
+            } catch {
+                setToast('❌ Excel 파일 파싱에 실패했습니다');
+            }
+        };
+        reader.readAsBinaryString(file);
+        e.target.value = ''; // 리셋
+    };
+
+    // ── Excel 데이터 등록 ──────────────────────────────────────
+    const handleExcelImport = () => {
+        setExcelUploading(true);
+        setTimeout(() => {
+            let imported = 0;
+            excelPreview.forEach(row => {
+                const name = row['기업명'] || row['회사명'] || row['name'] || '';
+                const email = row['이메일'] || row['email'] || '';
+                if (!name) return;
+                store.add({
+                    name,
+                    biz: row['사업자번호'] || row['biz'] || '',
+                    url: row['홈페이지'] || row['url'] || row['website'] || '',
+                    email,
+                    phone: row['전화번호'] || row['phone'] || '',
+                    storeCount: parseInt(row['가맹점수'] || row['storeCount'] || '0') || 0,
+                    status: 'pending',
+                    assignedLawyer: '', issues: [],
+                    salesConfirmed: false, salesConfirmedAt: '', salesConfirmedBy: '',
+                    lawyerConfirmed: false, lawyerConfirmedAt: '',
+                    emailSentAt: '', emailSubject: '',
+                    clientReplied: false, clientRepliedAt: '', clientReplyNote: '',
+                    loginCount: 0, callNote: '', plan: 'none',
+                    autoMode: true, aiDraftReady: false, source: 'manual' as const,
+                    riskScore: 0, riskLevel: '', issueCount: 0,
+                    bizType: row['업종'] || row['bizType'] || '',
+                    domain: row['홈페이지'] || row['domain'] || '',
+                    privacyUrl: '',
+                    contactName: row['담당자'] || row['contactName'] || '',
+                    contactEmail: row['담당자 이메일'] || email || '',
+                    contactPhone: row['담당자 전화'] || row['contactPhone'] || '',
+                    contacts: [], memos: [], timeline: [],
+                });
+                imported++;
+            });
+            setExcelUploading(false);
+            setShowExcelUpload(false);
+            setExcelPreview([]);
+            refresh();
+            setToast(`📤 ${imported}개 기업이 Excel에서 등록되었습니다`);
+        }, 1000);
+    };
+
     return (
         <div className="min-h-screen px-4 py-8 max-w-[1600px] mx-auto" style={{ background: T.bg }}>
 
             {/* 헤더 */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-black" style={{ color: T.heading }}>📊 영업팀 CRM</h1>
+                    <h1 className="text-2xl font-black" style={{ color: T.heading }}>{isAdmin ? '⚙️ 관리자 CRM' : '📊 영업팀 CRM'}</h1>
                     <p className="text-sm mt-0.5" style={{ color: T.muted }}>총 {companies.length}개 기업 관리 중</p>
                 </div>
                 <div className="flex gap-2">
@@ -281,34 +400,60 @@ export default function EmployeePage() {
                         }}>
                         <TrendingUp className="w-3.5 h-3.5" /> 성과
                     </button>
-                    <button onClick={() => setShowAutoPanel(p => !p)}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
-                        style={{
-                            background: showAutoPanel ? '#f0fdf4' : T.card,
-                            color: showAutoPanel ? '#16a34a' : T.sub,
-                            border: `1px solid ${showAutoPanel ? '#86efac' : T.border}`,
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                        }}>
-                        <Bot className="w-3.5 h-3.5" /> 자동화 설정
-                        {autoLogs.length > 0 && (
-                            <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-black" style={{ background: '#dcfce7', color: '#16a34a' }}>
-                                {autoLogs.length}
-                            </span>
-                        )}
-                    </button>
-                    <button onClick={() => { store.reset(); refresh(); }}
-                        className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                        style={{ background: T.card, color: T.muted, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                        초기화
-                    </button>
+                    {/* 관리자 전용 버튼들 */}
+                    {isAdmin && (
+                        <>
+                            <button onClick={() => setShowAutoPanel(p => !p)}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                style={{
+                                    background: showAutoPanel ? '#f0fdf4' : T.card,
+                                    color: showAutoPanel ? '#16a34a' : T.sub,
+                                    border: `1px solid ${showAutoPanel ? '#86efac' : T.border}`,
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                                }}>
+                                <Bot className="w-3.5 h-3.5" /> 자동화 설정
+                                {autoLogs.length > 0 && (
+                                    <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-black" style={{ background: '#dcfce7', color: '#16a34a' }}>
+                                        {autoLogs.length}
+                                    </span>
+                                )}
+                            </button>
+                            <button onClick={() => setShowInvitePanel(p => !p)}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                style={{
+                                    background: showInvitePanel ? '#fef3c7' : T.card,
+                                    color: showInvitePanel ? '#92400e' : T.sub,
+                                    border: `1px solid ${showInvitePanel ? '#fde68a' : T.border}`,
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                                }}>
+                                <Ticket className="w-3.5 h-3.5" /> 직원 초대
+                            </button>
+                            <button onClick={() => { store.reset(); refresh(); }}
+                                className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                                style={{ background: T.card, color: T.muted, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                초기화
+                            </button>
+                            <button onClick={handleExcelDownload}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                <Download className="w-3.5 h-3.5" /> Excel 다운로드
+                            </button>
+                            <button onClick={() => fileInputRef.current?.click()}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                <Upload className="w-3.5 h-3.5" /> Excel 업로드
+                            </button>
+                            <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelFile} />
+                        </>
+                    )}
                     <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}>
                         <Plus className="w-4 h-4 mr-1" /> 기업 등록
                     </Button>
                 </div>
             </div>
 
-            {/* AI 자동화 패널 */}
-            <AnimatePresence>
+            {/* AI 자동화 패널 (관리자 전용) */}
+            {isAdmin && <AnimatePresence>
                 {showAutoPanel && (
                     <motion.div key="auto-panel" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-5">
                         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid #86efac`, background: T.card, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
@@ -403,7 +548,69 @@ export default function EmployeePage() {
                         </div>
                     </motion.div>
                 )}
-            </AnimatePresence>
+            </AnimatePresence>}
+
+            {/* 직원 초대코드 패널 (관리자 전용) */}
+            {isAdmin &&
+            <AnimatePresence>
+                {showInvitePanel && (
+                    <motion.div key="invite-panel" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-5">
+                        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #fde68a', background: T.card, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
+                            <div className="px-5 py-4 flex items-center justify-between" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a' }}>
+                                <div className="flex items-center gap-2">
+                                    <Ticket className="w-4 h-4" style={{ color: '#92400e' }} />
+                                    <h3 className="text-sm font-black" style={{ color: '#92400e' }}>직원 초대코드 관리</h3>
+                                </div>
+                                <p className="text-[10px]" style={{ color: '#92400e' }}>카톡으로 코드를 전달하면 직원이 가입 시 자동 역할 배정됩니다</p>
+                            </div>
+                            <div className="p-5">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {Object.entries(INVITE_CODES).filter(([, v]) => v.isInternal).map(([code, info]) => {
+                                        const roleLabels: Record<string, string> = {
+                                            sales: '영업팀', lawyer: '변호사', litigation: '송무팀',
+                                            finance: '회계팀', counselor: '상담사', hr: 'HR', admin: '관리자',
+                                        };
+                                        const roleColors: Record<string, string> = {
+                                            sales: '#2563eb', lawyer: '#7c3aed', litigation: '#dc2626',
+                                            finance: '#16a34a', counselor: '#d97706', hr: '#0891b2', admin: '#64748b',
+                                        };
+                                        const cl = roleColors[info.role] || '#64748b';
+                                        return (
+                                            <div key={code} className="p-3 rounded-xl transition-all hover:shadow-md"
+                                                style={{ background: `${cl}08`, border: `1px solid ${cl}25` }}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                                                        style={{ background: `${cl}15`, color: cl }}>
+                                                        {roleLabels[info.role] || info.role}
+                                                    </span>
+                                                    <span className="text-[9px]" style={{ color: T.faint }}>
+                                                        ~{info.expires.slice(0, 7)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <code className="text-xs font-black flex-1 truncate" style={{ color: T.body }}>{code}</code>
+                                                    <button onClick={() => copyCode(code)}
+                                                        className="p-1.5 rounded-lg transition-all hover:scale-110"
+                                                        style={{ background: copiedCode === code ? '#dcfce7' : '#f1f5f9', color: copiedCode === code ? '#16a34a' : T.muted }}>
+                                                        {copiedCode === code
+                                                            ? <CheckCircle2 className="w-3.5 h-3.5" />
+                                                            : <Copy className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-4 rounded-xl p-3" style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                    <p className="text-[11px] font-medium" style={{ color: '#0369a1' }}>
+                                        💡 <strong>사용 방법:</strong> 코드 복사 → 카톡/이메일로 전달 → 직원이 <strong>회원가입</strong> 시 코드 입력 → 자동 역할 배정, 즉시 사용 가능
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>}
 
             {/* 조치 필요 배너 */}
             {needsAction.length > 0 && (
@@ -734,6 +941,78 @@ export default function EmployeePage() {
             </div>
             </>
             )}
+
+            {/* Excel 업로드 미리보기 모달 */}
+            <AnimatePresence>
+                {showExcelUpload && (
+                    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} exit={{ scale: 0.96 }}
+                            className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-2xl"
+                            style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+                            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${T.border}` }}>
+                                <div>
+                                    <h2 className="text-base font-black flex items-center gap-2" style={{ color: T.heading }}>
+                                        <Upload className="w-4 h-4" style={{ color: '#2563eb' }} />
+                                        Excel 업로드 미리보기
+                                    </h2>
+                                    <p className="text-xs mt-0.5" style={{ color: T.muted }}>{excelPreview.length}건의 데이터가 파싱되었습니다</p>
+                                </div>
+                                <button onClick={() => { setShowExcelUpload(false); setExcelPreview([]); }}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100" style={{ color: T.muted }}>
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-auto px-6 py-4">
+                                {excelPreview.length > 0 && (
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr style={{ background: '#f8f9fc' }}>
+                                                <th className="py-2 px-2 text-left font-black" style={{ color: '#c9a84c' }}>#</th>
+                                                {Object.keys(excelPreview[0]).slice(0, 8).map(k => (
+                                                    <th key={k} className="py-2 px-2 text-left font-black whitespace-nowrap" style={{ color: '#c9a84c' }}>{k}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {excelPreview.slice(0, 20).map((row, i) => (
+                                                <tr key={i} style={{ borderBottom: `1px solid ${T.borderSub}` }}>
+                                                    <td className="py-2 px-2 font-bold" style={{ color: T.faint }}>{i + 1}</td>
+                                                    {Object.values(row).slice(0, 8).map((v, j) => (
+                                                        <td key={j} className="py-2 px-2 truncate max-w-[150px]" style={{ color: T.body }}>{String(v)}</td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                                {excelPreview.length > 20 && (
+                                    <p className="text-center text-xs py-2" style={{ color: T.faint }}>... 외 {excelPreview.length - 20}건 더</p>
+                                )}
+                            </div>
+                            <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: `1px solid ${T.border}`, background: '#f8f9fc' }}>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#dbeafe', color: '#2563eb' }}>
+                                        필수 열: 기업명 (또는 회사명)
+                                    </span>
+                                    <span className="text-[10px]" style={{ color: T.faint }}>선택: 사업자번호, 이메일, 전화번호, 가맹점수 등</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" onClick={() => { setShowExcelUpload(false); setExcelPreview([]); }}>취소</Button>
+                                    <Button variant="premium" onClick={handleExcelImport} disabled={excelUploading}>
+                                        {excelUploading ? (
+                                            <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> 등록 중...</>
+                                        ) : (
+                                            <><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {excelPreview.length}건 등록</>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* 기업 등록 모달 */}
             <AnimatePresence>

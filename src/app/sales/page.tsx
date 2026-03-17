@@ -18,10 +18,12 @@ const PROCESS_STEPS = [
     { n: '05', title: '운영 시작', desc: '즉시 24시간 법률·심리 지원 시작, 전담 변호사 배정' },
 ];
 
+import { PRICING_TIERS } from '@/lib/pricing';
+
 const TIERS = [
-    { name: 'Basic', price: '₩990,000', color: '#60a5fa', features: ['법률 챗봇', '자문 3건/월', '가맹 상담'] },
-    { name: 'Pro', price: '₩2,490,000', color: '#c9a84c', features: ['법률 챗봇', '자문 10건/월', '무제한 임직원', 'EAP 기본'] },
-    { name: 'Premium', price: '₩4,990,000', color: '#a78bfa', features: ['전담 변호사', '무제한 자문', 'EAP 무제한', '경영자문'] },
+    { name: PRICING_TIERS.basic.name, price: `₩${PRICING_TIERS.basic.price.toLocaleString()}`, color: PRICING_TIERS.basic.color, features: ['법률 챗봇', '자문 3건/월', '가맹 상담'] },
+    { name: PRICING_TIERS.pro.name, price: `₩${PRICING_TIERS.pro.price.toLocaleString()}`, color: PRICING_TIERS.pro.color, features: ['법률 챗봇', '자문 10건/월', '무제한 임직원', 'EAP 기본'] },
+    { name: PRICING_TIERS.premium.name, price: `₩${PRICING_TIERS.premium.price.toLocaleString()}`, color: PRICING_TIERS.premium.color, features: ['전담 변호사', '무제한 자문', 'EAP 무제한', '경영자문'] },
 ];
 
 interface LeadForm { name: string; company: string; phone: string; email: string; size: string; }

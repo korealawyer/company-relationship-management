@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import {
     AlertTriangle, ChevronDown, ChevronUp,
@@ -227,7 +227,7 @@ function RiskGauge({ score }: { score: number }) {
 }
 
 /* ── 메인 페이지 ───────────────────────────────────────── */
-export default function PrivacyReportPage() {
+function PrivacyReportPageInner() {
     const searchParams = useSearchParams();
     const company = searchParams.get('company') || '(주)샐러디';
     const companyId = searchParams.get('companyId') || '';
@@ -440,5 +440,13 @@ export default function PrivacyReportPage() {
                 </Link>
             </div>
         </div>
+    );
+}
+
+export default function PrivacyReportPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: '#f8f7f4' }}><div className="text-lg font-bold animate-pulse" style={{ color: '#92400e' }}>보고서 로딩 중...</div></div>}>
+            <PrivacyReportPageInner />
+        </Suspense>
     );
 }

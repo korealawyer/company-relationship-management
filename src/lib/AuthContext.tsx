@@ -35,7 +35,7 @@ export const ROLE_REDIRECT: Record<RoleType, string> = {
     sales: '/employee',
     lawyer: '/lawyer',
     litigation: '/litigation',
-    client_hr: '/company-hr',
+    client_hr: '/dashboard',
     counselor: '/counselor',
     hr: '/admin',
     general: '/admin',

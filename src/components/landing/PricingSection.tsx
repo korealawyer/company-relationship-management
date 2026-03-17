@@ -109,6 +109,72 @@ export default function PricingSection() {
                     </motion.div>
                 </div>
 
+                {/* 외부 로펌 vs IBS 비교 */}
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-10">
+                    <Card padding="lg">
+                        <div className="text-center mb-6">
+                            <p className="text-xs font-bold mb-2" style={{ color: 'rgba(201,168,76,0.7)' }}>💰 비용 비교</p>
+                            <h3 className="font-black text-xl" style={{ color: '#f0f4ff' }}>
+                                외부 로펌 이용 vs{' '}
+                                <span style={{ color: '#c9a84c' }}>IBS 플랫폼</span>
+                            </h3>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-6 mb-6">
+                            {/* 외부 로펌 */}
+                            <div className="p-5 rounded-xl" style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                                <p className="font-black text-sm mb-4" style={{ color: '#f87171' }}>🏛 외부 로펌 개별 이용 시</p>
+                                <div className="space-y-2">
+                                    {[
+                                        { label: '법률 자문', cost: '월 500만원' },
+                                        { label: '계약서 검토', cost: '건당 100만원' },
+                                        { label: '개인정보 컨설팅', cost: '300만원/회' },
+                                        { label: '노무 자문', cost: '월 200만원' },
+                                        { label: '소송 관리', cost: '착수금 별도' },
+                                    ].map((item, i) => (
+                                        <div key={i} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <span className="text-sm" style={{ color: 'rgba(240,244,255,0.6)' }}>{item.label}</span>
+                                            <span className="text-sm font-bold" style={{ color: '#f87171' }}>{item.cost}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-4 pt-3 text-right" style={{ borderTop: '1px solid rgba(248,113,113,0.2)' }}>
+                                    <span className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>월 합계 (추정)</span>
+                                    <p className="font-black text-2xl" style={{ color: '#f87171' }}>~900만원+</p>
+                                </div>
+                            </div>
+                            {/* IBS */}
+                            <div className="p-5 rounded-xl" style={{ background: 'rgba(74,222,128,0.04)', border: '1.5px solid rgba(74,222,128,0.25)' }}>
+                                <p className="font-black text-sm mb-4" style={{ color: '#4ade80' }}>⚡ IBS 플랫폼 구독 시</p>
+                                <div className="space-y-2">
+                                    {[
+                                        { label: '법률 자문', cost: '무제한 포함' },
+                                        { label: '계약서 AI 검토', cost: '무제한 포함' },
+                                        { label: '개인정보 자동진단', cost: '무제한 포함' },
+                                        { label: '노무·경영 자문', cost: '포함' },
+                                        { label: '경영 대시보드', cost: '무제한 포함' },
+                                    ].map((item, i) => (
+                                        <div key={i} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <span className="text-sm" style={{ color: 'rgba(240,244,255,0.6)' }}>{item.label}</span>
+                                            <span className="text-sm font-bold" style={{ color: '#4ade80' }}>{item.cost}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-4 pt-3 text-right" style={{ borderTop: '1px solid rgba(74,222,128,0.2)' }}>
+                                    <span className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>월 구독료</span>
+                                    <p className="font-black text-2xl" style={{ color: '#4ade80' }}>249만원~</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)' }}>
+                            <p className="text-xs mb-1" style={{ color: 'rgba(240,244,255,0.4)' }}>연간 절감 (추정)</p>
+                            <p className="font-black text-3xl" style={{ background: 'linear-gradient(135deg,#e8c87a,#4ade80)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                                약 7,800만원
+                            </p>
+                            <p className="text-sm mt-1" style={{ color: 'rgba(240,244,255,0.5)' }}>쓰지 않는 것이 오히려 손해입니다</p>
+                        </div>
+                    </Card>
+                </motion.div>
+
                 {/* 바우처 강조 */}
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-10">
                     <Card padding="lg" gold>

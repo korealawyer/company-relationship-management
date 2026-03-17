@@ -24,13 +24,24 @@ export const AUTH_KEY = 'ibs_auth_v1';
 export const SIGNUP_KEY = 'ibs_users_v1';      // 가입한 일반사용자
 export const PENDING_KEY = 'ibs_pending_v1';   // 소속 승인 대기
 
-// ── 초대코드 테이블 (본사가 IBS에서 발급) ────────────────────
-export const INVITE_CODES: Record<string, { companyId: string; companyName: string; role: RoleType; expires: string }> = {
+// ── 초대코드 테이블 ────────────────────────────────────────────
+// 내부 직원용: 코드 입력 시 자동 역할 배정, 승인 불필요
+// 고객사용: 기존과 동일
+export const INVITE_CODES: Record<string, { companyId: string; companyName: string; role: RoleType; expires: string; isInternal?: boolean }> = {
+    // ── 내부 직원 초대코드 ──
+    'IBS-SALES-2026':    { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'sales',      expires: '2026-12-31', isInternal: true },
+    'IBS-LAWYER-2026':   { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'lawyer',     expires: '2026-12-31', isInternal: true },
+    'IBS-LIT-2026':      { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'litigation', expires: '2026-12-31', isInternal: true },
+    'IBS-FINANCE-2026':  { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'finance',    expires: '2026-12-31', isInternal: true },
+    'IBS-COUNSEL-2026':  { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'counselor' as RoleType, expires: '2026-12-31', isInternal: true },
+    'IBS-HR-2026':       { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'hr',         expires: '2026-12-31', isInternal: true },
+    'IBS-ADMIN-2026':    { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'admin',      expires: '2026-12-31', isInternal: true },
+    // ── 고객사 초대코드 ──
     'GYOCHON-2026': { companyId: 'c2', companyName: '(주)교촌에프앤비', role: 'client_hr', expires: '2026-12-31' },
-    'NOLBOO-2026': { companyId: 'c1', companyName: '(주)놀부NBG', role: 'client_hr', expires: '2026-12-31' },
-    'PARIS-2026': { companyId: 'c3', companyName: '(주)파리바게뜨', role: 'client_hr', expires: '2026-12-31' },
-    'BHC-2026': { companyId: 'c4', companyName: '(주)bhc치킨', role: 'client_hr', expires: '2026-12-31' },
-    'BONJUK-2026': { companyId: 'c5', companyName: '(주)본죽', role: 'client_hr', expires: '2026-12-31' },
+    'NOLBOO-2026':  { companyId: 'c1', companyName: '(주)놀부NBG',     role: 'client_hr', expires: '2026-12-31' },
+    'PARIS-2026':   { companyId: 'c3', companyName: '(주)파리바게뜨',    role: 'client_hr', expires: '2026-12-31' },
+    'BHC-2026':     { companyId: 'c4', companyName: '(주)bhc치킨',     role: 'client_hr', expires: '2026-12-31' },
+    'BONJUK-2026':  { companyId: 'c5', companyName: '(주)본죽',        role: 'client_hr', expires: '2026-12-31' },
 };
 
 // ── 가맹점·임직원용 사업자번호 DB ────────────────────────────
@@ -143,7 +154,7 @@ export const ROLE_HOME: Record<RoleType, string> = {
     hr: '/hr',
     finance: '/employee',
     counselor: '/counselor',
-    client_hr: '/company-hr',    // 고객사 HR → EAP 사용현황 포털
+    client_hr: '/dashboard',     // 고객사 HR → 클라이언트 포털 허브
 };
 
 // ── 세션 CRUD ──────────────────────────────────────────────────
@@ -237,7 +248,12 @@ function saveUsers(users: AuthUser[]) {
 
 // ── 회원가입 ─────────────────────────────────────────────────
 // ⚠️ Phase 3 필수: bcryptjs로 해싱 후 저장. 현재는 mock 전용 평문 저장.
-export function signUp(name: string, email: string, password: string): { success: true; user: AuthUser } | { success: false; error: string } {
+export function signUp(
+    name: string,
+    email: string,
+    password: string,
+    inviteCode?: string
+): { success: true; user: AuthUser } | { success: false; error: string } {
     // 최소 비밀번호 길이 검증
     if (password.length < 6) {
         return { success: false, error: '비밀번호는 6자 이상이어야 합니다.' };
@@ -246,13 +262,35 @@ export function signUp(name: string, email: string, password: string): { success
     if (all.find(u => u.email.toLowerCase() === email.toLowerCase())) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
     }
+    // MOCK_ACCOUNTS 중복 체크
+    if (MOCK_ACCOUNTS.find(a => a.email.toLowerCase() === email.toLowerCase())) {
+        return { success: false, error: '이미 등록된 이메일입니다.' };
+    }
+
+    // 초대코드가 있으면 역할 자동 배정
+    let role: RoleType = 'client_hr';
+    let companyId: string | undefined;
+    let companyName: string | undefined;
+
+    if (inviteCode) {
+        const codeResult = verifyInviteCode(inviteCode);
+        if (!codeResult.valid) {
+            return { success: false, error: codeResult.error };
+        }
+        role = codeResult.role;
+        companyId = codeResult.companyId;
+        companyName = codeResult.companyName;
+    }
+
     const user: AuthUser = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID
             ? `u_${crypto.randomUUID()}`
             : `u_${Date.now()}`,
         name,
         email,
-        role: 'client_hr' as RoleType,
+        role,
+        companyId,
+        companyName,
         loginAt: new Date().toISOString(),
     };
     // TODO(Phase 3): passwordHash = await bcrypt.hash(password, 12); — 평문 저장 제거

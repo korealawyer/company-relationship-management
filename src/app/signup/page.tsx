@@ -50,6 +50,8 @@ export default function SignupPage() {
     const [password, setPassword] = useState('');
     const [pwConfirm, setPwConfirm] = useState('');
     const [showPw, setShowPw] = useState(false);
+    const [inviteCode, setInviteCode] = useState('');
+    const [showInvite, setShowInvite] = useState(false);
     const [infoError, setInfoError] = useState('');
     const [infoLoading, setInfoLoading] = useState(false);
 
@@ -86,9 +88,23 @@ export default function SignupPage() {
         if (password.length < 6) { setInfoError('비밀번호는 6자 이상이어야 합니다.'); return; }
         setInfoLoading(true); setInfoError('');
         await new Promise(r => setTimeout(r, 600));
-        const result = signUp(name, email, password);
+        const trimmedCode = inviteCode.trim() || undefined;
+        const result = signUp(name, email, password, trimmedCode);
         setInfoLoading(false);
         if (!result.success) { setInfoError(result.error); return; }
+        // 초대코드로 내부 직원이 가입한 경우 → Step 2 건너뛰고 바로 완료
+        if (trimmedCode) {
+            const codeEntry = INVITE_CODES[trimmedCode.toUpperCase()];
+            if (codeEntry?.isInternal) {
+                setStep('done');
+                return;
+            }
+            // 고객사 초대코드인 경우도 바로 완료
+            setAffResult({ companyId: codeEntry?.companyId || '', companyName: codeEntry?.companyName || '' });
+            setAffDone(true);
+            setStep('done');
+            return;
+        }
         setStep('affiliation');
     };
 
@@ -215,6 +231,27 @@ export default function SignupPage() {
                                             className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
                                             style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${pwConfirm && pwConfirm !== password ? '#f87171' : 'rgba(255,255,255,0.09)'}`, color: '#f0f4ff' }} />
                                     </div>
+                                </div>
+
+                                {/* 초대코드 (선택) */}
+                                <div>
+                                    <button onClick={() => setShowInvite(!showInvite)}
+                                        className="flex items-center gap-1.5 text-xs font-bold mb-1.5 transition-all"
+                                        style={{ color: showInvite ? '#c9a84c' : 'rgba(240,244,255,0.4)' }}>
+                                        <Ticket className="w-3.5 h-3.5" />
+                                        {showInvite ? '초대코드 접기' : '내부 직원 / 초대코드가 있으신가요?'}
+                                    </button>
+                                    {showInvite && (
+                                        <div className="relative">
+                                            <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(201,168,76,0.5)' }} />
+                                            <input type="text" value={inviteCode}
+                                                onChange={e => { setInviteCode(e.target.value.toUpperCase()); setInfoError(''); }}
+                                                placeholder="예: IBS-SALES-2026"
+                                                className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
+                                                style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)', color: '#e8c87a' }} />
+                                            <p className="text-[10px] mt-1" style={{ color: 'rgba(201,168,76,0.4)' }}>초대코드 입력 시 소속 인증 단계를 건너뜁니다</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {infoError && (
@@ -398,7 +435,17 @@ export default function SignupPage() {
                     )}
 
                     {/* ── STEP 3: 완료 ── */}
-                    {step === 'done' && (
+                    {step === 'done' && (() => {
+                        // 역할별 리다이렉트 경로
+                        const roleHome: Record<string, string> = {
+                            sales: '/employee', lawyer: '/lawyer', litigation: '/litigation',
+                            hr: '/employee', finance: '/employee', admin: '/employee',
+                            super_admin: '/employee', counselor: '/counselor', client_hr: '/dashboard',
+                        };
+                        const session = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('ibs_auth_v1') || '{}') : {};
+                        const isInternal = ['sales','lawyer','litigation','hr','finance','admin','super_admin','counselor'].includes(session.role);
+                        const homePath = roleHome[session.role] || '/dashboard?onboarding=1';
+                        return (
                         <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
                             <div className="p-7 rounded-2xl text-center"
                                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)' }}>
@@ -408,24 +455,30 @@ export default function SignupPage() {
                                 </div>
                                 <h2 className="text-xl font-black mb-2" style={{ color: '#f0f4ff' }}>가입 완료!</h2>
                                 <p className="text-sm mb-6" style={{ color: 'rgba(240,244,255,0.5)' }}>
-                                    환영합니다, <span style={{ color: '#c9a84c' }}>{name}</span>님.<br />
-                                    법률 문의를 바로 시작해보세요.
+                                    환영합니다, <span style={{ color: '#c9a84c' }}>{name}</span>님.
+                                    {isInternal
+                                        ? <><br />내부 시스템으로 바로 이동합니다.</>
+                                        : <><br />법률 문의를 바로 시작해보세요.</>
+                                    }
                                 </p>
                                 <div className="flex flex-col gap-2">
-                                    <button onClick={() => router.replace('/chat')}
+                                    <button onClick={() => router.replace(homePath)}
                                         className="w-full py-3 rounded-xl font-bold text-sm"
                                         style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                                        법률 문의 시작하기 →
+                                        {isInternal ? '업무 시작하기 →' : '대시보드로 이동 →'}
                                     </button>
-                                    <button onClick={() => router.replace('/client-portal')}
-                                        className="w-full py-2.5 rounded-xl text-sm"
-                                        style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(240,244,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                        고객 포털 보기
-                                    </button>
+                                    {!isInternal && (
+                                        <button onClick={() => router.replace('/chat')}
+                                            className="w-full py-2.5 rounded-xl text-sm"
+                                            style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(240,244,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                            법률 문의 바로 시작하기
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
-                    )}
+                        );
+                    })()}
                 </AnimatePresence>
             </div>
         </div>

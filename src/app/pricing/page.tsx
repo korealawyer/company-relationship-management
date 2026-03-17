@@ -174,7 +174,7 @@ function FranchiseeView() {
                 {/* CTA */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
                     className="text-center">
-                    <Link href="/client-portal">
+                    <Link href="/dashboard">
                         <button className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-black text-lg btn-gold">
                             지금 바로 서비스 이용하기 <ArrowRight className="w-5 h-5" />
                         </button>

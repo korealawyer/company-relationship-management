@@ -56,7 +56,26 @@ export default function FloatingChatbot() {
 
     return (
         <>
-            {/* Floating Button */}
+            {/* KakaoTalk Channel Button */}
+            <motion.a
+                href="https://pf.kakao.com/_ibslaw"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="fixed bottom-24 right-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
+                style={{
+                    background: '#FEE500',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
+                title="카카오톡 상담"
+            >
+                <svg viewBox="0 0 24 24" className="w-6 h-6" fill="#3C1E1E">
+                    <path d="M12 3C6.5 3 2 6.58 2 11c0 2.83 1.86 5.33 4.68 6.77l-.6 3.56c-.05.29.27.52.52.37l4.18-2.52c.39.04.79.07 1.22.07 5.5 0 10-3.58 10-8s-4.5-8-10-8z" />
+                </svg>
+            </motion.a>
+
+            {/* Floating Chatbot Button */}
             <motion.button
                 onClick={() => setOpen(!open)}
                 className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"

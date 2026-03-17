@@ -38,7 +38,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
         id: 'n1', type: 'document', status: 'unread',
         title: '개인정보처리방침 진단 리포트 완료',
         message: '김수현 변호사가 4건의 법적 위험을 발견했습니다. 즉시 확인이 필요합니다.',
-        date: '2026.03.16 14:30', href: '/client-portal', actionLabel: '리포트 열람',
+        date: '2026.03.16 14:30', href: '/dashboard', actionLabel: '리포트 열람',
     },
     {
         id: 'n2', type: 'payment', status: 'unread',

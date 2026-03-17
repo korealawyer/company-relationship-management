@@ -72,7 +72,7 @@ export default function IssueSection({ company }: { company: { name: string; iss
                         <p className="text-sm mb-6" style={{ color: 'rgba(240,244,255,0.5)' }}>
                             이메일로 발송된 임시 비밀번호로 로그인하시면 전체 리포트를 즉시 확인하실 수 있습니다.
                         </p>
-                        <Link href="/client-portal">
+                        <Link href="/dashboard">
                             <Button variant="premium" size="lg">
                                 로그인하여 전체 리포트 보기 <ArrowRight className="w-5 h-5 ml-2" />
                             </Button>

@@ -23,7 +23,7 @@ const ROLE_META: Record<string, { label: string; color: string }> = {
 };
 
 // ── 역할별 메뉴 정의 (플랫) ───────────────────────────────
-type NavLink = { href: string; label: string };
+type NavLink = { href: string; label: string; comingSoon?: boolean };
 
 const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     // 일반 방문자 (비로그인)
@@ -33,15 +33,12 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
         { href: '/privacy-report', label: '개인정보 진단' },
         { href: '/consultation', label: '법률 상담' },
         { href: '/pricing', label: '요금제' },
-        { href: '/client-portal', label: '고객 포털' },
+        { href: '/dashboard', label: '고객 포털' },
     ],
     // 영업팀
     sales: [
         { href: '/employee', label: 'CRM' },
         { href: '/sales/call', label: '전화 영업' },
-        { href: '/admin/email-preview', label: '이메일 미리보기' },
-        { href: '/lawyer/privacy-review', label: '조문 검토' },
-        { href: '/litigation', label: '송무 대시보드' },
     ],
     // 변호사
     lawyer: [
@@ -74,9 +71,12 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     ],
     // 프랜차이즈 본사 HR (client_hr)
     client_hr: [
-        { href: '/chat', label: '법률 문의' },
+        { href: '/dashboard', label: '개인정보 진단' },
         { href: '/my-documents', label: '문서함' },
         { href: '/consultation-history', label: '상담 내역' },
+        { href: '/contracts', label: '전자계약', comingSoon: true },
+        { href: '/chat', label: 'AI 법률 어시스턴트', comingSoon: true },
+        { href: '/cases', label: '소송 관리', comingSoon: true },
         { href: '/notifications', label: '알림' },
         { href: '/company-hr', label: '사용 현황' },
         { href: '/billing', label: '결제 관리' },
@@ -267,26 +267,24 @@ export default function Navbar() {
                 <div className="flex items-center justify-between h-20">
 
                     {/* 로고 */}
-                    <Link href={user ? (LINKS_BY_ROLE[user.role]?.[0]?.href ?? '/') : '/'} className="flex items-center gap-2.5 group flex-shrink-0">
-                        <div className="rounded-lg flex items-center justify-center font-black text-sm transition-all duration-300 group-hover:scale-105"
-                            style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a', width: 36, height: 36, letterSpacing: '-0.5px' }}>
+                    <Link href={user ? (LINKS_BY_ROLE[user.role]?.[0]?.href ?? '/') : '/'} className="flex items-center group flex-shrink-0">
+                        <span className="font-black text-xl tracking-tight transition-all duration-300 group-hover:scale-105"
+                            style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                             IBS
-                        </div>
-                        <div className="hidden sm:block">
-                            <span className="font-black text-base leading-tight block"
-                                style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                                법률사무소
-                            </span>
-                            <span className="text-[9px] tracking-widest" style={{ color: 'rgba(201,168,76,0.5)' }}>
-                                IBS LAW FIRM
-                            </span>
-                        </div>
+                        </span>
                     </Link>
 
                     {/* 데스크탑 메뉴 — 플랫 */}
                     <div className="hidden lg:flex items-center gap-1">
                         {links.map((link) => {
-                            const active = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href + '/'));
+                            // 관련 경로도 같은 탭으로 인식
+                            const RELATED_PATHS: Record<string, string[]> = {
+                                '/dashboard': ['/client-portal', '/chat'],
+                            };
+                            const related = RELATED_PATHS[link.href] ?? [];
+                            const active = pathname === link.href
+                                || (link.href !== '/' && pathname.startsWith(link.href + '/'))
+                                || related.some(r => pathname === r || pathname.startsWith(r + '/'));
                             return (
                                 <Link key={link.href} href={link.href}
                                     className="relative px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 group"
@@ -315,7 +313,7 @@ export default function Navbar() {
                                     로그인
                                 </Link>
                                 <Link href="/#cta" className="text-sm font-bold px-5 py-2 rounded-lg btn-gold transition-all">
-                                    무료 진단 받기
+                                    진단 시작
                                 </Link>
                             </>
                         )}
@@ -339,13 +337,21 @@ export default function Navbar() {
 
                             {/* 메뉴 링크 */}
                             {links.map((link) => {
-                                const active = pathname === link.href;
+                                const RELATED_PATHS: Record<string, string[]> = {
+                                    '/dashboard': ['/client-portal', '/chat'],
+                                };
+                                const related = RELATED_PATHS[link.href] ?? [];
+                                const active = pathname === link.href
+                                    || (link.href !== '/' && pathname.startsWith(link.href + '/'))
+                                    || related.some(r => pathname === r || pathname.startsWith(r + '/'));
                                 return (
                                     <Link key={link.href} href={link.href}
                                         onClick={() => setMobileOpen(false)}
                                         className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-all"
                                         style={{ color: active ? '#c9a84c' : 'rgba(240,244,255,0.75)', background: active ? 'rgba(201,168,76,0.08)' : 'transparent' }}>
-                                        {link.label}
+                                        <span className="flex items-center gap-2">
+                                            {link.label}
+                                        </span>
                                     </Link>
                                 );
                             })}
@@ -378,7 +384,7 @@ export default function Navbar() {
                                     </Link>
                                     <Link href="/#cta" onClick={() => setMobileOpen(false)}
                                         className="text-center py-2.5 rounded-lg text-sm font-bold btn-gold">
-                                        무료 진단 받기
+                                        진단 시작
                                     </Link>
                                 </div>
                             )}

@@ -67,9 +67,25 @@ export default function RootLayout({
   return (
     <html lang="ko" className={notoSansKR.variable}>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#c9a84c" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="IBS CRM" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          dangerouslySetInnerHTML={{ __html: `
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                  .then(function(reg) { console.log('[PWA] Service Worker 등록 완료:', reg.scope); })
+                  .catch(function(err) { console.log('[PWA] Service Worker 등록 실패:', err); });
+              });
+            }
+          `}}
         />
       </head>
       <body className="antialiased min-h-screen flex flex-col">

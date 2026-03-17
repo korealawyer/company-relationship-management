@@ -9,22 +9,15 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { store } from '@/lib/mockStore';
+import { PRICING_TIERS, CRM_PLAN_MAP } from '@/lib/pricing';
 
-// ── 플랜 데이터 ─────────────────────────────────────────
-const PLANS: Record<string, { name: string; price: number; color: string; features: string[] }> = {
-    basic: {
-        name: 'Basic', price: 990000, color: '#60a5fa',
-        features: ['법률 챗봇 무제한', '법률 자문 3건/월', '개인정보 기본 자동 검토', '5명 임직원 계정'],
-    },
-    pro: {
-        name: 'Pro', price: 2490000, color: '#c9a84c',
-        features: ['법률 챗봇 무제한', '법률 자문 10건/월', '개인정보 전체 자동 검토', '무제한 임직원 계정', '계약서 검토 5건/월', '월간 법무 리포트', 'EAP 심리상담'],
-    },
-    premium: {
-        name: 'Premium', price: 4990000, color: '#a78bfa',
-        features: ['모든 Pro 기능 포함', '법률 자문 무제한', '전담 변호사 지정', '계약서 검토 무제한', '경영·노무 자문', 'EAP 무제한', '전용 슬랙 채널'],
-    },
-};
+// ── 플랜 데이터 (중앙 관리 모듈에서 가져옴) ─────────────────
+const PLANS = Object.fromEntries(
+    Object.entries(PRICING_TIERS).map(([key, tier]) => [
+        key,
+        { name: tier.name, price: tier.price, color: tier.color, features: tier.features },
+    ])
+);
 
 // ── 서명 캔버스 ─────────────────────────────────────────
 function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
@@ -166,10 +159,7 @@ function CheckoutContent() {
         await new Promise(r => setTimeout(r, 2000));
 
         // CRM 연동: 회사명으로 매칭되는 기업이 있으면 구독 상태 업데이트
-        const planMap: Record<string, 'starter' | 'standard' | 'premium'> = {
-            basic: 'starter', pro: 'standard', premium: 'premium',
-        };
-        const crmPlan = planMap[planId] || 'standard';
+        const crmPlan = CRM_PLAN_MAP[planId] || 'standard';
         const allCompanies = store.getAll();
         const matched = allCompanies.find(c =>
             c.name === form.companyName || c.email === form.contactEmail
@@ -238,7 +228,7 @@ function CheckoutContent() {
                     </div>
 
                     {/* 다음 단계 */}
-                    <div className="rounded-xl p-4 mb-8"
+                    <div className="rounded-xl p-4 mb-6"
                         style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)' }}>
                         <p className="text-xs font-bold mb-2" style={{ color: '#4ade80' }}>다음 단계</p>
                         {[
@@ -256,10 +246,38 @@ function CheckoutContent() {
                         ))}
                     </div>
 
+                    {/* 로그인 정보 안내 */}
+                    <div className="rounded-xl p-5 mb-6 text-left"
+                        style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.25)' }}>
+                        <p className="text-xs font-bold mb-3" style={{ color: '#818cf8' }}>🔑 고객 포털 로그인 정보</p>
+                        <p className="text-sm mb-3" style={{ color: 'rgba(240,244,255,0.6)' }}>
+                            아래 정보로 고객 포털에 바로 로그인하실 수 있습니다.
+                        </p>
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between text-sm">
+                                <span style={{ color: 'rgba(240,244,255,0.5)' }}>사업자번호</span>
+                                <span className="font-bold" style={{ color: '#f0f4ff' }}>{form.bizNo || '(입력하신 사업자번호)'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span style={{ color: 'rgba(240,244,255,0.5)' }}>초기 비밀번호</span>
+                                <span className="font-black" style={{ color: '#818cf8' }}>1234</span>
+                            </div>
+                        </div>
+                        <p className="text-[10px] mt-3" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                            * 최초 로그인 후 비밀번호를 반드시 변경해 주세요
+                        </p>
+                    </div>
+
                     <div className="flex flex-col gap-3">
-                        <Link href="/client-portal">
+                        <Link href="/login">
                             <button className="w-full py-3.5 rounded-xl font-black text-base btn-gold inline-flex items-center justify-center gap-2">
-                                고객 포털 바로가기 <ArrowRight className="w-5 h-5" />
+                                고객 포털 로그인하기 <ArrowRight className="w-5 h-5" />
+                            </button>
+                        </Link>
+                        <Link href="/dashboard">
+                            <button className="w-full py-3 rounded-xl font-bold text-sm"
+                                style={{ background: 'rgba(129,140,248,0.1)', color: '#818cf8', border: '1px solid rgba(129,140,248,0.25)' }}>
+                                고객 포털 바로가기
                             </button>
                         </Link>
                         <Link href="/">
@@ -281,10 +299,10 @@ function CheckoutContent() {
 
                 {/* 상단 */}
                 <div className="flex items-center gap-3 mb-8">
-                    <Link href={company ? `/privacy-report?company=${encodeURIComponent(company)}` : '/privacy-report'}>
+                    <Link href="/pricing">
                         <button className="flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-lg"
                             style={{ color: 'rgba(240,244,255,0.6)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                            <ArrowLeft className="w-4 h-4" /> 리포트로 돌아가기
+                            <ArrowLeft className="w-4 h-4" /> 요금제로 돌아가기
                         </button>
                     </Link>
                 </div>

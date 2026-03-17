@@ -5,11 +5,11 @@ import { Building2, User, CreditCard, Lock, CheckCircle2, ArrowRight, Loader2 } 
 import { useRouter } from 'next/navigation';
 
 const STEPS = ['사업자 정보', '담당자 정보', '플랜 선택', '계정 설정', '완료'];
-const PLANS = [
-    { id: 'basic', name: 'Basic', price: 990000, color: '#60a5fa' },
-    { id: 'pro', name: 'Pro', price: 2490000, color: '#c9a84c', popular: true },
-    { id: 'premium', name: 'Premium', price: 4990000, color: '#a78bfa' },
-];
+import { PRICING_TIERS_LIST } from '@/lib/pricing';
+
+const PLANS = PRICING_TIERS_LIST.map(t => ({
+    id: t.id, name: t.name, price: t.price, color: t.color, popular: t.popular,
+}));
 
 export default function OnboardingPage() {
     const router = useRouter();

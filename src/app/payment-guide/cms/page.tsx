@@ -493,7 +493,7 @@ export default function CmsContractPage() {
                                 ))}
                             </div>
 
-                            <Link href="/client-portal">
+                            <Link href="/dashboard">
                                 <button className="w-full py-3.5 rounded-xl font-bold text-sm mt-6 flex items-center justify-center gap-2"
                                     style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
                                     고객 포털로 이동 <ArrowRight className="w-4 h-4" />

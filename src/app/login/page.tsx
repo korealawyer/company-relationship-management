@@ -353,7 +353,7 @@ function LoginContent() {
                                                     setCookie('ibs_session', session.id, 1);
                                                     setCookie('ibs_role', session.role, 1);
                                                 }
-                                                router.replace('/client-portal');
+                                                router.replace('/dashboard');
                                             } else { setBizError(result.error); setBizLoading(false); }
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all hover:scale-[1.01]"

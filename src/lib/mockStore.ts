@@ -1,5 +1,66 @@
-// src/lib/mockStore.ts  v5 — 로펌 OS 확장 기반
-// 영업·변호사·관리자·송무팀 공용 저장소 + 역할 시스템 + 모듈 레지스트리
+// src/lib/mockStore.ts  v6 — Supabase Write-Through Cache
+// 기존 sync 인터페이스 유지 + 백그라운드 Supabase 동기화
+// IS_SUPABASE_CONFIGURED=true → 모든 save()가 Supabase에도 기록
+
+import { getSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
+
+// ── Supabase 동기화 유틸 ──────────────────────────────────────
+function snakeToCamel(s: string): string {
+    return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+}
+function camelToSnake(s: string): string {
+    return s.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`);
+}
+function rowToObj<T>(row: Record<string, unknown>): T {
+    const obj: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(row)) obj[snakeToCamel(k)] = v;
+    return obj as T;
+}
+function objToRow(obj: Record<string, unknown>, exclude: string[] = []): Record<string, unknown> {
+    const row: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+        if (exclude.includes(k)) continue;
+        if (Array.isArray(v) || (v && typeof v === 'object' && !(v instanceof Date))) continue;
+        row[camelToSnake(k)] = v;
+    }
+    return row;
+}
+
+// 백그라운드 Supabase upsert — fire & forget (에러 무시)
+async function sbUpsert(table: string, data: Record<string, unknown>[]) {
+    const sb = getSupabase();
+    if (!sb || data.length === 0) return;
+    try { await sb.from(table).upsert(data, { onConflict: 'id' }); }
+    catch (e) { console.warn(`[SB sync] ${table} upsert failed:`, e); }
+}
+async function sbFetchAll<T>(table: string, orderBy = 'created_at'): Promise<T[] | null> {
+    const sb = getSupabase();
+    if (!sb) return null;
+    try {
+        const { data, error } = await sb.from(table).select('*').order(orderBy, { ascending: false });
+        if (error) { console.warn(`[SB sync] ${table} fetch failed:`, error); return null; }
+        return (data || []).map(r => rowToObj<T>(r as Record<string, unknown>));
+    } catch { return null; }
+}
+
+// Supabase에서 초기 로딩 완료 상태 추적
+const _sbInitStatus: Record<string, boolean> = {};
+async function sbInitOnce<T>(key: string, table: string, localKey: string, defaults: T[]): Promise<T[]> {
+    if (_sbInitStatus[key] || !IS_SUPABASE_CONFIGURED || typeof window === 'undefined') return defaults;
+    _sbInitStatus[key] = true;
+    const remote = await sbFetchAll<T>(table);
+    if (remote && remote.length > 0) {
+        localStorage.setItem(localKey, JSON.stringify(remote));
+        return remote;
+    }
+    // Supabase 비어있으면 로컬 데이터를 Supabase에 시드
+    const local: T[] = (() => {
+        try { return JSON.parse(localStorage.getItem(localKey) || 'null') || defaults; } catch { return defaults; }
+    })();
+    const rows = local.map(item => objToRow(item as Record<string, unknown>));
+    sbUpsert(table, rows);
+    return local;
+}
 
 // ── 역할(Role) 시스템 ─────────────────────────────────────────
 // Phase 2에서 실제 인증과 연결됩니다.
@@ -42,13 +103,22 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     // ── Phase 2 — EAP 모듈 ──
     { id: 'eap', href: '/eap', label: 'EAP 상담', icon: 'Heart', roles: ['counselor', 'super_admin', 'admin'], status: 'beta', hideable: false, phase: 2 },
     { id: 'counselor', href: '/counselor', label: '상담사 포털', icon: 'HeartHandshake', roles: ['counselor', 'super_admin'], status: 'beta', hideable: false, phase: 2 },
-    { id: 'company-hr', href: '/company-hr', label: '고객사 HR', icon: 'Building2', roles: ['client_hr', 'super_admin', 'admin'], status: 'beta', hideable: false, phase: 2 },
+    { id: 'company-hr', href: '/company-hr', label: '고객사 HR', icon: 'Building2', roles: ['client_hr', 'super_admin', 'admin'], status: 'active', hideable: false, phase: 1 },
+    // ── Phase 1 — 고객사 포털 ──
+    { id: 'client-dashboard', href: '/dashboard', label: '대시보드', icon: 'LayoutDashboard', roles: ['client_hr', 'super_admin'], status: 'active', hideable: false, phase: 1 },
+    { id: 'consultation', href: '/consultation', label: '법률 상담', icon: 'HeartHandshake', roles: ['client_hr', 'super_admin'], status: 'active', hideable: false, phase: 1 },
+    { id: 'ai-chat', href: '/chat', label: 'AI 법률봇', icon: 'Bot', roles: ['client_hr', 'super_admin'], status: 'active', hideable: false, phase: 1 },
+    { id: 'client-cases', href: '/cases', label: '사건 관리', icon: 'Briefcase', roles: ['client_hr', 'super_admin', 'admin', 'lawyer'], status: 'active', hideable: true, phase: 1 },
+    { id: 'client-docs', href: '/documents', label: '문서함', icon: 'FolderOpen', roles: ['client_hr', 'super_admin'], status: 'active', hideable: true, phase: 1 },
+    { id: 'client-billing', href: '/billing', label: '결제 관리', icon: 'CreditCard', roles: ['client_hr', 'super_admin'], status: 'active', hideable: true, phase: 1 },
     // ── Phase 2 — 로펌 내부 업무툴 ──
     { id: 'general', href: '/general', label: '총무팀', icon: 'Building2', roles: ['super_admin', 'admin', 'general'], status: 'coming_soon', hideable: true, phase: 2 },
     { id: 'hr', href: '/hr', label: '인사팀(내부)', icon: 'UserCog', roles: ['super_admin', 'admin', 'hr'], status: 'coming_soon', hideable: true, phase: 2 },
-    { id: 'finance', href: '/finance', label: '회계팀', icon: 'Coins', roles: ['super_admin', 'admin', 'finance'], status: 'coming_soon', hideable: true, phase: 2 },
+    { id: 'finance', href: '/billing', label: '회계팀', icon: 'Coins', roles: ['super_admin', 'admin', 'finance', 'sales'], status: 'active', hideable: true, badge: 'admin', phase: 1 },
     // ── Phase 3 — 지식·AI ──
     { id: 'knowledge', href: '/knowledge', label: '법률 지식관리', icon: 'BookOpen', roles: ['super_admin', 'admin', 'lawyer', 'litigation'], status: 'coming_soon', hideable: true, phase: 3 },
+    // ── Phase 1 — 개인 소송 관리 ──
+    { id: 'personal-litigation', href: '/personal-litigation', label: '개인 소송', icon: 'UserCheck', roles: ['super_admin', 'admin', 'lawyer', 'litigation', 'finance'], status: 'active', hideable: true, phase: 1 },
 ];
 
 // 현재 사용자 역할 — Phase 2에서 실제 인증으로 교체
@@ -173,6 +243,15 @@ export interface Company {
     contractSignedAt?: string;
     contractMethod?: 'email' | 'system' | 'offline';
     contractNote?: string;
+    // ── 자동화 필드 ──
+    callbackScheduledAt?: string;
+    followUpStep?: number;
+    aiMemoSummary?: string;
+    aiNextAction?: string;
+    aiNextActionType?: string;
+    lastCallResult?: 'connected' | 'no_answer' | 'callback';
+    lastCallAt?: string;
+    callAttempts?: number;
 }
 
 // ── 송무팀 사건 ──────────────────────────────────────────────
@@ -315,6 +394,8 @@ const DEFAULT_COMPANIES: Company[] = [
         salesConfirmed: true, salesConfirmedAt: '2026-02-27 09:30', salesConfirmedBy: 'AI 자동',
         callNote: '대표이사 직접 통화. 이슈 공감. 이메일 요청.',
         aiDraftReady: true, createdAt: '2026-02-25', updatedAt: '2026-02-27',
+        contactName: '김태호', contactEmail: 'thkim@nolboo.co.kr', contactPhone: '010-9876-5432',
+        riskScore: 75, riskLevel: 'HIGH', issueCount: 4, bizType: '외식/프랜차이즈',
     }),
     emp({
         id: 'c2', name: '(주)교촌에프앤비', biz: '234-56-78901',
@@ -322,6 +403,8 @@ const DEFAULT_COMPANIES: Company[] = [
         storeCount: 1200, status: 'analyzed',
         issues: BASE_ISSUES.slice(0, 2).map(i => ({ ...i })),
         aiDraftReady: true, createdAt: '2026-02-26', updatedAt: '2026-02-26',
+        contactName: '이수진', contactEmail: 'sjlee@kyochon.com', contactPhone: '010-3456-7890',
+        riskScore: 45, riskLevel: 'MEDIUM', issueCount: 2, bizType: '외식/프랜차이즈',
     }),
     emp({
         id: 'c3', name: '(주)파리바게뜨', biz: '345-67-89012',
@@ -341,6 +424,8 @@ const DEFAULT_COMPANIES: Company[] = [
         lawyerConfirmed: true, lawyerConfirmedAt: '2026-02-27 16:30',
         callNote: '구독 긍정적.',
         aiDraftReady: true, createdAt: '2026-02-19', updatedAt: '2026-02-27',
+        contactName: '박정호', contactEmail: 'jhpark@bhc.co.kr', contactPhone: '010-5678-1234',
+        riskScore: 80, riskLevel: 'HIGH', issueCount: 4, bizType: '외식/프랜차이즈',
     }),
     emp({
         id: 'c5', name: '(주)본죽', biz: '567-89-01234',
@@ -353,6 +438,8 @@ const DEFAULT_COMPANIES: Company[] = [
         clientReplied: true, clientRepliedAt: '2026-02-25 14:22',
         clientReplyNote: '검토 감사합니다. 구독 상담을 원합니다.',
         aiDraftReady: true, createdAt: '2026-02-20', updatedAt: '2026-02-25',
+        contactName: '최영미', contactEmail: 'ymchoi@bonjuk.co.kr', contactPhone: '010-7890-4567',
+        riskScore: 65, riskLevel: 'HIGH', issueCount: 4, bizType: '외식/프랜차이즈',
     }),
     emp({
         id: 'c6', name: '(주)BBQ', biz: '678-90-12345',
@@ -443,7 +530,13 @@ function loadAuto(): AutoSettings {
     try { return { ...DEFAULT_AUTO, ...JSON.parse(localStorage.getItem(AUTO_KEY) || 'null') }; } catch { return DEFAULT_AUTO; }
 }
 function saveAuto(s: AutoSettings) {
-    if (typeof window !== 'undefined') localStorage.setItem(AUTO_KEY, JSON.stringify(s));
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTO_KEY, JSON.stringify(s));
+        if (IS_SUPABASE_CONFIGURED) {
+            const row = objToRow(s as unknown as Record<string, unknown>);
+            sbUpsert('auto_settings', [{ ...row, id: 'default' }]);
+        }
+    }
 }
 
 const LOG_KEY = 'ibs_auto_logs';
@@ -467,6 +560,8 @@ function addLog(log: Omit<AutoLog, 'id' | 'at'>) {
 
 function load(): Company[] {
     if (typeof window === 'undefined') return DEFAULT_COMPANIES;
+    // 백그라운드 Supabase 동기화 시작 (비동기, 블로킹 없음)
+    sbInitOnce<Company>('companies', 'companies', CASE_KEY, DEFAULT_COMPANIES);
     try {
         const raw = localStorage.getItem(CASE_KEY);
         if (!raw) { localStorage.setItem(CASE_KEY, JSON.stringify(DEFAULT_COMPANIES)); return DEFAULT_COMPANIES; }
@@ -474,11 +569,20 @@ function load(): Company[] {
     } catch { return DEFAULT_COMPANIES; }
 }
 function save(cs: Company[]) {
-    if (typeof window !== 'undefined') localStorage.setItem(CASE_KEY, JSON.stringify(cs));
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(CASE_KEY, JSON.stringify(cs));
+        // 백그라운드 Supabase 동기화
+        if (IS_SUPABASE_CONFIGURED) {
+            const exclude = ['issues', 'contacts', 'memos', 'timeline', 'customScript'];
+            const rows = cs.map(c => objToRow(c as unknown as Record<string, unknown>, exclude));
+            sbUpsert('companies', rows);
+        }
+    }
 }
 
 function loadLit(): LitigationCase[] {
     if (typeof window === 'undefined') return DEFAULT_LIT;
+    sbInitOnce<LitigationCase>('litigation', 'litigation_cases', LIT_KEY, DEFAULT_LIT);
     try {
         const raw = localStorage.getItem(LIT_KEY);
         if (!raw) { localStorage.setItem(LIT_KEY, JSON.stringify(DEFAULT_LIT)); return DEFAULT_LIT; }
@@ -486,7 +590,14 @@ function loadLit(): LitigationCase[] {
     } catch { return DEFAULT_LIT; }
 }
 function saveLit(cs: LitigationCase[]) {
-    if (typeof window !== 'undefined') localStorage.setItem(LIT_KEY, JSON.stringify(cs));
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(LIT_KEY, JSON.stringify(cs));
+        if (IS_SUPABASE_CONFIGURED) {
+            const exclude = ['deadlines'];
+            const rows = cs.map(c => objToRow(c as unknown as Record<string, unknown>, exclude));
+            sbUpsert('litigation_cases', rows);
+        }
+    }
 }
 
 // ── 자동화 파이프라인 ─────────────────────────────────────────
@@ -966,7 +1077,15 @@ class ConsultStore {
         this.items = saved ? JSON.parse(saved) : [...DEFAULT_CONSULTATIONS];
     }
 
-    private save() { if (typeof window !== 'undefined') localStorage.setItem(CONSULT_KEY, JSON.stringify(this.items)); }
+    private save() {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(CONSULT_KEY, JSON.stringify(this.items));
+            if (IS_SUPABASE_CONFIGURED) {
+                const rows = this.items.map(c => objToRow(c as unknown as Record<string, unknown>, ['aiLaw']));
+                sbUpsert('consultations', rows);
+            }
+        }
+    }
 
     getAll(): Consultation[] { return [...this.items].sort((a, b) => b.createdAt.localeCompare(a.createdAt)); }
     getByCompany(cid: string): Consultation[] { return this.getAll().filter(q => q.companyId === cid); }
@@ -1067,3 +1186,337 @@ export const CONSULT_STATUS_LABEL: Record<ConsultStatus, string> = {
 
 export const CONSULT_CATEGORIES: ConsultCategory[] = ['가맹계약', '개인정보', '형사', '노무', '지식재산', '기타'];
 
+// ══════════════════════════════════════════════════════════════
+// ── 개인 의뢰인 소송 관리 시스템 ──────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+export interface PersonalClient {
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    birthYear: number;
+    address: string;
+    memo: string;
+    createdAt: string;
+}
+
+export type PersonalLitStatus =
+    | 'consulting'   // 상담 중
+    | 'preparing'    // 소장 준비
+    | 'filed'        // 접수 완료
+    | 'hearing'      // 심리 중
+    | 'settlement'   // 조정/합의
+    | 'judgment'     // 판결 선고
+    | 'appeal'       // 항소/상고
+    | 'enforcing'    // 강제집행
+    | 'closed';      // 종결
+
+export type PersonalLitType =
+    | '민사(손해배상)'
+    | '민사(대여금)'
+    | '민사(부동산)'
+    | '가사(이혼)'
+    | '가사(양육권)'
+    | '가사(상속)'
+    | '형사(피해자)'
+    | '형사(피의자)'
+    | '행정소송'
+    | '산재/노동'
+    | '채권추심'
+    | '기타';
+
+export interface PersonalLitDeadline {
+    id: string;
+    label: string;
+    dueDate: string;
+    completed: boolean;
+    completedAt: string;
+}
+
+export interface PersonalLitDocument {
+    id: string;
+    name: string;
+    type: 'complaint' | 'brief' | 'evidence' | 'court_order' | 'judgment' | 'other';
+    addedAt: string;
+}
+
+export interface PersonalLitigation {
+    id: string;
+    clientId: string;
+    clientName: string;
+    caseNo: string;
+    court: string;
+    type: PersonalLitType;
+    role: '원고' | '피고' | '고소인' | '피고소인' | '신청인' | '피신청인';
+    opponent: string;
+    opponentLawyer: string;
+    claimAmount: number;
+    status: PersonalLitStatus;
+    assignedLawyer: string;
+    deadlines: PersonalLitDeadline[];
+    documents: PersonalLitDocument[];
+    notes: string;
+    result: '' | '승소' | '일부승소' | '패소' | '합의' | '취하' | '각하';
+    resultNote: string;
+    legalFee: number;        // 수임료
+    courtFee: number;        // 인지대/송달료
+    nextHearingDate: string;  // 다음 기일
+    createdAt: string;
+    updatedAt: string;
+}
+
+export const PERSONAL_LIT_STATUS_LABEL: Record<PersonalLitStatus, string> = {
+    consulting: '상담중', preparing: '소장준비', filed: '접수완료',
+    hearing: '심리중', settlement: '조정/합의', judgment: '판결선고',
+    appeal: '항소/상고', enforcing: '강제집행', closed: '종결',
+};
+
+export const PERSONAL_LIT_STATUS_COLOR: Record<PersonalLitStatus, string> = {
+    consulting: 'rgba(148,163,184,0.2)', preparing: 'rgba(251,191,36,0.2)',
+    filed: 'rgba(59,130,246,0.2)', hearing: 'rgba(249,115,22,0.2)',
+    settlement: 'rgba(167,139,250,0.2)', judgment: 'rgba(201,168,76,0.2)',
+    appeal: 'rgba(236,72,153,0.2)', enforcing: 'rgba(6,182,212,0.2)',
+    closed: 'rgba(74,222,128,0.15)',
+};
+
+export const PERSONAL_LIT_STATUS_TEXT: Record<PersonalLitStatus, string> = {
+    consulting: '#94a3b8', preparing: '#d97706', filed: '#2563eb',
+    hearing: '#ea580c', settlement: '#7c3aed', judgment: '#b8960a',
+    appeal: '#db2777', enforcing: '#0891b2', closed: '#16a34a',
+};
+
+export const PERSONAL_LIT_STATUSES: PersonalLitStatus[] = [
+    'consulting', 'preparing', 'filed', 'hearing', 'settlement',
+    'judgment', 'appeal', 'enforcing', 'closed',
+];
+
+export const PERSONAL_LIT_TYPES: PersonalLitType[] = [
+    '민사(손해배상)', '민사(대여금)', '민사(부동산)',
+    '가사(이혼)', '가사(양육권)', '가사(상속)',
+    '형사(피해자)', '형사(피의자)', '행정소송', '산재/노동', '채권추심', '기타',
+];
+
+const PERSONAL_KEY = 'ibs_personal_v1';
+const PERSONAL_CLIENT_KEY = 'ibs_personal_clients_v1';
+
+const DEFAULT_PERSONAL_CLIENTS: PersonalClient[] = [
+    { id: 'pc1', name: '김민수', phone: '010-1234-5678', email: 'minsu@email.com', birthYear: 1985, address: '서울시 강남구 역삼동', memo: '부동산 분쟁 건으로 최초 상담', createdAt: '2025-11-10' },
+    { id: 'pc2', name: '이영희', phone: '010-9876-5432', email: 'yh.lee@email.com', birthYear: 1978, address: '경기도 성남시 분당구', memo: '이혼 소송 + 양육권 분쟁', createdAt: '2025-12-05' },
+    { id: 'pc3', name: '박준혁', phone: '010-5555-7777', email: 'jh.park@email.com', birthYear: 1990, address: '서울시 마포구 합정동', memo: '교통사고 손해배상 건', createdAt: '2026-01-15' },
+];
+
+const DEFAULT_PERSONAL_LITS: PersonalLitigation[] = [
+    {
+        id: 'pl1', clientId: 'pc1', clientName: '김민수',
+        caseNo: '2025가합55001', court: '서울중앙지방법원',
+        type: '민사(부동산)', role: '원고', opponent: '(주)강남건설',
+        opponentLawyer: '법무법인 대륙', claimAmount: 350000000,
+        status: 'hearing', assignedLawyer: '이지원 변호사',
+        deadlines: [
+            { id: 'pd1', label: '소장 접수', dueDate: '2025-12-01', completed: true, completedAt: '2025-11-28' },
+            { id: 'pd2', label: '2차 준비서면', dueDate: '2026-03-20', completed: false, completedAt: '' },
+            { id: 'pd3', label: '3차 변론기일', dueDate: '2026-04-15', completed: false, completedAt: '' },
+        ],
+        documents: [
+            { id: 'doc1', name: '소장.hwpx', type: 'complaint', addedAt: '2025-11-28' },
+            { id: 'doc2', name: '매매계약서.pdf', type: 'evidence', addedAt: '2025-11-28' },
+            { id: 'doc3', name: '1차 준비서면.hwpx', type: 'brief', addedAt: '2026-01-10' },
+        ],
+        notes: '분양 하자 관련 손해배상. 감정평가 진행 중. 2차 변론에서 감정인 증인 출석 예정.',
+        result: '', resultNote: '',
+        legalFee: 5000000, courtFee: 2450000,
+        nextHearingDate: '2026-04-15',
+        createdAt: '2025-11-15', updatedAt: '2026-03-10',
+    },
+    {
+        id: 'pl2', clientId: 'pc2', clientName: '이영희',
+        caseNo: '2026드합1001', court: '수원가정법원',
+        type: '가사(이혼)', role: '원고', opponent: '최○○',
+        opponentLawyer: '김영수 변호사', claimAmount: 0,
+        status: 'hearing', assignedLawyer: '김수현 변호사',
+        deadlines: [
+            { id: 'pd4', label: '이혼 소장 접수', dueDate: '2026-01-10', completed: true, completedAt: '2026-01-08' },
+            { id: 'pd5', label: '재산 목록 제출', dueDate: '2026-03-25', completed: false, completedAt: '' },
+            { id: 'pd6', label: '조정기일', dueDate: '2026-04-02', completed: false, completedAt: '' },
+        ],
+        documents: [
+            { id: 'doc4', name: '이혼 소장.hwpx', type: 'complaint', addedAt: '2026-01-08' },
+            { id: 'doc5', name: '재산 내역서.xlsx', type: 'evidence', addedAt: '2026-02-15' },
+        ],
+        notes: '협의이혼 실패 후 재판이혼 진행. 재산분할·위자료 분쟁. 자녀 양육권 주장.',
+        result: '', resultNote: '',
+        legalFee: 3000000, courtFee: 850000,
+        nextHearingDate: '2026-04-02',
+        createdAt: '2026-01-05', updatedAt: '2026-03-05',
+    },
+    {
+        id: 'pl3', clientId: 'pc2', clientName: '이영희',
+        caseNo: '2026느합500', court: '수원가정법원',
+        type: '가사(양육권)', role: '신청인', opponent: '최○○',
+        opponentLawyer: '김영수 변호사', claimAmount: 0,
+        status: 'preparing', assignedLawyer: '김수현 변호사',
+        deadlines: [
+            { id: 'pd7', label: '양육권 심판 청구서 작성', dueDate: '2026-03-30', completed: false, completedAt: '' },
+        ],
+        documents: [],
+        notes: '이혼 소송과 병행. 양육비 산정 기준 확인 필요.',
+        result: '', resultNote: '',
+        legalFee: 2000000, courtFee: 300000,
+        nextHearingDate: '',
+        createdAt: '2026-02-20', updatedAt: '2026-03-01',
+    },
+    {
+        id: 'pl4', clientId: 'pc3', clientName: '박준혁',
+        caseNo: '2026가단20001', court: '서울서부지방법원',
+        type: '민사(손해배상)', role: '원고', opponent: '정○○',
+        opponentLawyer: '', claimAmount: 45000000,
+        status: 'filed', assignedLawyer: '박민준 변호사',
+        deadlines: [
+            { id: 'pd8', label: '소장 접수', dueDate: '2026-02-15', completed: true, completedAt: '2026-02-14' },
+            { id: 'pd9', label: '답변서 수령 대기', dueDate: '2026-04-01', completed: false, completedAt: '' },
+        ],
+        documents: [
+            { id: 'doc6', name: '소장.hwpx', type: 'complaint', addedAt: '2026-02-14' },
+            { id: 'doc7', name: '진단서.pdf', type: 'evidence', addedAt: '2026-02-14' },
+            { id: 'doc8', name: '사고현장 사진.zip', type: 'evidence', addedAt: '2026-02-14' },
+        ],
+        notes: '교통사고 과실비율 30:70. 상대방 보험사 합의금 거부.',
+        result: '', resultNote: '',
+        legalFee: 2000000, courtFee: 450000,
+        nextHearingDate: '',
+        createdAt: '2026-02-10', updatedAt: '2026-02-28',
+    },
+    {
+        id: 'pl5', clientId: 'pc1', clientName: '김민수',
+        caseNo: '2025가소12345', court: '서울중앙지방법원',
+        type: '민사(대여금)', role: '원고', opponent: '한○○',
+        opponentLawyer: '', claimAmount: 30000000,
+        status: 'closed', assignedLawyer: '이지원 변호사',
+        deadlines: [
+            { id: 'pd10', label: '소장 접수', dueDate: '2025-09-01', completed: true, completedAt: '2025-08-30' },
+            { id: 'pd11', label: '1차 변론기일', dueDate: '2025-10-15', completed: true, completedAt: '2025-10-15' },
+            { id: 'pd12', label: '판결 선고', dueDate: '2025-11-20', completed: true, completedAt: '2025-11-20' },
+        ],
+        documents: [
+            { id: 'doc9', name: '소장.hwpx', type: 'complaint', addedAt: '2025-08-30' },
+            { id: 'doc10', name: '차용증.pdf', type: 'evidence', addedAt: '2025-08-30' },
+            { id: 'doc11', name: '판결문.pdf', type: 'judgment', addedAt: '2025-11-20' },
+        ],
+        notes: '대여금 반환 청구. 차용증 존재. 판결 확정.',
+        result: '승소', resultNote: '3000만원 전액 인용. 이자 포함 33,650,000원 인정.',
+        legalFee: 1500000, courtFee: 300000,
+        nextHearingDate: '',
+        createdAt: '2025-08-25', updatedAt: '2025-11-25',
+    },
+];
+
+function loadPersonalClients(): PersonalClient[] {
+    if (typeof window === 'undefined') return DEFAULT_PERSONAL_CLIENTS;
+    sbInitOnce<PersonalClient>('personal_clients', 'personal_clients', PERSONAL_CLIENT_KEY, DEFAULT_PERSONAL_CLIENTS);
+    try {
+        const raw = localStorage.getItem(PERSONAL_CLIENT_KEY);
+        if (!raw) { localStorage.setItem(PERSONAL_CLIENT_KEY, JSON.stringify(DEFAULT_PERSONAL_CLIENTS)); return DEFAULT_PERSONAL_CLIENTS; }
+        return JSON.parse(raw);
+    } catch { return DEFAULT_PERSONAL_CLIENTS; }
+}
+function savePersonalClients(cs: PersonalClient[]) {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(PERSONAL_CLIENT_KEY, JSON.stringify(cs));
+        if (IS_SUPABASE_CONFIGURED) {
+            const rows = cs.map(c => objToRow(c as unknown as Record<string, unknown>));
+            sbUpsert('personal_clients', rows);
+        }
+    }
+}
+
+function loadPersonalLits(): PersonalLitigation[] {
+    if (typeof window === 'undefined') return DEFAULT_PERSONAL_LITS;
+    sbInitOnce<PersonalLitigation>('personal_lits', 'personal_litigations', PERSONAL_KEY, DEFAULT_PERSONAL_LITS);
+    try {
+        const raw = localStorage.getItem(PERSONAL_KEY);
+        if (!raw) { localStorage.setItem(PERSONAL_KEY, JSON.stringify(DEFAULT_PERSONAL_LITS)); return DEFAULT_PERSONAL_LITS; }
+        return JSON.parse(raw);
+    } catch { return DEFAULT_PERSONAL_LITS; }
+}
+function savePersonalLits(cs: PersonalLitigation[]) {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(PERSONAL_KEY, JSON.stringify(cs));
+        if (IS_SUPABASE_CONFIGURED) {
+            const exclude = ['deadlines', 'documents'];
+            const rows = cs.map(c => objToRow(c as unknown as Record<string, unknown>, exclude));
+            sbUpsert('personal_litigations', rows);
+        }
+    }
+}
+
+export const personalStore = {
+    // ── Clients ──
+    getClients(): PersonalClient[] { return loadPersonalClients(); },
+    getClientById(id: string): PersonalClient | undefined { return loadPersonalClients().find(c => c.id === id); },
+    addClient(data: Omit<PersonalClient, 'id' | 'createdAt'>): PersonalClient {
+        const all = loadPersonalClients();
+        const c: PersonalClient = { ...data, id: `pc${Date.now()}`, createdAt: new Date().toISOString() };
+        all.unshift(c);
+        savePersonalClients(all);
+        return c;
+    },
+    updateClient(id: string, patch: Partial<PersonalClient>): void {
+        const all = loadPersonalClients();
+        const idx = all.findIndex(c => c.id === id);
+        if (idx >= 0) all[idx] = { ...all[idx], ...patch };
+        savePersonalClients(all);
+    },
+
+    // ── Litigations ──
+    getAll(): PersonalLitigation[] { return loadPersonalLits(); },
+    getById(id: string): PersonalLitigation | undefined { return loadPersonalLits().find(l => l.id === id); },
+    getByClient(clientId: string): PersonalLitigation[] { return loadPersonalLits().filter(l => l.clientId === clientId); },
+
+    add(data: Omit<PersonalLitigation, 'id' | 'createdAt' | 'updatedAt'>): PersonalLitigation[] {
+        const all = loadPersonalLits();
+        all.unshift({ ...data, id: `pl${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        savePersonalLits(all);
+        return all;
+    },
+
+    update(id: string, patch: Partial<PersonalLitigation>): PersonalLitigation[] {
+        const all = loadPersonalLits();
+        const idx = all.findIndex(l => l.id === id);
+        if (idx >= 0) all[idx] = { ...all[idx], ...patch, updatedAt: new Date().toISOString() };
+        savePersonalLits(all);
+        return all;
+    },
+
+    toggleDeadline(litId: string, deadlineId: string): PersonalLitigation[] {
+        const all = loadPersonalLits();
+        const lit = all.find(l => l.id === litId);
+        if (lit) {
+            const d = lit.deadlines.find(x => x.id === deadlineId);
+            if (d) {
+                d.completed = !d.completed;
+                d.completedAt = d.completed ? new Date().toLocaleString('ko-KR', { hour12: false }) : '';
+            }
+            lit.updatedAt = new Date().toISOString();
+        }
+        savePersonalLits(all);
+        return all;
+    },
+
+    addDeadline(litId: string, label: string, dueDate: string): PersonalLitigation[] {
+        const all = loadPersonalLits();
+        const lit = all.find(l => l.id === litId);
+        if (lit) {
+            lit.deadlines.push({ id: `pd${Date.now()}`, label, dueDate, completed: false, completedAt: '' });
+            lit.updatedAt = new Date().toISOString();
+        }
+        savePersonalLits(all);
+        return all;
+    },
+
+    reset(): void {
+        if (typeof window === 'undefined') return;
+        localStorage.removeItem(PERSONAL_KEY);
+        localStorage.removeItem(PERSONAL_CLIENT_KEY);
+    },
+};

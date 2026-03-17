@@ -45,17 +45,17 @@ function UrlAnalyzer() {
                     <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                         <div className="flex gap-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.3)', borderRadius: '16px', padding: '8px 8px 8px 16px' }}>
                             <Search className="w-5 h-5 mt-3 flex-shrink-0" style={{ color: 'rgba(201,168,76,0.6)' }} />
-                            <input type="url" placeholder="https://your-franchise.co.kr 입력 — 30초 내 무료 진단"
+                            <input type="url" placeholder="https://your-franchise.co.kr 입력"
                                 value={url} onChange={e => setUrl(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
                                 className="flex-1 bg-transparent text-sm outline-none py-2"
                                 style={{ color: '#f0f4ff' }} />
                             <button onClick={handleAnalyze} className="px-5 py-2.5 rounded-xl font-black text-sm transition-all"
                                 style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                                무료 진단 시작
+                                진단 시작
                             </button>
                         </div>
-                        <p className="text-center text-xs mt-2" style={{ color: 'rgba(240,244,255,0.3)' }}>URL 미입력 시 블라인드 테스트 버전으로 실행 · 개인정보 수집 없음</p>
+                        <p className="text-center text-xs mt-2" style={{ color: 'rgba(240,244,255,0.3)' }}>귀사의 법적 리스크를 변호사가 진단해드립니다</p>
                     </motion.div>
                 )}
                 {phase === 'loading' && (
@@ -142,16 +142,27 @@ interface HeroSectionProps {
 
 export default function HeroSection({ company, resolvedParams }: HeroSectionProps) {
     return (
-        <section className="relative min-h-screen flex items-center justify-center overflow-hidden hero-gradient">
-            {/* 배경 오브 */}
+        <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+            {/* 실제 건물 배경 이미지 */}
+            <div className="absolute inset-0">
+                <img src="/ibs-hero-bg.png" alt=""
+                    className="w-full h-full object-cover"
+                    style={{ objectPosition: 'center 17%', filter: 'brightness(0.35) saturate(1.2)' }} />
+                {/* 그라데이션 오버레이 */}
+                <div className="absolute inset-0" style={{
+                    background: 'linear-gradient(180deg, rgba(4,9,26,0.7) 0%, rgba(4,9,26,0.4) 40%, rgba(4,9,26,0.8) 100%)'
+                }} />
+            </div>
+
+            {/* 배경 장식 오브 */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div className="absolute w-[600px] h-[600px] rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(35,68,168,0.3) 0%, transparent 70%)', top: '-10%', left: '-5%' }}
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.7, 0.5] }}
+                    style={{ background: 'radial-gradient(circle, rgba(35,68,168,0.2) 0%, transparent 70%)', top: '-10%', left: '-5%' }}
+                    animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
                     transition={{ duration: 8, repeat: Infinity }} />
                 <motion.div className="absolute w-[400px] h-[400px] rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%)', bottom: '10%', right: '5%' }}
-                    animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.6, 0.4] }}
+                    style={{ background: 'radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 70%)', bottom: '10%', right: '5%' }}
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0.5, 0.3] }}
                     transition={{ duration: 6, repeat: Infinity, delay: 2 }} />
             </div>
 
@@ -169,24 +180,24 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-semibold"
                     style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.35)', color: '#e8c87a' }}>
                     <BadgeCheck className="w-4 h-4" />
-                    한국 프랜차이즈 전문 1등 로펌 · 설립 12년
+                    1,200+ 기업이 운영 중 · 설립 12년 프리미엄 인프라
                 </motion.div>
 
                 <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.2 }}
                     className="text-4xl sm:text-5xl md:text-7xl font-black leading-tight mb-6" style={{ color: '#f0f4ff' }}>
-                    <span style={{ display: 'block' }}>프랜차이즈 본부의</span>
+                    <span style={{ display: 'block' }}>기업의 법률·경영을</span>
                     <span style={{ display: 'block', background: 'linear-gradient(135deg, #e8c87a, #c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                        법률 리스크
+                        하나의 플랫폼으로
                     </span>
                     <span style={{ display: 'block', fontSize: '0.75em', color: 'rgba(240,244,255,0.9)' }}>
-                        30초 만에 자동 진단합니다
+                        통합 관리합니다
                     </span>
                 </motion.h1>
 
                 <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}
                     className="text-lg sm:text-xl mb-8 max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(240,244,255,0.7)' }}>
-                    자문 기업 <strong style={{ color: '#e8c87a' }}>1,000억원 엑시트</strong> 달성 · <strong style={{ color: '#e8c87a' }}>45,000명</strong> 법률 서비스 제공<br />
-                    지금 홈페이지 URL을 입력하면 무료로 법적 리스크를 진단해 드립니다.
+                    AI 법률 자문 · 계약서 자동 검토 · 개인정보 컴플라이언스 · 경영 대시보드 · EAP 심리상담<br />
+                    <strong style={{ color: '#e8c87a' }}>외부 로펌 대비 70% 절감</strong>하는 통합 법무 인프라를 지금 무료 체험하세요.
                 </motion.p>
 
                 <UrlAnalyzer />
@@ -207,14 +218,15 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
 
                 {/* 통계 */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-                    className="grid grid-cols-3 gap-6 max-w-lg mx-auto">
+                    className="grid grid-cols-4 gap-5 max-w-2xl mx-auto">
                     {[
-                        { value: 80000, suffix: '+', label: '누적 법률 자문' },
-                        { value: 45000, suffix: '명', label: '법률 서비스 회원' },
-                        { value: 98, suffix: '%', label: '리스크 해결률' },
+                        { value: 1247, suffix: '+', label: '기업 고객' },
+                        { value: 38400, suffix: '+', label: '상담 완료' },
+                        { value: 12800, suffix: '+', label: '리포트 발행' },
+                        { value: 99, suffix: '%', label: '고객 유지율' },
                     ].map((stat, i) => (
-                        <div key={i} className="text-center">
-                            <div className="text-2xl sm:text-3xl font-black" style={{ color: '#c9a84c' }}>
+                        <div key={i} className="text-center p-3 rounded-xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.12)' }}>
+                            <div className="text-xl sm:text-2xl font-black" style={{ color: '#c9a84c' }}>
                                 <AnimatedNumber target={stat.value} suffix={stat.suffix} />
                             </div>
                             <div className="text-xs mt-1" style={{ color: 'rgba(240,244,255,0.5)' }}>{stat.label}</div>
