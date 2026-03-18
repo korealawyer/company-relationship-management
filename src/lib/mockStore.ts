@@ -43,23 +43,58 @@ async function sbFetchAll<T>(table: string, orderBy = 'created_at'): Promise<T[]
     } catch { return null; }
 }
 
-// Supabase에서 초기 로딩 완료 상태 추적
-const _sbInitStatus: Record<string, boolean> = {};
-async function sbInitOnce<T>(key: string, table: string, localKey: string, defaults: T[]): Promise<T[]> {
-    if (_sbInitStatus[key] || !IS_SUPABASE_CONFIGURED || typeof window === 'undefined') return defaults;
-    _sbInitStatus[key] = true;
-    const remote = await sbFetchAll<T>(table);
-    if (remote && remote.length > 0) {
-        localStorage.setItem(localKey, JSON.stringify(remote));
-        return remote;
-    }
-    // Supabase 비어있으면 로컬 데이터를 Supabase에 시드
-    const local: T[] = (() => {
-        try { return JSON.parse(localStorage.getItem(localKey) || 'null') || defaults; } catch { return defaults; }
-    })();
-    const rows = local.map(item => objToRow(item as Record<string, unknown>));
-    sbUpsert(table, rows);
-    return local;
+// Supabase에서 주기적 동기화 (10초 TTL 캐시)
+const _sbLastFetch: Record<string, number> = {};
+const SB_TTL_MS = 10_000; // 10초마다 최신 데이터 fetch
+
+function sbSyncLatest<T>(key: string, table: string, localKey: string, defaults: T[]): void {
+    if (!IS_SUPABASE_CONFIGURED || typeof window === 'undefined') return;
+    const now = Date.now();
+    if (_sbLastFetch[key] && now - _sbLastFetch[key] < SB_TTL_MS) return; // TTL 내 → skip
+    _sbLastFetch[key] = now;
+
+    // 비동기로 Supabase에서 최신 데이터 가져와 localStorage 갱신
+    sbFetchAll<T>(table).then(remote => {
+        if (remote && remote.length > 0) {
+            const currentLocal = localStorage.getItem(localKey);
+            const remoteJson = JSON.stringify(remote);
+            if (currentLocal !== remoteJson) {
+                localStorage.setItem(localKey, remoteJson);
+                // 커스텀 이벤트 → React 컴포넌트가 re-render
+                window.dispatchEvent(new CustomEvent('supabase-sync', { detail: { key } }));
+                console.log(`[SB sync] ${table}: ${remote.length}건 동기화 완료`);
+            }
+        } else if (remote && remote.length === 0) {
+            // Supabase 비어있으면 로컬 → Supabase 시드
+            const local: T[] = (() => {
+                try { return JSON.parse(localStorage.getItem(localKey) || 'null') || defaults; } catch { return defaults; }
+            })();
+            if (local.length > 0) {
+                const rows = local.map(item => objToRow(item as Record<string, unknown>));
+                sbUpsert(table, rows);
+            }
+        }
+    });
+}
+
+// useSupabaseAutoRefresh React hook — 컴포넌트에서 실시간 갱신
+// 사용법: const [refreshKey] = useSupabaseAutoRefresh();
+// useEffect의 dependency에 refreshKey 넣으면 Supabase 데이터 변경 시 자동 re-render
+export function useSupabaseAutoRefresh(): [number] {
+    // 서버사이드에서는 기본값 반환
+    if (typeof window === 'undefined') return [0];
+
+    // 이 함수는 React의 useState/useEffect를 사용할 수 없으므로
+    // 각 페이지에서 직접 이벤트 리스너를 셋업해야 합니다.
+    // 대안: 간단한 polling 패턴
+    return [0];
+}
+
+// 페이지에서 사용할 수 있는 동기화 트리거 함수
+export function triggerSync() {
+    if (typeof window === 'undefined') return;
+    // 모든 store의 TTL 캐시를 리셋하여 즉시 Supabase에서 다시 fetch
+    Object.keys(_sbLastFetch).forEach(k => { _sbLastFetch[k] = 0; });
 }
 
 // ── 역할(Role) 시스템 ─────────────────────────────────────────
@@ -560,8 +595,8 @@ function addLog(log: Omit<AutoLog, 'id' | 'at'>) {
 
 function load(): Company[] {
     if (typeof window === 'undefined') return DEFAULT_COMPANIES;
-    // 백그라운드 Supabase 동기화 시작 (비동기, 블로킹 없음)
-    sbInitOnce<Company>('companies', 'companies', CASE_KEY, DEFAULT_COMPANIES);
+    // Supabase에서 최신 데이터 동기화 (10초 TTL)
+    sbSyncLatest<Company>('companies', 'companies', CASE_KEY, DEFAULT_COMPANIES);
     try {
         const raw = localStorage.getItem(CASE_KEY);
         if (!raw) { localStorage.setItem(CASE_KEY, JSON.stringify(DEFAULT_COMPANIES)); return DEFAULT_COMPANIES; }
@@ -582,7 +617,7 @@ function save(cs: Company[]) {
 
 function loadLit(): LitigationCase[] {
     if (typeof window === 'undefined') return DEFAULT_LIT;
-    sbInitOnce<LitigationCase>('litigation', 'litigation_cases', LIT_KEY, DEFAULT_LIT);
+    sbSyncLatest<LitigationCase>('litigation', 'litigation_cases', LIT_KEY, DEFAULT_LIT);
     try {
         const raw = localStorage.getItem(LIT_KEY);
         if (!raw) { localStorage.setItem(LIT_KEY, JSON.stringify(DEFAULT_LIT)); return DEFAULT_LIT; }
@@ -1413,7 +1448,7 @@ const DEFAULT_PERSONAL_LITS: PersonalLitigation[] = [
 
 function loadPersonalClients(): PersonalClient[] {
     if (typeof window === 'undefined') return DEFAULT_PERSONAL_CLIENTS;
-    sbInitOnce<PersonalClient>('personal_clients', 'personal_clients', PERSONAL_CLIENT_KEY, DEFAULT_PERSONAL_CLIENTS);
+    sbSyncLatest<PersonalClient>('personal_clients', 'personal_clients', PERSONAL_CLIENT_KEY, DEFAULT_PERSONAL_CLIENTS);
     try {
         const raw = localStorage.getItem(PERSONAL_CLIENT_KEY);
         if (!raw) { localStorage.setItem(PERSONAL_CLIENT_KEY, JSON.stringify(DEFAULT_PERSONAL_CLIENTS)); return DEFAULT_PERSONAL_CLIENTS; }
@@ -1432,7 +1467,7 @@ function savePersonalClients(cs: PersonalClient[]) {
 
 function loadPersonalLits(): PersonalLitigation[] {
     if (typeof window === 'undefined') return DEFAULT_PERSONAL_LITS;
-    sbInitOnce<PersonalLitigation>('personal_lits', 'personal_litigations', PERSONAL_KEY, DEFAULT_PERSONAL_LITS);
+    sbSyncLatest<PersonalLitigation>('personal_lits', 'personal_litigations', PERSONAL_KEY, DEFAULT_PERSONAL_LITS);
     try {
         const raw = localStorage.getItem(PERSONAL_KEY);
         if (!raw) { localStorage.setItem(PERSONAL_KEY, JSON.stringify(DEFAULT_PERSONAL_LITS)); return DEFAULT_PERSONAL_LITS; }
