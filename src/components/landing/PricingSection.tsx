@@ -148,7 +148,7 @@ export default function PricingSection() {
                                 <div className="space-y-2">
                                     {[
                                         { label: '법률 자문', cost: '무제한 포함' },
-                                        { label: '계약서 AI 검토', cost: '무제한 포함' },
+                                        { label: '계약서 검토', cost: '무제한 포함' },
                                         { label: '개인정보 자동진단', cost: '무제한 포함' },
                                         { label: '노무·경영 자문', cost: '포함' },
                                         { label: '경영 대시보드', cost: '무제한 포함' },
@@ -161,7 +161,7 @@ export default function PricingSection() {
                                 </div>
                                 <div className="mt-4 pt-3 text-right" style={{ borderTop: '1px solid rgba(74,222,128,0.2)' }}>
                                     <span className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>월 구독료</span>
-                                    <p className="font-black text-2xl" style={{ color: '#4ade80' }}>249만원~</p>
+                                    <p className="font-black text-2xl" style={{ color: '#4ade80' }}>49만원~</p>
                                 </div>
                             </div>
                         </div>

@@ -28,9 +28,9 @@ interface PaymentRecord {
 }
 
 const PLAN_PRICE: Record<string, number> = {
-    starter: 990000,
-    standard: 1500000,
-    premium: 5940000,
+    starter: 490000,
+    standard: 990000,
+    premium: 1990000,
     none: 0,
 };
 
@@ -121,9 +121,9 @@ function ClientBillingView() {
                             {/* 플랜 비교 미니 카드 */}
                             <div className="grid grid-cols-3 gap-3 mb-6 max-w-lg mx-auto">
                                 {[
-                                    { name: 'Starter', price: '99만', color: '#6b7280', features: ['월간 리포트 1회', '이메일 자문 5회'] },
-                                    { name: 'Standard', price: '150만', color: '#2563eb', features: ['전담 변호사', '무제한 이메일 자문'], popular: true },
-                                    { name: 'Premium', price: '594만', color: '#c9a84c', features: ['VIP 전담팀', '24시간 긴급 대응'] },
+                                    { name: 'Starter', price: '49만', color: '#6b7280', features: ['법률 상담 챗봇 무제한', '법률 자문 3건/월'] },
+                                    { name: 'Pro', price: '99만', color: '#2563eb', features: ['전담 변호사 배정', '계약서 검토 3건/월'], popular: true },
+                                    { name: 'Premium', price: '199만', color: '#c9a84c', features: ['전담 변호사팀', '무제한 법률 자문'] },
                                 ].map(p => (
                                     <div key={p.name} className="relative p-4 rounded-xl text-left"
                                         style={{

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { AlertTriangle, Search, Loader2, Phone, Video, ChevronDown, BadgeCheck, Zap, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
-// ── URL 입력 → AI 분석 플로우 ──────────────────────────────
+// ── URL 입력 → 법률 분석 플로우 ──────────────────────────────
 function UrlAnalyzer() {
     const [url, setUrl] = useState('');
     const [phase, setPhase] = useState<'idle' | 'loading' | 'done'>('idle');
@@ -196,7 +196,7 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
 
                 <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}
                     className="text-lg sm:text-xl mb-8 max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(240,244,255,0.7)' }}>
-                    AI 법률 자문 · 계약서 자동 검토 · 개인정보 컴플라이언스 · 경영 대시보드 · EAP 심리상담<br />
+                    법률 자문 · 계약서 검토 · 개인정보 컴플라이언스 · 경영 대시보드 · EAP 심리상담<br />
                     <strong style={{ color: '#e8c87a' }}>외부 로펌 대비 70% 절감</strong>하는 통합 법무 인프라를 지금 무료 체험하세요.
                 </motion.p>
 

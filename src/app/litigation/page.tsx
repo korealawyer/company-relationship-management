@@ -13,6 +13,7 @@ import {
     LIT_STATUS_LABEL, LIT_STATUS_COLOR,
     LAWYERS, LITIGATION_TYPES, COURTS,
 } from '@/lib/mockStore';
+import { getAutomationStats, getAiSummary, generateAiMemoSummary } from '@/lib/automationEngine';
 
 // 라이트 테마용 상태 텍스트 색상
 const STATUS_TEXT_MAP: Record<LitigationStatus, string> = {
@@ -72,6 +73,10 @@ function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void
     const saveNotes = () => {
         setSaving(true);
         store.updateLit(lit.id, { notes: editNote, result: editResult as LitigationCase['result'], resultNote: editResultNote });
+        // P1: AI 메모 자동 요약
+        if (editNote.trim()) {
+            generateAiMemoSummary(lit.id, editNote);
+        }
         setTimeout(() => { setSaving(false); onUpdate(); }, 400);
     };
 
@@ -211,6 +216,16 @@ function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void
                                         style={{ background: saving ? '#dcfce7' : '#fffbeb', color: saving ? '#16a34a' : '#b8960a', border: `1px solid ${saving ? '#86efac' : '#fde68a'}` }}>
                                         {saving ? '✓ 저장됨' : '저장'}
                                     </button>
+                                    {/* AI 요약 표시 */}
+                                    {(() => {
+                                        const aiSummary = getAiSummary(lit.id);
+                                        return aiSummary ? (
+                                            <div className="mt-3 p-3 rounded-lg" style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                                <p className="text-[10px] font-bold mb-1" style={{ color: '#0284c7' }}>🤖 AI 자동 요약</p>
+                                                <pre className="text-xs whitespace-pre-wrap" style={{ color: '#0369a1', fontFamily: 'inherit' }}>{aiSummary}</pre>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                 </div>
                             </div>
                         </motion.div>
@@ -343,6 +358,13 @@ export default function LitigationPage() {
     const refresh = useCallback(() => setCases([...store.getLitAll()]), []);
     useEffect(() => { refresh(); const id = setInterval(refresh, 3000); return () => clearInterval(id); }, [refresh]);
 
+    // 자동화 통계
+    const [autoStats, setAutoStats] = useState(getAutomationStats());
+    useEffect(() => {
+        const id = setInterval(() => setAutoStats(getAutomationStats()), 5000);
+        return () => clearInterval(id);
+    }, []);
+
     const filtered = filterStatus === 'all' ? cases : cases.filter(c => c.status === filterStatus);
     const totalClaim = cases.reduce((s, c) => s + c.claimAmount, 0);
     const urgentAll = cases.flatMap(c => c.deadlines.filter(d => !d.completed && daysUntil(d.dueDate) <= 7));
@@ -387,6 +409,77 @@ export default function LitigationPage() {
                             </div>
                         </div>
                     </motion.div>
+                )}
+
+                {/* ═══ 자동화 현황 대시보드 ═══ */}
+                <div className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    {[
+                        { label: '기한 알림', count: autoStats.deadlineAlerts, icon: '🔔', color: '#d97706', bg: '#fffbeb' },
+                        { label: '청구서 발행', count: autoStats.billingIssued, icon: '📄', color: '#2563eb', bg: '#eff6ff' },
+                        { label: '미납 재촉', count: autoStats.overdueReminders, icon: '⚠️', color: '#dc2626', bg: '#fef2f2' },
+                        { label: '만족도 설문', count: autoStats.satisfactionSurveys, icon: '📊', color: '#7c3aed', bg: '#f5f3ff' },
+                        { label: 'AI 요약', count: autoStats.aiMemoSummaries, icon: '🤖', color: '#0284c7', bg: '#f0f9ff' },
+                    ].map((item, i) => (
+                        <motion.div key={item.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                            className="p-3 rounded-xl" style={{ background: '#ffffff', border: '1px solid #e5e7eb' }}>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] font-bold" style={{ color: '#94a3b8' }}>{item.label}</span>
+                                <span>{item.icon}</span>
+                            </div>
+                            <p className="text-lg font-black" style={{ color: item.color }}>{item.count}</p>
+                            <p className="text-[10px]" style={{ color: '#94a3b8' }}>자동 처리</p>
+                        </motion.div>
+                    ))}
+                </div>
+
+                {/* 자동화 로그 */}
+                {autoStats.recentLogs.length > 0 && (
+                    <div className="mb-5 rounded-xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid #e5e7eb' }}>
+                        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid #f1f5f9', background: '#f8f9fc' }}>
+                            <h3 className="text-xs font-black flex items-center gap-1.5" style={{ color: '#1e293b' }}>
+                                ⚡ 자동화 처리 이력
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                                    style={{ background: '#dcfce7', color: '#16a34a' }}>실시간</span>
+                            </h3>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                            {autoStats.recentLogs.map(log => {
+                                const typeInfo: Record<string, { emoji: string; color: string; bg: string }> = {
+                                    deadline_alert: { emoji: '🔔', color: '#d97706', bg: '#fffbeb' },
+                                    auto_billing: { emoji: '📄', color: '#2563eb', bg: '#eff6ff' },
+                                    overdue_reminder: { emoji: '⚠️', color: '#dc2626', bg: '#fef2f2' },
+                                    satisfaction_survey: { emoji: '📊', color: '#7c3aed', bg: '#f5f3ff' },
+                                    ai_memo_summary: { emoji: '🤖', color: '#0284c7', bg: '#f0f9ff' },
+                                };
+                                const info = typeInfo[log.type] || { emoji: '⚙️', color: '#64748b', bg: '#f1f5f9' };
+                                return (
+                                    <div key={log.id} className="flex items-start gap-3 px-4 py-2.5"
+                                        style={{ borderBottom: '1px solid #f8f9fc' }}>
+                                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-sm"
+                                            style={{ background: info.bg }}>
+                                            {info.emoji}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-xs font-bold" style={{ color: '#1e293b' }}>{log.label}</span>
+                                                {log.companyName && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+                                                        style={{ background: '#fffbeb', color: '#b8960a' }}>{log.companyName}</span>
+                                                )}
+                                                {log.channel && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+                                                        style={{ background: info.bg, color: info.color }}>{log.channel}</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] mt-0.5" style={{ color: '#94a3b8' }}>{log.detail}</p>
+                                        </div>
+                                        <span className="text-[10px] flex-shrink-0 whitespace-nowrap" style={{ color: '#cbd5e1' }}>{log.at}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
 
                 {/* 상태 필터 */}

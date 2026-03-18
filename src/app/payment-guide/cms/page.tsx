@@ -208,7 +208,7 @@ export default function CmsContractPage() {
     const [form, setForm] = useState<CmsForm>({
         companyName: '', bizNo: '', ceoName: '', address: '',
         bankName: '', accountNo: '', accountHolder: '',
-        phone: '', email: '', plan: 'Pro', amount: '2,490,000',
+        phone: '', email: '', plan: 'Pro', amount: '990,000',
     });
 
     const updateForm = useCallback((key: keyof CmsForm, value: string) => {
@@ -247,9 +247,9 @@ export default function CmsContractPage() {
     };
 
     const PLANS = [
-        { id: 'Basic', price: '990,000' },
-        { id: 'Pro', price: '2,490,000' },
-        { id: 'Premium', price: '4,990,000' },
+        { id: 'Starter', price: '490,000' },
+        { id: 'Pro', price: '990,000' },
+        { id: 'Premium', price: '1,990,000' },
     ];
 
     const InputField = ({ label, value, onChange, placeholder, type = 'text' }: {

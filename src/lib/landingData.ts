@@ -55,7 +55,7 @@ export interface ServiceItem {
 }
 
 export const BASE_SERVICES: ServiceItem[] = [
-    { icon: Scale, title: '본사 법률자문', sub: 'HQ Legal Advisory', desc: '월 60시간 범위 내 무제한. 계약서·약관·분쟁 대응 직접 응대. 긴급 시 24시간.', badge: '월 60시간 포함', color: '#c9a84c' },
+    { icon: Scale, title: '본사 법률자문', sub: 'HQ Legal Advisory', desc: '월 60시간 범위 내 무제한. 계약서·약관·분쟁 대응 변호사 직접 응대. 긴급 시 24시간.', badge: '월 60시간 포함', color: '#c9a84c' },
     { icon: Building2, title: '가맹점 법률상담', sub: 'Franchisee Consultation', desc: '챗봇 접수 → 변호사 BACKCALL 24시간 내 대응. 상담 내용 본사 절대 비공개.', badge: 'BACKCALL 시스템', color: '#60a5fa' },
     { icon: Award, title: '임직원 법률상담', sub: 'Employee Consultation', desc: '복리후생 프로그램. 부동산·가족·소비자 분쟁 등 개인 생활법률 익명 상담.', badge: '복리후생 포함', color: '#4ade80' },
     { icon: Zap, title: '분기 리스크 브리핑', sub: 'Franchise Risk Briefing', desc: '분기 1회(연 4회). 리스크 TOP 5 + 공정위 동향 + 체크리스트 + 표준문구 업데이트.', badge: '연 4회 자동 제공', color: '#a78bfa' },

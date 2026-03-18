@@ -43,7 +43,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     {
         id: 'n2', type: 'payment', status: 'unread',
         title: '3월 구독료 결제 완료',
-        message: 'Pro 플랜 월 구독료 2,490,000원이 정상 결제되었습니다.',
+        message: 'Pro 플랜 월 구독료 990,000원이 정상 결제되었습니다.',
         date: '2026.03.15 09:00', href: '/billing', actionLabel: '영수증 확인',
     },
     {

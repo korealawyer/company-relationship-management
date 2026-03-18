@@ -77,7 +77,7 @@ export default function FactInputPanel({
           </svg>
         </div>
         <h2>사실관계 입력</h2>
-        <p className="panel-desc">AI가 입력된 사실관계를 바탕으로 법률 의견서 초안을 작성합니다.</p>
+        <p className="panel-desc">입력된 사실관계를 바탕으로 법률 의견서 초안을 작성합니다.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="fact-form">
@@ -166,7 +166,7 @@ export default function FactInputPanel({
           {isGenerating ? (
             <>
               <span className="btn-spinner" />
-              AI 의견서 생성 중...
+              법률 의견서 생성 중...
             </>
           ) : (
             <>
@@ -175,7 +175,7 @@ export default function FactInputPanel({
                 <path d="M2 17l10 5 10-5"/>
                 <path d="M2 12l10 5 10-5"/>
               </svg>
-              AI 의견서 생성
+              법률 의견서 생성
             </>
           )}
         </button>

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, User, LogOut, ChevronDown, Settings, HelpCircle } from 'lucide-react';
 import { getSession, clearSession, type AuthUser } from '@/lib/auth';
 import type { RoleType } from '@/lib/mockStore';
+import { startAutomationEngine } from '@/lib/automationEngine';
 
 // ── 역할 레이블·색상 ──────────────────────────────────────
 const ROLE_META: Record<string, { label: string; color: string }> = {
@@ -75,7 +76,7 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
         { href: '/my-documents', label: '문서함' },
         { href: '/consultation-history', label: '상담 내역' },
         { href: '/contracts', label: '전자계약', comingSoon: true },
-        { href: '/chat', label: 'AI 법률 어시스턴트', comingSoon: true },
+        { href: '/chat', label: '법률 상담', comingSoon: true },
         { href: '/cases', label: '소송 관리', comingSoon: true },
         { href: '/notifications', label: '알림' },
         { href: '/company-hr', label: '사용 현황' },
@@ -232,6 +233,7 @@ export default function Navbar() {
     // 세션 감지 (pathname 변경 시 갱신 + 타 탭 로그아웃 동기화)
     useEffect(() => {
         setUser(getSession());
+        startAutomationEngine(); // ⚡ 송무 자동화 엔진 시작
     }, [pathname]);
 
     // 다른 탭에서 로그아웃 시 현재 탭도 즉시 반영

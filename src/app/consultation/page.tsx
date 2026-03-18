@@ -94,7 +94,7 @@ const SERVICES = [
 // ── 구독 비교 계산기 ────────────────────────────────
 function CostComparison({ selectedCount }: { selectedCount: number }) {
     const singleCost = selectedCount * 150000; // 평균 단가
-    const subCost = 990000;
+    const subCost = 490000;
     const saving = singleCost - subCost;
     const shouldSub = saving > 0;
 
@@ -491,7 +491,7 @@ export default function ConsultationPage() {
                             월 7건 이상이면 구독이 더 쌉니다
                         </h2>
                         <p className="text-sm mb-6" style={{ color: 'rgba(240,244,255,0.5)' }}>
-                            Basic ₩990,000/월 — 자문 3건 포함 + 계약서 검토 + 규제 알림 자동 발송<br />
+                            Starter ₩490,000/월 — 자문 3건 포함 + 개인정보 검토 + 법률 서식 30종<br />
                             <span style={{ color: '#4ade80' }}>단건 고객 전환 시 첫 달 20% 할인</span>
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

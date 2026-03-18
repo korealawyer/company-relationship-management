@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "한국 1등 프랜차이즈 전문 로펌 | IBS 법률사무소",
     template: "%s | IBS 법률사무소",
   },
-  description: "12,000개 프랜차이즈 본부의 개인정보처리방침 리스크를 자동 분석합니다. 과징금 3,000만원을 월 99,000원으로 방어하세요.",
+  description: "12,000개 프랜차이즈 본부의 개인정보처리방침 리스크를 자동 분석합니다. 과징금 3,000만원을 월 490,000원으로 방어하세요.",
   keywords: ["프랜차이즈 법률자문", "개인정보처리방침 검토", "가맹본부 법무", "프랜차이즈 전문 로펌", "IBS 법률사무소", "가맹사업법", "법률 자동 분석"],
   authors: [{ name: "IBS 법률사무소" }],
   creator: "IBS 법률사무소",
@@ -50,7 +50,7 @@ const jsonLd = {
   telephone: "+82-2-555-1234",
   email: "contact@ibslaw.co.kr",
   areaServed: { "@type": "Country", name: "KR" },
-  priceRange: "₩990,000 - ₩4,990,000/월",
+  priceRange: "₩490,000 - ₩1,990,000/월",
   serviceType: ["프랜차이즈 법률자문", "개인정보처리방침 검토", "가맹사업법 자문", "노무 상담", "EAP 심리상담"],
   address: {
     "@type": "PostalAddress",

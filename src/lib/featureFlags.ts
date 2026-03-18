@@ -26,14 +26,14 @@ export interface Feature {
 // paintedDoor 기능은 클릭 시 PaintedDoorModal로 가입 유도됩니다.
 export const FEATURES: Feature[] = [
   // ── 법률 자문 ──
-  { id: 'ai-chatbot', category: '법률 자문', title: 'AI 법률 챗봇', description: '24시간 법률 질문에 즉시 답변. AI가 1차 분석 후 전문 변호사에게 연결', status: 'live', icon: '🤖', href: '/chat' },
-  { id: 'privacy-review', category: '법률 자문', title: '개인정보처리방침 자동 검토', description: 'AI가 법률 위반 항목 자동 탐지 후 수정안 즉시 제공', status: 'live', icon: '🔍', href: '/privacy-report' },
+  { id: 'ai-chatbot', category: '법률 자문', title: '법률 상담 챗봇', description: '24시간 법률 질문에 즉시 답변. 1차 분석 후 전문 변호사에게 연결', status: 'live', icon: '💬', href: '/chat' },
+  { id: 'privacy-review', category: '법률 자문', title: '개인정보처리방침 전문 검토', description: '법률 위반 항목 자동 탐지 후 수정안 즉시 제공', status: 'live', icon: '🔍', href: '/privacy-report' },
   { id: 'lawyer-consult', category: '법률 자문', title: '전문 변호사 1:1 자문', description: '프랜차이즈·기업법 전문 변호사 즉시 배정 상담', status: 'live', icon: '⚖️', href: '/consultation' },
-  { id: 'superlawyer', category: '법률 자문', title: 'AI 법률 의견서 자동 작성', description: 'SuperLawyer AI가 법률 의견서 초안을 5분 내 생성', status: 'live', icon: '📝', href: '/superlawyer' },
+  { id: 'superlawyer', category: '법률 자문', title: '법률 의견서 자동 작성', description: '전문 변호사가 법률 의견서 초안을 5분 내 생성', status: 'live', icon: '📝', href: '/superlawyer' },
 
   // ── 계약 관리 ──
   { id: 'e-sign', category: '계약 관리', title: '전자 계약/서명', description: '온라인 계약 체결부터 전자서명, PDF 보관까지 원스톱', status: 'live', icon: '✍️', href: '/contracts' },
-  { id: 'contract-ai', category: '계약 관리', title: '계약서 AI 위험 분석', description: 'AI가 독소 조항·불리 조건을 자동 검출하고 대안 제시', status: 'paintedDoor', icon: '📋', href: '/legal/review' },
+  { id: 'contract-ai', category: '계약 관리', title: '계약서 위험 분석', description: '독소 조항·불리 조건을 자동 검출하고 대안 제시', status: 'paintedDoor', icon: '📋', href: '/legal/review' },
   { id: 'contract-alert', category: '계약 관리', title: '계약 만료 자동 알림', description: '만료 30일 전 담당자에게 자동 알림. 갱신 누락 방지', status: 'paintedDoor', icon: '🔔', href: '/notifications' },
 
   // ── 사건/소송 관리 ──
@@ -46,7 +46,7 @@ export const FEATURES: Feature[] = [
   { id: 'doc-comment', category: '문서 관리', title: '문서 코멘트·승인', description: '변호사↔고객 간 실시간 코멘트 및 전자결재', status: 'paintedDoor', icon: '💬', href: '/documents' },
 
   // ── EAP 심리상담 ──
-  { id: 'eap-ai', category: 'EAP 심리상담', title: 'AI 심리 상담', description: '24시간 비밀 보장 AI 상담. PHQ-9 기반 위험도 분석', status: 'live', icon: '💛', href: '/counselor' },
+  { id: 'eap-ai', category: 'EAP 심리상담', title: '심리 상담', description: '24시간 비밀 보장 상담. PHQ-9 기반 위험도 분석', status: 'live', icon: '💛', href: '/counselor' },
   { id: 'eap-mgmt', category: 'EAP 심리상담', title: '임직원 정신건강 관리', description: '조직 멘탈 헬스 모니터링 및 익명 리포트', status: 'live', icon: '🧠', href: '/company-hr' },
   { id: 'eap-booking', category: 'EAP 심리상담', title: '전문 상담사 예약', description: '1:1 심리상담 실시간 예약 및 화상 상담', status: 'paintedDoor', icon: '🗓️', href: '/counselor' },
 

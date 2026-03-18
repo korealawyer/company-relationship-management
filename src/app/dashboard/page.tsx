@@ -603,7 +603,7 @@ export default function DashboardPage() {
                                         <CreditCard className="w-4 h-4" /> Standard 구독
                                     </Button>
                                 </Link>
-                                <p className="text-[10px]" style={{ color: '#d1d5db' }}>월 990,000원~ · 언제든 해지</p>
+                                <p className="text-[10px]" style={{ color: '#d1d5db' }}>월 490,000원~ · 언제든 해지</p>
                             </div>
                         )}
 

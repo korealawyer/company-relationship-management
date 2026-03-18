@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { fadeUp } from '@/lib/landingData';
 
 const FREE_FEATURES = [
-    { icon: Brain, label: 'AI 법률 챗봇 질문', desc: '월 3회 무료', active: true },
+    { icon: Brain, label: '법률 챗봇 질문', desc: '월 3회 무료', active: true },
     { icon: Shield, label: '개인정보 기본 진단', desc: '1회 무료 리포트', active: true },
     { icon: Bell, label: '법무 뉴스레터', desc: '주 1회 발송', active: true },
     { icon: BookOpen, label: 'FAQ · 법률 가이드', desc: '전체 열람', active: true },
@@ -19,7 +19,7 @@ const FREE_FEATURES = [
 
 const PAID_FEATURES = [
     { icon: MessageCircle, label: '변호사 직접 자문', desc: '무제한', locked: true },
-    { icon: FileText, label: '계약서 AI 검토', desc: '무제한', locked: true },
+    { icon: FileText, label: '계약서 검토', desc: '무제한', locked: true },
     { icon: BarChart3, label: '월간 법무 리포트', desc: '맞춤 분석', locked: true },
     { icon: Users, label: '팀원 초대 & 관리', desc: '무제한', locked: true },
 ];
@@ -80,7 +80,7 @@ export default function FreeTierSection() {
                         <div className="flex items-center gap-2 mb-6">
                             <span className="px-3 py-1 rounded-full text-xs font-black" style={{ background: '#c9a84c', color: '#0a0e1a' }}>PRO</span>
                             <span className="font-black text-lg" style={{ color: '#f0f4ff' }}>유료 구독</span>
-                            <span className="text-xs ml-auto" style={{ color: 'rgba(201,168,76,0.7)' }}>월 99만원~</span>
+                            <span className="text-xs ml-auto" style={{ color: 'rgba(201,168,76,0.7)' }}>월 49만원~</span>
                         </div>
 
                         {/* 무료 기능 포함 표시 */}
