@@ -236,13 +236,23 @@ function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpdate: () => void
     );
 }
 
-// ── 신규 사건 등록 폼 ─────────────────────────────────────────
+// ── 신규 사건 등록 폼 (로탑 신건등록 폼 기반 강화) ─────────────────────────────────
+const INSTANCE_TYPES = ['1심', '2심(항소)', '3심(상고)', '헌법', '가처분', '가압류', '조정'];
+const CASE_CATEGORIES = ['민사', '형사', '가사', '행정', '헌법', '회생/파산', '국제중재'];
+
 function AddCaseModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
     const companies = store.getAll();
     const [form, setForm] = useState({
         companyId: companies[0]?.id ?? '',
         caseNo: '', court: COURTS[0], type: LITIGATION_TYPES[0],
-        opponent: '', claimAmount: '', assignedLawyer: LAWYERS[0], notes: '',
+        category: '민사', instance: '1심',
+        opponent: '', opponentCounsel: '',
+        claimAmount: '',
+        assignedLawyer: LAWYERS[0],
+        coLawyer: '',
+        assistLawyer: '',
+        notes: '',
+        filingDate: '',
     });
     const [deadlines, setDeadlines] = useState<{ label: string; dueDate: string }[]>([
         { label: '소장 접수', dueDate: '' },
@@ -264,6 +274,18 @@ function AddCaseModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
         onClose();
     };
 
+    const F = ({ label, reqd, children }: { label: string; reqd?: boolean; children: React.ReactNode }) => (
+        <div>
+            <label className="text-xs font-bold mb-1 block" style={{ color: '#b8960a' }}>
+                {reqd && <span style={{ color: '#dc2626' }}>★ </span>}{label}
+            </label>
+            {children}
+        </div>
+    );
+
+    const inputCls = "w-full px-3 py-2 rounded-lg text-sm";
+    const inputStyle = { background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' };
+
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -276,44 +298,90 @@ function AddCaseModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
                     <h2 className="font-black text-lg" style={{ color: '#1e293b' }}>⚖️ 신규 사건 등록</h2>
                     <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100" style={{ color: '#94a3b8' }}><X className="w-5 h-5" /></button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                    {[
-                        { k: 'caseNo', l: '사건번호', p: '2026가합12345' },
-                        { k: 'opponent', l: '상대방', p: '김○○ / ○○연합회' },
-                        { k: 'claimAmount', l: '청구금액 (원)', p: '50000000' },
-                    ].map(f => (
-                        <div key={f.k}>
-                            <label className="text-xs font-bold mb-1 block" style={{ color: '#b8960a' }}>{f.l}</label>
-                            <input value={form[f.k as keyof typeof form] as string} onChange={e => setForm(p => ({ ...p, [f.k]: e.target.value }))}
-                                placeholder={f.p} className="w-full px-3 py-2 rounded-lg text-sm"
-                                style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
-                        </div>
-                    ))}
-                    {[
-                        { k: 'companyId', l: '의뢰인', opts: companies.map(c => ({ v: c.id, l: c.name })) },
-                        { k: 'court', l: '법원', opts: COURTS.map(c => ({ v: c, l: c })) },
-                        { k: 'type', l: '소송 유형', opts: LITIGATION_TYPES.map(t => ({ v: t, l: t })) },
-                        { k: 'assignedLawyer', l: '담당 변호사', opts: LAWYERS.map(l => ({ v: l, l })) },
-                    ].map(f => (
-                        <div key={f.k}>
-                            <label className="text-xs font-bold mb-1 block" style={{ color: '#b8960a' }}>{f.l}</label>
-                            <select value={form[f.k as keyof typeof form] as string} onChange={e => setForm(p => ({ ...p, [f.k]: e.target.value }))}
-                                className="w-full px-3 py-2 rounded-lg text-sm"
-                                style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }}>
-                                {f.opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                            </select>
-                        </div>
-                    ))}
+
+                {/* 섹션 1: 기초사항 */}
+                <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-wider mb-3 pb-1"
+                        style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9' }}>📋 기초사항</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <F label="의뢰인" reqd><select value={form.companyId} onChange={e => setForm(p => ({ ...p, companyId: e.target.value }))} className={inputCls} style={inputStyle}>
+                            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select></F>
+                        <F label="대분류"><select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className={inputCls} style={inputStyle}>
+                            {CASE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select></F>
+                        <F label="소송 유형"><select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))} className={inputCls} style={inputStyle}>
+                            {LITIGATION_TYPES.map(t => <option key={t}>{t}</option>)}
+                        </select></F>
+                        <F label="심급"><select value={form.instance} onChange={e => setForm(p => ({ ...p, instance: e.target.value }))} className={inputCls} style={inputStyle}>
+                            {INSTANCE_TYPES.map(t => <option key={t}>{t}</option>)}
+                        </select></F>
+                        <F label="수임일">
+                            <input type="date" value={form.filingDate} onChange={e => setForm(p => ({ ...p, filingDate: e.target.value }))} className={inputCls} style={inputStyle} />
+                        </F>
+                        <F label="사건번호" reqd>
+                            <input value={form.caseNo} onChange={e => setForm(p => ({ ...p, caseNo: e.target.value }))} placeholder="2026가합12345" className={inputCls} style={inputStyle} />
+                        </F>
+                    </div>
                 </div>
-                <div className="mt-3">
+
+                {/* 섹션 2: 계속기관 */}
+                <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-wider mb-3 pb-1"
+                        style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9' }}>🏛️ 계속기관</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <F label="법원(가관)"><select value={form.court} onChange={e => setForm(p => ({ ...p, court: e.target.value }))} className={inputCls} style={inputStyle}>
+                            {COURTS.map(c => <option key={c}>{c}</option>)}
+                        </select></F>
+                        <F label="청구금액 (원)">
+                            <input value={form.claimAmount} onChange={e => setForm(p => ({ ...p, claimAmount: e.target.value }))} placeholder="50000000" className={inputCls} style={inputStyle} />
+                        </F>
+                    </div>
+                </div>
+
+                {/* 섹션 3: 당사자 */}
+                <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-wider mb-3 pb-1"
+                        style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9' }}>👥 당사자</p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <F label="상대방" reqd>
+                            <input value={form.opponent} onChange={e => setForm(p => ({ ...p, opponent: e.target.value }))} placeholder="김○○ / ○○연합회" className={inputCls} style={inputStyle} />
+                        </F>
+                        <F label="상대방 소송대리인">
+                            <input value={form.opponentCounsel} onChange={e => setForm(p => ({ ...p, opponentCounsel: e.target.value }))} placeholder="○○법무법인" className={inputCls} style={inputStyle} />
+                        </F>
+                    </div>
+                </div>
+
+                {/* 섹션 4: 수임/수행/보조 */}
+                <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-wider mb-3 pb-1"
+                        style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9' }}>⚖️ 수임 / 수행 / 보조</p>
+                    <div className="grid grid-cols-3 gap-3">
+                        <F label="수임 변호사" reqd><select value={form.assignedLawyer} onChange={e => setForm(p => ({ ...p, assignedLawyer: e.target.value }))} className={inputCls} style={inputStyle}>
+                            {LAWYERS.map(l => <option key={l}>{l}</option>)}
+                        </select></F>
+                        <F label="수행 변호사"><select value={form.coLawyer} onChange={e => setForm(p => ({ ...p, coLawyer: e.target.value }))} className={inputCls} style={inputStyle}>
+                            <option value="">없음</option>
+                            {LAWYERS.map(l => <option key={l}>{l}</option>)}
+                        </select></F>
+                        <F label="보조 변호사"><select value={form.assistLawyer} onChange={e => setForm(p => ({ ...p, assistLawyer: e.target.value }))} className={inputCls} style={inputStyle}>
+                            <option value="">없음</option>
+                            {LAWYERS.map(l => <option key={l}>{l}</option>)}
+                        </select></F>
+                    </div>
+                </div>
+
+                {/* 메모 */}
+                <div className="mb-4">
                     <label className="text-xs font-bold mb-1 block" style={{ color: '#b8960a' }}>사건 메모</label>
                     <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                        rows={3} className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                        rows={2} className="w-full px-3 py-2 rounded-lg text-sm resize-none"
                         style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
                 </div>
 
                 {/* 기한 추가 */}
-                <div className="mt-4">
+                <div className="mb-5">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-bold" style={{ color: '#64748b' }}>📅 기한·일정</p>
                         <button onClick={() => setDeadlines(p => [...p, { label: '', dueDate: '' }])}
@@ -338,7 +406,7 @@ function AddCaseModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
                     </div>
                 </div>
 
-                <div className="flex gap-2 mt-5">
+                <div className="flex gap-2">
                     <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
                     <Button variant="premium" className="flex-1" onClick={handleAdd}>
                         <Gavel className="w-4 h-4 mr-1" /> 사건 등록
@@ -350,7 +418,7 @@ function AddCaseModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => vo
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function LitigationPage() {
+export default function LitigationPage({ isEmbedded = false }: { isEmbedded?: boolean }) {
     const [cases, setCases] = useState<LitigationCase[]>([]);
     const [filterStatus, setFilterStatus] = useState<LitigationStatus | 'all'>('all');
     const [showAdd, setShowAdd] = useState(false);
@@ -371,7 +439,7 @@ export default function LitigationPage() {
     const counts = STATUSES.reduce((a, s) => ({ ...a, [s]: cases.filter(c => c.status === s).length }), {} as Record<string, number>);
 
     return (
-        <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8" style={{ background: '#f8f9fc' }}>
+        <div className={isEmbedded ? "pb-16" : "min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8"} style={{ background: isEmbedded ? 'transparent' : '#f8f9fc' }}>
             <div className="max-w-5xl mx-auto">
 
                 {/* 헤더 */}

@@ -18,13 +18,12 @@ const PROCESS_STEPS = [
     { n: '05', title: '운영 시작', desc: '즉시 24시간 법률·심리 지원 시작, 전담 변호사 배정' },
 ];
 
-import { PRICING_TIERS } from '@/lib/pricing';
+import { PRICE_RANGES, INCLUDED_SERVICES } from '@/lib/pricing';
 
-const TIERS = [
-    { name: PRICING_TIERS.basic.name, price: `₩${PRICING_TIERS.basic.price.toLocaleString()}`, color: PRICING_TIERS.basic.color, features: ['법률 챗봇', '자문 3건/월', '가맹 상담'] },
-    { name: PRICING_TIERS.pro.name, price: `₩${PRICING_TIERS.pro.price.toLocaleString()}`, color: PRICING_TIERS.pro.color, features: ['법률 챗봇', '자문 10건/월', '무제한 임직원', 'EAP 기본'] },
-    { name: PRICING_TIERS.premium.name, price: `₩${PRICING_TIERS.premium.price.toLocaleString()}`, color: PRICING_TIERS.premium.color, features: ['전담 변호사', '무제한 자문', 'EAP 무제한', '경영자문'] },
-];
+const TIERS = PRICE_RANGES.map(r => ({
+    name: r.name, price: r.priceRange, color: r.color,
+    features: [`${r.storeRange} 매장`, ...INCLUDED_SERVICES.slice(0, 3)],
+}));
 
 interface LeadForm { name: string; company: string; phone: string; email: string; size: string; }
 
@@ -34,8 +33,30 @@ export default function SalesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Phase 2: /api/leads로 전송 → 영업팀 CRM 자동 등록
-        await new Promise(r => setTimeout(r, 800));
+        // 홈페이지 폼 → CRM 자동 등록 + AI 분석 트리거
+        // dynamic import: SSR prerender 시 localStorage 접근 방지
+        const { store } = await import('@/lib/mockStore');
+        const sizeNum = parseInt(form.size?.replace(/[^0-9]/g, '') || '0') || 0;
+        const companies = store.add({
+            name: form.company || '(미입력)',
+            biz: '', url: '', email: form.email, phone: form.phone,
+            storeCount: sizeNum, status: 'pending',
+            assignedLawyer: '', issues: [],
+            salesConfirmed: false, salesConfirmedAt: '', salesConfirmedBy: '',
+            lawyerConfirmed: false, lawyerConfirmedAt: '', emailSentAt: '', emailSubject: '',
+            clientReplied: false, clientRepliedAt: '', clientReplyNote: '',
+            loginCount: 0, callNote: '', plan: 'none',
+            autoMode: true, aiDraftReady: false, source: 'manual',
+            riskScore: 0, riskLevel: '', issueCount: 0,
+            bizType: '', domain: '', privacyUrl: '',
+            contactName: form.name, contactEmail: form.email, contactPhone: form.phone,
+            callAttempts: 0, timeline: [],
+        } as any);
+        // AI 분석 자동 트리거
+        const newCompany = companies?.[companies.length - 1];
+        if (newCompany?.id) {
+            setTimeout(() => store.triggerAI(newCompany.id), 500);
+        }
         setSubmitted(true);
     };
 

@@ -118,12 +118,12 @@ function CardPhonePanel() {
             </p>
             <div className="p-5 rounded-xl text-center" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)' }}>
                 <Phone className="w-8 h-8 mx-auto mb-2" style={{ color: '#c9a84c' }} />
-                <p className="text-2xl font-black tracking-wider" style={{ color: '#c9a84c' }}>02-555-1234</p>
+                <p className="text-2xl font-black tracking-wider" style={{ color: '#c9a84c' }}>02-598-8518</p>
                 <p className="text-xs mt-2" style={{ color: 'rgba(240,244,255,0.4)' }}>
                     평일 09:00 ~ 18:00 · 점심 12:00 ~ 13:00
                 </p>
             </div>
-            <a href="tel:02-555-1234">
+            <a href="tel:02-598-8518">
                 <button className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
                     style={{ background: 'rgba(201,168,76,0.12)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.25)' }}>
                     <Phone className="w-4 h-4" /> 바로 전화하기

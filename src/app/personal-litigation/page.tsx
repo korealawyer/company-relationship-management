@@ -555,7 +555,7 @@ function ClientSummaryCard({ client, cases, isActive, onClick }: {
 }
 
 // ── 메인 페이지 ───────────────────────────────────────────────
-export default function PersonalLitigationPage() {
+export default function PersonalLitigationPage({ isEmbedded = false }: { isEmbedded?: boolean }) {
     const [cases, setCases] = useState<PersonalLitigation[]>([]);
     const [clients, setClients] = useState<PersonalClient[]>([]);
     const [filterStatus, setFilterStatus] = useState<PersonalLitStatus | 'all'>('all');
@@ -589,7 +589,7 @@ export default function PersonalLitigationPage() {
     }));
 
     return (
-        <div className="min-h-screen pb-16 px-4 sm:px-6 lg:px-8" style={{ background: '#f8f9fc' }}>
+        <div className={isEmbedded ? "pb-16" : "min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8"} style={{ background: isEmbedded ? 'transparent' : '#f8f9fc' }}>
             <div className="max-w-6xl mx-auto">
 
                 {/* 헤더 */}

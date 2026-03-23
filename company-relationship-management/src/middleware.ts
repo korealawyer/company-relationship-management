@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { jwtVerify } from 'jose';
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-mock-secret-for-phase-1');
+
 // 보호 경로 → 허용 역할
 const PROTECTED: Record<string, string[]> = {
     '/admin': ['super_admin', 'admin', 'sales', 'hr', 'general', 'finance'],
@@ -22,9 +26,9 @@ const PROTECTED: Record<string, string[]> = {
 // 퍼블릭 경로 (인증 불필요)
 // '/'는 정확 일치만, 나머지는 prefix 매칭 허용
 const PUBLIC_EXACT = ['/', '/chat'];
-const PUBLIC_PREFIX = ['/login', '/pricing', '/sales', '/onboarding', '/signup', '/landing', '/legal', '/about', '/help'];
+const PUBLIC_PREFIX = ['/login', '/pricing', '/sales', '/onboarding', '/signup', '/landing', '/legal', '/about', '/help', '/api/auth'];
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // 퍼블릭 경로 통과
@@ -32,12 +36,26 @@ export function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // 세션 쿠키 확인 (ibs_auth_v1 → localStorage 기반이므로 ibs_session 쿠키 사용)
-    const sessionCookie = req.cookies.get('ibs_session') || req.cookies.get('ibs_auth');
-    if (!sessionCookie) {
-        const loginUrl = new URL('/login', req.url);
-        loginUrl.searchParams.set('from', pathname);
+    const loginUrl = new URL('/login', req.url);
+    loginUrl.searchParams.set('from', pathname);
+
+    // JWT 기반 세션 쿠키 확인 (ibs_jwt)
+    const jwtCookie = req.cookies.get('ibs_jwt');
+    if (!jwtCookie?.value) {
         return NextResponse.redirect(loginUrl);
+    }
+
+    let jwtPayload: any = null;
+    try {
+        const { payload } = await jwtVerify(jwtCookie.value, JWT_SECRET);
+        jwtPayload = payload;
+    } catch (error) {
+        console.error('JWT Verification failed:', error);
+        loginUrl.searchParams.set('error', 'session_expired');
+        // 세션 만료 시 ibs_jwt 쿠키 삭제
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete('ibs_jwt');
+        return response;
     }
 
     // Role 기반 경로 접근 제어 (RBAC)
@@ -47,25 +65,30 @@ export function middleware(req: NextRequest) {
         .find(p => pathname === p || pathname.startsWith(p + '/'));
 
     if (matchedPath) {
-        const roleCookie = req.cookies.get('ibs_role');
-        // ibs_role 쿠키 없음 → 인증 세션은 있지만 역할 불명 → 재로그인 요구
-        if (!roleCookie?.value) {
-            const loginUrl = new URL('/login', req.url);
-            loginUrl.searchParams.set('from', pathname);
+        const userRole = jwtPayload.role;
+        if (!userRole) {
             loginUrl.searchParams.set('error', 'no_role');
             return NextResponse.redirect(loginUrl);
         }
+        
         const allowedRoles = PROTECTED[matchedPath];
-        if (!allowedRoles.includes(roleCookie.value)) {
-            // 권한 없음 → 로그인 페이지로 (from 파라미터 포함)
-            const loginUrl = new URL('/login', req.url);
-            loginUrl.searchParams.set('from', pathname);
+        if (!allowedRoles.includes(userRole)) {
+            // 권한 없음 → 예외 처리 (403처럼 동작하도록)
             loginUrl.searchParams.set('error', 'unauthorized');
             return NextResponse.redirect(loginUrl);
         }
     }
 
-    return NextResponse.next();
+    // 통과 시 헤더에 role을 주입하여 백엔드 API에서 읽을 수 있게 함 (테넌트 격리용)
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-user-role', jwtPayload.role || '');
+    requestHeaders.set('x-company-id', jwtPayload.companyId || '');
+
+    return NextResponse.next({
+        request: {
+            headers: requestHeaders,
+        },
+    });
 }
 
 export const config = {

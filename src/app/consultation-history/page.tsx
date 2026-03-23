@@ -7,6 +7,8 @@ import {
     Lock, Star, Phone, Bot, Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRequireAuth } from '@/lib/AuthContext';
+import { ServiceRequestModal } from '@/components/ServiceRequestModal';
 
 /* ── 타입 ───────────────────────────────────────────────── */
 type ConsultType = 'legal' | 'eap' | 'business';
@@ -120,10 +122,14 @@ function SubscribeCTA() {
 
 /* ── 메인 페이지 ───────────────────────────────────────── */
 export default function ConsultationHistoryPage() {
+    const { loading, authorized } = useRequireAuth(['client_hr']);
     const [filterType, setFilterType] = useState<ConsultType | 'all'>('all');
     const [filterStatus, setFilterStatus] = useState<ConsultStatus | 'all'>('all');
     const [search, setSearch] = useState('');
     const [isSubscribed] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    if (loading || !authorized) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div></div>;
 
     if (!isSubscribed) return <SubscribeCTA />;
 
@@ -153,12 +159,12 @@ export default function ConsultationHistoryPage() {
                         </div>
                         <p className="text-sm" style={{ color: '#6b7280' }}>접수번호별 상담 진행 현황을 확인하세요.</p>
                     </div>
-                    <Link href="/chat">
-                        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold"
-                            style={{ background: '#111827', color: '#fff' }}>
-                            <MessageSquare className="w-3.5 h-3.5" /> 새 상담
-                        </button>
-                    </Link>
+                    <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-transform hover:scale-105"
+                        style={{ background: '#111827', color: '#fff' }}>
+                        <MessageSquare className="w-3.5 h-3.5" /> 새 상담
+                    </button>
                 </div>
 
                 {/* KPI */}
@@ -276,6 +282,7 @@ export default function ConsultationHistoryPage() {
                     })}
                 </div>
             </div>
+            <ServiceRequestModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} defaultType="consultation" />
         </div>
     );
 }

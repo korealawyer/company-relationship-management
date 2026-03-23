@@ -3,22 +3,54 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Phone, Award, CheckCircle2 } from 'lucide-react';
+import { Phone, CheckCircle2, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { calcPrice, calcVoucher, ADD_ONS, ADDITIONAL_SERVICES, PRICE_SAMPLES, fadeUp } from '@/lib/landingData';
+import { calcPrice, ADD_ONS, ADDITIONAL_SERVICES, PRICE_SAMPLES, fadeUp } from '@/lib/landingData';
+import { PRICE_RANGES, INCLUDED_SERVICES, formatPriceMan } from '@/lib/pricing';
 
+/* ── 구간 카드 ──────────────────────────────────────────── */
+function RangeCards() {
+    return (
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="grid sm:grid-cols-3 gap-4 mb-8">
+            {PRICE_RANGES.map((range) => (
+                <div key={range.id}
+                    className="relative p-5 rounded-2xl text-center transition-all hover:scale-[1.02]"
+                    style={{
+                        background: range.popular ? `${range.color}08` : 'rgba(255,255,255,0.02)',
+                        border: `1.5px solid ${range.popular ? range.color + '40' : 'rgba(255,255,255,0.08)'}`,
+                    }}>
+                    {range.popular && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] px-3 py-1 rounded-full font-black"
+                            style={{ background: range.color, color: '#04091a' }}>인기</span>
+                    )}
+                    <p className="text-xs font-bold mb-1" style={{ color: range.color }}>{range.name}</p>
+                    <p className="text-2xl font-black mb-1" style={{ color: '#f0f4ff' }}>{range.priceRange}</p>
+                    <p className="text-xs mb-3" style={{ color: 'rgba(240,244,255,0.4)' }}>가맹점 {range.storeRange}</p>
+                    <div className="text-[10px] space-y-1">
+                        {INCLUDED_SERVICES.slice(0, 3).map(s => (
+                            <div key={s} className="flex items-center gap-1 justify-center" style={{ color: 'rgba(240,244,255,0.55)' }}>
+                                <CheckCircle2 className="w-3 h-3" style={{ color: '#4ade80' }} /> {s}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </motion.div>
+    );
+}
+
+/* ── 슬라이더 계산기 ────────────────────────────────────── */
 function PriceCalculator() {
     const [storeCount, setStoreCount] = useState(30);
     const price = calcPrice(storeCount);
-    const voucher = calcVoucher(storeCount);
-    const net = price - voucher;
 
     return (
         <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
             <Card padding="lg" gold>
                 <p className="font-black text-sm mb-1" style={{ color: '#e8c87a' }}>💡 내 가맹점 수로 계산하기</p>
-                <p className="text-xs mb-5" style={{ color: 'rgba(201,168,76,0.6)' }}>슬라이더를 움직여 예상 요금을 확인하세요</p>
+                <p className="text-xs mb-5" style={{ color: 'rgba(201,168,76,0.6)' }}>슬라이더를 움직여 정확한 요금을 확인하세요</p>
                 <div className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-bold" style={{ color: 'rgba(240,244,255,0.7)' }}>가맹점 수</span>
@@ -33,22 +65,24 @@ function PriceCalculator() {
                     </div>
                 </div>
                 <div className="space-y-3 mb-6">
-                    {[
-                        { label: '월 정가', value: `${(price / 10000).toFixed(1)}만원`, color: 'rgba(240,244,255,0.6)', strike: true },
-                        { label: '월 바우처 (50%)', value: `-${(voucher / 10000).toFixed(1)}만원`, color: '#4ade80', strike: false },
-                        { label: '첫 6개월 실부담', value: `${(net / 10000).toFixed(1)}만원/월`, color: '#e8c87a', strike: false, big: true },
-                    ].map((row) => (
-                        <div key={row.label} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid rgba(201,168,76,0.1)' }}>
-                            <span className="text-sm" style={{ color: 'rgba(240,244,255,0.6)' }}>{row.label}</span>
-                            <span className={`font-black ${row.big ? 'text-xl' : 'text-base'}`}
-                                style={{ color: row.color, textDecoration: row.strike ? 'line-through' : 'none' }}>
-                                {row.value}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-                <div className="text-xs mb-5" style={{ color: 'rgba(201,168,76,0.6)' }}>
-                    12개월 바우처 총액: <strong style={{ color: '#c9a84c' }}>{Math.round(voucher * 12 / 10000)}만원</strong> (Add-on·추가서비스·수임료 할인 사용 가능)
+                    <div className="flex items-center justify-between py-3" style={{ borderBottom: '1px solid rgba(201,168,76,0.15)' }}>
+                        <span className="text-sm" style={{ color: 'rgba(240,244,255,0.6)' }}>월 구독료</span>
+                        <span className="text-2xl font-black" style={{ color: '#e8c87a' }}>
+                            {formatPriceMan(price)}
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid rgba(201,168,76,0.08)' }}>
+                        <span className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>연간 구독료</span>
+                        <span className="text-sm font-bold" style={{ color: 'rgba(240,244,255,0.6)' }}>
+                            {formatPriceMan(price * 12)}
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                        <span className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>매장당 단가</span>
+                        <span className="text-sm font-bold" style={{ color: 'rgba(240,244,255,0.5)' }}>
+                            {Math.round(price / storeCount).toLocaleString()}원/개
+                        </span>
+                    </div>
                 </div>
                 <Link href="/login">
                     <Button variant="premium" size="lg" className="w-full gap-2">
@@ -74,6 +108,10 @@ export default function PricingSection() {
                     <p style={{ color: 'rgba(240,244,255,0.6)' }}>프리미엄 연간자문 (HQ+Store+Employee) · 1년 약정 · VAT 별도</p>
                 </motion.div>
 
+                {/* 구간 카드 3장 */}
+                <RangeCards />
+
+                {/* 슬라이더 + 샘플 가격표 */}
                 <div className="grid lg:grid-cols-2 gap-8 mb-10">
                     <PriceCalculator />
                     <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
@@ -82,7 +120,7 @@ export default function PricingSection() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid rgba(201,168,76,0.15)' }}>
-                                        {['가맹점 수', '월 요금', '바우처(월)', '실부담'].map(h => (
+                                        {['가맹점 수', '월 구독료', '매장당 단가'].map(h => (
                                             <th key={h} className="px-3 py-2 text-right text-xs font-bold first:text-left" style={{ color: 'rgba(201,168,76,0.7)' }}>{h}</th>
                                         ))}
                                     </tr>
@@ -90,22 +128,33 @@ export default function PricingSection() {
                                 <tbody>
                                     {PRICE_SAMPLES.map((row) => {
                                         const p = calcPrice(row.n);
-                                        const v = calcVoucher(row.n);
                                         return (
                                             <tr key={row.n} className="transition-colors hover:bg-[rgba(201,168,76,0.04)]" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                                 <td className="px-3 py-2.5 font-bold" style={{ color: '#f0f4ff' }}>{row.n}개</td>
-                                                <td className="px-3 py-2.5 text-right" style={{ color: 'rgba(240,244,255,0.7)' }}>{(p / 10000).toFixed(1)}만원</td>
-                                                <td className="px-3 py-2.5 text-right" style={{ color: '#4ade80' }}>-{(v / 10000).toFixed(1)}만원</td>
-                                                <td className="px-3 py-2.5 text-right font-black" style={{ color: '#c9a84c' }}>{((p - v) / 10000).toFixed(1)}만원</td>
+                                                <td className="px-3 py-2.5 text-right font-black" style={{ color: '#c9a84c' }}>{formatPriceMan(p)}</td>
+                                                <td className="px-3 py-2.5 text-right" style={{ color: 'rgba(240,244,255,0.5)' }}>{Math.round(p / row.n).toLocaleString()}원</td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
                             </table>
-                            <p className="text-xs px-3 pt-3" style={{ color: 'rgba(240,244,255,0.35)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                ✅ 바우처: 12개월간 월 구독료 50% 크레딧 적립 · 첫 6개월은 Base 구독료에 직접 적용 가능
-                            </p>
+                            <div className="px-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                <p className="text-xs" style={{ color: 'rgba(240,244,255,0.35)' }}>
+                                    ✅ 산정식: P(n) = ₩300,000 + ₩8,500 × (n - 1) · 200개+ Enterprise 별도 협의
+                                </p>
+                            </div>
                         </Card>
+                        {/* Enterprise CTA */}
+                        <div className="mt-4 p-4 rounded-xl text-center" style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.2)' }}>
+                            <Building2 className="w-5 h-5 mx-auto mb-2" style={{ color: '#a78bfa' }} />
+                            <p className="text-sm font-bold mb-1" style={{ color: '#f0f4ff' }}>200개 이상 대형 본사</p>
+                            <p className="text-xs mb-2" style={{ color: 'rgba(240,244,255,0.4)' }}>전담 변호사팀 배정 · 맞춤 서비스 설계</p>
+                            <Link href="/login">
+                                <button className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}>
+                                    Enterprise 상담 →
+                                </button>
+                            </Link>
+                        </div>
                     </motion.div>
                 </div>
 
@@ -148,10 +197,10 @@ export default function PricingSection() {
                                 <div className="space-y-2">
                                     {[
                                         { label: '법률 자문', cost: '무제한 포함' },
-                                        { label: '계약서 검토', cost: '무제한 포함' },
-                                        { label: '개인정보 자동진단', cost: '무제한 포함' },
-                                        { label: '노무·경영 자문', cost: '포함' },
-                                        { label: '경영 대시보드', cost: '무제한 포함' },
+                                        { label: '가맹점 BACKCALL', cost: '무제한 포함' },
+                                        { label: '임직원 법률상담', cost: '무제한 포함' },
+                                        { label: '분기 리스크 브리핑', cost: '연 4회 포함' },
+                                        { label: '법률 문서 2,000종', cost: '포함' },
                                     ].map((item, i) => (
                                         <div key={i} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                             <span className="text-sm" style={{ color: 'rgba(240,244,255,0.6)' }}>{item.label}</span>
@@ -161,36 +210,42 @@ export default function PricingSection() {
                                 </div>
                                 <div className="mt-4 pt-3 text-right" style={{ borderTop: '1px solid rgba(74,222,128,0.2)' }}>
                                     <span className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>월 구독료</span>
-                                    <p className="font-black text-2xl" style={{ color: '#4ade80' }}>49만원~</p>
+                                    <p className="font-black text-2xl" style={{ color: '#4ade80' }}>30만원~</p>
                                 </div>
                             </div>
                         </div>
                         <div className="text-center p-4 rounded-xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)' }}>
                             <p className="text-xs mb-1" style={{ color: 'rgba(240,244,255,0.4)' }}>연간 절감 (추정)</p>
                             <p className="font-black text-3xl" style={{ background: 'linear-gradient(135deg,#e8c87a,#4ade80)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                                약 7,800만원
+                                최대 1억원+
                             </p>
                             <p className="text-sm mt-1" style={{ color: 'rgba(240,244,255,0.5)' }}>쓰지 않는 것이 오히려 손해입니다</p>
                         </div>
                     </Card>
                 </motion.div>
 
-                {/* 바우처 강조 */}
+                {/* 포함 서비스 */}
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="mb-10">
                     <Card padding="lg" gold>
                         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Award className="w-5 h-5" style={{ color: '#c9a84c' }} />
-                                    <span className="font-black text-base" style={{ color: '#e8c87a' }}>신규 계약 바우처 혜택 — 12개월간 실질 50% 할인 효과</span>
-                                </div>
-                                <p className="text-sm leading-relaxed" style={{ color: 'rgba(240,244,255,0.65)' }}>
-                                    계약 후 12개월간 매월 구독료의 50% 크레딧 적립. 첫 6개월은 Base 구독료에 직접 사용(월 최대 50%). 잔여 크레딧은 애드온·추가 서비스·소송 수임료 할인에 활용 가능.
+                                <p className="font-black text-base mb-3" style={{ color: '#e8c87a' }}>
+                                    ✅ 전 구간 동일 — 5대 서비스 모두 포함
                                 </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {INCLUDED_SERVICES.map(s => (
+                                        <div key={s} className="flex items-center gap-2 text-sm" style={{ color: 'rgba(240,244,255,0.7)' }}>
+                                            <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#4ade80' }} /> {s}
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(240,244,255,0.5)' }}>
+                                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: 'rgba(250,204,21,0.6)' }} /> EAP 심리상담 (2026.04~)
+                                    </div>
+                                </div>
                             </div>
                             <div className="text-center flex-shrink-0">
-                                <div className="text-4xl font-black" style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>600만원</div>
-                                <div className="text-xs mt-1" style={{ color: 'rgba(201,168,76,0.7)' }}>가맹점 100개 기준 12개월 바우처</div>
+                                <div className="text-sm mb-1" style={{ color: 'rgba(201,168,76,0.7)' }}>가맹점 1개부터</div>
+                                <div className="text-4xl font-black" style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>월 30만원~</div>
                             </div>
                         </div>
                     </Card>

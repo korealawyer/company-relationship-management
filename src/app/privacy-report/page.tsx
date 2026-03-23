@@ -1,14 +1,28 @@
 'use client';
-import React, { useState, useMemo, useRef, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import {
     AlertTriangle, ChevronDown, ChevronUp,
     CheckCircle2, ArrowRight, Scale, FileWarning,
     Eye, BookOpen, ExternalLink, AlertCircle, FileText,
+    Phone, User, Mail,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { store } from '@/lib/mockStore';
+
+/* ── 영업사원 정보 조회 ───────────────────────────────── */
+const DEFAULT_REP = {
+    name: '이민준',
+    title: '기업법무 영업 담당',
+    email: 'sales@ibslaw.kr',
+    phone: '02-555-1234',
+};
+function getRepInfo(repId: string | null) {
+    if (!repId) return null; // rep 없으면 카드 숨김
+    // Supabase 전환 이후 영업사원 정보는 DEFAULT_REP로 폴백
+    return { ...DEFAULT_REP };
+}
 
 /* ── 리스크 레벨 ──────────────────────────────────────── */
 const RISK: Record<string, { color: string; bg: string; border: string; label: string; dot: string }> = {
@@ -190,7 +204,7 @@ function IssueCard({ issue, index, company }: { issue: Issue; index: number; com
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2"
                             style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(1px)' }}>
                             <p className="text-[13px] font-black" style={{ color: '#92400e' }}>수정 권고안은 구독 후 열람 가능합니다</p>
-                            <Link href={`/checkout?plan=pro&company=${encodeURIComponent(company)}`}>
+                            <Link href={`/checkout?plan=growth&company=${encodeURIComponent(company)}`}>
                                 <button className="text-xs font-bold px-4 py-2 rounded-lg text-white"
                                     style={{ background: 'linear-gradient(135deg,#92400e,#c9a84c)' }}>
                                     수정 권고안 전체 보기 &rarr;
@@ -229,15 +243,75 @@ function RiskGauge({ score }: { score: number }) {
 /* ── 메인 페이지 ───────────────────────────────────────── */
 function PrivacyReportPageInner() {
     const searchParams = useSearchParams();
-    const company = searchParams.get('company') || '(주)샐러디';
-    const companyId = searchParams.get('companyId') || '';
+
+    // ── 보안 우선순위 로직 ────────────────────────────────────
+    // 1순위: 로그인된 client_hr → 세션 데이터만 사용 (URL 파라미터 무시)
+    // 2순위: ?biz= 파라미터 (비로그인 영업 링크)
+    // 3순위: ?companyId= 파라미터 (내부 CRM, admin/lawyer/sales 세션 필요)
+    // 4순위: ?company= 이름으로 조회
+    // 5순위: 기본 샘플 데이터
+    const [sessionRole, setSessionRole] = useState<string | null>(null);
+    const [sessionCompanyId, setSessionCompanyId] = useState<string | null>(null);
+    const [sessionCompanyName, setSessionCompanyName] = useState<string | null>(null);
+    const [sessionBiz, setSessionBiz] = useState<string | null>(null);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('ibs_auth_v1');
+            if (raw) {
+                const s = JSON.parse(raw);
+                setSessionRole(s?.role || null);
+                setSessionCompanyId(s?.companyId || null);
+                setSessionCompanyName(s?.companyName || null);
+                setSessionBiz(s?.biz || null);
+            }
+        } catch { /* ignore */ }
+    }, []);
+
+    const bizParam = searchParams.get('biz');
+    const companyIdParam = searchParams.get('companyId');
+    const companyParam = searchParams.get('company');
+    const repParam = searchParams.get('rep');
+
+    // 영업사원 카드 (rep 파라미터가 있을 때만)
+    const repInfo = getRepInfo(repParam);
+
+    // 비로그인 공개 데모 여부 (biz 파라미터로 접근한 경우)
+    const isPublicDemo = !sessionRole && !!bizParam;
 
     const crmCompany = useMemo(() => {
         if (typeof window === 'undefined') return null;
         const all = store.getAll();
-        if (companyId) return all.find(c => c.id === companyId) || null;
-        return all.find(c => c.name === company) || null;
-    }, [company, companyId]);
+
+        // 1순위: client_hr 세션 → 세션 companyId / biz 우선
+        if (sessionRole === 'client_hr') {
+            if (sessionCompanyId) return all.find(c => c.id === sessionCompanyId) || null;
+            if (sessionBiz) {
+                const cleaned = sessionBiz.replace(/\D/g, '');
+                return all.find(c => c.biz.replace(/\D/g, '') === cleaned) || null;
+            }
+            if (sessionCompanyName) return all.find(c => c.name === sessionCompanyName) || null;
+            return null;
+        }
+
+        // 2순위: biz 파라미터 (비로그인 영업 링크)
+        if (bizParam) {
+            const cleaned = bizParam.replace(/\D/g, '');
+            return all.find(c => c.biz.replace(/\D/g, '') === cleaned) || null;
+        }
+
+        // 3순위: companyId 파라미터 (admin/lawyer/sales만 허용)
+        const internalRoles = ['admin', 'lawyer', 'sales'];
+        if (companyIdParam && sessionRole && internalRoles.includes(sessionRole)) {
+            return all.find(c => c.id === companyIdParam) || null;
+        }
+
+        // 4순위: company 이름 파라미터
+        if (companyParam) return all.find(c => c.name === companyParam) || null;
+
+        return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionRole, sessionCompanyId, sessionBiz, sessionCompanyName, bizParam, companyIdParam, companyParam]);
 
     const dynamicIssues: Issue[] = useMemo(() => {
         if (!crmCompany || crmCompany.issues.length === 0) return ISSUES;
@@ -248,7 +322,7 @@ function PrivacyReportPageInner() {
         });
     }, [crmCompany]);
 
-    const displayCompany = crmCompany?.name || company;
+    const displayCompany = crmCompany?.name || companyParam || sessionCompanyName || '(주)샐러디';
     const riskScore = crmCompany?.riskScore || 78;
     const highCount = dynamicIssues.filter(i => i.level === 'HIGH').length;
     const medCount  = dynamicIssues.filter(i => i.level === 'MEDIUM').length;
@@ -385,7 +459,7 @@ function PrivacyReportPageInner() {
                             </div>
 
                             {/* CTA */}
-                            <Link href={`/checkout?plan=pro&company=${encodeURIComponent(displayCompany)}`}>
+                            <Link href={`/checkout?plan=growth&company=${encodeURIComponent(displayCompany)}`}>
                                 <button className="w-full py-3.5 rounded-xl font-black text-[14px] mb-2 flex items-center justify-center gap-2"
                                     style={{ background: 'linear-gradient(135deg,#1e293b,#334155)', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                                     전문 변호사 수정 시작 <ArrowRight className="w-4 h-4" />
@@ -424,6 +498,45 @@ function PrivacyReportPageInner() {
                                     전체 요금제 비교 <ExternalLink className="w-3 h-3" />
                                 </Link>
                             </div>
+
+                            {/* 영업사원 카드 (rep 파라미터 있을 때만) */}
+                            {repInfo && (
+                                <div className="mt-4 rounded-2xl p-5"
+                                    style={{ background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                                    <p className="text-[10px] font-black mb-3 tracking-wider" style={{ color: '#6b7280' }}>담당 법무 컨설턴트</p>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                                            style={{ background: 'linear-gradient(135deg,#1e293b,#334155)' }}>
+                                            <User className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[14px] font-black" style={{ color: '#111827' }}>{repInfo.name}</p>
+                                            <p className="text-[11px]" style={{ color: '#6b7280' }}>{repInfo.title}</p>
+                                        </div>
+                                    </div>
+                                    <a href={`tel:${repInfo.phone}`} className="flex items-center gap-2 w-full py-2.5 px-3 rounded-lg mb-2 transition-all hover:opacity-80"
+                                        style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                        <Phone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#0369a1' }} />
+                                        <span className="text-[12px] font-bold" style={{ color: '#0369a1' }}>{repInfo.phone}</span>
+                                    </a>
+                                    <a href={`mailto:${repInfo.email}`} className="flex items-center gap-2 w-full py-2.5 px-3 rounded-lg transition-all hover:opacity-80"
+                                        style={{ background: '#f8f7f4', border: '1px solid #e5e7eb' }}>
+                                        <Mail className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#6b7280' }} />
+                                        <span className="text-[12px] font-semibold truncate" style={{ color: '#374151' }}>{repInfo.email}</span>
+                                    </a>
+                                </div>
+                            )}
+
+                            {/* 비로그인 공개 데모 안내 */}
+                            {isPublicDemo && (
+                                <div className="mt-4 rounded-xl p-4 text-center"
+                                    style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                                    <p className="text-[11px] font-bold mb-1" style={{ color: '#92400e' }}>📋 이것은 샘플 진단 보고서입니다</p>
+                                    <p className="text-[10px] leading-relaxed" style={{ color: '#78350f' }}>
+                                        구독 후 귀사 개인정보처리방침을<br />직접 분석한 맞춤 보고서를 받으세요.
+                                    </p>
+                                </div>
+                            )}
                         </motion.div>
                     </div>
                 </aside>
@@ -432,7 +545,7 @@ function PrivacyReportPageInner() {
             {/* 모바일 하단 CTA */}
             <div className="fixed bottom-0 left-0 right-0 lg:hidden z-50 p-4"
                 style={{ background: 'rgba(248,247,244,0.95)', backdropFilter: 'blur(8px)', borderTop: '1px solid #e5e7eb' }}>
-                <Link href={`/checkout?plan=pro&company=${encodeURIComponent(displayCompany)}`}>
+                <Link href={`/checkout?plan=growth&company=${encodeURIComponent(displayCompany)}`}>
                     <button className="w-full py-3.5 rounded-xl font-black text-[14px] flex items-center justify-center gap-2"
                         style={{ background: 'linear-gradient(135deg,#1e293b,#334155)', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                         전문 변호사 수정 시작 <ArrowRight className="w-4 h-4" />

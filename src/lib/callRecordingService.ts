@@ -225,6 +225,43 @@ export const STTService = {
         }
         return `${contactName}와 ${lines.length}건 대화. 후속 조치 확인 필요.`;
     },
+
+    /**
+     * 노션 AI 회의록 스타일 단계별 요약
+     * → ['🗣️ 상황', '⚖️ 법적 쟁점', '📋 다음 조치', '💰 수임료']
+     */
+    async summarizeSteps(
+        transcript: string,
+        clientName: string,
+        category: string = '법률'
+    ): Promise<string[]> {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        const lower = transcript.toLowerCase();
+        const firstLine = transcript.split('\n')[0]?.replace(/\[\d+:\d+\]\s?/, '').slice(0, 50) ?? '';
+
+        return [
+            `🗣️ **상황**: ${clientName}님이 ${category} 관련 법률 상담 요청. "${firstLine}..."`,
+            `⚖️ **법적 쟁점**: ${
+                lower.includes('손해') ? '손해배상 청구 가능성 있음' :
+                lower.includes('계약') ? '계약 위반 여부 검토 필요' :
+                lower.includes('개인정보') ? '개인정보보호법 위반 리스크 확인' :
+                lower.includes('가맹') ? '가맹사업법 적용 여부 검토' :
+                '법적 리스크 정밀 분석 필요'
+            }.`,
+            `📋 **다음 조치**: ${
+                transcript.includes('미팅') || transcript.includes('상담') ?
+                '대면 상담 일정 확정 및 의견서 발송 예정' :
+                '관련 자료 수집 후 서면 검토 진행'
+            }. 수임 여부 최종 결정 필요.`,
+            `💰 **수임료 기대**: ${
+                category.includes('형사') ? '500만~1,500만원 (사건 경중 반영)' :
+                category.includes('가사') ? '300만~800만원 (재산분할 규모 반영)' :
+                category.includes('민사') ? '사건 청구금액의 5~10% + 성공보수' :
+                '사건 내용 확인 후 산정 예정'
+            }.`,
+        ];
+    },
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -245,6 +282,21 @@ export const CallRecordingStore = {
 
     _save(recordings: CallRecording[]): void {
         localStorage.setItem(RECORDINGS_KEY, JSON.stringify(recordings));
+        // 실시간 동기화 이벤트 발행 (다른 탭/기기)
+        this._dispatchSync();
+    },
+
+    /** 동기화 이벤트 발행 */
+    _dispatchSync(): void {
+        if (typeof window === 'undefined') return;
+        // BroadcastChannel (같은 브라우저 다른 탭)
+        try {
+            const bc = new BroadcastChannel('ibs-recordings');
+            bc.postMessage({ type: 'voice-memo-sync', timestamp: Date.now() });
+            bc.close();
+        } catch { /* BroadcastChannel 미지원 환경 무시 */ }
+        // 커스텀 이벤트 (같은 탭)
+        window.dispatchEvent(new CustomEvent('voice-memo-sync'));
     },
 
     /** 새 녹음 저장 */
@@ -365,7 +417,7 @@ export function formatDuration(seconds: number): string {
 
 export class AudioVisualizer {
     private analyser: AnalyserNode | null = null;
-    private dataArray: Uint8Array | null = null;
+    private dataArray: Uint8Array<ArrayBuffer> | null = null;
     private audioContext: AudioContext | null = null;
 
     connect(stream: MediaStream): void {
@@ -374,7 +426,7 @@ export class AudioVisualizer {
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 64;
         source.connect(this.analyser);
-        this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        this.dataArray = new Uint8Array(this.analyser.frequencyBinCount) as Uint8Array<ArrayBuffer>;
     }
 
     /** 현재 주파수 데이터 반환 (0~255 범위, 바 개수 = fftSize/2) */

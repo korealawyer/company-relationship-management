@@ -4,6 +4,7 @@
 // ================================================================
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 // ── 환경변수 기반 모드 결정 ───────────────────────────────────
 export const IS_SUPABASE_CONFIGURED = !!(
@@ -31,6 +32,19 @@ export const supabase = IS_SUPABASE_CONFIGURED
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
   : null;
+
+// ── CSR용 Supabase 클라이언트 (Auth 전용) ────────────────────
+// @supabase/ssr의 createBrowserClient — 쿠키 자동 관리
+let _browserClient: ReturnType<typeof createBrowserClient> | null = null;
+export function getBrowserSupabase() {
+  if (!IS_SUPABASE_CONFIGURED) return null;
+  if (_browserClient) return _browserClient;
+  _browserClient = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  return _browserClient;
+}
 
 // ── 서버사이드 전용 Service Role 클라이언트 ───────────────────
 export function getServiceSupabase(): SupabaseClient | null {

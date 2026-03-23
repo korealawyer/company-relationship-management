@@ -9,13 +9,13 @@ import {
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { store } from '@/lib/mockStore';
-import { PRICING_TIERS, CRM_PLAN_MAP } from '@/lib/pricing';
+import { PRICE_RANGES, CRM_PLAN_MAP, calcPrice } from '@/lib/pricing';
 
 // ── 플랜 데이터 (중앙 관리 모듈에서 가져옴) ─────────────────
-const PLANS = Object.fromEntries(
-    Object.entries(PRICING_TIERS).map(([key, tier]) => [
-        key,
-        { name: tier.name, price: tier.price, color: tier.color, features: tier.features },
+const PLANS: Record<string, { name: string; price: number; color: string; features: string[] }> = Object.fromEntries(
+    PRICE_RANGES.map(r => [
+        r.id,
+        { name: r.name, price: calcPrice(r.minStores), color: r.color, features: [`${r.storeRange} 매장`, `${r.priceRange}/월`] },
     ])
 );
 
@@ -121,9 +121,9 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
 // ── 메인 페이지 ─────────────────────────────────────────
 function CheckoutContent() {
     const searchParams = useSearchParams();
-    const planId = searchParams.get('plan') || 'pro';
+    const planId = searchParams.get('plan') || 'growth';
     const company = searchParams.get('company') || '';
-    const plan = PLANS[planId] || PLANS.pro;
+    const plan = PLANS[planId] || PLANS.growth || Object.values(PLANS)[0];
 
     const today = new Date();
     const todayStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
@@ -159,7 +159,7 @@ function CheckoutContent() {
         await new Promise(r => setTimeout(r, 2000));
 
         // CRM 연동: 회사명으로 매칭되는 기업이 있으면 구독 상태 업데이트
-        const crmPlan = CRM_PLAN_MAP[planId] || 'standard';
+        const crmPlan = (CRM_PLAN_MAP[planId] || 'standard') as 'starter' | 'standard' | 'premium';
         const allCompanies = store.getAll();
         const matched = allCompanies.find(c =>
             c.name === form.companyName || c.email === form.contactEmail

@@ -725,7 +725,7 @@ export default function CasesPage() {
                                         </div>
                                         <div className="flex-1">
                                             <p className="text-sm font-black text-white">IBS 법률사무소</p>
-                                            <p className="text-[10px]" style={{ color: '#9ca3af' }}>사건 진행 자동 알림 · 02-555-1234</p>
+                                            <p className="text-[10px]" style={{ color: '#9ca3af' }}>사건 진행 자동 알림 · 02-598-8518</p>
                                         </div>
                                         <div className="px-2.5 py-1 rounded-lg flex items-center gap-1" style={{ background: 'rgba(34,197,94,0.15)' }}>
                                             <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#22c55e' }} />

@@ -23,7 +23,7 @@ function mockAnalysis(text: string): ReviewResult {
 
 export async function POST(req: NextRequest) {
     // 인증 검증 (변호사/관리자만 접근 허용)
-    const auth = requireSessionFromCookie(req);
+    const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     try {

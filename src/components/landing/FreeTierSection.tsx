@@ -80,7 +80,7 @@ export default function FreeTierSection() {
                         <div className="flex items-center gap-2 mb-6">
                             <span className="px-3 py-1 rounded-full text-xs font-black" style={{ background: '#c9a84c', color: '#0a0e1a' }}>PRO</span>
                             <span className="font-black text-lg" style={{ color: '#f0f4ff' }}>유료 구독</span>
-                            <span className="text-xs ml-auto" style={{ color: 'rgba(201,168,76,0.7)' }}>월 49만원~</span>
+                            <span className="text-xs ml-auto" style={{ color: 'rgba(201,168,76,0.7)' }}>월 33만원~</span>
                         </div>
 
                         {/* 무료 기능 포함 표시 */}
@@ -122,7 +122,7 @@ export default function FreeTierSection() {
                     style={{ border: '1.5px solid rgba(201,168,76,0.2)' }}>
                     {/* 블러 대시보드 */}
                     <div className="p-8 pb-12" style={{ background: 'rgba(255,255,255,0.02)', filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' }}>
-                        <div className="grid grid-cols-4 gap-4 mb-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
                             {[
                                 { label: '진행 중 자문', value: '7건', color: '#60a5fa' },
                                 { label: '이번 달 리포트', value: '3건', color: '#c9a84c' },
@@ -135,7 +135,7 @@ export default function FreeTierSection() {
                                 </div>
                             ))}
                         </div>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             {['최근 자문 내역', '계약서 검토 현황', '법무 비용 추이'].map((title, i) => (
                                 <div key={i} className="p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', height: 140 }}>
                                     <p className="font-bold text-sm mb-3" style={{ color: 'rgba(240,244,255,0.6)' }}>{title}</p>

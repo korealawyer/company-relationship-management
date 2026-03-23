@@ -43,14 +43,14 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     {
         id: 'n2', type: 'payment', status: 'unread',
         title: '3월 구독료 결제 완료',
-        message: 'Pro 플랜 월 구독료 990,000원이 정상 결제되었습니다.',
+        message: 'Growth 플랜 월 구독료가 정상 결제되었습니다.',
         date: '2026.03.15 09:00', href: '/billing', actionLabel: '영수증 확인',
     },
     {
         id: 'n3', type: 'consultation', status: 'unread',
         title: '가맹계약서 검토 답변 도착',
         message: '이지원 변호사가 독소조항 3건에 대한 검토 의견을 제출했습니다.',
-        date: '2026.03.14 16:45', href: '/my-documents', actionLabel: '답변 확인',
+        date: '2026.03.14 16:45', href: '/documents', actionLabel: '답변 확인',
     },
     {
         id: 'n4', type: 'member', status: 'read',
@@ -62,7 +62,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
         id: 'n5', type: 'document', status: 'read',
         title: '취업규칙 검토 완료',
         message: '근로기준법 적합성 검토가 완료되었습니다. 6건의 수정 권고사항이 있습니다.',
-        date: '2026.03.10 10:00', href: '/my-documents',
+        date: '2026.03.10 10:00', href: '/documents',
     },
     {
         id: 'n6', type: 'system', status: 'read',

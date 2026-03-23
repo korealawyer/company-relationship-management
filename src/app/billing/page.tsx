@@ -28,16 +28,16 @@ interface PaymentRecord {
 }
 
 const PLAN_PRICE: Record<string, number> = {
-    starter: 490000,
-    standard: 990000,
-    premium: 1990000,
+    starter: 330000,
+    standard: 550000,
+    premium: 1100000,
     none: 0,
 };
 
 const PLAN_LABEL: Record<string, string> = {
-    starter: 'Starter',
-    standard: 'Standard',
-    premium: 'Premium',
+    starter: 'Entry',
+    standard: 'Growth',
+    premium: 'Scale',
     none: '-',
 };
 
@@ -121,9 +121,9 @@ function ClientBillingView() {
                             {/* 플랜 비교 미니 카드 */}
                             <div className="grid grid-cols-3 gap-3 mb-6 max-w-lg mx-auto">
                                 {[
-                                    { name: 'Starter', price: '49만', color: '#6b7280', features: ['법률 상담 챗봇 무제한', '법률 자문 3건/월'] },
-                                    { name: 'Pro', price: '99만', color: '#2563eb', features: ['전담 변호사 배정', '계약서 검토 3건/월'], popular: true },
-                                    { name: 'Premium', price: '199만', color: '#c9a84c', features: ['전담 변호사팀', '무제한 법률 자문'] },
+                                    { name: 'Entry', price: '30~38만', color: '#60a5fa', features: ['무제한 본사 자문', '가맹점 BACKCALL'] },
+                                    { name: 'Growth', price: '39~72만', color: '#c9a84c', features: ['무제한 본사 자문', '가맹점 BACKCALL'], popular: true },
+                                    { name: 'Scale', price: '72~199만', color: '#a78bfa', features: ['무제한 본사 자문', '가맹점 BACKCALL'] },
                                 ].map(p => (
                                     <div key={p.name} className="relative p-4 rounded-xl text-left"
                                         style={{
@@ -154,7 +154,7 @@ function ClientBillingView() {
                                 </Link>
                                 <button className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all"
                                     style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}
-                                    onClick={() => setToast('📞 상담 예약: 02-555-1234 (평일 9-18시)')}>
+                                    onClick={() => setToast('📞 상담 예약: 02-598-8518 (평일 9-18시)')}>
                                     <Phone className="w-4 h-4" /> 도입 상담
                                 </button>
                             </div>
@@ -209,7 +209,7 @@ function ClientBillingView() {
                                 </Link>
                                 <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
                                     style={{ background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}
-                                    onClick={() => setToast('결제 수단 변경은 고객센터(02-555-1234)로 문의해 주세요.')}>
+                                    onClick={() => setToast('결제 수단 변경은 고객센터(02-598-8518)로 문의해 주세요.')}>
                                     <CreditCard className="w-3.5 h-3.5" /> 결제 수단 변경
                                 </button>
                             </div>
@@ -285,7 +285,7 @@ function ClientBillingView() {
                 {/* 고객센터 안내 */}
                 <div className="mt-6 p-4 rounded-xl text-center" style={{ background: T.goldBg, border: `1px solid ${T.gold}20` }}>
                     <p className="text-xs" style={{ color: T.muted }}>
-                        결제 관련 문의: <strong style={{ color: T.gold }}>02-555-1234</strong> (평일 9-18시) ·
+                        결제 관련 문의: <strong style={{ color: T.gold }}>02-598-8518</strong> (평일 9-18시) ·
                         이메일: <strong style={{ color: T.gold }}>billing@ibslaw.co.kr</strong>
                     </p>
                 </div>

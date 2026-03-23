@@ -145,10 +145,7 @@ function LoginContent() {
             <div className="w-full max-w-md relative z-10">
                 {/* Logo */}
                 <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4"
-                        style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', boxShadow: '0 4px 16px rgba(184,150,10,0.25)' }}>
-                        <span className="text-lg font-black" style={{ color: '#0f172a' }}>IBS</span>
-                    </div>
+
                     <h1 className="text-2xl font-black mb-1" style={{ color: L.heading }}>IBS 법률사무소</h1>
                     <p className="text-sm" style={{ color: L.muted }}>플랫폼 로그인</p>
                 </motion.div>

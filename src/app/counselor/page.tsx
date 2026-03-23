@@ -50,10 +50,10 @@ const STATUS_META = {
 };
 
 const KPI = [
-    { label: '담당 사례', value: '5', icon: Users, color: '#b8960a', bg: '#fffbeb' },
-    { label: '이번 주 상담', value: '3', icon: Calendar, color: '#2563eb', bg: '#eff6ff' },
-    { label: '고위험 내담자', value: '2', icon: AlertCircle, color: '#dc2626', bg: '#fef2f2' },
-    { label: '종결 사례', value: '1', icon: CheckCircle2, color: '#16a34a', bg: '#f0fdf4' },
+    { label: '담당 사례', value: '5', icon: Users, color: '#c9a84c', bg: 'rgba(201,168,76,0.12)' },
+    { label: '이번 주 상담', value: '3', icon: Calendar, color: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
+    { label: '고위험 내담자', value: '2', icon: AlertCircle, color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
+    { label: '종결 사례', value: '1', icon: CheckCircle2, color: '#4ade80', bg: 'rgba(74,222,128,0.12)' },
 ];
 
 export default function CounselorPage() {
@@ -64,7 +64,7 @@ export default function CounselorPage() {
     const selectedCase = COUNSELING_CASES.find(c => c.id === selected) ?? null;
 
     return (
-        <div className="min-h-screen pt-24 pb-16 px-4" style={{ background: '#f8f9fc' }}>
+        <div className="min-h-screen pt-24 pb-16 px-4" style={{ background: '#04091a' }}>
             <div className="max-w-6xl mx-auto">
 
                 {/* 헤더 */}
@@ -75,8 +75,8 @@ export default function CounselorPage() {
                             <Heart className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black" style={{ color: '#0f172a' }}>EAP 상담사 포털</h1>
-                            <p className="text-sm font-medium" style={{ color: '#334155' }}>
+                            <h1 className="text-2xl font-black" style={{ color: '#f0f4ff' }}>EAP 상담사 포털</h1>
+                            <p className="text-sm font-medium" style={{ color: 'rgba(240,244,255,0.5)' }}>
                                 IBS 법률사무소 · Employee Assistance Program
                             </p>
                         </div>
@@ -90,14 +90,14 @@ export default function CounselorPage() {
                             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.07 }}
                             className="rounded-2xl p-5"
-                            style={{ background: '#ffffff', border: '1px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
                             <div className="flex items-start justify-between mb-3">
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: k.bg }}>
                                     <k.icon className="w-5 h-5" style={{ color: k.color }} />
                                 </div>
                             </div>
-                            <div className="text-3xl font-black mb-1" style={{ color: '#0f172a' }}>{k.value}</div>
-                            <div className="text-xs font-semibold" style={{ color: '#475569' }}>{k.label}</div>
+                            <div className="text-3xl font-black mb-1" style={{ color: '#f0f4ff' }}>{k.value}</div>
+                            <div className="text-xs font-semibold" style={{ color: 'rgba(240,244,255,0.5)' }}>{k.label}</div>
                         </motion.div>
                     ))}
                 </div>
@@ -111,9 +111,9 @@ export default function CounselorPage() {
                                 <button key={f} onClick={() => setFilter(f)}
                                     className="px-3 py-1.5 rounded-full text-xs font-bold transition-all"
                                     style={{
-                                        background: filter === f ? '#fffbeb' : '#ffffff',
-                                        color: filter === f ? '#b8960a' : '#475569',
-                                        border: `1px solid ${filter === f ? '#fde68a' : '#d1d5db'}`,
+                                        background: filter === f ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.04)',
+                                        color: filter === f ? '#c9a84c' : 'rgba(240,244,255,0.5)',
+                                        border: `1px solid ${filter === f ? 'rgba(201,168,76,0.4)' : 'rgba(255,255,255,0.08)'}`,
                                     }}>
                                     {f === 'all' ? `전체 ${COUNSELING_CASES.length}` :
                                         f === 'new' ? '신규' :
@@ -135,9 +135,9 @@ export default function CounselorPage() {
                                         onClick={() => setSelected(isSelected ? null : c.id)}
                                         className="rounded-2xl p-4 cursor-pointer transition-all"
                                         style={{
-                                            background: '#ffffff',
-                                            border: `1.5px solid ${isSelected ? '#c9a84c' : '#d1d5db'}`,
-                                            boxShadow: isSelected ? '0 4px 16px rgba(201,168,76,0.15)' : '0 1px 4px rgba(0,0,0,0.05)',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: `1.5px solid ${isSelected ? '#c9a84c' : 'rgba(255,255,255,0.08)'}`,
+                                            boxShadow: isSelected ? '0 4px 16px rgba(201,168,76,0.15)' : 'none',
                                         }}>
                                         <div className="flex items-start justify-between">
                                             <div className="flex items-start gap-3">
@@ -145,16 +145,16 @@ export default function CounselorPage() {
                                                 <div className="w-1 rounded-full self-stretch" style={{ background: rm.color, minHeight: 40 }} />
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <p className="font-black text-sm" style={{ color: '#0f172a' }}>{c.name}</p>
+                                                        <p className="font-black text-sm" style={{ color: '#f0f4ff' }}>{c.name}</p>
                                                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                                                             style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
                                                         <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold border"
                                                             style={{ background: rm.bg, color: rm.color, borderColor: rm.border }}>{rm.label}</span>
                                                     </div>
-                                                    <p className="text-xs font-semibold mb-1" style={{ color: '#374151' }}>
+                                                    <p className="text-xs font-semibold mb-1" style={{ color: 'rgba(240,244,255,0.6)' }}>
                                                         {c.company} · {c.type} · {c.session}회기
                                                     </p>
-                                                    <p className="text-xs" style={{ color: '#4b5563' }}>{c.lastNote}</p>
+                                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.45)' }}>{c.lastNote}</p>
                                                 </div>
                                             </div>
                                             <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -178,21 +178,21 @@ export default function CounselorPage() {
                     <div className="space-y-4">
                         {/* 이번 주 일정 */}
                         <div className="rounded-2xl p-5"
-                            style={{ background: '#ffffff', border: '1px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                            <h3 className="font-black text-sm mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'none' }}>
+                            <h3 className="font-black text-sm mb-4 flex items-center gap-2" style={{ color: '#f0f4ff' }}>
                                 <Calendar className="w-4 h-4" style={{ color: '#b8960a' }} /> 이번 주 상담 일정
                             </h3>
                             <div className="space-y-3">
                                 {COUNSELING_CASES.filter(c => c.nextDate).map(c => (
                                     <div key={c.id} className="flex items-center gap-3 py-2"
-                                        style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black"
                                             style={{ background: '#fffbeb', color: '#b8960a' }}>
                                             {c.session}회
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-xs font-bold" style={{ color: '#1e293b' }}>{c.name}</p>
-                                            <p className="text-[10px] font-semibold" style={{ color: '#4b5563' }}>{c.type}</p>
+                                            <p className="text-xs font-bold" style={{ color: '#f0f4ff' }}>{c.name}</p>
+                                            <p className="text-[10px] font-semibold" style={{ color: 'rgba(240,244,255,0.5)' }}>{c.type}</p>
                                         </div>
                                         <p className="text-[10px] font-semibold" style={{ color: '#2563eb' }}>
                                             {c.nextDate ? new Date(c.nextDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '—'}
@@ -207,8 +207,8 @@ export default function CounselorPage() {
                             <motion.div key={selectedCase.id}
                                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                                 className="rounded-2xl p-5"
-                                style={{ background: '#ffffff', border: '1.5px solid #c9a84c', boxShadow: '0 4px 16px rgba(201,168,76,0.12)' }}>
-                                <h3 className="font-black text-sm mb-4 flex items-center gap-2" style={{ color: '#0f172a' }}>
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1.5px solid #c9a84c', boxShadow: '0 4px 16px rgba(201,168,76,0.12)' }}>
+                                <h3 className="font-black text-sm mb-4 flex items-center gap-2" style={{ color: '#f0f4ff' }}>
                                     <FileText className="w-4 h-4" style={{ color: '#b8960a' }} /> 내담자 상세
                                 </h3>
                                 <div className="space-y-2 text-xs">
@@ -220,21 +220,21 @@ export default function CounselorPage() {
                                         { label: '다음 일정', value: selectedCase.nextDate ?? '미정' },
                                     ].map(row => (
                                         <div key={row.label} className="flex justify-between py-1.5"
-                                            style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <span className="font-semibold" style={{ color: '#374151' }}>{row.label}</span>
-                                            <span className="font-bold" style={{ color: '#1e293b' }}>{row.value}</span>
+                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <span className="font-semibold" style={{ color: 'rgba(240,244,255,0.5)' }}>{row.label}</span>
+                                            <span className="font-bold" style={{ color: '#f0f4ff' }}>{row.value}</span>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-4 p-3 rounded-xl" style={{ background: '#f8f9fc', border: '1px solid #e5e7eb' }}>
-                                    <p className="text-xs font-bold mb-1" style={{ color: '#475569' }}>📝 최근 메모</p>
-                                    <p className="text-xs leading-relaxed" style={{ color: '#1e293b' }}>{selectedCase.lastNote}</p>
+                                <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <p className="text-xs font-bold mb-1" style={{ color: 'rgba(240,244,255,0.5)' }}>📝 최근 메모</p>
+                                    <p className="text-xs leading-relaxed" style={{ color: '#f0f4ff' }}>{selectedCase.lastNote}</p>
                                 </div>
                             </motion.div>
                         ) : (
-                            <div className="rounded-2xl p-8 text-center" style={{ background: '#ffffff', border: '1px solid #d1d5db' }}>
+                            <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                                 <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-30" style={{ color: '#94a3b8' }} />
-                                <p className="text-sm font-medium" style={{ color: '#6b7280' }}>사례를 클릭하면 상세 정보가 표시됩니다</p>
+                                <p className="text-sm font-medium" style={{ color: 'rgba(240,244,255,0.4)' }}>사례를 클릭하면 상세 정보가 표시됩니다</p>
                             </div>
                         )}
                     </div>

@@ -1,10 +1,11 @@
-// src/lib/auth.ts — 인증 시스템 (localStorage 기반 Mock)
-// ⚠️ Phase 3 전환 시: Supabase Auth + JWT로 교체 예정
-// 계정 정보 단일 소스: 이 파일이 SSOT (AuthContext.tsx의 MOCK_USERS 참조 금지)
+// src/lib/auth.ts — 인증 시스템 (Supabase Auth 기반)
+// Phase 3: Mock 제거 완료 → Supabase Auth + JWT
 
 import { NextRequest } from 'next/server';
 import { RoleType } from './mockStore';
+import { getBrowserSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
 
+// ── AuthUser 인터페이스 (SSOT) ─────────────────────────────────
 export interface AuthUser {
     id: string;
     name: string;
@@ -12,19 +13,15 @@ export interface AuthUser {
     role: RoleType;
     companyId?: string;
     companyName?: string;
-    avatar?: string;       // 프로필 이미지 URL
-    // ⚠️ passwordHash: Phase 3에서 Supabase Auth 전환 후 완전 제거
-    // 현재: 평문 저장 임시 방편 — 절대 프로덕션 배포 금지
-    passwordHash?: string;
+    avatar?: string;
     loginAt: string;
 }
 
+export const AUTH_KEY = 'ibs_auth_v1';      // 하위 호환: localStorage 이벤트 감지용 키
+export const SIGNUP_KEY = 'ibs_users_v1';    // 더 이상 사용 안 함 (레거시 정리용 상수)
+export const PENDING_KEY = 'ibs_pending_v1'; // 소속 승인 대기 (localStorage 유지)
 
-export const AUTH_KEY = 'ibs_auth_v1';
-export const SIGNUP_KEY = 'ibs_users_v1';      // 가입한 일반사용자
-export const PENDING_KEY = 'ibs_pending_v1';   // 소속 승인 대기
-
-// ── 초대코드 테이블 ────────────────────────────────────────────
+// ── 초대코드 테이블 ────────────────────────────────────────────────
 // 내부 직원용: 코드 입력 시 자동 역할 배정, 승인 불필요
 // 고객사용: 기존과 동일
 export const INVITE_CODES: Record<string, { companyId: string; companyName: string; role: RoleType; expires: string; isInternal?: boolean }> = {
@@ -57,7 +54,7 @@ const FRANCHISE_BIZ_DB: Record<string, { companyId: string; companyName: string;
     '9999002001': { companyId: 'c2', companyName: '교촌 서초점', type: '가맹점' },
 };
 
-// ── 소속신청 인터페이스 ────────────────────────────────────────
+// ── 소속신청 인터페이스 ─────────────────────────────────────────
 export interface PendingMember {
     id: string;
     name: string;
@@ -70,96 +67,43 @@ export interface PendingMember {
     status: 'pending' | 'approved' | 'rejected';
 }
 
-// ── 역할별 Mock 계정 (단일 소스 — SSOT) ──────────────────────────
-// ⚠️ Phase 3: Supabase Auth 전환 후 이 블록 전체 제거
-// 계정 기준: documents/acount.txt
-// AuthContext.tsx에 별도 MOCK_USERS 정의 금지 — 반드시 이 파일만 사용
-export const MOCK_ACCOUNTS: Array<{
-    email: string;
-    password: string; // TODO(Phase 3): bcrypt hash로 교체
-    user: AuthUser;
-}> = [
-        // 내부 직원 계정 (ibslaw.kr 도메인 통일)
-        {
-            email: 'admin@ibslaw.kr',
-            password: 'admin123',
-            user: { id: 'u1', name: '관리자', email: 'admin@ibslaw.kr', role: 'super_admin', loginAt: '' },
-        },
-        {
-            email: 'sales@ibslaw.kr',
-            password: 'sales123',
-            user: { id: 'u2', name: '이민준', email: 'sales@ibslaw.kr', role: 'sales', loginAt: '' },
-        },
-        {
-            email: 'lawyer1@ibslaw.kr',
-            password: 'lawyer123',
-            user: { id: 'u3', name: '김수현 변호사', email: 'lawyer1@ibslaw.kr', role: 'lawyer', loginAt: '' },
-        },
-        {
-            email: 'lawyer2@ibslaw.kr',
-            password: 'lawyer123',
-            user: { id: 'u4', name: '이지원 변호사', email: 'lawyer2@ibslaw.kr', role: 'lawyer', loginAt: '' },
-        },
-        {
-            email: 'lit@ibslaw.kr',
-            password: 'lit123',
-            user: { id: 'u5', name: '박민준', email: 'lit@ibslaw.kr', role: 'litigation', loginAt: '' },
-        },
-        {
-            email: 'hr@ibslaw.kr',
-            password: 'hr123',
-            user: { id: 'u6', name: 'HR 담당', email: 'hr@ibslaw.kr', role: 'hr', loginAt: '' },
-        },
-        {
-            email: 'counselor@ibslaw.kr',
-            password: 'counsel123',
-            user: { id: 'u7', name: '이상담 상담사', email: 'counselor@ibslaw.kr', role: 'counselor' as RoleType, loginAt: '' },
-        },
-        // 고객사 HR 담당자
-        {
-            email: 'hr@client.com',
-            password: 'hr1234',
-            user: { id: 'u8', name: '박HR담당', email: 'hr@client.com', role: 'client_hr' as RoleType, companyId: 'c1', companyName: '(주)놀부NBG', loginAt: '' },
-        },
-    ];
-
-// ── API 라우트용 서버사이드 세션 검증 ──────────────────────────
-// middleware.ts의 쿠키 기반 인증을 API 라우트 내부에서 이중 검증하는 헬퍼
-// ⚠️ Phase 3: JWT 서명 검증으로 교체 (현재는 쿠키 존재 여부만 확인)
-export function requireSessionFromCookie(req: NextRequest): { ok: true; role: string } | { ok: false; status: number; error: string } {
-    const sessionCookie = req.cookies.get('ibs_session') || req.cookies.get('ibs_auth');
-    if (!sessionCookie?.value) {
-        return { ok: false, status: 401, error: '로그인이 필요합니다.' };
-    }
-    const roleCookie = req.cookies.get('ibs_role');
-    if (!roleCookie?.value) {
-        return { ok: false, status: 401, error: '역할 정보가 없습니다. 다시 로그인하세요.' };
-    }
-    return { ok: true, role: roleCookie.value };
-}
-
-// 역할이 허용 목록에 포함되는지 검증
-export function assertRole(role: string, allowed: RoleType[]): boolean {
-    return allowed.includes(role as RoleType);
-}
-
-// 역할별 로그인 후 이동 경로
+// ── 역할별 리다이렉트 경로 ────────────────────────────────────
 export const ROLE_HOME: Record<RoleType, string> = {
     super_admin: '/employee',
     admin: '/employee',
-    sales: '/employee',             // 영업팀 → 통합 CRM
-    lawyer: '/lawyer',              // 변호사 → 검토 대기 대시보드
+    sales: '/employee',
+    lawyer: '/lawyer',
     litigation: '/litigation',
-    general: '/general',
-    hr: '/hr',
-    finance: '/employee',
+    general: '/admin',
+    hr: '/admin',
+    finance: '/admin',
     counselor: '/counselor',
-    client_hr: '/dashboard',     // 고객사 HR → 클라이언트 포털 허브
+    client_hr: '/dashboard',
 };
 
-// ── 세션 CRUD ──────────────────────────────────────────────────
+// ── Supabase User → AuthUser 매핑 헬퍼 ─────────────────────────
+import type { User } from '@supabase/supabase-js';
+
+export function supabaseUserToAuthUser(user: User): AuthUser {
+    const meta = user.user_metadata ?? {};
+    return {
+        id: user.id,
+        name: meta.name ?? meta.full_name ?? (user.email?.split('@')[0] ?? 'Unknown'),
+        email: user.email ?? '',
+        role: (meta.role as RoleType) ?? 'client_hr',
+        companyId: meta.companyId ?? meta.company_id,
+        companyName: meta.companyName ?? meta.company_name,
+        avatar: meta.avatar_url,
+        loginAt: new Date().toISOString(),
+    };
+}
+
+// ── 세션 읽기 (CSR 전용) ──────────────────────────────────────
+// Supabase Auth에서 세션을 읽어 AuthUser로 변환
+// SSR에서는 null 반환 (서버는 cookies() 기반 별도 처리)
 export function getSession(): AuthUser | null {
     if (typeof window === 'undefined') return null;
+    // 동기 호환성을 위해 localStorage 캐시 사용 (AuthContext가 관리)
     try {
         const raw = localStorage.getItem(AUTH_KEY);
         if (!raw) return null;
@@ -169,28 +113,228 @@ export function getSession(): AuthUser | null {
     }
 }
 
-export function setSession(user: AuthUser): void {
+// AuthContext 내부에서만 사용 — 직접 호출 금지
+export function _setSessionCache(user: AuthUser | null): void {
     if (typeof window === 'undefined') return;
-    const u = { ...user, loginAt: new Date().toISOString() };
-    localStorage.setItem(AUTH_KEY, JSON.stringify(u));
+    if (user) {
+        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    } else {
+        localStorage.removeItem(AUTH_KEY);
+    }
 }
 
-export function clearSession(): void {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem(AUTH_KEY);
-}
-
-// ── 이메일 로그인 ─────────────────────────────────────────────
-// @deprecated loginWithEmailFull 사용 권장 (가입 사용자 포함 검색)
-export function loginWithEmail(
+// ── 이메일 로그인 → Supabase signInWithPassword ───────────────
+export async function loginWithEmail(
     email: string,
     password: string
-): { success: true; user: AuthUser } | { success: false; error: string } {
+): Promise<{ success: true; user: AuthUser } | { success: false; error: string }> {
     return loginWithEmailFull(email, password);
 }
 
-// ── 사업자번호 로그인 (고객사) ────────────────────────────────
-// 실제 배포 시: Supabase 회원 테이블의 해시화된 비밀번호로 교체
+export async function loginWithEmailFull(
+    email: string,
+    password: string
+): Promise<{ success: true; user: AuthUser } | { success: false; error: string }> {
+    // Supabase 미설정 시 fallback (개발 환경)
+    if (!IS_SUPABASE_CONFIGURED) {
+        if (process.env.NODE_ENV === 'development' && email.endsWith('@ibslaw.kr')) {
+            const prefix = email.split('@')[0];
+            const roleMap: Record<string, RoleType> = {
+                'admin': 'super_admin',
+                'lawyer1': 'lawyer',
+                'sales': 'sales',
+                'counselor': 'counselor',
+                'lit': 'litigation'
+            };
+            const role = roleMap[prefix] || 'sales';
+            const user: AuthUser = {
+                id: `dev_${prefix}`,
+                name: 'Test ' + prefix.toUpperCase(),
+                email,
+                role,
+                companyId: 'ibs',
+                companyName: 'IBS 법률사무소',
+                loginAt: new Date().toISOString(),
+            };
+            _setSessionCache(user);
+            return { success: true, user };
+        }
+        return { success: false, error: 'Supabase가 설정되지 않았습니다. .env.local을 확인하세요.' };
+    }
+
+    const sb = getBrowserSupabase();
+    if (!sb) return { success: false, error: 'Supabase 클라이언트를 초기화할 수 없습니다.' };
+
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+        // [DEV MODE] If it's a test user, auto signup
+        if (process.env.NODE_ENV === 'development' && email.endsWith('@ibslaw.kr')) {
+            const prefix = email.split('@')[0];
+            const roleMap: Record<string, RoleType> = {
+                'admin': 'super_admin',
+                'lawyer1': 'lawyer',
+                'sales': 'sales',
+                'counselor': 'counselor',
+                'lit': 'litigation'
+            };
+            const role = roleMap[prefix] || 'sales';
+            
+            const { data: signUpData } = await sb.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { name: 'Test ' + prefix.toUpperCase(), role, companyId: 'ibs', companyName: 'IBS 법률사무소' },
+                },
+            });
+            
+            if (signUpData?.user) {
+                const user = supabaseUserToAuthUser(signUpData.user);
+                _setSessionCache(user);
+                return { success: true, user };
+            }
+        }
+        return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
+    }
+
+    const user = supabaseUserToAuthUser(data.user);
+    _setSessionCache(user);
+    return { success: true, user };
+}
+
+// ── 회원가입 → Supabase signUp ────────────────────────────────
+export async function signUp(
+    name: string,
+    email: string,
+    password: string,
+    inviteCode?: string
+): Promise<{ success: true; user: AuthUser } | { success: false; error: string }> {
+    if (password.length < 6) {
+        return { success: false, error: '비밀번호는 6자 이상이어야 합니다.' };
+    }
+
+    if (!IS_SUPABASE_CONFIGURED) {
+        return { success: false, error: 'Supabase가 설정되지 않았습니다.' };
+    }
+
+    const sb = getBrowserSupabase();
+    if (!sb) return { success: false, error: 'Supabase 클라이언트를 초기화할 수 없습니다.' };
+
+    // 초대코드가 있으면 역할 자동 배정
+    let role: RoleType = 'client_hr';
+    let companyId: string | undefined;
+    let companyName: string | undefined;
+
+    if (inviteCode) {
+        const codeResult = verifyInviteCode(inviteCode);
+        if (!codeResult.valid) {
+            return { success: false, error: codeResult.error };
+        }
+        role = codeResult.role;
+        companyId = codeResult.companyId;
+        companyName = codeResult.companyName;
+    }
+
+    const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: {
+            data: { name, role, companyId, companyName },
+        },
+    });
+
+    if (error) {
+        if (error.message.includes('User already registered')) {
+            return { success: false, error: '이미 가입된 이메일입니다.' };
+        }
+        return { success: false, error: error.message };
+    }
+
+    if (!data.user) return { success: false, error: '회원가입에 실패했습니다.' };
+
+    const user = supabaseUserToAuthUser(data.user);
+    _setSessionCache(user);
+    return { success: true, user };
+}
+
+// ── 고객 포털 전용 가입 (사업자번호 인증) ──────────────────────
+export async function signUpClientPortal(args: {
+    bizNum: string;
+    email: string;
+    password: string;
+    name: string;
+    agreedTerms: boolean;
+    agreedPrivacy: boolean;
+}): Promise<{ success: true; user: AuthUser; companyName: string } | { success: false; error: string }> {
+    if (!args.agreedTerms || !args.agreedPrivacy) {
+        return { success: false, error: '필수 약관에 동의해주세요.' };
+    }
+    if (args.password.length < 6) {
+        return { success: false, error: '비밀번호는 6자 이상이어야 합니다.' };
+    }
+
+    // 사업자번호로 CRM 회사 조회
+    const digits = args.bizNum.replace(/\D/g, '');
+    const bizEntry = (FRANCHISE_BIZ_DB as Record<string, { companyId: string; companyName: string; type: string }>)[digits];
+    const CRM_BIZ_MAP: Record<string, { companyId: string; companyName: string }> = {
+        '8901234567': { companyId: 'c8',  companyName: '(주)이디야커피' },
+        '9012345678': { companyId: 'c9',  companyName: '(주)메가MGC커피' },
+        '0123456789': { companyId: 'c10', companyName: '(주)써브웨이코리아' },
+        '1234567890': { companyId: 'c1',  companyName: '(주)놀부NBG' },
+        '2345678901': { companyId: 'c2',  companyName: '(주)교촌에프앤비' },
+        '3456789012': { companyId: 'c3',  companyName: '(주)파리바게뜨' },
+        '4567890123': { companyId: 'c4',  companyName: '(주)bhc치킨' },
+        '5678901234': { companyId: 'c5',  companyName: '(주)본죽' },
+    };
+    const match = bizEntry
+        ? { companyId: bizEntry.companyId, companyName: bizEntry.companyName }
+        : CRM_BIZ_MAP[digits];
+    if (!match) {
+        return { success: false, error: '등록되지 않은 사업자번호입니다. IBS 영업팀에 문의해주세요.' };
+    }
+
+    if (!IS_SUPABASE_CONFIGURED) {
+        return { success: false, error: 'Supabase가 설정되지 않았습니다.' };
+    }
+    const sb = getBrowserSupabase();
+    if (!sb) return { success: false, error: 'Supabase 클라이언트를 초기화할 수 없습니다.' };
+
+    const { data, error } = await sb.auth.signUp({
+        email: args.email,
+        password: args.password,
+        options: {
+            data: {
+                name: args.name,
+                role: 'client_hr' as RoleType,
+                companyId: match.companyId,
+                companyName: match.companyName,
+            },
+        },
+    });
+
+    if (error) {
+        if (error.message.includes('User already registered')) {
+            return { success: false, error: '이미 가입된 이메일입니다.' };
+        }
+        return { success: false, error: error.message };
+    }
+
+    if (!data.user) return { success: false, error: '회원가입에 실패했습니다.' };
+
+    const user = supabaseUserToAuthUser(data.user);
+    _setSessionCache(user);
+    return { success: true, user, companyName: match.companyName };
+}
+
+// ── 로그아웃 → Supabase signOut ──────────────────────────────
+export async function clearSession(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    _setSessionCache(null);
+    const sb = getBrowserSupabase();
+    if (sb) await sb.auth.signOut();
+}
+
+// ── 사업자번호 로그인 (고객사 — Mock 유지) ────────────────────
+// 사업자번호 기반 로그인은 Supabase 계정 없이 동작하는 별도 플로우
 const MOCK_BIZ_ACCOUNTS: Record<string, { name: string; ceo: string; password: string }> = {
     '1234567890': { name: '(주)놀부NBG', ceo: '김정래', password: '1234' },
     '2345678901': { name: '(주)교촌에프앤비', ceo: '권원강', password: '1234' },
@@ -208,7 +352,6 @@ export function loginWithBiz(
     if (!biz) {
         return { success: false, error: '등록되지 않은 사업자번호입니다.' };
     }
-    // 비밀번호 검증: 등록된 비밀번호와 정확히 일치해야 함
     if (biz.password !== password) {
         return { success: false, error: '비밀번호가 올바르지 않습니다.' };
     }
@@ -221,7 +364,7 @@ export function loginWithBiz(
         companyName: biz.name,
         loginAt: new Date().toISOString(),
     };
-    setSession(user);
+    _setSessionCache(user);
     return { success: true, user };
 }
 
@@ -236,87 +379,51 @@ export function isInternalUser(user: AuthUser | null): boolean {
     return ['super_admin', 'admin', 'sales', 'lawyer', 'litigation', 'hr', 'finance'].includes(user.role);
 }
 
-// ── 가입한 일반 사용자 CRUD ──────────────────────────────────
-function loadUsers(): AuthUser[] {
-    if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem(SIGNUP_KEY) || '[]'); } catch { return []; }
-}
-function saveUsers(users: AuthUser[]) {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(SIGNUP_KEY, JSON.stringify(users));
-}
+// ── API 라우트용 서버사이드 세션 검증 ─────────────────────────
+// @supabase/ssr의 createServerClient + JWT 검증
+// ⚠️ Next.js API Route (Edge 아님, Node.js runtime)에서만 사용
+import { createServerClient } from '@supabase/ssr';
 
-// ── 회원가입 ─────────────────────────────────────────────────
-// ⚠️ Phase 3 필수: bcryptjs로 해싱 후 저장. 현재는 mock 전용 평문 저장.
-export function signUp(
-    name: string,
-    email: string,
-    password: string,
-    inviteCode?: string
-): { success: true; user: AuthUser } | { success: false; error: string } {
-    // 최소 비밀번호 길이 검증
-    if (password.length < 6) {
-        return { success: false, error: '비밀번호는 6자 이상이어야 합니다.' };
-    }
-    const all = loadUsers();
-    if (all.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-        return { success: false, error: '이미 가입된 이메일입니다.' };
-    }
-    // MOCK_ACCOUNTS 중복 체크
-    if (MOCK_ACCOUNTS.find(a => a.email.toLowerCase() === email.toLowerCase())) {
-        return { success: false, error: '이미 등록된 이메일입니다.' };
-    }
-
-    // 초대코드가 있으면 역할 자동 배정
-    let role: RoleType = 'client_hr';
-    let companyId: string | undefined;
-    let companyName: string | undefined;
-
-    if (inviteCode) {
-        const codeResult = verifyInviteCode(inviteCode);
-        if (!codeResult.valid) {
-            return { success: false, error: codeResult.error };
+export async function requireSessionFromCookie(req: NextRequest): Promise<
+    { ok: true; role: string; userId: string } | { ok: false; status: number; error: string }
+> {
+    if (!IS_SUPABASE_CONFIGURED) {
+        // Supabase 미설정 시 — 레거시 쿠키로 폴백 (개발용)
+        const sessionCookie = req.cookies.get('ibs_session') || req.cookies.get('ibs_auth');
+        if (!sessionCookie?.value) {
+            return { ok: false, status: 401, error: '로그인이 필요합니다.' };
         }
-        role = codeResult.role;
-        companyId = codeResult.companyId;
-        companyName = codeResult.companyName;
+        const roleCookie = req.cookies.get('ibs_role');
+        return { ok: true, role: roleCookie?.value ?? 'sales', userId: 'mock' };
     }
 
-    const user: AuthUser = {
-        id: typeof crypto !== 'undefined' && crypto.randomUUID
-            ? `u_${crypto.randomUUID()}`
-            : `u_${Date.now()}`,
-        name,
-        email,
-        role,
-        companyId,
-        companyName,
-        loginAt: new Date().toISOString(),
-    };
-    // TODO(Phase 3): passwordHash = await bcrypt.hash(password, 12); — 평문 저장 제거
-    saveUsers([...all, { ...user, passwordHash: password }]);
-    setSession(user);
-    return { success: true, user };
+    const sb = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return req.cookies.getAll();
+                },
+                setAll() {
+                    // API Route에서는 응답 쿠키 설정 불필요
+                },
+            },
+        }
+    );
+
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error || !session) {
+        return { ok: false, status: 401, error: '로그인이 필요합니다.' };
+    }
+
+    const role = (session.user.user_metadata?.role as string) ?? 'client_hr';
+    return { ok: true, role, userId: session.user.id };
 }
 
-// ── 이메일 로그인 (가입 사용자 포함) ─────────────────────────
-export function loginWithEmailFull(email: string, password: string): { success: true; user: AuthUser } | { success: false; error: string } {
-    // 1) 내부 직원 계정 먼저 체크
-    const account = MOCK_ACCOUNTS.find(a => a.email.toLowerCase() === email.toLowerCase() && a.password === password);
-    if (account) {
-        const user = { ...account.user, loginAt: new Date().toISOString() };
-        setSession(user);
-        return { success: true, user };
-    }
-    // 2) 일반 가입 계정 체크
-    const users = loadUsers();
-    const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && (u as AuthUser & { passwordHash?: string }).passwordHash === password);
-    if (found) {
-        const user = { ...found, loginAt: new Date().toISOString() };
-        setSession(user);
-        return { success: true, user };
-    }
-    return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
+// 역할이 허용 목록에 포함되는지 검증
+export function assertRole(role: string, allowed: RoleType[]): boolean {
+    return allowed.includes(role as RoleType);
 }
 
 // ── 초대코드 검증 ─────────────────────────────────────────────
@@ -335,7 +442,7 @@ export function lookupBizAffiliation(bizNum: string): { found: true; companyId: 
     return { found: true, companyId: entry.companyId, companyName: entry.companyName, storeType: entry.type };
 }
 
-// ── 소속신청 (HR 승인 대기) ───────────────────────────────────
+// ── 소속신청 (HR 승인 대기) — localStorage 유지 ──────────────
 function loadPending(): PendingMember[] {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
@@ -371,15 +478,6 @@ export function approvePending(pendingId: string): boolean {
     const idx = list.findIndex(p => p.id === pendingId);
     if (idx === -1) return false;
     list[idx].status = 'approved';
-    // 승인 시 세션 사용자를 해당 회사 소속으로 업데이트
-    const pending = list[idx];
-    const users = loadUsers();
-    const uIdx = users.findIndex(u => u.email === pending.email);
-    if (uIdx !== -1) {
-        users[uIdx].companyId = pending.companyId;
-        users[uIdx].companyName = pending.companyName;
-        saveUsers(users);
-    }
     savePending(list);
     return true;
 }
@@ -393,14 +491,23 @@ export function rejectPending(pendingId: string): boolean {
     return true;
 }
 
-// 초대코드/사업자번호 인증 후 세션 소속 업데이트
-export function updateSessionAffiliation(companyId: string, companyName: string) {
-    const session = getSession();
-    if (!session) return;
-    const updated = { ...session, companyId, companyName };
-    setSession(updated);
-    // 가입 DB도 업데이트
-    const users = loadUsers();
-    const idx = users.findIndex(u => u.email === session.email);
-    if (idx !== -1) { users[idx].companyId = companyId; users[idx].companyName = companyName; saveUsers(users); }
+// 초대코드/사업자번호 인증 후 Supabase user_metadata 업데이트
+export async function updateSessionAffiliation(companyId: string, companyName: string) {
+    const sb = getBrowserSupabase();
+    if (sb) {
+        await sb.auth.updateUser({
+            data: { companyId, companyName },
+        });
+    }
+    // 로컬 캐시도 업데이트
+    const cached = getSession();
+    if (cached) {
+        _setSessionCache({ ...cached, companyId, companyName });
+    }
+}
+
+// ── 레거시 호환 alias (동기 → async 래퍼) ────────────────────
+// 기존 코드가 동기로 호출하는 곳이 있을 경우를 위해
+export function setSession(user: AuthUser): void {
+    _setSessionCache(user);
 }

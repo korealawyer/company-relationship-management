@@ -4,7 +4,7 @@
 export type LeadStatus =
     | 'pending'           // 미분석
     | 'analyzed'          // AI 분석 완료
-    | 'sales_confirmed'   // 영업팀 컨펌 → 변호사 큐
+    | 'assigned'          // 변호사 자동 배정
     | 'lawyer_confirmed'  // 변호사 컨펌 완료
     | 'emailed'           // 이메일 발송 완료
     | 'in_contact'        // 연락 중
@@ -46,6 +46,7 @@ export interface Lead {
     companyName: string;
     domain: string;
     privacyUrl: string;
+    biz?: string;          // 사업자등록번호 (→ client-portal 맞춤 URL 파라미터)
     // 레거시 단일 담당자 (호환성 유지)
     contactName: string;
     contactEmail: string;
@@ -115,12 +116,12 @@ const INITIAL_LEADS: Lead[] = [
         privacyUrl: 'https://bbq.co.kr/privacy',
         contactName: '최법무', contactEmail: 'legal@bbq.co.kr', contactPhone: '02-3456-7890',
         contacts: [{ id: 'c3', name: '최법무', role: '법무 담당', department: '법무팀', phone: '02-3456-7890', email: 'legal@bbq.co.kr', isPrimary: true }],
-        storeCount: 1800, bizType: '외식(치킨)', riskScore: 82, riskLevel: 'HIGH', issueCount: 5, status: 'sales_confirmed',
+        storeCount: 1800, bizType: '외식(치킨)', riskScore: 82, riskLevel: 'HIGH', issueCount: 5, status: 'assigned',
         memos: [],
         timeline: makeTimeline([
             { createdAt: '2026-03-01T08:00:00Z', author: '시스템', type: 'status_change', content: '리드 생성', toStatus: 'pending' },
             { createdAt: '2026-03-01T09:30:00Z', author: '시스템', type: 'status_change', content: 'AI 분석 완료', fromStatus: 'pending', toStatus: 'analyzed' },
-            { createdAt: '2026-03-01T11:00:00Z', author: '이민준', type: 'status_change', content: '영업 컨펌', fromStatus: 'analyzed', toStatus: 'sales_confirmed' },
+            { createdAt: '2026-03-01T11:00:00Z', author: '이민준', type: 'status_change', content: '변호사 배정', fromStatus: 'analyzed', toStatus: 'assigned' },
         ]),
         createdAt: '2026-03-01T08:00:00Z', updatedAt: '2026-03-01T11:00:00Z', source: 'excel'
     },
@@ -269,9 +270,12 @@ export const leadStore = {
     },
 };
 
-// 구독료 계산 (가맹점수 기준)
+// 구독료 계산 (가맹점수 기반 산정식 v3.0)
+import { calcPrice, getRange } from './pricing';
 export function calcSubscription(storeCount: number) {
-    if (storeCount <= 50) return { plan: 'Starter', monthly: 490000, annual: 4900000 };
-    if (storeCount <= 200) return { plan: 'Pro', monthly: 990000, annual: 9900000 };
-    return { plan: 'Premium', monthly: 1990000, annual: 19900000 };
+    const monthly = calcPrice(storeCount);
+    const annual = monthly * 12;
+    const rangeId = getRange(storeCount);
+    const rangeLabel: Record<string, string> = { entry: 'Entry', growth: 'Growth', scale: 'Scale', enterprise: 'Enterprise' };
+    return { plan: rangeLabel[rangeId] || 'Entry', monthly, annual };
 }

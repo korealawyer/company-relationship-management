@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, User, LogOut, ChevronDown, Settings, HelpCircle } from 'lucide-react';
 import { getSession, clearSession, type AuthUser } from '@/lib/auth';
 import type { RoleType } from '@/lib/mockStore';
+import { useZeroTrust } from '@/components/ZeroTrustBriefingProvider';
 import { startAutomationEngine } from '@/lib/automationEngine';
 
 // ── 역할 레이블·색상 ──────────────────────────────────────
@@ -40,6 +41,8 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     sales: [
         { href: '/employee', label: 'CRM' },
         { href: '/sales/call', label: '전화 영업' },
+        { href: '/sales/voice-memo', label: '음성 메모' },
+        { href: '/sales/pricing-calculator', label: '견적 계산기' },
     ],
     // 변호사
     lawyer: [
@@ -51,20 +54,30 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     litigation: [
         { href: '/litigation', label: '송무 대시보드' },
     ],
-    // 관리자 / 슈퍼어드민
+    // 관리자 / 슈퍼어드민 — 전체 역할 관리
     admin: [
-        { href: '/employee', label: 'CRM' },
+        { href: '/admin', label: '관리자 홈' },
+        { href: '/employee', label: '영업 CRM' },
         { href: '/sales/call', label: '전화 영업' },
-        { href: '/admin/email-preview', label: '이메일 미리보기' },
+        { href: '/sales/voice-memo', label: '음성 메모' },
+        { href: '/sales/pricing-calculator', label: '견적 계산기' },
+        { href: '/lawyer', label: '변호사 포털' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
+        { href: '/counselor', label: 'EAP 상담' },
+        { href: '/dashboard', label: '고객 포털' },
     ],
     super_admin: [
-        { href: '/employee', label: 'CRM' },
+        { href: '/admin', label: '관리자 홈' },
+        { href: '/employee', label: '영업 CRM' },
         { href: '/sales/call', label: '전화 영업' },
-        { href: '/admin/email-preview', label: '이메일 미리보기' },
+        { href: '/sales/voice-memo', label: '음성 메모' },
+        { href: '/sales/pricing-calculator', label: '견적 계산기' },
+        { href: '/lawyer', label: '변호사 포털' },
         { href: '/lawyer/privacy-review', label: '조문 검토' },
         { href: '/litigation', label: '송무 대시보드' },
+        { href: '/counselor', label: 'EAP 상담' },
+        { href: '/dashboard', label: '고객 포털' },
     ],
     // EAP 상담사
     counselor: [
@@ -72,8 +85,8 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     ],
     // 프랜차이즈 본사 HR (client_hr)
     client_hr: [
-        { href: '/dashboard', label: '개인정보 진단' },
-        { href: '/my-documents', label: '문서함' },
+        { href: '/dashboard', label: '대시보드' },
+        { href: '/documents', label: '문서함' },
         { href: '/consultation-history', label: '상담 내역' },
         { href: '/contracts', label: '전자계약', comingSoon: true },
         { href: '/chat', label: '법률 상담', comingSoon: true },
@@ -223,6 +236,7 @@ export default function Navbar() {
     const [user, setUser] = useState<AuthUser | null>(null);
     const pathname = usePathname();
     const router = useRouter();
+    const { initiateLogout } = useZeroTrust();
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 20);
@@ -248,21 +262,30 @@ export default function Navbar() {
     }, []);
 
     const handleLogout = () => {
-        clearSession();
-        setUser(null);
-        router.replace('/');
+        initiateLogout(() => {
+            clearSession();
+            setUser(null);
+            router.replace('/');
+        });
     };
 
-    const links = getLinks(user?.role ?? null);
+    let links = getLinks(user?.role ?? null);
+
+    // 내부 영업/관리 도구 경로 진입 시 영업팀 상단 탭 노출
+    // 단, admin/super_admin은 자신의 전체 탭 목록을 그대로 유지
+    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+    if (!isAdmin && (pathname.startsWith('/sales/') || pathname.startsWith('/employee'))) {
+        links = LINKS_BY_ROLE.sales;
+    }
     const isInternal = user ? INTERNAL.includes(user.role) : false;
 
     return (
         <nav
             className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
             style={{
-                background: scrolled ? 'rgba(4,9,26,0.95)' : 'transparent',
-                backdropFilter: scrolled ? 'blur(20px)' : 'none',
-                borderBottom: scrolled ? '1px solid rgba(201,168,76,0.15)' : '1px solid transparent',
+                background: 'rgba(4,9,26,0.97)',
+                backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(201,168,76,0.15)',
             }}
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -270,7 +293,7 @@ export default function Navbar() {
 
                     {/* 로고 */}
                     <Link href={user ? (LINKS_BY_ROLE[user.role]?.[0]?.href ?? '/') : '/'} className="flex items-center group flex-shrink-0">
-                        <span className="font-black text-xl tracking-tight transition-all duration-300 group-hover:scale-105"
+                        <span className="font-black text-2xl tracking-tight transition-all duration-300 group-hover:scale-105"
                             style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                             IBS
                         </span>

@@ -17,6 +17,18 @@ function setCookie(name: string, value: string, days: number) {
     }
 }
 
+async function requestJwtCookie(session: any) {
+    try {
+        await fetch('/api/auth/jwt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: session.id, role: session.role, companyId: session.companyId }),
+        });
+    } catch (e) {
+        console.error('JWT 발급 실패', e);
+    }
+}
+
 type LoginMode = 'staff' | 'client';
 
 // 역할별 레이블
@@ -80,6 +92,7 @@ function LoginContent() {
             if (session) {
                 setCookie('ibs_session', session.id, 1);
                 setCookie('ibs_role', session.role, 1);
+                await requestJwtCookie(session);
                 const dest = from || ROLE_HOME[session.role] || '/';
                 setLoading(false);
                 router.replace(dest);
@@ -100,6 +113,7 @@ function LoginContent() {
             if (session) {
                 setCookie('ibs_session', session.id, 1);
                 setCookie('ibs_role', session.role, 1);
+                await requestJwtCookie(session);
                 setBizLoading(false);
                 router.replace(from || '/dashboard');
             }
@@ -195,6 +209,7 @@ function LoginContent() {
                                                                     if (session) {
                                                                         setCookie('ibs_session', session.id, 1);
                                                                         setCookie('ibs_role', session.role, 1);
+                                                                        await requestJwtCookie(session);
                                                                     }
                                                                     router.replace(h.dest);
                                                                 } else {
@@ -315,6 +330,7 @@ function LoginContent() {
                                                 if (session) {
                                                     setCookie('ibs_session', session.id, 1);
                                                     setCookie('ibs_role', session.role, 1);
+                                                    await requestJwtCookie(session);
                                                 }
                                                 router.replace('/client-portal');
                                             } else { setBizError(result.error); setBizLoading(false); }

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getSession } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -88,21 +88,6 @@ function ActionButton({
         </span>
     );
     if (s === 'analyzed') return (
-        <>
-            {confirmingId === c.id ? (
-                <div className="flex items-center gap-1.5">
-                    <select value={confirmRep} onChange={e => setConfirmRep(e.target.value)} style={selectStyle}>
-                        {SALES_REPS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <Button variant="premium" size="sm" onClick={() => run(c.id, () => { store.salesConfirm(c.id, confirmRep); setConfirmingId(null); })}>확인</Button>
-                    <button onClick={() => setConfirmingId(null)} className="text-xs font-bold" style={{ color: T.muted }}>✕</button>
-                </div>
-            ) : (
-                <Button variant="outline" size="sm" onClick={() => setConfirmingId(c.id)}>영업 컨펌</Button>
-            )}
-        </>
-    );
-    if (s === 'sales_confirmed') return (
         <>
             {assigningId === c.id ? (
                 <div className="flex items-center gap-1.5">
@@ -193,8 +178,12 @@ function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
     );
 }
 
+import { useRequireAuth } from '@/lib/AuthContext';
+
 // ── 메인 페이지 ────────────────────────────────────────────────
 export default function EmployeePage() {
+    const { loading: authLoading, authorized } = useRequireAuth(['super_admin', 'admin', 'sales']);
+
     // 역할 체크 — 관리자만 볼 수 있는 기능 구분
     const [role, setRole] = useState<string | null>(null);
     useEffect(() => {
@@ -202,6 +191,8 @@ export default function EmployeePage() {
         setRole(s?.role || null);
     }, []);
     const isAdmin = role === 'admin' || role === 'super_admin';
+
+    if (authLoading || !authorized) return null;
 
     const [companies, setCompanies] = useState<Company[]>([]);
     const [search, setSearch] = useState('');
@@ -254,7 +245,16 @@ export default function EmployeePage() {
         setAutoLogs([...store.getLogs()]);
         setAutoSettings(store.getAutoSettings());
     }, []);
-    useEffect(() => { refresh(); const id = setInterval(refresh, 2000); return () => clearInterval(id); }, [refresh]);
+    useEffect(() => { 
+        refresh(); 
+        const id = setInterval(refresh, 2000); 
+        const instantRefresh = () => refresh();
+        window.addEventListener('new-crm-lead', instantRefresh);
+        return () => {
+            clearInterval(id);
+            window.removeEventListener('new-crm-lead', instantRefresh);
+        };
+    }, [refresh]);
     const run = (key: string, fn: () => void) => {
         setLoading(key); setTimeout(() => { fn(); setLoading(null); refresh(); }, 600);
     };
@@ -362,15 +362,26 @@ export default function EmployeePage() {
     };
 
     return (
-        <div className="min-h-screen px-4 py-8 max-w-[1600px] mx-auto" style={{ background: T.bg }}>
+        <div className="min-h-screen px-3 sm:px-4 py-4 sm:py-8 max-w-[1600px] mx-auto" style={{ background: T.bg }}>
 
             {/* 헤더 */}
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-black" style={{ color: T.heading }}>{isAdmin ? '⚙️ 관리자 CRM' : '📊 영업팀 CRM'}</h1>
-                    <p className="text-sm mt-0.5" style={{ color: T.muted }}>총 {companies.length}개 기업 관리 중</p>
+            <div className="mb-4 sm:mb-6">
+                {/* 제목 행 */}
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <div>
+                        <h1 className="text-lg sm:text-2xl font-black" style={{ color: T.heading }}>{isAdmin ? '⚙️ 관리자 CRM' : '📊 영업팀 CRM'}</h1>
+                        <p className="text-xs sm:text-sm mt-0.5" style={{ color: T.muted }}>총 {companies.length}개 기업</p>
+                    </div>
+                    {/* 모바일: 기업 등록만 오른쪽에 */}
+                    <div className="sm:hidden">
+                        <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}>
+                            <Plus className="w-4 h-4" />
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex gap-2">
+
+                {/* 버튼 행 — flex-wrap으로 여러 줄 허용 */}
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {/* 뷰 모드 토글 */}
                     {(['table', 'phone', 'kanban'] as const).map(mode => {
                         const icons = { table: <Search className="w-3.5 h-3.5" />, phone: <Phone className="w-3.5 h-3.5" />, kanban: <LayoutGrid className="w-3.5 h-3.5" /> };
@@ -378,40 +389,42 @@ export default function EmployeePage() {
                         const active = viewMode === mode;
                         return (
                             <button key={mode} onClick={() => setViewMode(mode)}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                className="flex items-center gap-1 sm:gap-1.5 text-xs px-2.5 sm:px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{
                                     background: active ? '#eff6ff' : T.card,
                                     color: active ? '#2563eb' : T.sub,
                                     border: `1px solid ${active ? '#93c5fd' : T.border}`,
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                                 }}>
-                                {icons[mode]} {labels[mode]}
+                                {icons[mode]}
+                                <span className="hidden xs:inline sm:inline">{labels[mode]}</span>
                             </button>
                         );
                     })}
                     {/* 대시보드 토글 */}
                     <button onClick={() => setShowDashboard(p => !p)}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                        className="flex items-center gap-1 sm:gap-1.5 text-xs px-2.5 sm:px-3 py-1.5 rounded-lg font-bold transition-all"
                         style={{
                             background: showDashboard ? '#fffbeb' : T.card,
                             color: showDashboard ? '#b8960a' : T.sub,
                             border: `1px solid ${showDashboard ? '#fde68a' : T.border}`,
                             boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                         }}>
-                        <TrendingUp className="w-3.5 h-3.5" /> 성과
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">성과</span>
                     </button>
-                    {/* 관리자 전용 버튼들 */}
+                    {/* 관리자 전용 버튼들 — sm 이상에서 표시 */}
                     {isAdmin && (
                         <>
                             <button onClick={() => setShowAutoPanel(p => !p)}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{
                                     background: showAutoPanel ? '#f0fdf4' : T.card,
                                     color: showAutoPanel ? '#16a34a' : T.sub,
                                     border: `1px solid ${showAutoPanel ? '#86efac' : T.border}`,
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                                 }}>
-                                <Bot className="w-3.5 h-3.5" /> 자동화 설정
+                                <Bot className="w-3.5 h-3.5" /> 자동화
                                 {autoLogs.length > 0 && (
                                     <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-black" style={{ background: '#dcfce7', color: '#16a34a' }}>
                                         {autoLogs.length}
@@ -419,38 +432,42 @@ export default function EmployeePage() {
                                 )}
                             </button>
                             <button onClick={() => setShowInvitePanel(p => !p)}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{
                                     background: showInvitePanel ? '#fef3c7' : T.card,
                                     color: showInvitePanel ? '#92400e' : T.sub,
                                     border: `1px solid ${showInvitePanel ? '#fde68a' : T.border}`,
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                                 }}>
-                                <Ticket className="w-3.5 h-3.5" /> 직원 초대
+                                <Ticket className="w-3.5 h-3.5" /> 초대
                             </button>
                             <button onClick={() => { store.reset(); refresh(); }}
-                                className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                                className="hidden sm:block text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                                 style={{ background: T.card, color: T.muted, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                 초기화
                             </button>
                             <button onClick={handleExcelDownload}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                <Download className="w-3.5 h-3.5" /> Excel 다운로드
+                                <Download className="w-3.5 h-3.5" /> Excel
                             </button>
                             <button onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                <Upload className="w-3.5 h-3.5" /> Excel 업로드
+                                <Upload className="w-3.5 h-3.5" /> 업로드
                             </button>
                             <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelFile} />
                         </>
                     )}
-                    <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}>
-                        <Plus className="w-4 h-4 mr-1" /> 기업 등록
-                    </Button>
+                    {/* 기업 등록 — 데스크탑에서 */}
+                    <div className="hidden sm:block">
+                        <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}>
+                            <Plus className="w-4 h-4 mr-1" /> 기업 등록
+                        </Button>
+                    </div>
                 </div>
             </div>
+
 
             {/* AI 자동화 패널 (관리자 전용) */}
             {isAdmin && <AnimatePresence>
@@ -475,8 +492,6 @@ export default function EmployeePage() {
                                 <div className="p-5">
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                                         {([
-                                            { k: 'autoSalesConfirm', l: '영업 자동 컨펌', sub: '분석완료 → 즉시 컨펌', color: '#7c3aed', on: '✅ 영업팀 클릭 없이 자동 컨펌', off: '❌ 영업팀이 직접 컨펌 버튼 클릭' },
-                                            { k: 'autoAssignLawyer', l: '변호사 자동 배정', sub: '라운드로빈 자동', color: '#d97706', on: '✅ 다음 순서 변호사에게 자동 배정', off: '❌ 영업팀이 드롭다운으로 선택' },
                                             { k: 'autoGenerateDraft', l: '초안 자동 생성', sub: '법률 기준 수정문구', color: '#2563eb', on: '✅ 변호사 검토 전 초안 자동 생성', off: '❌ 변호사가 직접 초안 작성' },
                                             { k: 'autoSendEmail', l: '이메일 자동 발송', sub: '컨펌 즉시 발송', color: '#16a34a', on: '✅ 컨펌 즉시 자동 발송', off: '❌ 영업팀이 발송 버튼 클릭' },
                                         ] as { k: keyof AutoSettings; l: string; sub: string; color: string; on: string; off: string }[]).map(item => (
@@ -680,7 +695,7 @@ export default function EmployeePage() {
                     {/* 전화 모드 네비게이션 */}
                     {filtered.length > 0 ? (() => {
                         const c = filtered[phoneIdx % filtered.length] || filtered[0];
-                        const callableStatuses: CaseStatus[] = ['analyzed', 'sales_confirmed', 'lawyer_confirmed', 'emailed', 'client_replied', 'client_viewed'];
+                        const callableStatuses: CaseStatus[] = ['analyzed', 'lawyer_confirmed', 'emailed', 'client_replied', 'client_viewed'];
                         const defaultScript = `안녕하세요, ${c.contactName || c.name} 담당자님.\nIBS 법률사무소 영업팀 ${autoSettings.updatedBy || '담당자'}입니다.\n\n귀사 홈페이지의 개인정보처리방침을 AI로 분석한 결과,\n${c.riskLevel === 'HIGH' ? '고위험' : c.riskLevel === 'MEDIUM' ? '중위험' : '저위험'} 수준의 법적 문제가 ${c.issueCount || c.issues?.length || 0}건 발견되었습니다.\n\n특히 개인정보보호법 위반 시 최대 과징금 3,000만원이 부과될 수 있어\n사전 검토가 필요한 상황입니다.\n\n무료 분석 결과를 이메일로 보내드릴 수 있는데,\n확인해보시겠습니까?`;
                         const script = c.customScript?.call || defaultScript;
                         return (
@@ -840,8 +855,8 @@ export default function EmployeePage() {
                         </thead>
                         <tbody>
                             {filtered.map((c: Company) => (
-                                <>
-                                    <tr key={c.id}
+                                <React.Fragment key={c.id}>
+                                    <tr
                                         className="transition-colors"
                                         style={{ borderBottom: `1px solid ${T.borderSub}` }}
                                         onMouseEnter={e => (e.currentTarget.style.background = T.rowHover)}
@@ -894,7 +909,7 @@ export default function EmployeePage() {
 
                                         {/* 변호사 배정 */}
                                         <td className="py-3.5 px-3">
-                                            <StepCell done={!!c.assignedLawyer} label={c.assignedLawyer || '배정 대기'} active={c.status === 'sales_confirmed'} />
+                                            <StepCell done={!!c.assignedLawyer} label={c.assignedLawyer || '배정 대기'} active={c.status === 'analyzed'} />
                                         </td>
 
                                         {/* 변호사 컨펌 */}
@@ -925,7 +940,7 @@ export default function EmployeePage() {
                                         </td>
                                     </tr>
                                     {expandedId === c.id && <ExpandedRow key={`exp-${c.id}`} c={c} refresh={refresh} />}
-                                </>
+                                </React.Fragment>
                             ))}
                             {filtered.length === 0 && (
                                 <tr>

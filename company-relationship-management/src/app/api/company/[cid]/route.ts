@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const MOCK_DB: Record<string, {
     name: string; biz: string; url: string; issueCount: number; riskLevel: string; email: string;
 }> = {
@@ -9,11 +11,20 @@ const MOCK_DB: Record<string, {
 };
 
 export async function GET(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ cid: string }> }
 ) {
     const { cid } = await params;
     const company = MOCK_DB[cid];
+
+    // Tenant Isolation Check (SEC-C-01)
+    const userRole = request.headers.get('x-user-role');
+    const userCompanyId = request.headers.get('x-company-id');
+    
+    // 내부 직원이 아니면서 본인 회사가 아닌 경우 차단
+    if (userRole === 'client_hr' && userCompanyId !== cid) {
+        return NextResponse.json({ success: false, error: '권한이 없습니다 (Tenant Isolation).' }, { status: 403 });
+    }
 
     if (!company) {
         return NextResponse.json({ success: false, error: '해당 기업이 없습니다.' }, { status: 404 });

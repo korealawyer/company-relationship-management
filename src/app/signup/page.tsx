@@ -52,6 +52,8 @@ export default function SignupPage() {
     const [showPw, setShowPw] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
     const [showInvite, setShowInvite] = useState(false);
+    const [agreeTerms, setAgreeTerms] = useState(false);
+    const [agreePrivacy, setAgreePrivacy] = useState(false);
     const [infoError, setInfoError] = useState('');
     const [infoLoading, setInfoLoading] = useState(false);
 
@@ -83,13 +85,14 @@ export default function SignupPage() {
 
     // ── Step1 제출 ──────────────────────────────────────────────
     const handleInfoSubmit = async () => {
+        if (!agreeTerms || !agreePrivacy) { setInfoError('필수 약관에 모두 동의해주세요.'); return; }
         if (!name || !email || !password) { setInfoError('모든 항목을 입력해주세요.'); return; }
         if (password !== pwConfirm) { setInfoError('비밀번호가 일치하지 않습니다.'); return; }
         if (password.length < 6) { setInfoError('비밀번호는 6자 이상이어야 합니다.'); return; }
         setInfoLoading(true); setInfoError('');
         await new Promise(r => setTimeout(r, 600));
         const trimmedCode = inviteCode.trim() || undefined;
-        const result = signUp(name, email, password, trimmedCode);
+        const result = await signUp(name, email, password, trimmedCode);
         setInfoLoading(false);
         if (!result.success) { setInfoError(result.error); return; }
         // 초대코드로 내부 직원이 가입한 경우 → Step 2 건너뛰고 바로 완료
@@ -252,6 +255,24 @@ export default function SignupPage() {
                                             <p className="text-[10px] mt-1" style={{ color: 'rgba(201,168,76,0.4)' }}>초대코드 입력 시 소속 인증 단계를 건너뜁니다</p>
                                         </div>
                                     )}
+                                </div>
+
+                                {/* 약관 동의 */}
+                                <div className="space-y-3 mt-4 mb-2 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#c9a84c] border-[#c9a84c]' : 'border-white/20 group-hover:border-white/40'}`}>
+                                            {agreeTerms && <CheckCircle2 className="w-3 h-3 text-[#04091a]" />}
+                                        </div>
+                                        <input type="checkbox" checked={agreeTerms} onChange={e => { setAgreeTerms(e.target.checked); setInfoError(''); }} className="hidden" />
+                                        <span className="text-xs font-bold transition-colors" style={{ color: agreeTerms ? '#f0f4ff' : 'rgba(240,244,255,0.6)' }}>[필수] 로펌 플랫폼 이용약관 동의</span>
+                                    </label>
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${agreePrivacy ? 'bg-[#c9a84c] border-[#c9a84c]' : 'border-white/20 group-hover:border-white/40'}`}>
+                                            {agreePrivacy && <CheckCircle2 className="w-3 h-3 text-[#04091a]" />}
+                                        </div>
+                                        <input type="checkbox" checked={agreePrivacy} onChange={e => { setAgreePrivacy(e.target.checked); setInfoError(''); }} className="hidden" />
+                                        <span className="text-xs font-bold transition-colors" style={{ color: agreePrivacy ? '#f0f4ff' : 'rgba(240,244,255,0.6)' }}>[필수] 개인정보 제3자 제공 및 수집·이용 동의</span>
+                                    </label>
                                 </div>
 
                                 {infoError && (

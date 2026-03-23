@@ -147,10 +147,10 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
             <div className="absolute inset-0">
                 <img src="/ibs-hero-bg.png" alt=""
                     className="w-full h-full object-cover"
-                    style={{ objectPosition: 'center 17%', filter: 'brightness(0.35) saturate(1.2)' }} />
+                    style={{ objectPosition: 'center 17%', filter: 'brightness(0.55) saturate(1.2)' }} />
                 {/* 그라데이션 오버레이 */}
                 <div className="absolute inset-0" style={{
-                    background: 'linear-gradient(180deg, rgba(4,9,26,0.7) 0%, rgba(4,9,26,0.4) 40%, rgba(4,9,26,0.8) 100%)'
+                    background: 'linear-gradient(180deg, rgba(4,9,26,0.5) 0%, rgba(4,9,26,0.2) 40%, rgba(4,9,26,0.7) 100%)'
                 }} />
             </div>
 
@@ -218,7 +218,7 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
 
                 {/* 통계 */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-                    className="grid grid-cols-4 gap-5 max-w-2xl mx-auto">
+                    className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5 max-w-2xl mx-auto">
                     {[
                         { value: 1247, suffix: '+', label: '기업 고객' },
                         { value: 38400, suffix: '+', label: '상담 완료' },

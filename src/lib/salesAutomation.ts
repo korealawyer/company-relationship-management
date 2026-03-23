@@ -1,7 +1,7 @@
 // src/lib/salesAutomation.ts — 영업 자동화 엔진
 // 6가지 자동화 기능을 통합 관리하는 서비스 모듈
 
-import { Company } from './mockStore';
+import { store, Company } from './mockStore';
 
 /* ══════════════════════════════════════════════════════════════
    1. 콜 스케줄링 자동 큐
@@ -121,10 +121,9 @@ export interface FollowUpStep {
     status: 'pending' | 'sent' | 'opened' | 'skipped';
 }
 
+// D+1 1회 팔로업만 운영 — 그 이후는 영업팀 수동 판단
 export const FOLLOW_UP_SEQUENCE: Omit<FollowUpStep, 'sentAt' | 'opened' | 'status'>[] = [
-    { step: 1, dayOffset: 1, subject: '📊 진단 보고서가 도착했습니다' },
-    { step: 2, dayOffset: 3, subject: '📋 보고서를 확인하셨나요?' },
-    { step: 3, dayOffset: 7, subject: '🤝 무료 상담 예약 안내' },
+    { step: 1, dayOffset: 1, subject: '📊 [IBS 법률] 개인정보 리스크 진단 보고서를 확인해주세요' },
 ];
 
 export const FollowUpService = {
@@ -277,9 +276,9 @@ export const AIMemoService = {
 };
 
 /* ══════════════════════════════════════════════════════════════
-   7. 뉴스 기반 리드 생성
+   [삭제됨] 뉴스 기반 리드 생성 — 실제 뉴스 API 미연동으로 제거
    ══════════════════════════════════════════════════════════════ */
-
+// 실제 BigKinds / 연합뉴스 API 연동 시 복원 예정
 export interface NewsItem {
     id: string;
     title: string;
@@ -291,113 +290,18 @@ export interface NewsItem {
     urgency: 'high' | 'medium' | 'low';
 }
 
-export const NEWS_FEED: NewsItem[] = [
-    {
-        id: 'news-1',
-        title: '개인정보위, 프랜차이즈 업종 집중 점검 착수',
-        source: '개인정보보호위원회',
-        date: '2026-03-17',
-        category: 'pipc',
-        summary: '2026년 상반기 프랜차이즈 업종 대상 개인정보 처리실태 집중 점검. 위반 시 최대 5억원 과태료.',
-        relatedBizTypes: ['치킨', '커피', '외식', '편의점', '베이커리'],
-        urgency: 'high',
-    },
-    {
-        id: 'news-2',
-        title: '치킨 프랜차이즈 A사, 개인정보 유출로 3억원 과징금',
-        source: '연합뉴스',
-        date: '2026-03-15',
-        category: 'fine',
-        summary: '고객 18만명 개인정보 유출. 암호화 미비·접근통제 부재가 원인. 동종 업계 주의 필요.',
-        relatedBizTypes: ['치킨', '외식'],
-        urgency: 'high',
-    },
-    {
-        id: 'news-3',
-        title: '공정위, 가맹사업법 개정안 입법예고',
-        source: '공정거래위원회',
-        date: '2026-03-14',
-        category: 'regulation',
-        summary: '가맹점사업자 정보공개서 기재사항 강화. 위반 시 가맹사업 등록 취소 가능.',
-        relatedBizTypes: ['치킨', '커피', '외식', '편의점', '베이커리', '피자'],
-        urgency: 'medium',
-    },
-    {
-        id: 'news-4',
-        title: '카페 프랜차이즈 고객정보 관리 실태 점검 결과',
-        source: '한국소비자원',
-        date: '2026-03-12',
-        category: 'pipc',
-        summary: '주요 커피 프랜차이즈 10곳 중 7곳이 개인정보처리방침 미비. 앱 수집 정보 과다 지적.',
-        relatedBizTypes: ['커피'],
-        urgency: 'medium',
-    },
-    {
-        id: 'news-5',
-        title: '중소 프랜차이즈 개인정보 보호 가이드 배포',
-        source: 'KISA',
-        date: '2026-03-10',
-        category: 'regulation',
-        summary: '중소규모 프랜차이즈 대상 개인정보 보호 자가진단 체크리스트 및 가이드 배포.',
-        relatedBizTypes: ['치킨', '커피', '외식', '편의점', '베이커리', '피자'],
-        urgency: 'low',
-    },
-];
+export const NEWS_FEED: NewsItem[] = [];
 
+// NewsLeadService 비활성화 — 실시간 뉴스 API 연동 전까지 사용 안 함
 export const NewsLeadService = {
-    getRelevantNews(companies: Company[], limit = 3): (NewsItem & { matchCount: number })[] {
-        const bizTypes = new Set(companies.map(c => c.bizType).filter(Boolean));
-        return NEWS_FEED
-            .map(news => ({
-                ...news,
-                matchCount: news.relatedBizTypes.filter(bt => bizTypes.has(bt)).length,
-            }))
-            .filter(n => n.matchCount > 0 || n.urgency === 'high')
-            .sort((a, b) => {
-                if (a.urgency !== b.urgency) {
-                    const order = { high: 0, medium: 1, low: 2 };
-                    return order[a.urgency] - order[b.urgency];
-                }
-                return b.matchCount - a.matchCount;
-            })
-            .slice(0, limit);
-    },
-
-    getNewLeadSuggestions(companies: Company[]): { company: Company; reason: string; newsId: string }[] {
-        const suggestions: { company: Company; reason: string; newsId: string }[] = [];
-        for (const company of companies) {
-            for (const news of NEWS_FEED) {
-                if (news.urgency === 'high' && news.relatedBizTypes.includes(company.bizType)) {
-                    if (!company.callNote && company.riskScore >= 50) {
-                        suggestions.push({
-                            company,
-                            reason: `📰 ${news.title} → ${company.bizType} 업종 긴급 대응 필요`,
-                            newsId: news.id,
-                        });
-                    }
-                }
-            }
-        }
-        return suggestions.slice(0, 5);
-    },
-
-    getCategoryIcon(category: NewsItem['category']): string {
-        switch (category) {
-            case 'pipc': return '🛡️';
-            case 'fine': return '💰';
-            case 'franchise': return '🏢';
-            case 'regulation': return '📋';
-        }
-    },
-
-    getUrgencyColor(urgency: NewsItem['urgency']): string {
-        switch (urgency) {
-            case 'high': return '#ef4444';
-            case 'medium': return '#f59e0b';
-            case 'low': return '#3b82f6';
-        }
-    },
+    getRelevantNews(_companies: Company[], _limit = 3): (NewsItem & { matchCount: number })[] { return []; },
+    getNewLeadSuggestions(_companies: Company[]): { company: Company; reason: string; newsId: string }[] { return []; },
+    getCategoryIcon(_category: NewsItem['category']): string { return '📰'; },
+    getUrgencyColor(_urgency: NewsItem['urgency']): string { return '#64748b'; },
 };
+
+
+
 
 /* ══════════════════════════════════════════════════════════════
    8. 카카오 알림톡 자동 발송 (이메일 발송 5분 후)
@@ -481,3 +385,237 @@ export const AutoKakaoService = {
         return Math.max(0, Math.floor((new Date(item.scheduledAt).getTime() - Date.now()) / 1000));
     },
 };
+
+/* ══════════════════════════════════════════════════════════════
+   8. 서명 자동 감지 서비스
+   contract_sent 상태 → 일정 시간 후 contract_signed 자동 전환 (시뮬레이션)
+   프로덕션: 전자서명 API 웹훅 (모두싸인/카카오페이 서명) 연동
+   ══════════════════════════════════════════════════════════════ */
+
+const SIGNATURE_KEY = 'ibs_auto_signature';
+
+export interface SignatureWatch {
+    companyId: string;
+    companyName: string;
+    sentAt: string;
+    autoDetectAt: string; // 자동 감지 예정 시각
+    status: 'watching' | 'signed' | 'expired';
+}
+
+export const AutoSignatureService = {
+    _load(): SignatureWatch[] {
+        if (typeof window === 'undefined') return [];
+        try { return JSON.parse(localStorage.getItem(SIGNATURE_KEY) || '[]'); } catch { return []; }
+    },
+    _save(items: SignatureWatch[]) { localStorage.setItem(SIGNATURE_KEY, JSON.stringify(items)); },
+
+    /** 계약서 발송 시 서명 감시 등록 (30초 후 자동 감지 — 데모용, 프로덕션: 웹훅) */
+    watchForSignature(company: Company): SignatureWatch {
+        const items = this._load();
+        const existing = items.find(i => i.companyId === company.id);
+        if (existing) return existing;
+        const entry: SignatureWatch = {
+            companyId: company.id,
+            companyName: company.name,
+            sentAt: new Date().toISOString(),
+            autoDetectAt: new Date(Date.now() + 30 * 1000).toISOString(), // 30초 후 (데모)
+            status: 'watching',
+        };
+        items.push(entry);
+        this._save(items);
+        return entry;
+    },
+
+    /** 서명 완료된 기업 체크 (폴링) */
+    checkSigned(): SignatureWatch[] {
+        const now = new Date().toISOString();
+        const items = this._load();
+        const signed: SignatureWatch[] = [];
+        items.forEach(i => {
+            if (i.status === 'watching' && i.autoDetectAt <= now) {
+                i.status = 'signed';
+                signed.push(i);
+            }
+        });
+        if (signed.length > 0) this._save(items);
+        return signed;
+    },
+
+    getAll(): SignatureWatch[] { return this._load(); },
+    getStatus(companyId: string): SignatureWatch | null {
+        return this._load().find(i => i.companyId === companyId) || null;
+    },
+};
+
+/* ══════════════════════════════════════════════════════════════
+   9. 구독 자동 전환 서비스
+   contract_signed → subscribed 자동 전환 + 온보딩 이메일 발송
+   ══════════════════════════════════════════════════════════════ */
+
+export const AutoSubscriptionService = {
+    /** 서명 완료 → 구독 자동 전환 */
+    convertToSubscribed(companyId: string): void {
+        store.update(companyId, {
+            status: 'subscribed' as any,
+            plan: 'starter',
+        });
+    },
+
+    /** 온보딩 이메일 발송 시뮬레이션 */
+    sendOnboardingEmail(company: Company): string {
+        const subject = `[IBS 법률사무소] ${company.name} 서비스 이용 안내`;
+        const body = `${company.contactName || '담당자'}님, ${company.name}의 서비스 가입이 완료되었습니다.\n\n` +
+            `■ 가입 플랜: Entry\n` +
+            `■ 담당 변호사: ${company.assignedLawyer || '배정 예정'}\n` +
+            `■ 대시보드: https://ibs-crm.vercel.app/dashboard\n\n` +
+            `가입을 환영합니다! 편하신 시간에 대시보드에서 서류를 확인해 주세요.`;
+        // 프로덕션: 실제 이메일 API 호출
+        console.log(`[Onboarding Email] ${subject}\n${body}`);
+        return subject;
+    },
+};
+
+/* ══════════════════════════════════════════════════════════════
+   10. 이메일 열람 감지 + 알림 서비스
+   이메일 발송 후 고객 열람 감지 → 영업팀 즉시 알림
+   프로덕션: SendGrid/Mailgun 오픈 트래킹 웹훅 연동
+   ══════════════════════════════════════════════════════════════ */
+
+const EMAIL_TRACKING_KEY = 'ibs_email_tracking';
+
+export interface EmailTrackEntry {
+    companyId: string;
+    companyName: string;
+    contactName: string;
+    emailSentAt: string;
+    openedAt: string | null;
+    autoOpenAt: string; // 시뮬: 자동 열람 감지 시각
+    alerted: boolean;
+}
+
+export const EmailTrackingService = {
+    _load(): EmailTrackEntry[] {
+        if (typeof window === 'undefined') return [];
+        try { return JSON.parse(localStorage.getItem(EMAIL_TRACKING_KEY) || '[]'); } catch { return []; }
+    },
+    _save(items: EmailTrackEntry[]) { localStorage.setItem(EMAIL_TRACKING_KEY, JSON.stringify(items)); },
+
+    /** 이메일 발송 시 트래킹 등록 (20초 후 열람 시뮬 — 데모) */
+    trackEmail(company: Company): void {
+        const items = this._load();
+        if (items.find(i => i.companyId === company.id)) return;
+        items.push({
+            companyId: company.id,
+            companyName: company.name,
+            contactName: company.contactName || '담당자',
+            emailSentAt: new Date().toISOString(),
+            openedAt: null,
+            autoOpenAt: new Date(Date.now() + 20 * 1000).toISOString(), // 20초 (데모)
+            alerted: false,
+        });
+        this._save(items);
+    },
+
+    /** 열람된 이메일 체크 (미알림 건만) */
+    checkOpened(): EmailTrackEntry[] {
+        const now = new Date().toISOString();
+        const items = this._load();
+        const opened: EmailTrackEntry[] = [];
+        items.forEach(i => {
+            if (!i.openedAt && i.autoOpenAt <= now) {
+                i.openedAt = now;
+            }
+            if (i.openedAt && !i.alerted) {
+                i.alerted = true;
+                opened.push(i);
+            }
+        });
+        if (opened.length > 0) this._save(items);
+        return opened;
+    },
+
+    getAll(): EmailTrackEntry[] { return this._load(); },
+};
+
+/* ══════════════════════════════════════════════════════════════
+   11. 전환 확률 예측 서비스
+   기업 데이터 기반 전환 가능성 점수 (0~100%)
+   ══════════════════════════════════════════════════════════════ */
+
+export const ConversionPredictionService = {
+    /** 전환 확률 계산 — 7가지 신호 종합 */
+    predict(company: Company): { score: number; factors: string[]; level: 'HOT' | 'WARM' | 'COLD'; urgency: string } {
+        let score = 15; // 기본 15%
+        const factors: string[] = [];
+
+        // ① 파이프라인 단계 — 핵심 지표 (가중치 최대)
+        const stageScores: Record<string, number> = {
+            pending: 0, crawling: 0, analyzed: 5, assigned: 8,
+            reviewing: 10, lawyer_confirmed: 15, emailed: 20,
+            client_logged_in: 35, tour_completed: 45,
+            client_viewed: 30, client_replied: 40,
+            subscribed: 99,
+        };
+        const stageBonus = stageScores[company.status] ?? 0;
+        if (stageBonus > 0) { score += stageBonus; factors.push(`파이프라인: ${company.status}`); }
+
+        // ② 법적 위험도 (니즈 크기)
+        if (company.riskScore >= 80) { score += 20; factors.push(`리스크 ${company.riskScore}점 — 즉각 대응 필요`); }
+        else if (company.riskScore >= 60) { score += 12; factors.push(`리스크 ${company.riskScore}점 — 높음`); }
+        else if (company.riskScore >= 40) { score += 6; factors.push(`리스크 ${company.riskScore}점 — 중간`); }
+
+        // ③ 이슈 수 (구체적 니즈)
+        const issueCount = company.issues?.length || 0;
+        if (issueCount >= 7) { score += 12; factors.push(`이슈 ${issueCount}건 — 매우 많음`); }
+        else if (issueCount >= 4) { score += 7; factors.push(`이슈 ${issueCount}건`); }
+        else if (issueCount >= 2) { score += 3; factors.push(`이슈 ${issueCount}건`); }
+
+        // ④ 고객 반응 (이메일 열람·회신 — 가장 강력한 신호)
+        if (company.clientReplied) { score += 20; factors.push('고객 회신 ✅ — 전환 임박'); }
+        else if (company.emailSentAt) {
+            // 이메일 발송 후 경과 시간 체크
+            const hoursSinceSent = (Date.now() - new Date(company.emailSentAt).getTime()) / (1000 * 60 * 60);
+            if (hoursSinceSent <= 24) { score += 8; factors.push('이메일 발송 24h 이내 — 풋프린트 기간'); }
+            else if (hoursSinceSent <= 72) { score += 4; factors.push('이메일 발송 72h 이내'); }
+            else { score -= 5; factors.push('이메일 미반응 72h+ — 관심 하락'); }
+        }
+
+        // ⑤ 통화 품질 (횟수보다 내용)
+        if (company.callNote) {
+            const note = company.callNote.toLowerCase();
+            const hotWords = ['관심', '계약', '검토', '긍정', '좋아', '가능', '할게'];
+            const coldWords = ['거절', '불필요', '관심없', '나중에', '그냥'];
+            const hotCount = hotWords.filter(w => note.includes(w)).length;
+            const coldCount = coldWords.filter(w => note.includes(w)).length;
+            if (hotCount >= 2) { score += 15; factors.push('통화에서 강한 관심 신호'); }
+            else if (hotCount === 1) { score += 8; factors.push('통화에서 관심 표현'); }
+            if (coldCount >= 1) { score -= 10; factors.push('통화에서 거절 신호 있음'); }
+            else if (!hotCount && !coldCount) { score += 3; factors.push('통화 기록 있음'); }
+        } else if ((company.callAttempts || 0) >= 3) {
+            score -= 8;
+            factors.push(`${company.callAttempts}회 시도 미응답 — 관심 낮음`);
+        }
+
+        // ⑥ 기업 규모 (LTV 크기)
+        if (company.storeCount >= 200) { score += 8; factors.push(`대형 ${company.storeCount}개점 — 높은 MRR`); }
+        else if (company.storeCount >= 50) { score += 4; factors.push(`${company.storeCount}개점`); }
+
+        // ⑦ 변호사 컨펌 + AI 의견서 (전문성 신뢰도)
+        if (company.lawyerConfirmed && company.aiDraftReady) { score += 5; factors.push('변호사 검토 + AI 의견서 완료'); }
+        else if (company.lawyerConfirmed) { score += 3; factors.push('변호사 검토 완료'); }
+
+        score = Math.min(99, Math.max(3, score));
+        const level = score >= 70 ? 'HOT' : score >= 40 ? 'WARM' : 'COLD';
+
+        // 긴급도 메시지
+        let urgency = '';
+        if (level === 'HOT' && company.clientReplied) urgency = '지금 바로 전화하세요!';
+        else if (level === 'HOT') urgency = '오늘 안에 전화';
+        else if (level === 'WARM' && company.emailSentAt) urgency = '24h 내 팔로업';
+        else if (level === 'WARM') urgency = '이번 주 내';
+        else urgency = '장기 관리';
+
+        return { score, factors, level, urgency };
+    },
+};
+

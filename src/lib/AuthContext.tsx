@@ -2,9 +2,17 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-// ── 인증 SSOT: auth.ts만 참조 (이 파일에 별도 계정 목록 금지) ──
-import { loginWithEmailFull, loginWithBiz, clearSession, getSession, type AuthUser } from './auth';
 import type { RoleType } from './mockStore';
+import type { Session } from '@supabase/supabase-js';
+import {
+    loginWithEmailFull,
+    loginWithBiz,
+    clearSession,
+    _setSessionCache,
+    supabaseUserToAuthUser,
+    type AuthUser,
+} from './auth';
+import { getBrowserSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
 
 export type { RoleType, AuthUser };
 
@@ -13,25 +21,23 @@ interface AuthContextType {
     loading: boolean;
     login: (email: string, password: string) => Promise<{ error?: string }>;
     loginWithBizNo: (bizNo: string, password: string) => Promise<{ error?: string }>;
-    logout: () => void;
+    logout: () => Promise<void>;
     isAuthenticated: boolean;
 }
 
-const AUTH_KEY = 'ibs_auth_v1';
-
-// ── Context ───────────────────────────────────────────────────────
+// ── Context ────────────────────────────────────────────────────
 const AuthContext = createContext<AuthContextType>({
     user: null, loading: true,
     login: async () => ({}),
     loginWithBizNo: async () => ({}),
-    logout: () => { },
+    logout: async () => { },
     isAuthenticated: false,
 });
 
-// ── 역할별 리다이렉트 맵 ─────────────────────────────────────────
+// ── 역할별 리다이렉트 맵 ─────────────────────────────────────
 export const ROLE_REDIRECT: Record<RoleType, string> = {
-    super_admin: '/employee',
-    admin: '/employee',
+    super_admin: '/admin',
+    admin: '/admin',
     sales: '/employee',
     lawyer: '/lawyer',
     litigation: '/litigation',
@@ -42,57 +48,79 @@ export const ROLE_REDIRECT: Record<RoleType, string> = {
     finance: '/admin',
 };
 
-// ── Provider ──────────────────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        try {
-            // auth.ts의 getSession() 활용 — 직접 localStorage 접근 제거
-            const saved = getSession();
-            if (saved) setUser(saved);
-        } catch { }
-        setLoading(false);
+        const sb = getBrowserSupabase();
 
-        // 다른 탭에서 로그인/로그아웃 시 현재 탭도 즉시 반영
-        const onStorage = (e: StorageEvent) => {
-            if (e.key !== AUTH_KEY) return;
+        if (!sb || !IS_SUPABASE_CONFIGURED) {
+            // Supabase 미설정 — 로컬 캐시에서 읽기 (개발 폴백)
             try {
-                setUser(e.newValue ? JSON.parse(e.newValue) : null);
-            } catch {
+                const raw = localStorage.getItem('ibs_auth_v1');
+                if (raw) setUser(JSON.parse(raw) as AuthUser);
+            } catch { }
+            setLoading(false);
+            return;
+        }
+
+        // ── 초기 세션 로드 ─────────────────────────────────────
+        sb.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+            if (session?.user) {
+                const u = supabaseUserToAuthUser(session.user);
+                setUser(u);
+                _setSessionCache(u);
+            } else {
                 setUser(null);
+                _setSessionCache(null);
             }
+            setLoading(false);
+        });
+
+        // ── 세션 변경 구독 (탭간 동기화 포함) ─────────────────
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_event: string, session: Session | null) => {
+            if (session?.user) {
+                const u = supabaseUserToAuthUser(session.user);
+                setUser(u);
+                _setSessionCache(u);
+            } else {
+                setUser(null);
+                _setSessionCache(null);
+            }
+            // 초기 로드 후 변경 → loading 해제
+            setLoading(false);
+        });
+
+        return () => {
+            subscription.unsubscribe();
         };
-        window.addEventListener('storage', onStorage);
-        return () => window.removeEventListener('storage', onStorage);
     }, []);
 
-    const saveUser = (u: AuthUser | null) => {
-        setUser(u);
-    };
-
-    // ── auth.ts SSOT 함수 위임 ───────────────────────────────────
+    // ── 이메일 로그인 ──────────────────────────────────────────
     const login = useCallback(async (email: string, password: string) => {
-        const result = loginWithEmailFull(email, password);
+        const result = await loginWithEmailFull(email, password);
         if (result.success) {
-            saveUser(result.user);
+            setUser(result.user);
             return {};
         }
         return { error: result.error };
     }, []);
 
+    // ── 사업자번호 로그인 ──────────────────────────────────────
     const loginWithBizNo = useCallback(async (bizNo: string, password: string) => {
         const result = loginWithBiz(bizNo, password);
         if (result.success) {
-            saveUser(result.user);
+            setUser(result.user);
             return {};
         }
         return { error: result.error };
     }, []);
 
-    const logout = useCallback(() => {
-        clearSession();
+    // ── 로그아웃 ──────────────────────────────────────────────
+    const logout = useCallback(async () => {
+        await clearSession();
         setUser(null);
     }, []);
 
@@ -105,8 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() { return useContext(AuthContext); }
 
-// ── 인증 가드 훅 ─────────────────────────────────────────────────
-// window.location 직접 조작 제거 → useRouter() 사용 (App Router 호환)
+// ── 인증 가드 훅 ──────────────────────────────────────────────
 export function useRequireAuth(requiredRoles?: RoleType[]) {
     const { user, loading } = useAuth();
     const router = useRouter();

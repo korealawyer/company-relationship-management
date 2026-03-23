@@ -31,9 +31,20 @@ function createTransporter() {
 // ── 이메일 본문 생성 ─────────────────────────────────────────
 
 interface EmailPayload {
-  type: 'sales_notify' | 'company_hook';
+  type: 'sales_notify' | 'company_hook' | 'clause_review_done' | 'full_revision_to_client';
   leadId: string;
   lawyerNote?: string;
+  repId?: string;        // 영업 담당자 ID (→ client-portal URL 파라미터)
+  // clause_review_done
+  company?: string;
+  clauseData?: Record<string, string>;
+  highRiskCount?: number;
+  medRiskCount?: number;
+  summaryOpinion?: string;
+  // full_revision_to_client
+  revisionData?: Record<string, string>;
+  documentTitle?: string;
+  documentNo?: string;
 }
 
 function buildSalesEmail(leadId: string, lawyerNote: string) {
@@ -64,10 +75,17 @@ function buildSalesEmail(leadId: string, lawyerNote: string) {
   };
 }
 
-function buildHookEmail(leadId: string, lawyerNote: string) {
+function buildHookEmail(leadId: string, lawyerNote: string, repId?: string) {
   const lead = leadStore.getById(leadId);
   if (!lead) return null;
   const issueText = `개인정보처리방침에서 ${lead.issueCount}건의 위반 가능성이 발견되었습니다.`;
+  
+  // 맞춤 client-portal URL 생성: 사업자번호 + 영업담당자 ID 포함
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibslaw.co.kr';
+  const bizParam = lead.biz ? `&biz=${encodeURIComponent(lead.biz)}` : '';
+  const repParam = repId ? `&rep=${encodeURIComponent(repId)}` : '';
+  const portalUrl = `${BASE_URL}/privacy-report?${bizParam}${repParam}`.replace('?&', '?');
+
   return {
     to: lead.contactEmail,
     subject: `[IBS 법률] ${lead.companyName} 개인정보처리방침 리스크 진단 결과`,
@@ -77,7 +95,7 @@ function buildHookEmail(leadId: string, lawyerNote: string) {
     <h2 style="color:#c9a84c;margin:0">${FROM_NAME}</h2>
     <p style="color:#94a3b8;margin:4px 0 0">프랜차이즈 전문 법률 서비스</p>
   </div>
-  <h3 style="color:#1e293b">${lead.contactName} 担당자님께</h3>
+  <h3 style="color:#1e293b">${lead.contactName} 담당자님께</h3>
   <p style="color:#374151;line-height:1.6">
     안녕하세요. IBS 법률사무소 AI 분석 시스템이 귀사(<strong>${lead.companyName}</strong>)의
     개인정보처리방침을 검토한 결과를 전달드립니다.
@@ -93,10 +111,11 @@ function buildHookEmail(leadId: string, lawyerNote: string) {
     <li>보유기간 일부 항목 누락 (개보법 §21)</li>
   </ul>
   <div style="text-align:center;margin:32px 0">
-    <a href="https://ibslaw.co.kr/pricing" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
-      무료 정밀 검토 신청하기 →
+    <a href="${portalUrl}" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
+      📋 ${lead.companyName} 맞춤 리포트 확인하기 →
     </a>
   </div>
+  <p style="color:#64748b;font-size:12px;text-align:center">위 버튼을 클릭하면 귀사만의 맞춤 법률 진단 리포트를 바로 열람하실 수 있습니다.</p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0"/>
   <p style="color:#94a3b8;font-size:12px">본 이메일은 자동 분석 시스템에 의해 발송되었습니다.<br/>
   문의: ${FROM_EMAIL} | IBS 법률사무소</p>
@@ -107,23 +126,78 @@ function buildHookEmail(leadId: string, lawyerNote: string) {
 // ── POST 핸들러 ──────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   // 인증 검증
-  const auth = requireSessionFromCookie(req);
+  const auth = await requireSessionFromCookie(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   try {
-    const { type, leadId, lawyerNote = '' }: EmailPayload = await req.json();
+    const body: EmailPayload = await req.json();
+    const { type, leadId, lawyerNote = '' } = body;
 
     const emails: { to: string; subject: string; html: string }[] = [];
     if (type === 'sales_notify') {
       const e = buildSalesEmail(leadId, lawyerNote);
       if (e) emails.push(e);
     } else if (type === 'company_hook') {
-      const e = buildHookEmail(leadId, lawyerNote);
+      const e = buildHookEmail(leadId, lawyerNote, body.repId);
       if (e) emails.push(e);
+    } else if (type === 'clause_review_done') {
+      // ── 1차 조문검토 컨펌 → 영업팀 내부 알림 ──
+      const companyName = body.company || leadStore.getById(leadId)?.companyName || '미상기업';
+      emails.push({
+        to: process.env.SALES_EMAIL || FROM_EMAIL,
+        subject: `[변호사 조문검토✓] ${companyName} 1차 조문검토 컨펌 — 영업CRM 반영됨`,
+        html: `
+<div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:600px;margin:0 auto;padding:24px">
+  <div style="background:#0f172a;padding:20px;border-radius:12px;margin-bottom:20px">
+    <h2 style="color:#c9a84c;margin:0">${FROM_NAME}</h2>
+    <p style="color:#94a3b8;margin:4px 0 0">변호사 조문검토 컨펌 알림</p>
+  </div>
+  <h3 style="color:#1e293b">✅ 1차 조문검토 컨펌 완료</h3>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+    <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">회사명</td><td style="padding:8px">${companyName}</td></tr>
+    <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">고위험</td><td style="padding:8px;color:#dc2626">${body.highRiskCount ?? 0}건</td></tr>
+    <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">주의</td><td style="padding:8px;color:#d97706">${body.medRiskCount ?? 0}건</td></tr>
+  </table>
+  ${body.summaryOpinion ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:12px;margin:16px 0"><strong>종합 검토의견:</strong><br/>${body.summaryOpinion}</div>` : ''}
+  <p style="color:#374151">→ 영업팀 CRM 조문 리스크 영역 및 고객 프라이버시 리포트에 자동 반영되었습니다.</p>
+  <p style="color:#64748b;font-size:12px">계약 완료 후 변호사 포털「전체수정완본」 탭에서 컨펌 시 고객 HR 문서함으로 자동 전달됩니다.</p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0"/>
+  <p style="color:#94a3b8;font-size:12px">발신: ${FROM}</p>
+</div>`,
+      });
+    } else if (type === 'full_revision_to_client') {
+      // ── 전체수정완본 컨펌 → 고객 HR 문서함 전달 ──
+      const lead = leadStore.getById(leadId);
+      const companyName = body.company || lead?.companyName || '미상기업';
+      const recipientEmail = lead?.contactEmail || process.env.SALES_EMAIL || FROM_EMAIL;
+      emails.push({
+        to: recipientEmail,
+        subject: `[IBS 법률] ${companyName} 개인정보처리방침 수정완본 전달 — ${body.documentNo || ''}`,
+        html: `
+<div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:600px;margin:0 auto;padding:24px">
+  <div style="background:#0f172a;padding:20px;border-radius:12px;margin-bottom:24px">
+    <h2 style="color:#c9a84c;margin:0">${FROM_NAME}</h2>
+    <p style="color:#94a3b8;margin:4px 0 0">전문 법률 검토 의견서</p>
+  </div>
+  <h3 style="color:#1e293b">📄 개인정보처리방침 수정완본 안내</h3>
+  <div style="background:#eff6ff;border-left:4px solid #2563eb;padding:16px;margin:16px 0;border-radius:0 8px 8px 0">
+    <p style="margin:0;color:#1e40af;font-weight:bold">${body.documentTitle || companyName + ' 개인정보처리방침 수정완본'}</p>
+    <p style="margin:4px 0 0;color:#3b82f6;font-size:12px">문서번호: ${body.documentNo || '-'} | 작성일: ${new Date().toLocaleDateString('ko-KR')}</p>
+  </div>
+  <p style="color:#374151;line-height:1.6">당사와 자문 계약을 체결해주셔서 감사합니다.<br/>아래 수정완본 및 법률 검토의견서가 고객 대시보드 문서함에 등록되었습니다.</p>
+  <div style="text-align:center;margin:28px 0">
+    <a href="https://ibslaw.co.kr/dashboard" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
+      HR 대시보드 열기 →
+    </a>
+  </div>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0"/>
+  <p style="color:#94a3b8;font-size:12px">발신: ${FROM} | IBS 법률사무소</p>
+</div>`,
+      });
     }
 
     if (emails.length === 0) {
-      return NextResponse.json({ error: '리드를 찾을 수 없습니다.' }, { status: 404 });
+      return NextResponse.json({ error: '처리할 수 없는 요청입니다.' }, { status: 400 });
     }
 
     if (SMTP_CONFIGURED) {
@@ -150,8 +224,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 리드 상태 업데이트
-    leadStore.update(leadId, { status: 'emailed', emailSentAt: new Date().toISOString() });
+    // 리드 상태 업데이트 (leadId가 유효한 리드일 때만)
+    const existingLead = leadStore.getById(leadId);
+    if (existingLead && (type === 'sales_notify' || type === 'company_hook')) {
+      leadStore.update(leadId, { status: 'emailed', emailSentAt: new Date().toISOString() });
+    }
 
     return NextResponse.json({
       ok: true,

@@ -63,7 +63,42 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  /* iOS safe-area 지원 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* overflow-x 방지 */
+  overflow-x: hidden;
 }
+
+/* ── 모바일 터치 최적화 ── */
+/* 최소 탭 타겟 44px 보장 */
+button, a, [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 단, 아이콘 배지·소형 뱃지 예외 */
+span[class*="px-1"], span[class*="px-2"] {
+  min-height: unset;
+  min-width: unset;
+}
+
+/* 스크롤 momentum (iOS) */
+[class*="overflow-y-auto"], [class*="overflow-x-auto"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 모바일 하단 탭바 위 콘텐츠가 가리지 않도록 */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+}
+
+/* 모바일 input zoom 방지: font-size 16px 이상 */
+input, textarea, select {
+  font-size: max(16px, 1rem);
+}
+
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {

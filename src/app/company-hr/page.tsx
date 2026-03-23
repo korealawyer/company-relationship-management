@@ -274,7 +274,6 @@ export default function CompanyHRPage() {
                                     <p className="font-black text-sm mb-4" style={{ color: '#111827' }}>담당 변호사</p>
                                     {[
                                         { name: '김수현 변호사', role: '법률 전담', phone: '02-1234-5678', email: 'lawyer1@ibslaw.kr', color: '#818cf8' },
-                                        { name: '이지원 변호사', role: '노무 전담', phone: '02-1234-5679', email: 'lawyer2@ibslaw.kr', color: '#34d399' },
                                     ].map(l => (
                                         <div key={l.name} className="flex items-center justify-between p-3 rounded-xl mb-2" style={{ background: '#fff', border: '1px solid #e8e5de' }}>
                                             <div className="flex items-center gap-3">

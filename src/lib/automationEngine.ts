@@ -90,8 +90,10 @@ export function runDeadlineAlerts(): number {
 // P0-2: 월 자동 청구서 발행
 // ═══════════════════════════════════════════════════════════════
 const BILLING_KEY = 'ibs_auto_billing';
+import { calcPrice as calcPriceFormula } from './pricing';
+// 레거시 PLAN_PRICE 폴백 (storeCount 없는 경우)
 const PLAN_PRICE: Record<string, number> = {
-    starter: 490000, standard: 990000, premium: 1990000, none: 0,
+    starter: 330000, standard: 550000, premium: 1100000, none: 0,
 };
 
 interface AutoBillingRecord {

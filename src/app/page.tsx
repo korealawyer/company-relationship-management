@@ -98,7 +98,7 @@ function LandingPageInner() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="tel:025551234">
                   <Button variant="ghost" size="xl" className="gap-3 w-full sm:w-auto">
-                    <Phone className="w-6 h-6" /> 02-555-1234 지금 전화
+                    <Phone className="w-6 h-6" /> 02-598-8518 지금 전화
                   </Button>
                 </a>
                 <Link href="/signup">
@@ -155,7 +155,7 @@ function LandingPageInner() {
               <div>
                 <p className="font-bold text-sm mb-4 text-gold">연락정보</p>
                 {[
-                  { text: '02-555-1234' },
+                  { text: '02-598-8518' },
                   { text: 'legal@ibs-law.co.kr' },
                   { text: '서울시 서초구 서초대로 272, IBS빌딩' },
                   { text: '평일 09:00‒18:00' },

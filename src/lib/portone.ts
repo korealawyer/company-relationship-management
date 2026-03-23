@@ -137,7 +137,7 @@ export function generatePaymentId(companyId: string): string {
  * 구독 플랜별 가격
  */
 export const PLAN_PRICES: Record<string, number> = {
-    starter: 300000,
-    standard: 500000,
-    premium: 1000000,
+    starter: 330000,
+    standard: 550000,
+    premium: 1100000,
 };

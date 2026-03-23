@@ -174,8 +174,7 @@ export function getAccessibleModules(role: RoleType): ModuleDefinition[] {
 export type CaseStatus =
     | 'pending'           // 검토 대기
     | 'crawling'          // 자동 검토·분석 중
-    | 'analyzed'          // AI 분석 완료 (자동컨펌 옵션)
-    | 'sales_confirmed'   // 영업 컨펌 완료
+    | 'analyzed'          // AI 분석 완료
     | 'assigned'          // 변호사 자동 배정
     | 'reviewing'         // 변호사 검토 중
     | 'lawyer_confirmed'  // 변호사 컨펌 완료
@@ -321,6 +320,11 @@ export interface LitigationCase {
     notes: string;
     result: '' | '승소' | '패소' | '합의' | '취하';
     resultNote: string;
+    notificationSettings?: {
+        notifyEmail: boolean;
+        notifyKakao: boolean;
+        frequency: 'immediate' | 'daily' | 'weekly';
+    };
     createdAt: string;
     updatedAt: string;
 }
@@ -424,7 +428,7 @@ const DEFAULT_COMPANIES: Company[] = [
     emp({
         id: 'c1', name: '(주)놀부NBG', biz: '123-45-67890',
         url: 'https://nolboo.co.kr', email: 'legal@nolboo.co.kr', phone: '02-1234-5678',
-        storeCount: 420, status: 'sales_confirmed', assignedLawyer: '',
+        storeCount: 420, status: 'lawyer_confirmed', assignedLawyer: '김수현 변호사',
         issues: BASE_ISSUES.map(i => ({ ...i })),
         salesConfirmed: true, salesConfirmedAt: '2026-02-27 09:30', salesConfirmedBy: 'AI 자동',
         callNote: '대표이사 직접 통화. 이슈 공감. 이메일 요청.',
@@ -493,6 +497,75 @@ const DEFAULT_COMPANIES: Company[] = [
         clientReplyNote: '계약서 검토 후 구독 진행.',
         aiDraftReady: true, createdAt: '2026-02-14', updatedAt: '2026-02-22',
     }),
+    // ── 계약완료 샘플 (전화영업 후속 관리용) ──────────────────
+    emp({
+        id: 'c8', name: '(주)이디야커피', biz: '890-12-34567',
+        url: 'https://ediya.com', email: 'legal@ediya.com', phone: '02-8901-2345',
+        storeCount: 3200, status: 'contract_signed', assignedLawyer: '이지원 변호사',
+        issues: BASE_ISSUES.map(i => ({ ...i, reviewChecked: true })),
+        salesConfirmed: true, salesConfirmedAt: '2026-03-01 10:00', salesConfirmedBy: 'AI 자동',
+        lawyerConfirmed: true, lawyerConfirmedAt: '2026-03-03 14:30',
+        emailSentAt: '2026-03-04 09:00 (자동발송)',
+        clientReplied: true, clientRepliedAt: '2026-03-05 11:00',
+        clientReplyNote: '계약 진행 의사 확인. 담당 법무팀 이메일 수신.',
+        contractSentAt: '2026-03-06 10:00',
+        contractSignedAt: '2026-03-10 15:22',
+        contractMethod: 'email',
+        contractNote: '전자서명 완료. 온보딩 이메일 발송됨.',
+        callNote: '대표이사 직접 확인. 법무팀 담당자 배동현 부장. 계약 체결 완료 — 온보딩 일정 조율 필요.',
+        aiMemoSummary: '계약 서명 완료. 구독 전환 및 법률팀 온보딩 세션 예약 요청.',
+        aiNextAction: '온보딩 일정 확정 후 Welcome 콜 진행',
+        aiNextActionType: 'call',
+        aiDraftReady: true, createdAt: '2026-02-28', updatedAt: '2026-03-10',
+        contactName: '배동현', contactEmail: 'dhbae@ediya.com', contactPhone: '010-2345-6789',
+        riskScore: 82, riskLevel: 'HIGH', issueCount: 4, bizType: '외식/프랜차이즈',
+        lastCallResult: 'connected', lastCallAt: '2026-03-09T10:00:00.000Z', callAttempts: 3,
+    }),
+    emp({
+        id: 'c9', name: '(주)메가MGC커피', biz: '901-23-45678',
+        url: 'https://megacoffee.com', email: 'cs@megacoffee.com', phone: '02-9012-3456',
+        storeCount: 2800, status: 'contract_signed', assignedLawyer: '박민준 변호사',
+        issues: BASE_ISSUES.slice(0, 3).map(i => ({ ...i, reviewChecked: true })),
+        salesConfirmed: true, salesConfirmedAt: '2026-03-05 09:30', salesConfirmedBy: 'AI 자동',
+        lawyerConfirmed: true, lawyerConfirmedAt: '2026-03-07 11:00',
+        emailSentAt: '2026-03-08 09:00 (자동발송)',
+        clientReplied: true, clientRepliedAt: '2026-03-10 14:00',
+        clientReplyNote: '법무팀 검토 완료. 계약서 서명 원함.',
+        contractSentAt: '2026-03-11 10:00',
+        contractSignedAt: '2026-03-14 16:47',
+        contractMethod: 'system',
+        contractNote: 'DocuSign 전자서명 완료. 스탠다드 플랜 선택.',
+        callNote: '법무담당 임수현 과장. 가맹점 개인정보처리방침 일괄 점검 희망. 서명 완료 후 팀장 결재 통과.',
+        aiMemoSummary: '계약 완료. 전 가맹점(2,800개) 동시 점검 요청 — 가맹본부 통합 처리 방식 협의 필요.',
+        aiNextAction: '가맹점 통합 점검 미팅 일정 조율',
+        aiNextActionType: 'meeting',
+        aiDraftReady: true, createdAt: '2026-03-04', updatedAt: '2026-03-14',
+        contactName: '임수현', contactEmail: 'shim@megacoffee.com', contactPhone: '010-3456-7891',
+        riskScore: 71, riskLevel: 'HIGH', issueCount: 3, bizType: '외식/프랜차이즈',
+        lastCallResult: 'connected', lastCallAt: '2026-03-13T14:00:00.000Z', callAttempts: 2,
+    }),
+    emp({
+        id: 'c10', name: '(주)써브웨이코리아', biz: '012-34-56789',
+        url: 'https://subway.co.kr', email: 'legal@subway.co.kr', phone: '02-0123-4567',
+        storeCount: 650, status: 'contract_sent', assignedLawyer: '김수현 변호사',
+        issues: BASE_ISSUES.map(i => ({ ...i, reviewChecked: true })),
+        salesConfirmed: true, salesConfirmedAt: '2026-03-10 09:00', salesConfirmedBy: 'AI 자동',
+        lawyerConfirmed: true, lawyerConfirmedAt: '2026-03-12 16:00',
+        emailSentAt: '2026-03-13 09:00 (자동발송)',
+        clientReplied: true, clientRepliedAt: '2026-03-15 10:30',
+        clientReplyNote: '계약서 검토 중. 법무팀 내부 결재 진행.',
+        contractSentAt: '2026-03-16 11:00',
+        contractMethod: 'email',
+        contractNote: '이메일로 계약서 발송 완료. 서명 대기 중.',
+        callNote: '법무팀장 강민서. 내부 결재 라인 3단계 필요. 이번 주 내 서명 예정이라고 함.',
+        aiMemoSummary: '계약서 발송 후 내부 결재 대기 중. D+5일 리마인드 전화 필요.',
+        aiNextAction: '3/21까지 서명 여부 리마인드 콜',
+        aiNextActionType: 'call',
+        aiDraftReady: true, createdAt: '2026-03-09', updatedAt: '2026-03-16',
+        contactName: '강민서', contactEmail: 'mskang@subway.co.kr', contactPhone: '010-4567-8902',
+        riskScore: 68, riskLevel: 'HIGH', issueCount: 4, bizType: '외식/프랜차이즈',
+        lastCallResult: 'connected', lastCallAt: '2026-03-16T09:30:00.000Z', callAttempts: 4,
+    }),
 ];
 
 const DEFAULT_LIT: LitigationCase[] = [
@@ -509,6 +582,7 @@ const DEFAULT_LIT: LitigationCase[] = [
         ],
         notes: '가맹점주가 개인정보 유출 주장. 내부 감사 결과 유출 없음 확인.',
         result: '', resultNote: '',
+        notificationSettings: { notifyEmail: true, notifyKakao: false, frequency: 'immediate' },
         createdAt: '2026-02-01', updatedAt: '2026-02-28',
     },
     {
@@ -523,6 +597,7 @@ const DEFAULT_LIT: LitigationCase[] = [
         ],
         notes: '가맹계약서 내 개인정보 조항 미비로 인한 분쟁. 합의 진행 중.',
         result: '', resultNote: '',
+        notificationSettings: { notifyEmail: true, notifyKakao: true, frequency: 'weekly' },
         createdAt: '2025-12-10', updatedAt: '2026-02-28',
     },
 ];
@@ -530,7 +605,7 @@ const DEFAULT_LIT: LitigationCase[] = [
 // ── 자동화 설정 ───────────────────────────────────────────────
 export interface AutoSettings {
     autoSalesConfirm: boolean;   // 분석완료 → 자동 영업컨펌
-    autoAssignLawyer: boolean;   // 영업컨펌 → 변호사 자동배정
+    autoAssignLawyer: boolean;   // 변호사 라운드로빈 배정 (항상 ON — 토글 제거됨)
     autoGenerateDraft: boolean;  // AI 초안 자동생성
     autoSendEmail: boolean;      // 변호사컨펌 → 자동발송
     // ── P0+P1 자동화 ──
@@ -654,40 +729,24 @@ function saveLit(cs: LitigationCase[]) {
 async function runAutoPipeline(companyId: string): Promise<void> {
     const delay = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 
-    // Step 1: 자동 영업 컨펌
+    // Step 1: 변호사 자동 배정 (분석완료 → 항상 라운드로빈)
     await delay(500);
     {
-        const settings = loadAuto();
+        const s = loadAuto();
         const all = load();
         const c = all.find(x => x.id === companyId);
-        if (c && c.status === 'analyzed' && settings.autoSalesConfirm) {
-            const now = new Date().toLocaleString('ko-KR', { hour12: false });
-            c.status = 'sales_confirmed';
-            c.salesConfirmed = true;
-            c.salesConfirmedAt = now;
-            c.salesConfirmedBy = 'AI 자동';
-            c.updatedAt = new Date().toISOString();
-            save(all);
-            addLog({ type: 'auto_confirm', label: '영업 자동 컨펌', companyName: c.name, detail: `분석완료 → AI가 자동으로 영업 컨펌 처리 (담당: AI 자동)` });
-        }
-    }
-
-    // Step 2: 자동 변호사 배정
-    await delay(800);
-    {
-        const settings = loadAuto();
-        const all = load();
-        const c = all.find(x => x.id === companyId);
-        if (c && c.status === 'sales_confirmed' && settings.autoAssignLawyer && !c.assignedLawyer) {
-            const s = loadAuto();
+        if (c && c.status === 'analyzed' && !c.assignedLawyer) {
             const lawyer = LAWYERS[s.lawyerRoundRobin % LAWYERS.length];
             s.lawyerRoundRobin = (s.lawyerRoundRobin + 1) % LAWYERS.length;
             saveAuto(s);
             c.assignedLawyer = lawyer;
             c.status = 'assigned';
+            c.salesConfirmed = true;
+            c.salesConfirmedAt = new Date().toLocaleString('ko-KR', { hour12: false });
+            c.salesConfirmedBy = 'AI 자동';
             c.updatedAt = new Date().toISOString();
             save(all);
-            addLog({ type: 'auto_assign', label: '변호사 자동 배정', companyName: c.name, detail: `라운드로빈 → ${lawyer} 자동 배정 완료` });
+            addLog({ type: 'auto_assign', label: '변호사 자동 배정', companyName: c.name, detail: `분석완료 → 라운드로빈 → ${lawyer} 자동 배정 완료` });
         }
     }
 
@@ -787,9 +846,10 @@ export const store = {
         }, 3000);
     },
 
+    /** @deprecated sales_confirmed 단계 삭제됨. analyzed → 바로 변호사배정으로 전환 */
     salesConfirm(companyId: string, by: string): Company[] {
         const now = new Date().toLocaleString('ko-KR', { hour12: false });
-        const result = store.update(companyId, { salesConfirmed: true, salesConfirmedAt: now, salesConfirmedBy: by, status: 'sales_confirmed' });
+        const result = store.update(companyId, { salesConfirmed: true, salesConfirmedAt: now, salesConfirmedBy: by, status: 'assigned' });
         runAutoPipeline(companyId);
         return result;
     },
@@ -907,9 +967,9 @@ export const store = {
 
     getBadge(role: 'admin' | 'employee' | 'lawyer' | 'litigation'): number {
         const all = load();
-        if (role === 'lawyer') return all.filter(c => ['sales_confirmed', 'assigned', 'reviewing'].includes(c.status)).length;
+        if (role === 'lawyer') return all.filter(c => ['assigned', 'reviewing'].includes(c.status)).length;
         if (role === 'employee') return all.filter(c => c.status === 'analyzed' || c.status === 'lawyer_confirmed' || c.status === 'client_replied').length;
-        if (role === 'admin') return all.filter(c => ['analyzed', 'sales_confirmed', 'lawyer_confirmed'].includes(c.status)).length;
+        if (role === 'admin') return all.filter(c => ['analyzed', 'lawyer_confirmed'].includes(c.status)).length;
         if (role === 'litigation') {
             const lits = loadLit();
             const today = new Date();
@@ -930,9 +990,16 @@ export const store = {
     getLitAll(): LitigationCase[] { return loadLit(); },
     getLitById(id: string): LitigationCase | undefined { return loadLit().find(l => l.id === id); },
 
-    addLit(data: Omit<LitigationCase, 'id' | 'createdAt' | 'updatedAt'>): LitigationCase[] {
+    addLit(data: Omit<LitigationCase, 'id' | 'createdAt' | 'updatedAt' | 'notificationSettings'> & { notificationSettings?: LitigationCase['notificationSettings'] }): LitigationCase[] {
         const all = loadLit();
-        all.unshift({ ...data, id: `l${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        const newCase = { 
+            ...data, 
+            id: `l${Date.now()}`, 
+            notificationSettings: data.notificationSettings || { notifyEmail: true, notifyKakao: true, frequency: 'immediate' },
+            createdAt: new Date().toISOString(), 
+            updatedAt: new Date().toISOString() 
+        };
+        all.unshift(newCase);
         saveLit(all); return all;
     },
 
@@ -955,6 +1022,23 @@ export const store = {
                     });
                 }
             }
+            
+            // 실시간 알림 전송 시뮬레이션
+            if (patch.status && patch.status !== prev.status) {
+                const ns = all[idx].notificationSettings;
+                if (ns && (ns.notifyEmail || ns.notifyKakao) && ns.frequency === 'immediate') {
+                    let channels = [];
+                    if (ns.notifyEmail) channels.push('이메일');
+                    if (ns.notifyKakao) channels.push('카카오톡');
+                    addLog({
+                        type: 'deadline_alert',
+                        label: '사건 상태 업데이트 알림',
+                        companyName: all[idx].companyName,
+                        detail: `[맞춤형 알림 설정됨] 사건 진행 상황 변동 → ${channels.join(', ')} 즉시 발송`,
+                        channel: channels.join(', '),
+                    });
+                }
+            }
         }
         saveLit(all); return all;
     },
@@ -962,7 +1046,30 @@ export const store = {
     updateDeadline(litId: string, deadlineId: string, patch: Partial<LitigationDeadline>): LitigationCase[] {
         const all = loadLit();
         const lit = all.find(l => l.id === litId);
-        if (lit) { const d = lit.deadlines.find(x => x.id === deadlineId); if (d) Object.assign(d, patch); lit.updatedAt = new Date().toISOString(); }
+        if (lit) { 
+            const d = lit.deadlines.find(x => x.id === deadlineId); 
+            if (d) {
+                const wasCompleted = d.completed;
+                Object.assign(d, patch); 
+                lit.updatedAt = new Date().toISOString(); 
+
+                if (patch.completed !== undefined && patch.completed !== wasCompleted && patch.completed) {
+                    const ns = lit.notificationSettings;
+                    if (ns && (ns.notifyEmail || ns.notifyKakao) && ns.frequency === 'immediate') {
+                        let channels = [];
+                        if (ns.notifyEmail) channels.push('이메일');
+                        if (ns.notifyKakao) channels.push('카카오톡');
+                        addLog({
+                            type: 'deadline_alert', 
+                            label: '기일/일정 완료 알림',
+                            companyName: lit.companyName,
+                            detail: `[맞춤형 알림 설정됨] 기일(${d.label}) 완료 처리 → ${channels.join(', ')} 즉시 발송`,
+                            channel: channels.join(', '),
+                        });
+                    }
+                }
+            }
+        }
         saveLit(all); return all;
     },
 };
@@ -970,8 +1077,7 @@ export const store = {
 // ── 상수 ─────────────────────────────────────────────────────
 export const STATUS_LABEL: Record<CaseStatus, string> = {
     pending: '등록됨', crawling: '분석중', analyzed: '분석완료',
-    sales_confirmed: '영업컨펌', assigned: '변호사배정',
-    reviewing: '검토중', lawyer_confirmed: '변호사컨펌',
+    assigned: '변호사배정', reviewing: '검토중', lawyer_confirmed: '변호사컨펌',
     emailed: '발송완료', client_replied: '답장수신',
     client_viewed: '리포트열람', contract_sent: '계약서발송',
     contract_signed: '계약서명', subscribed: '구독완료',
@@ -979,7 +1085,7 @@ export const STATUS_LABEL: Record<CaseStatus, string> = {
 
 export const STATUS_COLOR: Record<CaseStatus, string> = {
     pending: 'rgba(148,163,184,0.15)', crawling: 'rgba(251,191,36,0.15)',
-    analyzed: 'rgba(59,130,246,0.15)', sales_confirmed: 'rgba(167,139,250,0.15)',
+    analyzed: 'rgba(59,130,246,0.15)',
     assigned: 'rgba(249,115,22,0.15)', reviewing: 'rgba(249,115,22,0.2)',
     lawyer_confirmed: 'rgba(20,184,166,0.15)', emailed: 'rgba(34,197,94,0.15)',
     client_replied: 'rgba(236,72,153,0.15)', client_viewed: 'rgba(129,140,248,0.15)',
@@ -989,7 +1095,7 @@ export const STATUS_COLOR: Record<CaseStatus, string> = {
 
 export const STATUS_TEXT: Record<CaseStatus, string> = {
     pending: '#94a3b8', crawling: '#fbbf24', analyzed: '#60a5fa',
-    sales_confirmed: '#a78bfa', assigned: '#fb923c', reviewing: '#fdba74',
+    assigned: '#fb923c', reviewing: '#fdba74',
     lawyer_confirmed: '#2dd4bf', emailed: '#4ade80', client_replied: '#f472b6',
     client_viewed: '#818cf8', contract_sent: '#fbbf24',
     contract_signed: '#4ade80', subscribed: '#c9a84c',
@@ -1007,7 +1113,7 @@ export const LIT_STATUS_COLOR: Record<LitigationStatus, string> = {
 };
 
 export const PIPELINE: CaseStatus[] = [
-    'pending', 'crawling', 'analyzed', 'sales_confirmed',
+    'pending', 'crawling', 'analyzed',
     'assigned', 'reviewing', 'lawyer_confirmed', 'emailed', 'client_replied',
     'client_viewed', 'contract_sent', 'contract_signed', 'subscribed',
 ];
@@ -1016,6 +1122,124 @@ export const LAWYERS = ['김수현 변호사', '이지원 변호사', '박민준
 export const SALES_REPS = ['이민준', '박지수', '최현우', '강수빈'];
 export const LITIGATION_TYPES = ['개인정보 손해배상', '가맹계약 분쟁', '임직원 분쟁', '지적재산권', '계약 불이행', '기타'];
 export const COURTS = ['서울중앙지방법원', '수원지방법원', '서울고등법원', '대법원', '수원고등법원'];
+
+// ── 문서 보관함 시스템 (E2E 동기화) ──────────────────────────────────────────
+export type DocumentCategory = '계약서' | '의견서' | '리포트' | '소장' | '영수증' | '기타';
+export type DocumentStatus = '검토 대기' | '변호사 열람 완료' | '검토 중' | '검토 완료';
+
+export interface Document {
+    id: string;
+    companyId: string;
+    authorRole: 'client' | 'lawyer' | 'admin';
+    name: string;
+    size: number;
+    type: string;
+    category: DocumentCategory;
+    status: DocumentStatus;
+    url: string;
+    createdAt: string;
+    isNewForClient: boolean;
+    isNewForLawyer: boolean;
+}
+
+const DOC_KEY = 'ibs_documents_v1';
+
+function loadDocs(): Document[] {
+    if (typeof window === 'undefined') return [];
+    try {
+        const stored = localStorage.getItem(DOC_KEY);
+        if (stored) return JSON.parse(stored);
+    } catch (e) { console.error('Failed to load documents', e); }
+    return [];
+}
+
+function saveDocs(docs: Document[]) {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(DOC_KEY, JSON.stringify(docs));
+    window.dispatchEvent(new CustomEvent('ibs-docs-updated'));
+}
+
+export const documentStore = {
+    getAll: (): Document[] => {
+        sbSyncLatest('docs', 'documents', DOC_KEY, []);
+        return loadDocs();
+    },
+    getByCompanyId: (companyId: string): Document[] => {
+        const allDocs = documentStore.getAll();
+        let companyDocs = allDocs.filter(d => d.companyId === companyId);
+        
+        // 고객 최초 로그인 시 (또는 문서함 최초 접근 시) 개인정보처리방침 리포트 자동 생성
+        const autoReportName = '개인정보보호법 기반 위험 진단 리포트 (통합본).pdf';
+        const hasPrivacyReport = companyDocs.some(d => d.name === autoReportName);
+        
+        if (!hasPrivacyReport) {
+            const autoReport: Document = {
+                id: 'doc_auto_' + companyId + Math.random().toString(36).substr(2, 5),
+                companyId: companyId,
+                authorRole: 'lawyer',
+                name: autoReportName,
+                size: 2450000,
+                type: 'application/pdf',
+                category: '리포트',
+                status: '검토 완료',
+                url: '#',
+                createdAt: new Date().toISOString(),
+                isNewForClient: true,
+                isNewForLawyer: false,
+            };
+            allDocs.push(autoReport);
+            saveDocs(allDocs);
+            companyDocs.push(autoReport);
+        }
+        
+        return companyDocs;
+    },
+    upload: (doc: Omit<Document, 'id' | 'createdAt'>): Document => {
+        const docs = documentStore.getAll();
+        const newDoc: Document = {
+            ...doc,
+            id: 'doc_' + Math.random().toString(36).substr(2, 9),
+            createdAt: new Date().toISOString()
+        };
+        docs.push(newDoc);
+        saveDocs(docs);
+        return newDoc;
+    },
+    updateStatus: (id: string, status: DocumentStatus) => {
+        const docs = documentStore.getAll();
+        const doc = docs.find(d => d.id === id);
+        if (doc) {
+            doc.status = status;
+            saveDocs(docs);
+        }
+    },
+    markAsReadByClient: (id: string) => {
+        const docs = documentStore.getAll();
+        const doc = docs.find(d => d.id === id);
+        if (doc && doc.isNewForClient) {
+            doc.isNewForClient = false;
+            saveDocs(docs);
+        }
+    },
+    markAsReadByLawyer: (id: string) => {
+        const docs = documentStore.getAll();
+        const doc = docs.find(d => d.id === id);
+        let changed = false;
+        if (doc && doc.isNewForLawyer) {
+            doc.isNewForLawyer = false;
+            changed = true;
+        }
+        // 변호사가 처음 열람 시, 상태가 '검토 대기'라면 '변호사 열람 완료'로 자동 변경
+        if (doc && doc.status === '검토 대기') {
+            doc.status = '변호사 열람 완료';
+            doc.isNewForClient = true; // 클라이언트 측에 알림(NEW 뱃지)을 표시
+            changed = true;
+        }
+        if (changed) {
+            saveDocs(docs);
+        }
+    }
+};
 
 // ── 법률 상담 시스템 ──────────────────────────────────────────
 export type ConsultCategory = '가맹계약' | '개인정보' | '형사' | '노무' | '지식재산' | '기타';
@@ -1056,6 +1280,7 @@ export interface Consultation {
     createdAt: string;
     updatedAt: string;
     isPrivate: boolean;  // 본사에 비공개 여부
+    attachedFiles?: Document[]; // 첨부 파일
 }
 
 // AI 답변 mock 생성
@@ -1585,3 +1810,145 @@ export const personalStore = {
         localStorage.removeItem(PERSONAL_CLIENT_KEY);
     },
 };
+
+// ══════════════════════════════════════════════════════════════
+// ── 대기중 의뢰인 시스템 (녹음/URL/회의 접수 파이프라인) ────────
+// ══════════════════════════════════════════════════════════════
+
+export type PendingChannel = 'recording' | 'intake_url' | 'meeting';
+export type PendingStatus  = 'pending' | 'confirmed' | 'rejected';
+export type SourcePortal   = 'lawyer' | 'sales' | 'intake';
+
+export interface PendingClient {
+    id: string;
+    channel: PendingChannel;         // 채널 A/B/C
+    clientName: string;
+    clientPhone: string;
+    category: string;                // 사건 분류
+    transcript: string;              // 전체 녹취록
+    summarySteps: string[];          // 노션 AI 스타일 단계별 요약
+    fullSummary: string;             // AI 전체 요약 1줄
+    recordingDuration?: number;      // 녹음 길이(초)
+    sourcePortal: SourcePortal;      // 어느 포탈에서 생성됐는지
+    sourceUserId?: string;
+    sourceUserName?: string;
+    status: PendingStatus;
+    token?: string;                  // 채널 B 전용 URL 토큰
+    litCaseId?: string;              // 컨펌 후 연결된 사건 ID
+    createdAt: string;
+    updatedAt: string;
+}
+
+// ── CRM 알람 ──
+export interface CrmNotification {
+    id: string;
+    type: 'pending_client' | 'deadline' | 'billing';
+    title: string;
+    body: string;
+    pendingClientId?: string;
+    read: boolean;
+    createdAt: string;
+}
+
+const PENDING_KEY = 'ibs_pending_clients_v1';
+const NOTIF_KEY   = 'ibs_notifications_v1';
+
+function loadPending(): PendingClient[] {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
+}
+function savePending(items: PendingClient[]) {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(PENDING_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('ibs-pending-updated'));
+}
+
+export const PendingClientStore = {
+    getAll(): PendingClient[] { return loadPending(); },
+    getPending(): PendingClient[] { return loadPending().filter(p => p.status === 'pending'); },
+    getByToken(token: string): PendingClient | undefined { return loadPending().find(p => p.token === token); },
+
+    save(data: Omit<PendingClient, 'id' | 'createdAt' | 'updatedAt'>): PendingClient {
+        const all = loadPending();
+        const now = new Date().toISOString();
+        const entry: PendingClient = {
+            ...data,
+            id: `pc-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            createdAt: now,
+            updatedAt: now,
+        };
+        all.unshift(entry);
+        savePending(all);
+        // 알람 자동 생성
+        NotificationStore.create({
+            type: 'pending_client',
+            title: `🔔 새 의뢰인 대기 — ${entry.clientName}`,
+            body: entry.fullSummary || `${entry.channel === 'intake_url' ? 'URL 접수' : '녹음 접수'}`,
+            pendingClientId: entry.id,
+        });
+        return entry;
+    },
+
+    confirm(id: string): PendingClient | undefined {
+        const all = loadPending();
+        const item = all.find(p => p.id === id);
+        if (!item) return;
+        item.status = 'confirmed';
+        item.updatedAt = new Date().toISOString();
+        savePending(all);
+        return item;
+    },
+
+    reject(id: string): void {
+        const all = loadPending();
+        const item = all.find(p => p.id === id);
+        if (!item) return;
+        item.status = 'rejected';
+        item.updatedAt = new Date().toISOString();
+        savePending(all);
+    },
+
+    count(): number { return this.getPending().length; },
+};
+
+// ── 알람 스토어 ──
+function loadNotifs(): CrmNotification[] {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch { return []; }
+}
+function saveNotifs(items: CrmNotification[]) {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('ibs-notif-updated'));
+}
+
+export const NotificationStore = {
+    getAll(): CrmNotification[] { return loadNotifs(); },
+    getUnread(): CrmNotification[] { return loadNotifs().filter(n => !n.read); },
+    unreadCount(): number { return this.getUnread().length; },
+
+    create(data: Omit<CrmNotification, 'id' | 'read' | 'createdAt'>): CrmNotification {
+        const all = loadNotifs();
+        const notif: CrmNotification = {
+            ...data,
+            id: `notif-${Date.now()}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+        };
+        all.unshift(notif);
+        saveNotifs(all);
+        return notif;
+    },
+
+    markRead(id: string): void {
+        const all = loadNotifs();
+        const n = all.find(x => x.id === id);
+        if (n) { n.read = true; saveNotifs(all); }
+    },
+
+    markAllRead(): void {
+        const all = loadNotifs().map(n => ({ ...n, read: true }));
+        saveNotifs(all);
+    },
+};
+

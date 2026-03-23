@@ -9,19 +9,19 @@ interface ContractEmailTemplateProps {
 
 const PLAN_DETAILS: Record<string, { name: string; price: string; features: string[] }> = {
     starter: {
-        name: 'Starter',
-        price: '월 30만원~',
-        features: ['개인정보처리방침 검토 1회', '변호사 검토 의견서', '수정 초안 제공'],
+        name: 'Entry',
+        price: '월 33만원',
+        features: ['본사 법률자문 (무제한)', '변호사 검토 의견서', '법률 문서 2,000종 제공'],
     },
     standard: {
-        name: 'Standard',
-        price: '월 50만원~',
-        features: ['Starter 전체 포함', '분기별 정기 검토', '가맹점 법률상담 BACKCALL', '법률 문서 2,000종 제공'],
+        name: 'Growth',
+        price: '월 55만원',
+        features: ['Entry 전체 포함', '분기별 정기 검토', '가맹점 법률상담 BACKCALL', '법률 문서 2,000종 제공'],
     },
     premium: {
-        name: 'Premium',
-        price: '월 100만원~',
-        features: ['Standard 전체 포함', '전담 파트너 변호사 배정', '임직원 법률상담 포함', '분기 리스크 브리핑', 'EAP 심리상담'],
+        name: 'Scale',
+        price: '월 110만원',
+        features: ['Growth 전체 포함', '전담 파트너 변호사 배정', '임직원 법률상담 포함', '분기 리스크 브리핑', 'EAP 심리상담'],
     },
 };
 
@@ -169,7 +169,7 @@ export default function ContractEmailTemplate({ company, plan = 'standard' }: Co
                 </p>
                 <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 16, paddingTop: 16 }}>
                     <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-                        IBS 법률사무소 | 서울특별시 서초구 서초대로 | 02-555-1234 | legal@ibslaw.co.kr
+                        IBS 법률사무소 | 서울특별시 서초구 서초대로 | 02-598-8518 | legal@ibslaw.co.kr
                     </p>
                 </div>
             </div>

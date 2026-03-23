@@ -52,7 +52,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
         icon: Upload,
         title: '문서 업로드',
         description: '검토가 필요한 계약서, 취업규칙 등을 업로드해 주세요. AI가 사전 분석합니다.',
-        href: '/my-documents',
+        href: '/documents',
         buttonLabel: '문서 업로드',
         color: '#059669',
     },

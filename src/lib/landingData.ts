@@ -55,7 +55,7 @@ export interface ServiceItem {
 }
 
 export const BASE_SERVICES: ServiceItem[] = [
-    { icon: Scale, title: '본사 법률자문', sub: 'HQ Legal Advisory', desc: '월 60시간 범위 내 무제한. 계약서·약관·분쟁 대응 변호사 직접 응대. 긴급 시 24시간.', badge: '월 60시간 포함', color: '#c9a84c' },
+    { icon: Scale, title: '본사 법률자문', sub: 'HQ Legal Advisory', desc: '무제한 자문. 계약서·약관·분쟁 대응 변호사 직접 응대. 긴급 시 24시간.', badge: '무제한 자문', color: '#c9a84c' },
     { icon: Building2, title: '가맹점 법률상담', sub: 'Franchisee Consultation', desc: '챗봇 접수 → 변호사 BACKCALL 24시간 내 대응. 상담 내용 본사 절대 비공개.', badge: 'BACKCALL 시스템', color: '#60a5fa' },
     { icon: Award, title: '임직원 법률상담', sub: 'Employee Consultation', desc: '복리후생 프로그램. 부동산·가족·소비자 분쟁 등 개인 생활법률 익명 상담.', badge: '복리후생 포함', color: '#4ade80' },
     { icon: Zap, title: '분기 리스크 브리핑', sub: 'Franchise Risk Briefing', desc: '분기 1회(연 4회). 리스크 TOP 5 + 공정위 동향 + 체크리스트 + 표준문구 업데이트.', badge: '연 4회 자동 제공', color: '#a78bfa' },
@@ -73,7 +73,7 @@ export const ADD_ONS: AddOnItem[] = [
 // ── 추가 서비스 테이블 ──────────────────────────────────────
 export const ADDITIONAL_SERVICES = [
     { name: '상표 출원·등록', regular: '49~50만원', subscriber: '27~28만원', note: '50% 할인 (관납료 포함)' },
-    { name: '가맹계약서 최초 세팅', regular: '88만원', subscriber: '무상 제공', note: 'Base 60시간 소진' },
+    { name: '가맹계약서 최초 세팅', regular: '88만원', subscriber: '무상 제공', note: '구독 포함' },
     { name: '정보공개서 신규 등록', regular: '88만원', subscriber: '44만원', note: '50% 할인' },
     { name: '정보공개서 정기 변경', regular: '88만원', subscriber: '44만원', note: '50% 할인' },
     { name: '해외 확장·M&A', regular: '협의 산정', subscriber: '협의 산정', note: '프로젝트 단위' },
@@ -82,8 +82,8 @@ export const ADDITIONAL_SERVICES = [
 
 // ── 가격 샘플표 ─────────────────────────────────────────────
 export const PRICE_SAMPLES = [
-    { n: 1, price: 30 }, { n: 5, price: 38 }, { n: 11, price: 50 },
-    { n: 30, price: 60.7 }, { n: 50, price: 71.9 }, { n: 100, price: 100 }, { n: 150, price: 128.1 },
+    { n: 1, price: 30 }, { n: 10, price: 37.7 }, { n: 30, price: 54.7 },
+    { n: 50, price: 71.7 }, { n: 100, price: 114.2 }, { n: 150, price: 156.7 }, { n: 200, price: 199.2 },
 ];
 
 // ── 후기 ────────────────────────────────────────────────────
@@ -98,18 +98,14 @@ export const FAQ_ITEMS = [
     { q: '개인정보처리방침 검토는 정말 무료인가요?', a: '1차 자동 분석은 완전 무료입니다. 변호사 교차 검증 의견서 및 수정 초안 열람은 로그인 후 플랜에 따라 제공됩니다.' },
     { q: '계약하면 무엇이 달라지나요?', a: '전담 파트너 변호사 배정 → 분기별 전수 검토 → 법령 개정 자동 알림 → 가맹점·임직원 법률상담 BACKCALL 시스템이 즉시 활성화됩니다.' },
     { q: '가맹점(지점)도 법률상담을 받을 수 있나요?', a: '본사 구독 시 산하 가맹점·임직원 전원이 챗봇 접수 → 변호사 BACKCALL 24시간 내 대응 서비스를 이용할 수 있습니다. 상담 내용은 본사에 공개되지 않습니다.' },
-    { q: '과태료 위기 상황인데 지금 즉시 도움받을 수 있나요?', a: '네. 긴급 신청 시 담당 변호사가 4시간 이내 연락드립니다. 02-555-1234로 전화주시거나 우측 하단 채팅으로 문의해주세요.' },
+    { q: '과태료 위기 상황인데 지금 즉시 도움받을 수 있나요?', a: '네. 긴급 신청 시 담당 변호사가 4시간 이내 연락드립니다. 02-598-8518로 전화주시거나 우측 하단 채팅으로 문의해주세요.' },
     { q: '1,000억 엑시트 사례가 실제인가요?', a: '네, 실제 자문 사례입니다. 기업명은 계약 상 비공개이며, 구체적 자문 내용은 상담 시 공유 가능합니다.' },
     { q: '최소 계약 기간은 어떻게 되나요?', a: '기본 1년 약정입니다. 계약 후 30일 이내 환불 보장. 이후엔 분기별 가맹점 수 기준으로 요금이 리베이스됩니다.' },
 ];
 
-// ── 가격 산정식 ─────────────────────────────────────────────
-export function calcPrice(n: number): number {
-    if (n <= 0) return 300000;
-    if (n <= 11) return 300000 + 20000 * (n - 1);
-    return 500000 + Math.round(5617 * (n - 11));
-}
-export function calcVoucher(n: number): number { return Math.round(calcPrice(n) * 0.5); }
+// ── 가격 산정식 v4.0 ────────────────────────────────────────
+// pricing.ts의 calcPrice를 re-export (Single Source of Truth)
+export { calcPrice } from './pricing';
 
 // ── 공통 애니메이션 variants ────────────────────────────────
 export const fadeUp = {

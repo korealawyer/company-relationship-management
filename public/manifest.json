@@ -1,27 +1,38 @@
 {
-    "name": "IBS 법률사무소 CRM",
-    "short_name": "IBS CRM",
-    "description": "프랜차이즈 전문 법률 영업 관리 시스템",
-    "start_url": "/sales/call",
+    "name": "IBS 프랜차이즈 리걸 포털",
+    "short_name": "IBS 포털",
+    "description": "가맹본사, 가맹점, 영업팀을 위한 통합 법무 OS",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#04091a",
-    "theme_color": "#c9a84c",
-    "orientation": "any",
+    "background_color": "#ffffff",
+    "theme_color": "#1e293b",
+    "orientation": "portrait",
     "icons": [
         {
-            "src": "/ibs-icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
-        },
-        {
-            "src": "/ibs-icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
+            "src": "/ibs-icon.svg",
+            "sizes": "192x192 512x512 any",
+            "type": "image/svg+xml",
             "purpose": "any maskable"
         }
     ],
-    "categories": ["business", "productivity"],
+    "shortcuts": [
+        {
+            "name": "고객사 대시보드",
+            "short_name": "대시보드",
+            "url": "/dashboard",
+            "description": "법무 현황 관리",
+            "icons": [{ "src": "/ibs-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+        },
+        {
+            "name": "영업팀 전화 센터",
+            "short_name": "영업센터",
+            "url": "/sales/call",
+            "description": "고객 전화 영업 관리",
+            "icons": [{ "src": "/ibs-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+        }
+    ],
+    "categories": ["business", "legal"],
     "lang": "ko",
     "dir": "ltr"
 }
