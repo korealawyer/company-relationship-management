@@ -209,7 +209,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                                                 type="text"
                                                 placeholder="예: 가맹점주 계약 해지 관련 자문"
                                                 value={title} onChange={e => setTitle(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:border-gray-800 transition-colors text-sm"
+                                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
                                             />
                                         </div>
 
@@ -219,7 +219,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                                             <textarea
                                                 rows={8} placeholder="배경 및 요청사항을 간략히 적어주세요."
                                                 value={detail} onChange={e => setDetail(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 outline-none focus:border-gray-800 transition-colors text-sm resize-none"
+                                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400 resize-none"
                                             />
                                         </div>
 

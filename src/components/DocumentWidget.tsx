@@ -1,19 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-    FileText, FileImage, File, UploadCloud, Download, Eye,
-    CheckCircle2, Clock, MessageSquare, X
-} from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { FileText, UploadCloud } from 'lucide-react';
 import { documentStore, Document, DocumentCategory, DocumentStatus } from '@/lib/mockStore';
 
-const STATUS_CONFIG: Record<DocumentStatus, { color: string, bg: string, icon: any }> = {
-    '검토 대기': { color: '#dc2626', bg: '#fef2f2', icon: Clock },
-    '변호사 열람 완료': { color: '#d97706', bg: '#fffbeb', icon: Eye },
-    '검토 중': { color: '#2563eb', bg: '#eff6ff', icon: MessageSquare },
-    '검토 완료': { color: '#16a34a', bg: '#f0fdf4', icon: CheckCircle2 }
-};
+import { OcrResultData, OcrResultPanel } from './documents/OcrResultPanel';
+import { DocumentList } from './documents/DocumentList';
 
 const CATEGORIES: DocumentCategory[] = ['계약서', '의견서', '리포트', '소장', '영수증', '기타'];
 
@@ -27,6 +19,14 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
     const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | '전체'>('전체');
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // ── OCR State ──
+    const [ocrLoading, setOcrLoading] = useState<string | null>(null);
+    const [ocrProgress, setOcrProgress] = useState(0);
+    const [ocrResult, setOcrResult] = useState<OcrResultData | null>(null);
+    const [ocrError, setOcrError] = useState<string | null>(null);
+    const [ocrEngine, setOcrEngine] = useState<'auto'|'cloud_vision'|'tesseract'>('auto');
+    const [ocrMode, setOcrMode] = useState<'document'|'text'|'handwriting'>('document');
 
     // load docs
     useEffect(() => {
@@ -71,6 +71,78 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
         window.open(doc.url, '_blank');
     };
 
+    // ── OCR Handler ──
+    const handleOcr = useCallback(async (doc: Document) => {
+        setOcrLoading(doc.id);
+        setOcrProgress(0);
+        setOcrResult(null);
+        setOcrError(null);
+
+        try {
+            // Lazy import to avoid loading Tesseract on every page
+            const { extractText, isOcrSupported } = await import('@/lib/ocr');
+
+            // 실제 File 객체를 URL에서 fetch로 가져오거나, 더미 파일 생성
+            let file: globalThis.File;
+            if (doc.url.startsWith('blob:') || doc.url.startsWith('http')) {
+                const res = await fetch(doc.url);
+                const blob = await res.blob();
+                file = new globalThis.File([blob], doc.name, { type: doc.type });
+            } else {
+                // URL이 '#'인 경우 (mock 데이터) — 데모용 OCR 시뮬레이션
+                setOcrProgress(50);
+                await new Promise(r => setTimeout(r, 800));
+                setOcrProgress(100);
+                setOcrResult({
+                    id: `ocr_demo_${Date.now()}`,
+                    fileName: doc.name,
+                    extractedText: `[데모] "${doc.name}" 파일의 OCR 텍스트 추출 결과입니다.\n\n이 문서는 실제 파일이 아닌 시스템 생성 문서이므로,\n실제 업로드된 이미지/PDF 파일에서 OCR을 실행하면\n한국어/영어 텍스트가 정확히 추출됩니다.\n\n원고: 김민수\n피고: (주)프랜차이즈코리아\n2024년 3월 15일\n손해배상금 50,000,000원\n사건번호: 2024가합12345`,
+                    confidence: 85,
+                    language: 'ko',
+                    processedAt: new Date().toISOString(),
+                    pageCount: 1,
+                    structuredData: {
+                        parties: ['김민수', '(주)프랜차이즈코리아'],
+                        dates: ['2024-03-15'],
+                        amounts: ['50,000,000원'],
+                        caseNumbers: ['2024가합12345'],
+                        keyPhrases: ['손해배상'],
+                    }
+                });
+                setOcrLoading(null);
+                return;
+            }
+
+            if (!isOcrSupported(file)) {
+                setOcrError('지원하지 않는 파일 형식입니다.');
+                setOcrLoading(null);
+                return;
+            }
+
+            const result = await extractText(file, {
+                engine: ocrEngine,
+                mode: ocrMode,
+                language: 'kor+eng',
+                extractStructured: true,
+                onProgress: (pct) => setOcrProgress(pct),
+            });
+
+            setOcrResult(result);
+        } catch (err: any) {
+            console.error('OCR Error:', err);
+            setOcrError(err.message || 'OCR 처리 중 오류가 발생했습니다.');
+        } finally {
+            setOcrLoading(null);
+        }
+    }, [ocrEngine, ocrMode]);
+
+    // Check if a doc is OCR-compatible by extension
+    const isOcrCompatible = (doc: Document) => {
+        const ext = doc.name.split('.').pop()?.toLowerCase() || '';
+        return ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'tif', 'pdf', 'docx', 'hwp', 'hwpx'].includes(ext)
+            || doc.type.includes('image') || doc.type.includes('pdf');
+    };
+
     const filteredDocs = docs.filter(doc => selectedCategory === '전체' || doc.category === selectedCategory)
         .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -87,6 +159,24 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
                 </div>
                 <div className="flex items-center gap-2">
                     <select 
+                        value={ocrEngine}
+                        onChange={(e) => setOcrEngine(e.target.value as any)}
+                        className="text-[10px] border border-gray-200 rounded-md bg-white px-2 py-1 outline-none text-gray-600 font-medium"
+                    >
+                        <option value="auto">Auto (Cloud 우선)</option>
+                        <option value="cloud_vision">Cloud Vision</option>
+                        <option value="tesseract">Tesseract (로컬)</option>
+                    </select>
+                    <select 
+                        value={ocrMode}
+                        onChange={(e) => setOcrMode(e.target.value as any)}
+                        className="text-[10px] border border-gray-200 rounded-md bg-white px-2 py-1 outline-none text-gray-600 font-medium"
+                    >
+                        <option value="document">일반 문서</option>
+                        <option value="text">텍스트 위주</option>
+                        <option value="handwriting">필기체 포함</option>
+                    </select>
+                    <select 
                         value={selectedCategory} 
                         onChange={(e) => setSelectedCategory(e.target.value as any)}
                         className="text-xs border-gray-200 rounded-md bg-white pr-7 py-1 outline-none"
@@ -98,80 +188,23 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[300px]">
-                <AnimatePresence>
-                    {filteredDocs.length === 0 ? (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-12 text-center text-gray-400">
-                            <File className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-xs">문서가 없습니다.</p>
-                        </motion.div>
-                    ) : (
-                        filteredDocs.map((doc, i) => {
-                            const StatusIcon = STATUS_CONFIG[doc.status].icon;
-                            return (
-                                <motion.div 
-                                    key={doc.id}
-                                    initial={{ opacity: 0, y: 5 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="p-3 rounded-xl border border-gray-100 hover:border-gray-200 bg-white group transition-all"
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div 
-                                            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-50 text-blue-500 cursor-pointer hover:bg-blue-100"
-                                            onClick={() => handleDocClick(doc)}
-                                        >
-                                            {doc.type.includes('pdf') ? <FileText className="w-5 h-5"/> : 
-                                             doc.type.includes('image') ? <FileImage className="w-5 h-5"/> : 
-                                             <File className="w-5 h-5"/>}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h4 
-                                                    className="text-sm font-bold text-gray-800 truncate cursor-pointer hover:text-blue-600"
-                                                    onClick={() => handleDocClick(doc)}
-                                                >
-                                                    {doc.name}
-                                                </h4>
-                                                {doc.isNewForLawyer && (
-                                                    <span className="text-[9px] font-black bg-red-100 text-red-600 px-1 py-0.5 rounded leading-none">
-                                                        NEW
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium flex-wrap">
-                                                <span className="bg-gray-100 px-1.5 py-0.5 rounded">{doc.category}</span>
-                                                <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-                                                <span>{(doc.size / 1024 / 1024).toFixed(1)} MB</span>
-                                                <span className={doc.authorRole === 'client' ? 'text-orange-500' : 'text-blue-500'}>
-                                                    {doc.authorRole === 'client' ? '고객 업로드' : '변호사 등록'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-bold" 
-                                             style={{ background: STATUS_CONFIG[doc.status].bg, borderColor: STATUS_CONFIG[doc.status].color + '30', color: STATUS_CONFIG[doc.status].color }}>
-                                            <StatusIcon className="w-3 h-3" />
-                                            {doc.status}
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-2">
-                                            <select 
-                                                value={doc.status}
-                                                onChange={(e) => handleStatusChange(doc.id, e.target.value as DocumentStatus)}
-                                                className="text-[10px] bg-gray-50 border border-gray-200 rounded px-1.5 py-1 outline-none font-medium cursor-pointer flex-shrink-0 max-w-[100px]"
-                                            >
-                                                {Object.keys(STATUS_CONFIG).map(s => <option key={s} value={s}>{s} 상태로 변경</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })
-                    )}
-                </AnimatePresence>
-            </div>
+            <DocumentList 
+                filteredDocs={filteredDocs}
+                ocrLoading={ocrLoading}
+                ocrProgress={ocrProgress}
+                handleDocClick={handleDocClick}
+                isOcrCompatible={isOcrCompatible}
+                handleOcr={handleOcr}
+                handleStatusChange={handleStatusChange}
+            />
+
+            {/* OCR Result Panel */}
+            <OcrResultPanel 
+                ocrResult={ocrResult}
+                setOcrResult={setOcrResult}
+                ocrError={ocrError}
+                setOcrError={setOcrError}
+            />
 
             {/* Upload Area */}
             <div className="p-3 border-t border-gray-100 bg-gray-50">

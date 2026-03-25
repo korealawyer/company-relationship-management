@@ -1,26 +1,25 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { FileText, Plus, CheckCircle2, Clock, AlertTriangle, Eye, Edit3, Send } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, Clock, AlertTriangle, Eye, Edit3, Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { getBrowserSupabase } from '@/lib/supabase';
+import { createContract, sendContractEmail } from '@/actions/contractActions';
+
+// ── BlockNote 에디터 (SSR 비활성화) ──────────────────────────────
+interface BlockNoteEditorProps { initialContent: string; onChange: (v: string) => void; }
+const BlockNoteEditorComponent = dynamic<BlockNoteEditorProps>(
+    () => import('./_BlockNoteEditor'),
+    { ssr: false, loading: () => <div className="w-full h-48 rounded-xl animate-pulse" style={{ background: '#f3f4f6' }} /> }
+);
 
 const CONTRACT_TEMPLATES = [
-    { id: 'service', name: '서비스 이용 계약', desc: '플랫폼 서비스 제공 계약서 표준 양식' },
-    { id: 'advisory', name: '자문 계약서', desc: '법률·경영 자문 위임 계약서' },
-    { id: 'franchise', name: '가맹계약서', desc: '가맹본부-가맹점 표준 계약서 (가맹사업법 준거)' },
+    { id: '서비스 이용 계약', name: '서비스 이용 계약', desc: '플랫폼 서비스 제공 계약서 표준 양식' },
+    { id: '자문 계약서', name: '자문 계약서', desc: '법률·경영 자문 위임 계약서' },
+    { id: '가맹계약서', name: '가맹계약서', desc: '가맹본부-가맹점 표준 계약서 (가맹사업법 준거)' },
+    { id: 'NDA', name: '비밀유지계약서(NDA)', desc: '영업비밀 보호를 위한 표준 NDA 양식' }
 ];
-
-function getContracts(co: string) {
-    return [
-        { id: 'ct1', title: `${co} 법률 자문 위임 계약`, template: '자문 계약서', status: 'both_signed', created: '2026-02-01', party: co },
-        { id: 'ct2', title: '강남 123호점 가맹계약서', template: '가맹계약서', status: 'waiting_other', created: '2026-03-01', party: '김가맹 (강남 123호점)' },
-        { id: 'ct3', title: '홍길동 HR팀장 서비스 이용 계약', template: '서비스 이용 계약', status: 'draft', created: '2026-03-01', party: '—' },
-        { id: 'ct4', title: `${co} 개인정보 처리 위탁 계약`, template: '자문 계약서', status: 'both_signed', created: '2026-01-15', party: co },
-        { id: 'ct5', title: '서초 45호점 가맹계약서', template: '가맹계약서', status: 'both_signed', created: '2025-12-10', party: '박○○ (서초 45호점)' },
-        { id: 'ct6', title: `${co} 비밀유지(NDA) 계약`, template: '자문 계약서', status: 'both_signed', created: '2025-11-20', party: co },
-        { id: 'ct7', title: '홍대 78호점 가맹계약서', template: '가맹계약서', status: 'waiting_other', created: '2026-03-10', party: '최○○ (홍대 78호점)' },
-    ];
-}
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
     draft: { label: '초안', color: '#94a3b8', icon: <Edit3 className="w-3 h-3" /> },
@@ -33,11 +32,22 @@ export default function ContractsPage() {
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [contractTitle, setContractTitle] = useState('');
     const [partyEmail, setPartyEmail] = useState('');
-    const [created, setCreated] = useState(false);
-
+    const [content, setContent] = useState('');
+    
+    // Status states
+    const [createdContractId, setCreatedContractId] = useState('');
+    const [creating, setCreating] = useState(false);
+    const [sending, setSending] = useState(false);
+    const [toastMsg, setToastMsg] = useState('');
+    const [toastType, setToastType] = useState<'success' | 'error'>('success');
+    
+    // Data states
+    const [contracts, setContracts] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    
     // ── 세션에서 회사명 읽기 ────────────────────────────────
     const [companyName, setCompanyName] = useState('');
-    React.useEffect(() => {
+    useEffect(() => {
         try {
             const raw = localStorage.getItem('ibs_auth_v1');
             if (raw) {
@@ -47,16 +57,147 @@ export default function ContractsPage() {
         } catch { /* ignore */ }
     }, []);
 
-    const MOCK_CONTRACTS = getContracts(companyName || '(주)기업명');
+    // ── 데이터 페칭 ────────────────────────────────
+    const fetchContracts = async () => {
+        const supabase = getBrowserSupabase();
+        if (!supabase) {
+            // Mock 모드: localStorage에서 읽기
+            try {
+                const raw = localStorage.getItem('ibs_mock_contracts');
+                setContracts(raw ? JSON.parse(raw) : []);
+            } catch { setContracts([]); }
+            setLoading(false);
+            return;
+        }
+        
+        const { data, error } = await supabase
+            .from('contracts')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+        if (!error && data) {
+            setContracts(data);
+        }
+        setLoading(false);
+    };
 
-    const handleCreate = () => {
-        if (!selectedTemplate || !contractTitle) return;
-        setCreated(true);
+    useEffect(() => {
+        fetchContracts();
+    }, []);
+
+    useEffect(() => {
+        if (selectedTemplate) {
+            setContent(`제1조 (목적)
+본 계약은 갑(${companyName || 'IBS 법률사무소'})과 을 간의 ${selectedTemplate} 운영에 관한 권리·의무 관계를 규정함을 목적으로 한다.
+
+제2조 (계약금)
+본 계약의 계약금액은 당사자 간 별도 협의에 따른다.
+
+제3조 (비밀유지)
+을은 계약 기간 중 및 계약 종료 후 2년간 갑의 영업비밀을 누설하여서는 아니 된다.`);
+        } else {
+            setContent('');
+        }
+    }, [selectedTemplate, companyName]);
+
+    const showToast = (msg: string, type: 'success'|'error' = 'success') => {
+        setToastMsg(msg);
+        setToastType(type);
+        setTimeout(() => setToastMsg(''), 3000);
+    };
+
+    const handleCreate = async () => {
+        if (!contractTitle || !content) {
+            showToast('제목과 본문을 입력해주세요.', 'error');
+            return;
+        }
+        setCreating(true);
+        try {
+            const id = await createContract({
+                title: contractTitle,
+                template: selectedTemplate,
+                partyEmail: partyEmail,
+                companyName: companyName || '(주)기업명',
+                content: content
+            });
+            setCreatedContractId(id);
+            // Mock 모드: localStorage에도 저장해 목록 갱신 시 표시
+            if (id.startsWith('mock_')) {
+                try {
+                    const raw = localStorage.getItem('ibs_mock_contracts');
+                    const list = raw ? JSON.parse(raw) : [];
+                    const newContract = {
+                        id,
+                        title: contractTitle,
+                        template: selectedTemplate,
+                        party_a_name: companyName || '(주)기업명',
+                        party_a_signed: true,
+                        party_b_email: partyEmail || null,
+                        party_b_name: partyEmail ? partyEmail.split('@')[0] : '의뢰인',
+                        party_b_signed: false,
+                        status: 'draft',
+                        content: content,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    };
+                    localStorage.setItem('ibs_mock_contracts', JSON.stringify([newContract, ...list]));
+                } catch { /* ignore */ }
+            }
+            fetchContracts();
+            showToast('계약서가 생성되었습니다.');
+        } catch (err: any) {
+            showToast(err.message || '계약서 생성에 실패했습니다.', 'error');
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const handleSendEmail = async () => {
+        if (!partyEmail) {
+            showToast('받는 사람의 이메일 주소를 입력해주세요.', 'error');
+            return;
+        }
+        setSending(true);
+        try {
+            const domain = window.location.origin;
+            const link = `${domain}/contracts/${createdContractId}`;
+            await sendContractEmail(createdContractId, partyEmail, link);
+            showToast('이메일 발송이 성공적으로 완료되었습니다.');
+            fetchContracts(); // Refresh to update status to waiting_other
+        } catch (err: any) {
+            showToast(err.message || '이메일 발송에 실패했습니다.', 'error');
+        } finally {
+            setSending(false);
+        }
+    };
+    
+    const resetModal = () => {
+        setShowNew(false);
+        setCreatedContractId('');
+        setSelectedTemplate('');
+        setContractTitle('');
+        setPartyEmail('');
+        setContent('');
     };
 
     return (
         <div className="min-h-screen pt-20 pb-12" style={{ background: '#f8f7f4' }}>
-            <div className="max-w-5xl mx-auto px-4">
+            <div className="max-w-5xl mx-auto px-4 relative">
+                
+                {/* Toast Notification */}
+                {toastMsg && (
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+                                className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full font-bold text-sm shadow-lg flex items-center gap-2"
+                                style={{ 
+                                    background: toastType === 'success' ? '#111827' : '#27272a', // 점잖은 검은색 계열 에러 박스
+                                    border: toastType === 'error' ? '1px solid #dc2626' : '1px solid #4ade80',
+                                    color: '#fff' 
+                                }}>
+                        {toastType === 'success' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
+                        {toastMsg}
+                    </motion.div>
+                )}
+
                 {/* 헤더 */}
                 <div className="flex items-center justify-between py-6 mb-6"
                     style={{ borderBottom: '1px solid #e8e5de' }}>
@@ -76,10 +217,10 @@ export default function ContractsPage() {
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         className="p-6 rounded-2xl mb-8"
                         style={{ background: '#fff', border: '1px solid #e8e5de' }}>
-                        {!created ? (
+                        {!createdContractId ? (
                             <>
                                 <h2 className="font-black mb-5" style={{ color: '#c9a84c' }}>새 계약서 작성</h2>
-                                <div className="grid md:grid-cols-3 gap-3 mb-5">
+                                <div className="grid md:grid-cols-2 gap-3 mb-5">
                                     {CONTRACT_TEMPLATES.map(t => (
                                         <div key={t.id} onClick={() => setSelectedTemplate(t.id)}
                                             className="p-4 rounded-xl cursor-pointer transition-all"
@@ -108,13 +249,22 @@ export default function ContractsPage() {
                                             style={{ background: '#f3f4f6', border: '1px solid #e8e5de', color: '#111827' }} />
                                     </div>
                                 </div>
+                                <div className="mb-5">
+                                    <label className="block text-sm font-bold mb-1.5" style={{ color: '#374151' }}>계약서 본문 에디터</label>
+                                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #e8e5de', minHeight: '200px' }}>
+                                        <BlockNoteEditorComponent
+                                            initialContent={content}
+                                            onChange={setContent}
+                                        />
+                                    </div>
+                                </div>
                                 <div className="flex gap-3">
-                                    <button onClick={handleCreate}
-                                        className="px-6 py-2.5 rounded-xl font-bold text-sm"
-                                        style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#111827' }}>
-                                        계약서 생성
+                                    <button onClick={handleCreate} disabled={creating}
+                                        className="px-6 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center min-w-[120px] transition-all"
+                                        style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#111827', opacity: creating ? 0.7 : 1 }}>
+                                        {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : '계약서 생성'}
                                     </button>
-                                    <button onClick={() => setShowNew(false)}
+                                    <button onClick={resetModal}
                                         className="px-6 py-2.5 rounded-xl font-bold text-sm"
                                         style={{ background: '#f3f4f6', color: '#6b7280' }}>
                                         취소
@@ -128,19 +278,20 @@ export default function ContractsPage() {
                                 <p className="text-sm mb-4" style={{ color: '#6b7280' }}>
                                     서명 링크가 생성되었습니다. 상대방에게 링크를 전송하세요.
                                 </p>
-                                <div className="p-3 rounded-xl mb-4 text-left"
+                                <div className="p-3 rounded-xl mb-4 text-left mx-auto max-w-lg"
                                     style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
                                     <p className="text-xs font-bold mb-1" style={{ color: '#4ade80' }}>서명 링크 (복사 후 발송)</p>
                                     <p className="text-xs font-mono break-all" style={{ color: '#374151' }}>
-                                        https://app.ibslaw.co.kr/contracts/sign/{Math.random().toString(36).slice(2, 10)}
+                                        {typeof window !== 'undefined' ? window.location.origin : ''}/contracts/{createdContractId}
                                     </p>
                                 </div>
                                 <div className="flex gap-3 justify-center">
-                                    <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm"
-                                        style={{ background: '#fef3c7', color: '#c9a84c', border: '1px solid #c9a84c' }}>
-                                        <Send className="w-4 h-4" /> 이메일로 발송
+                                    <button onClick={handleSendEmail} disabled={sending || !partyEmail}
+                                        className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm min-w-[140px] transition-all"
+                                        style={{ background: '#fef3c7', color: '#c9a84c', border: '1px solid #c9a84c', opacity: (sending || !partyEmail) ? 0.6 : 1 }}>
+                                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> 이메일로 발송</>}
                                     </button>
-                                    <button onClick={() => { setShowNew(false); setCreated(false); setSelectedTemplate(''); setContractTitle(''); }}
+                                    <button onClick={resetModal}
                                         className="px-5 py-2.5 rounded-xl font-bold text-sm"
                                         style={{ background: '#f3f4f6', color: '#6b7280' }}>
                                         닫기
@@ -152,38 +303,53 @@ export default function ContractsPage() {
                 )}
 
                 {/* 계약서 목록 */}
-                <div className="space-y-3">
-                    {MOCK_CONTRACTS.map(c => {
-                        const s = STATUS_MAP[c.status];
-                        return (
-                            <motion.div key={c.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                className="p-5 rounded-2xl flex items-center gap-5"
-                                style={{ background: '#fff', border: '1px solid #e8e5de' }}>
-                                <div className="p-2.5 rounded-xl" style={{ background: '#fef3c7' }}>
-                                    <FileText className="w-5 h-5" style={{ color: '#c9a84c' }} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-sm mb-0.5" style={{ color: '#111827' }}>{c.title}</div>
-                                    <div className="text-xs" style={{ color: '#6b7280' }}>
-                                        {c.template} · {c.party} · {c.created}
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#c9a84c' }} />
+                    </div>
+                ) : contracts.length === 0 ? (
+                    <div className="text-center py-12 text-sm" style={{ color: '#9ca3af' }}>
+                        아직 작성된 전자계약서가 없습니다.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {contracts.map(c => {
+                            const s = STATUS_MAP[c.status] || STATUS_MAP.draft;
+                            const createdDate = new Date(c.created_at).toLocaleDateString('ko-KR');
+                            const partyName = c.party_b_name || c.party_b_email || '—';
+                            
+                            return (
+                                <motion.div key={c.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    className="p-5 rounded-2xl flex flex-col md:flex-row md:items-center gap-4 md:gap-5"
+                                    style={{ background: '#fff', border: '1px solid #e8e5de' }}>
+                                    <div className="flex items-center gap-4 flex-1">
+                                        <div className="p-2.5 rounded-xl shrink-0" style={{ background: '#fef3c7' }}>
+                                            <FileText className="w-5 h-5" style={{ color: '#c9a84c' }} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-bold text-sm mb-0.5 truncate" style={{ color: '#111827' }}>{c.title}</div>
+                                            <div className="text-xs truncate" style={{ color: '#6b7280' }}>
+                                                {c.template} · {partyName} · {createdDate}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold"
-                                        style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30` }}>
-                                        {s.icon} {s.label}
-                                    </span>
-                                    <Link href={`/contracts/${c.id}`}>
-                                        <button className="p-2 rounded-xl transition-all"
-                                            style={{ background: '#f3f4f6', color: '#6b7280' }}>
-                                            <Eye className="w-4 h-4" />
-                                        </button>
-                                    </Link>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
-                </div>
+                                    <div className="flex items-center gap-3 justify-end">
+                                        <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold whitespace-nowrap"
+                                            style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30` }}>
+                                            {s.icon} {s.label}
+                                        </span>
+                                        <Link href={`/contracts/${c.id}`}>
+                                            <button className="p-2 rounded-xl transition-all hover:bg-gray-200"
+                                                style={{ background: '#f3f4f6', color: '#6b7280' }}>
+                                                <Eye className="w-4 h-4" />
+                                            </button>
+                                        </Link>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <p className="text-center text-xs mt-8" style={{ color: '#d1d5db' }}>
                     Phase 2: 모두사인·DocuSign API 연동 시 전자서명 법적 효력 강화

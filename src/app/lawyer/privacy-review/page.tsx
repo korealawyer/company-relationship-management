@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, Clock, ArrowLeft, Scale, FileText, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock, ArrowLeft, Scale, FileText, Loader2, Download, Lock, FilePlus, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import EditableText from '@/components/crm/EditableText';
 import { useRequireAuth } from '@/lib/AuthContext';
@@ -160,6 +161,21 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                     </div>
                 </>
             )}
+
+            {/* 내부 비공개 메모 (고객 전송 제외) */}
+            <div className="no-print" style={{ marginTop: 16, background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <Lock size={14} color="#475569" />
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#475569' }}>내부 비공개 메모 (고객 전송 제외)</span>
+                </div>
+                <EditableText
+                    value={data[`${c.num}_internal_memo`] ?? ''}
+                    onChange={v => onChange(`${c.num}_internal_memo`, v)}
+                    style={{ background: '#ffffff', borderColor: '#e2e8f0', fontSize: 13, color: '#1e293b' }}
+                    minRows={2}
+                    placeholder="로펌 내부에서만 공유할 메모를 입력하세요..."
+                />
+            </div>
         </div>
     );
 }
@@ -197,6 +213,21 @@ function FullRevisionRow({ c, data, onChange }: {
             <div style={{ fontSize: 12, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '8px 12px', lineHeight: 1.7 }}>
                 {c.legalBasis.map((b, i) => <div key={i}>· {b}</div>)}
             </div>
+
+            {/* 내부 비공개 메모 (고객 전송 제외) */}
+            <div className="no-print" style={{ marginTop: 16, background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <Lock size={14} color="#475569" />
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#475569' }}>내부 비공개 메모 (고객 전송 제외)</span>
+                </div>
+                <EditableText
+                    value={data[`${c.num}_internal_memo`] ?? ''}
+                    onChange={v => onChange(`${c.num}_internal_memo`, v)}
+                    style={{ background: '#ffffff', borderColor: '#e2e8f0', fontSize: 13, color: '#1e293b' }}
+                    minRows={2}
+                    placeholder="로펌 내부에서만 공유할 메모를 입력하세요..."
+                />
+            </div>
         </div>
     );
 }
@@ -215,6 +246,11 @@ export default function PrivacyReviewPage({
     const [confirmedTab, setConfirmedTab] = useState<'first' | 'full' | null>(null);
     const [confirming, setConfirming] = useState(false);
     const [categories, setCategories] = useState<ScenarioCategory[]>(DEFAULT_SCENARIO_CATEGORIES);
+    const [requestModalOpen, setRequestModalOpen] = useState(false);
+    const [requestingFiles, setRequestingFiles] = useState(false);
+    const [docsList, setDocsList] = useState({ contract: false, rules: false, security: false, other: false });
+    const [customReqMsg, setCustomReqMsg] = useState('');
+    const [toastMsg, setToastMsg] = useState('');
     const t0 = useRef(Date.now());
 
     useEffect(() => { setCategories(getScenarioCategories()); }, []);
@@ -239,6 +275,22 @@ export default function PrivacyReviewPage({
             setGenerating(true);
             setTimeout(() => { setGenerating(false); setGenerated(true); }, 2000);
         }
+    };
+
+    const handleDownloadPDF = () => {
+        window.print();
+    };
+
+    const handleSendRequest = () => {
+        setRequestingFiles(true);
+        setTimeout(() => {
+            setRequestingFiles(false);
+            setRequestModalOpen(false);
+            setToastMsg('고객사에 추가 서류 요청이 발송되었습니다');
+            setDocsList({ contract: false, rules: false, security: false, other: false });
+            setCustomReqMsg('');
+            setTimeout(() => setToastMsg(''), 3000);
+        }, 1500);
     };
 
     // ── 1차 조문검토 컨펌 ────────────────────────────────────────
@@ -323,8 +375,19 @@ export default function PrivacyReviewPage({
 
     return (
         <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+            <style>{`
+                @media print {
+                    @page { size: A4; margin: 15mm; }
+                    body, html { background: #fff !important; }
+                    aside, nav, header:not(.print-header), footer, #sidebar, .sidebar { display: none !important; }
+                    main, #__next, body > div, .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }
+                    .no-print { display: none !important; }
+                    .print-row { page-break-inside: avoid; break-inside: avoid; }
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                }
+            `}</style>
             {/* ── 상단 헤더 ── */}
-            <div style={{ position: 'sticky', top: 0, zIndex: 100, background: '#1e3a8a', borderBottom: '3px solid #2563eb', padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="no-print" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#1e3a8a', borderBottom: '3px solid #2563eb', padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <Link href="/lawyer"><button style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', color: '#e0e7ff', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 13 }}><ArrowLeft size={13} /> 목록</button></Link>
                     <div>
@@ -339,6 +402,17 @@ export default function PrivacyReviewPage({
                         <Clock size={13} color={timerCol} />
                         <span style={{ fontWeight: 900, color: timerCol, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{mm}:{ss}</span>
                     </div>
+                    
+                    <button onClick={handleDownloadPDF}
+                        className="no-print"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 9, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                        <Download size={15} />
+                        PDF 다운로드
+                    </button>
+
                     {/* 탭별 다른 컨펌 버튼 */}
                     {tab === 'first' ? (
                         <button onClick={handleFirstConfirm} disabled={confirming}
@@ -359,7 +433,7 @@ export default function PrivacyReviewPage({
             </div>
 
             {/* ── 컬럼 헤더 (좌: 고정 / 우: 탭) ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', position: 'sticky', top: 58, zIndex: 90 }}>
+            <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', position: 'sticky', top: 58, zIndex: 90 }}>
                 <div style={{ padding: '10px 20px', background: '#1e40af', display: 'flex', alignItems: 'center' }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#bfdbfe', letterSpacing: 1 }}>📖 원문 + 법조문</span>
                 </div>
@@ -387,7 +461,7 @@ export default function PrivacyReviewPage({
             {tab === 'first' ? (
                 <>
                     {/* 종합 검토의견 (우측 첫 행) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '3px solid #d97706' }}>
+                    <div className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '3px solid #d97706' }}>
                         <div style={{ padding: '16px 18px', background: '#fafafa', borderRight: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ textAlign: 'center', color: '#9ca3af' }}>
                                 <Scale size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
@@ -413,7 +487,7 @@ export default function PrivacyReviewPage({
                     const col = R[c.level];
                     const hasIssue = c.level !== 'OK';
                     return (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
+                        <div key={i} className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
                             {/* 좌: 원문 */}
                             <div style={{ padding: '16px 18px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa' }}>
                                 {/* 법조문 */}
@@ -462,7 +536,7 @@ export default function PrivacyReviewPage({
                         const col = R[c.level];
                         const hasIssue = c.level !== 'OK';
                         return (
-                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
+                            <div key={i} className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
                                 {/* 좌: 원문 + 법조문 (1차조문검토와 동일) */}
                                 <div style={{ padding: '16px 18px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa' }}>
                                     <div style={{ fontSize: 13, color: '#374151', background: '#f8f5f0', borderRadius: 8, padding: '12px 16px', marginBottom: 12, lineHeight: 1.8, borderLeft: '4px solid #92400e' }}>
@@ -501,7 +575,7 @@ export default function PrivacyReviewPage({
                         );
                     })}
                     {/* 서명란 (우측에만) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                    <div className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                         <div style={{ background: '#fafafa', borderRight: '1px solid #e5e7eb' }} />
                         <div style={{ padding: '20px 18px', background: '#fff', borderTop: '2px solid #e5e7eb' }}>
                             <div style={{ textAlign: 'right' }}>
@@ -514,6 +588,107 @@ export default function PrivacyReviewPage({
                     </div>
                 </>
             )}
+
+            {/* 추가 자료 요청 모달 */}
+            <AnimatePresence>
+                {requestModalOpen && (
+                    <div className="no-print" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setRequestModalOpen(false)}
+                            style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            style={{ position: 'relative', width: 440, background: '#fff', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', overflow: 'hidden' }}
+                        >
+                            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <FilePlus size={18} color="#2563eb" />
+                                    추가 자료 요청
+                                </h3>
+                                <button onClick={() => setRequestModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div style={{ padding: 24 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 12 }}>요청할 누락 서류 선택 (다중 선택 가능)</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                                    {[
+                                        { id: 'contract', label: '근로계약서' },
+                                        { id: 'rules', label: '취업규칙' },
+                                        { id: 'security', label: '보안서약서' },
+                                        { id: 'other', label: '기타 추가 문서' },
+                                    ].map(item => (
+                                        <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1e293b', cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={(docsList as any)[item.id]} onChange={e => setDocsList(p => ({ ...p, [item.id]: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2563eb' }} />
+                                            {item.label}
+                                        </label>
+                                    ))}
+                                </div>
+                                
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>추가 요청 메시지</div>
+                                <textarea
+                                    value={customReqMsg}
+                                    onChange={e => setCustomReqMsg(e.target.value)}
+                                    placeholder="고객사에 전달할 상세 요청사항을 입력하세요..."
+                                    style={{ width: '100%', height: 100, padding: 12, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, color: '#1e293b', resize: 'none', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                />
+                            </div>
+                            <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#f8fafc' }}>
+                                <button onClick={() => setRequestModalOpen(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>취소</button>
+                                <button
+                                    onClick={handleSendRequest}
+                                    disabled={requestingFiles}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', background: '#2563eb', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: requestingFiles ? 'not-allowed' : 'pointer' }}
+                                >
+                                    {requestingFiles ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FilePlus size={16} />}
+                                    {requestingFiles ? '발송 중...' : '요청 발송'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Toast 알림 */}
+            <AnimatePresence>
+                {toastMsg && (
+                    <motion.div
+                        className="no-print"
+                        initial={{ opacity: 0, y: 50, x: '-50%' }}
+                        animate={{ opacity: 1, y: 0, x: '-50%' }}
+                        exit={{ opacity: 0, y: 50, x: '-50%' }}
+                        style={{ position: 'fixed', bottom: 40, left: '50%', background: '#1e293b', color: '#fff', padding: '14px 24px', borderRadius: 8, fontSize: 14, fontWeight: 700, zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
+                        <CheckCircle2 size={18} color="#4ade80" />
+                        {toastMsg}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* 추가 자료 요청 FAB */}
+            <button
+                className="no-print"
+                onClick={() => setRequestModalOpen(true)}
+                style={{
+                    position: 'fixed', right: 32, bottom: 32, zIndex: 9000,
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: '#0f172a', color: '#fff', border: 'none', borderRadius: 30,
+                    padding: '14px 24px', fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                    boxShadow: '0 8px 24px rgba(15, 23, 42, 0.3)',
+                    transition: 'transform 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+                <FilePlus size={18} />
+                추가 자료 요청
+            </button>
         </div>
     );
 }

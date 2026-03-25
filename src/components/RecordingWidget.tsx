@@ -1,62 +1,53 @@
 'use client';
-// src/components/RecordingWidget.tsx
-// 3가지 모드 통합 녹음 위젯:
-//   new_client  → 신규 의뢰인 통화/미팅 녹음 → 대기중 등록
-//   meeting     → 기존 고객 회의 녹음 → 사건메모 저장
-//   intake_url  → 신규 고객 전용 URL 생성 및 공유
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Mic, MicOff, StopCircle, Link2, Copy, Check,
-    ChevronDown, ChevronUp, FileText, Loader2, X,
-    UserPlus, MessageSquare, ExternalLink, Phone
+    Mic, StopCircle, Link2, Copy, Check,
+    X, UserPlus, MessageSquare, Phone, Loader2
 } from 'lucide-react';
 import {
     CallRecorder, STTService, AudioVisualizer, formatDuration
 } from '@/lib/callRecordingService';
-import { registerPendingClient } from '@/lib/pendingClientService';
-import { IntakeTokenService } from '@/lib/pendingClientService';
-import { personalStore } from '@/lib/mockStore';
-import { Button } from '@/components/ui/Button';
+import { registerPendingClient, IntakeTokenService } from '@/lib/pendingClientService';
+import { personalStore, documentStore, DocumentCategory } from '@/lib/mockStore';
 
-/* ── 타입 ─────────────────────────────────────────────────── */
+import { IntakeForm } from './recording/IntakeForm';
+import { RecordingResult } from './recording/RecordingResult';
+
 export type RecordingMode = 'new_client' | 'meeting' | 'intake_url';
 
 interface Props {
     mode: RecordingMode;
     onClose: () => void;
-    // meeting 모드에서 필요
     litCaseId?: string;
     litCaseName?: string;
-    // new_client 모드에서 옵션
     defaultClientName?: string;
-    // 현재 사용자 정보
     userId?: string;
     userName?: string;
 }
 
 type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'url_ready' | 'done';
 
-const CATEGORY_OPTIONS = ['민사', '형사', '가사', '행정', '개인정보', '가맹계약', '노무', '기타'];
-
-/* ══════════════════════════════════════════════════════════════
-   컴포넌트
-   ══════════════════════════════════════════════════════════════ */
 export default function RecordingWidget({
     mode, onClose, litCaseId, litCaseName,
-    defaultClientName = '', userId = 'user1', userName = '변호사',
+    defaultClientName = '', userId = 'lawyer1', userName = '변호사',
 }: Props) {
     const [phase, setPhase] = useState<Phase>(mode === 'intake_url' ? 'idle' : 'idle');
     const [elapsed, setElapsed] = useState(0);
     const [bars, setBars] = useState<number[]>(new Array(16).fill(2));
+    
+    // IntakeForm states
     const [clientName, setClientName] = useState(defaultClientName);
     const [clientPhone, setClientPhone] = useState('');
     const [category, setCategory] = useState('민사');
+    const [files, setFiles] = useState<File[]>([]);
+    const [fileData, setFileData] = useState<Record<string, { progress: number, status: string, text?: string, structuredData?: any }>>({});
+    
+    // Result states
     const [transcript, setTranscript] = useState('');
     const [steps, setSteps] = useState<string[]>([]);
-    const [openStep, setOpenStep] = useState<number | null>(0);
-    const [showFull, setShowFull] = useState(false);
+    
+    // Other states
     const [intakeUrl, setIntakeUrl] = useState('');
     const [copied, setCopied] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
@@ -69,7 +60,6 @@ export default function RecordingWidget({
     const vizTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
     const duration  = useRef(0);
 
-    // 파형 애니메이션
     const startViz = useCallback((stream: MediaStream) => {
         vizRef.current.connect(stream);
         vizTimer.current = setInterval(() => {
@@ -85,7 +75,6 @@ export default function RecordingWidget({
 
     useEffect(() => () => stopAll(), [stopAll]);
 
-    /* ── 녹음 시작 ── */
     const handleStartRecording = async () => {
         setErrorMsg('');
         const ok = await recorder.current.start();
@@ -97,7 +86,6 @@ export default function RecordingWidget({
         timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
     };
 
-    /* ── 녹음 중지 ── */
     const handleStopRecording = async () => {
         stopAll();
         setPhase('processing');
@@ -105,7 +93,6 @@ export default function RecordingWidget({
         if (!result) { setPhase('idle'); setErrorMsg('녹음 처리 실패'); return; }
         duration.current = result.durationSeconds;
 
-        // STT
         const { transcript: t } = await STTService.transcribe(
             result.blob, result.durationSeconds, 'connected'
         );
@@ -116,7 +103,6 @@ export default function RecordingWidget({
         setPhase('result');
     };
 
-    /* ── 글 입력 처리 ── */
     const handleTextSubmit = async () => {
         if (!manualText.trim()) return;
         setPhase('processing');
@@ -126,7 +112,35 @@ export default function RecordingWidget({
         setPhase('result');
     };
 
-    /* ── 대기중 등록 (채널 A) ── */
+    const handleFileChange = async (fl: FileList | null) => {
+        if (!fl) return;
+        const valid = Array.from(fl).filter(f => {
+            if (f.size > 10 * 1024 * 1024) { alert(`${f.name}은(는) 10MB 이하만 가능합니다.`); return false; }
+            return true;
+        });
+        setFiles(prev => [...prev, ...valid]);
+
+        const { extractText } = await import('@/lib/ocr/ocrService');
+        valid.forEach(async (file) => {
+            const key = file.name + file.size;
+            setFileData(p => ({ ...p, [key]: { progress: 0, status: 'processing' } }));
+            try {
+                const result = await extractText(file, {
+                    onProgress: (pct) => setFileData(p => ({ ...p, [key]: { progress: pct, status: 'processing' } }))
+                });
+                setFileData(p => ({ 
+                    ...p, 
+                    [key]: { progress: 100, status: 'done', text: result.extractedText, structuredData: result.structuredData } 
+                }));
+                if (result.structuredData && result.structuredData.parties) {
+                    sessionStorage.setItem('ibs_ocr_suggestion', JSON.stringify(result.structuredData));
+                }
+            } catch (err) {
+                setFileData(p => ({ ...p, [key]: { progress: 0, status: 'error' } }));
+            }
+        });
+    };
+
     const handleRegisterPending = async () => {
         setPhase('processing');
         await registerPendingClient({
@@ -134,16 +148,29 @@ export default function RecordingWidget({
             clientName: clientName || '미확인 의뢰인',
             clientPhone,
             category,
-            transcript,
+            transcript: transcript + (files.length > 0 ? `\n\n📎 첨부파일 ${files.length}건: ${files.map(f => f.name).join(', ')}` : ''),
             recordingDuration: duration.current,
             sourcePortal: 'lawyer',
             sourceUserId: userId,
             sourceUserName: userName,
         });
+        if (files.length > 0) {
+            files.forEach(file => documentStore.upload({
+                companyId: 'pending',
+                authorRole: 'lawyer',
+                name: file.name,
+                size: file.size,
+                type: file.type || 'application/octet-stream',
+                category: '기타' as DocumentCategory,
+                status: '검토 대기',
+                url: URL.createObjectURL(file),
+                isNewForClient: false,
+                isNewForLawyer: true,
+            }));
+        }
         setPhase('done');
     };
 
-    /* ── 사건메모 저장 (채널 C) ── */
     const handleSaveMeetingNote = async () => {
         if (!litCaseId) return;
         setPhase('processing');
@@ -163,9 +190,8 @@ export default function RecordingWidget({
         setPhase('done');
     };
 
-    /* ── URL 생성 (채널 B) ── */
     const handleGenerateUrl = () => {
-        const token = IntakeTokenService.generate(userId, userName, 'lawyer');
+        const token = IntakeTokenService.generate(userId as string, userName as string, 'lawyer');
         const url = IntakeTokenService.buildUrl(token.token);
         setIntakeUrl(url);
         setPhase('url_ready');
@@ -178,11 +204,9 @@ export default function RecordingWidget({
         });
     };
 
-    /* ── 색상 ── */
     const accent = mode === 'new_client' ? '#10b981' : mode === 'meeting' ? '#6366f1' : '#f59e0b';
     const modeLabel = mode === 'new_client' ? '신규 의뢰인 접수' : mode === 'meeting' ? '회의 녹음' : '전용 URL 생성';
     const modeIcon = mode === 'new_client' ? <UserPlus className="w-4 h-4" /> : mode === 'meeting' ? <Phone className="w-4 h-4" /> : <Link2 className="w-4 h-4" />;
-
     const iS = { background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' };
 
     return (
@@ -213,39 +237,28 @@ export default function RecordingWidget({
                 </div>
 
                 <div className="p-5 space-y-4">
-                    {/* ── PHASE: idle / URL 모드 ── */}
+                    {/* ── PHASE: idle ── */}
                     {phase === 'idle' && mode !== 'intake_url' && (
                         <>
-                            {/* 클라이언트 정보 */}
-                            {(mode === 'new_client') && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-xs font-bold mb-1 block" style={{ color: '#64748b' }}>의뢰인 이름</label>
-                                        <input value={clientName} onChange={e => setClientName(e.target.value)}
-                                            placeholder="김○○" className="w-full px-3 py-2 rounded-lg text-sm" style={iS} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold mb-1 block" style={{ color: '#64748b' }}>연락처</label>
-                                        <input value={clientPhone} onChange={e => setClientPhone(e.target.value)}
-                                            placeholder="010-0000-0000" className="w-full px-3 py-2 rounded-lg text-sm" style={iS} />
-                                    </div>
-                                    <div className="col-span-2">
-                                        <label className="text-xs font-bold mb-1 block" style={{ color: '#64748b' }}>사건 분류</label>
-                                        <select value={category} onChange={e => setCategory(e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg text-sm" style={iS}>
-                                            {CATEGORY_OPTIONS.map(c => <option key={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
+                            {mode === 'new_client' && (
+                                <IntakeForm 
+                                    clientName={clientName} setClientName={setClientName}
+                                    clientPhone={clientPhone} setClientPhone={setClientPhone}
+                                    category={category} setCategory={setCategory}
+                                    files={files} setFiles={setFiles}
+                                    fileData={fileData} handleFileChange={handleFileChange}
+                                />
                             )}
+                            
                             {mode === 'meeting' && litCaseName && (
                                 <div className="px-3 py-2 rounded-xl text-sm font-semibold"
                                     style={{ background: '#f0f4ff', color: '#6366f1' }}>
                                     📁 {litCaseName}
                                 </div>
                             )}
+
                             {/* 입력 탭 */}
-                            <div className="flex gap-1 p-1 rounded-xl" style={{ background: '#f1f5f9' }}>
+                            <div className="flex gap-1 p-1 rounded-xl mt-4" style={{ background: '#f1f5f9' }}>
                                 {['record', 'text'].map(t => (
                                     <button key={t} onClick={() => setInputTab(t as 'record' | 'text')}
                                         className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all"
@@ -254,6 +267,7 @@ export default function RecordingWidget({
                                     </button>
                                 ))}
                             </div>
+                            
                             {inputTab === 'record' ? (
                                 <button onClick={handleStartRecording}
                                     className="w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2"
@@ -266,7 +280,7 @@ export default function RecordingWidget({
                                         rows={5} placeholder="상담 내용을 직접 입력하세요..."
                                         className="w-full px-3 py-2 rounded-xl text-sm resize-none" style={iS} />
                                     <button onClick={handleTextSubmit}
-                                        className="w-full py-3 rounded-xl font-bold text-white"
+                                        className="w-full py-3 rounded-xl font-bold text-white mt-2"
                                         style={{ background: accent }}>
                                         <MessageSquare className="w-4 h-4 inline mr-1" /> AI 분석하기
                                     </button>
@@ -316,85 +330,15 @@ export default function RecordingWidget({
 
                     {/* ── PHASE: result ── */}
                     {phase === 'result' && (
-                        <div className="space-y-3">
-                            <p className="text-xs font-black uppercase tracking-wider pb-1"
-                                style={{ color: '#94a3b8', borderBottom: '1px solid #f1f5f9' }}>
-                                🤖 AI 분석 결과 (노션 회의록 스타일)
-                            </p>
-                            {/* 단계별 요약 아코디언 */}
-                            <div className="space-y-2">
-                                {steps.map((step, i) => (
-                                    <div key={i} className="rounded-xl overflow-hidden"
-                                        style={{ border: '1px solid #e2e8f0' }}>
-                                        <button
-                                            className="w-full flex items-center justify-between px-4 py-3 text-left"
-                                            style={{ background: openStep === i ? '#f8faff' : '#fff' }}
-                                            onClick={() => setOpenStep(openStep === i ? null : i)}
-                                        >
-                                            <span className="text-sm font-bold" style={{ color: '#1e293b' }}>
-                                                {step.split(':')[0]}
-                                            </span>
-                                            {openStep === i ? <ChevronUp className="w-4 h-4" style={{ color: '#94a3b8' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#94a3b8' }} />}
-                                        </button>
-                                        <AnimatePresence>
-                                            {openStep === i && (
-                                                <motion.div
-                                                    initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
-                                                    className="overflow-hidden">
-                                                    <p className="px-4 pb-3 text-xs leading-relaxed"
-                                                        style={{ color: '#475569' }}>
-                                                        {step.replace(/\*\*/g, '').split(':').slice(1).join(':').trim()}
-                                                    </p>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                ))}
-                            </div>
-                            {/* 전체 녹취록 토글 */}
-                            <button onClick={() => setShowFull(s => !s)}
-                                className="flex items-center gap-1.5 text-xs font-semibold"
-                                style={{ color: '#94a3b8' }}>
-                                <FileText className="w-3.5 h-3.5" />
-                                {showFull ? '녹취록 접기' : '전체 녹취록 보기'}
-                                {showFull ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            </button>
-                            <AnimatePresence>
-                                {showFull && (
-                                    <motion.pre
-                                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                                        className="text-xs rounded-xl p-3 whitespace-pre-wrap overflow-y-auto max-h-48"
-                                        style={{ background: '#f8f9fc', color: '#64748b', border: '1px solid #e2e8f0' }}>
-                                        {transcript}
-                                    </motion.pre>
-                                )}
-                            </AnimatePresence>
-                            {/* 액션 버튼 */}
-                            <div className="flex gap-2 pt-1">
-                                <button onClick={onClose}
-                                    className="flex-1 py-2.5 rounded-xl text-sm font-bold"
-                                    style={{ background: '#f1f5f9', color: '#64748b' }}>
-                                    취소
-                                </button>
-                                {mode === 'new_client' && (
-                                    <button onClick={handleRegisterPending}
-                                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                                        style={{ background: accent }}>
-                                        🔔 대기중 등록
-                                    </button>
-                                )}
-                                {mode === 'meeting' && (
-                                    <button onClick={handleSaveMeetingNote}
-                                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
-                                        style={{ background: accent }}>
-                                        💾 사건메모 저장
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                        <RecordingResult 
+                            steps={steps} transcript={transcript} onClose={onClose} 
+                            mode={mode} accent={accent} 
+                            handleRegisterPending={handleRegisterPending} 
+                            handleSaveMeetingNote={handleSaveMeetingNote} 
+                        />
                     )}
 
-                    {/* ── PHASE: intake_url (채널 B) ── */}
+                    {/* ── PHASE: intake_url ── */}
                     {mode === 'intake_url' && phase !== 'url_ready' && phase !== 'done' && (
                         <div className="space-y-4">
                             <p className="text-sm" style={{ color: '#64748b' }}>

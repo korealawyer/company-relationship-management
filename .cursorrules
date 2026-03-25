@@ -1,0 +1,11 @@
+# Frontend Architecture & Clean Code Rules
+
+When reviewing, writing, or refactoring React/Next.js frontend code in this repository, ALWAYS strictly adhere to the guidelines documented in:
+`_strategy/FRONTEND_ARCHITECTURE_GUIDE.md`
+
+## 📐 Core Principles (The Golden Ratio)
+1. **Page Containers (`app/**/page.tsx`)**: Maximum 100 lines. Purely for layout and composition. Do not include complex state management or business logic here.
+2. **Feature Components (`src/features/`)**: Maximum 250 lines. Represents domain-specific logic. Extract complex logic to custom hooks.
+3. **UI Atom Components (`src/components/ui/`)**: Maximum 50 lines. Highly reusable, pure UI components with no business state or side-effects.
+
+Do not write "God Components" (300+ lines). Every time you generate code, double-check that you are passing the Golden Ratio checks.

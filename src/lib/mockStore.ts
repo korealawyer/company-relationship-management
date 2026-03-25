@@ -4,6 +4,34 @@
 
 import { getSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
 
+// ── 분리된 파일에서 타입/상수/레지스트리 re-export ────────────────
+export type {
+    RoleType, ModuleStatus, ModuleDefinition,
+    CaseStatus, Issue, CompanyContact, CompanyMemo,
+    TimelineEventType, CompanyTimelineEvent, Company,
+    LitigationStatus, LitigationDeadline, LitigationCase,
+    AutoSettings, AutoLog,
+    DocumentCategory, DocumentStatus,
+} from './types';
+export {
+    STATUS_LABEL, STATUS_COLOR, STATUS_TEXT, PIPELINE,
+    LIT_STATUS_LABEL, LIT_STATUS_COLOR,
+    LAWYERS, SALES_REPS, LITIGATION_TYPES, COURTS,
+} from './constants';
+export {
+    MODULE_REGISTRY,
+    getCurrentRole, setCurrentRole, getAccessibleModules,
+} from './moduleRegistry';
+
+// ── 내부 사용을 위한 타입 import ──────────────────────────────────
+import type {
+    CaseStatus, Issue, Company, LitigationCase,
+    CompanyTimelineEvent, LitigationDeadline,
+    AutoSettings, AutoLog,
+    DocumentCategory, DocumentStatus,
+} from './types';
+import { LAWYERS } from './constants';
+
 // ── Supabase 동기화 유틸 ──────────────────────────────────────
 function snakeToCamel(s: string): string {
     return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
@@ -97,237 +125,13 @@ export function triggerSync() {
     Object.keys(_sbLastFetch).forEach(k => { _sbLastFetch[k] = 0; });
 }
 
-// ── 역할(Role) 시스템 ─────────────────────────────────────────
-// Phase 2에서 실제 인증과 연결됩니다.
-// 새 팀 추가 시 여기에 역할을 추가하면 전체 시스템에 반영됩니다.
-export type RoleType =
-    | 'super_admin'  // 전체 접근
-    | 'admin'        // 관리자 KPI
-    | 'sales'        // 영업팀
-    | 'lawyer'       // 변호사팀
-    | 'litigation'   // 송무팀
-    | 'general'      // 총무팀 (로펌 내부)
-    | 'hr'           // 인사팀 (로펌 내부)
-    | 'finance'      // 회계팀 (로펌 내부)
-    | 'counselor'    // EAP 심리상담사 (신규)
-    | 'client_hr';   // 고객사 HR 담당자 (신규)
-
-// ── 모듈 레지스트리 ──────────────────────────────────────────
-// Navbar, 권한체크, 메뉴 렌더링의 단일 진실 공급원(SSOT).
-// 새 팀/기능 추가 = 여기에 항목 하나 추가.
-export type ModuleStatus = 'active' | 'beta' | 'coming_soon';
-
-export interface ModuleDefinition {
-    id: string;
-    href: string;
-    label: string;
-    icon: string;           // lucide 아이콘 이름 (Navbar에서 resolve)
-    roles: RoleType[];      // 접근 가능 역할 목록
-    status: ModuleStatus;
-    hideable: boolean;      // 사용자가 숨길 수 있는지
-    badge?: 'employee' | 'lawyer' | 'admin' | 'litigation';
-    phase: 1 | 2 | 3;      // 개발 단계
-}
-
-export const MODULE_REGISTRY: ModuleDefinition[] = [
-    // ── Phase 1 — 현재 운영 중 ──
-    { id: 'employee', href: '/employee', label: '영업 CRM', icon: 'Users', roles: ['super_admin', 'admin', 'sales'], status: 'active', hideable: false, badge: 'employee', phase: 1 },
-    { id: 'lawyer', href: '/lawyer', label: '변호사 검토', icon: 'Gavel', roles: ['super_admin', 'admin', 'lawyer', 'sales'], status: 'active', hideable: false, badge: 'lawyer', phase: 1 },
-    { id: 'litigation', href: '/litigation', label: '송무팀', icon: 'Swords', roles: ['super_admin', 'admin', 'lawyer', 'litigation'], status: 'active', hideable: true, badge: 'litigation', phase: 1 },
-    { id: 'admin', href: '/admin', label: '관리자 KPI', icon: 'BarChart3', roles: ['super_admin', 'admin'], status: 'active', hideable: false, badge: 'admin', phase: 1 },
-    // ── Phase 2 — EAP 모듈 ──
-    { id: 'eap', href: '/eap', label: 'EAP 상담', icon: 'Heart', roles: ['counselor', 'super_admin', 'admin'], status: 'beta', hideable: false, phase: 2 },
-    { id: 'counselor', href: '/counselor', label: '상담사 포털', icon: 'HeartHandshake', roles: ['counselor', 'super_admin'], status: 'beta', hideable: false, phase: 2 },
-    { id: 'company-hr', href: '/company-hr', label: '고객사 HR', icon: 'Building2', roles: ['client_hr', 'super_admin', 'admin'], status: 'active', hideable: false, phase: 1 },
-    // ── Phase 1 — 고객사 포털 ──
-    { id: 'client-dashboard', href: '/dashboard', label: '대시보드', icon: 'LayoutDashboard', roles: ['client_hr', 'super_admin'], status: 'active', hideable: false, phase: 1 },
-    { id: 'consultation', href: '/consultation', label: '법률 상담', icon: 'HeartHandshake', roles: ['client_hr', 'super_admin'], status: 'active', hideable: false, phase: 1 },
-    { id: 'ai-chat', href: '/chat', label: '법률 상담', icon: 'Bot', roles: ['client_hr', 'super_admin'], status: 'active', hideable: false, phase: 1 },
-    { id: 'client-cases', href: '/cases', label: '사건 관리', icon: 'Briefcase', roles: ['client_hr', 'super_admin', 'admin', 'lawyer'], status: 'active', hideable: true, phase: 1 },
-    { id: 'client-docs', href: '/documents', label: '문서함', icon: 'FolderOpen', roles: ['client_hr', 'super_admin'], status: 'active', hideable: true, phase: 1 },
-    { id: 'client-billing', href: '/billing', label: '결제 관리', icon: 'CreditCard', roles: ['client_hr', 'super_admin'], status: 'active', hideable: true, phase: 1 },
-    // ── Phase 2 — 로펌 내부 업무툴 ──
-    { id: 'general', href: '/general', label: '총무팀', icon: 'Building2', roles: ['super_admin', 'admin', 'general'], status: 'coming_soon', hideable: true, phase: 2 },
-    { id: 'hr', href: '/hr', label: '인사팀(내부)', icon: 'UserCog', roles: ['super_admin', 'admin', 'hr'], status: 'coming_soon', hideable: true, phase: 2 },
-    { id: 'finance', href: '/billing', label: '회계팀', icon: 'Coins', roles: ['super_admin', 'admin', 'finance', 'sales'], status: 'active', hideable: true, badge: 'admin', phase: 1 },
-    // ── Phase 3 — 지식·AI ──
-    { id: 'knowledge', href: '/knowledge', label: '법률 지식관리', icon: 'BookOpen', roles: ['super_admin', 'admin', 'lawyer', 'litigation'], status: 'coming_soon', hideable: true, phase: 3 },
-    // ── Phase 1 — 개인 소송 관리 ──
-    { id: 'personal-litigation', href: '/personal-litigation', label: '개인 소송', icon: 'UserCheck', roles: ['super_admin', 'admin', 'lawyer', 'litigation', 'finance'], status: 'active', hideable: true, phase: 1 },
-];
-
-// 현재 사용자 역할 — Phase 2에서 실제 인증으로 교체
-const ROLE_KEY = 'ibs_role';
-export function getCurrentRole(): RoleType {
-    // ⚠️ SSR 컨텍스트에서 최고 권한 반환 방지 — 'sales'로 폴백
-    if (typeof window === 'undefined') return 'sales';
-    return (localStorage.getItem(ROLE_KEY) as RoleType) ?? 'sales';
-}
-export function setCurrentRole(role: RoleType) {
-    localStorage.setItem(ROLE_KEY, role);
-}
-export function getAccessibleModules(role: RoleType): ModuleDefinition[] {
-    return MODULE_REGISTRY.filter(m => m.roles.includes(role));
-}
+// ── 역할/모듈레지스트리는 src/lib/moduleRegistry.ts로 분리됨 ──────
+// (위의 re-export 선언으로 외부 호환성 유지)
 
 
-export type CaseStatus =
-    | 'pending'           // 검토 대기
-    | 'crawling'          // 자동 검토·분석 중
-    | 'analyzed'          // AI 분석 완료
-    | 'assigned'          // 변호사 자동 배정
-    | 'reviewing'         // 변호사 검토 중
-    | 'lawyer_confirmed'  // 변호사 컨펌 완료
-    | 'emailed'           // 이메일 자동 발송
-    | 'client_replied'    // 클라이언트 답장
-    | 'client_viewed'     // 클라이언트 리포트 열람
-    | 'contract_sent'     // 계약서 발송
-    | 'contract_signed'   // 계약서 서명 완료
-    | 'subscribed';       // 구독 완료 (결제+이관)
 
-export interface Issue {
-    id: string;
-    level: 'HIGH' | 'MEDIUM' | 'LOW';
-    law: string;
-    title: string;
-    originalText: string;
-    riskDesc: string;
-    customDraft: string;   // AI 초안 → 변호사 수정
-    lawyerNote: string;
-    reviewChecked: boolean;
-    aiDraftGenerated: boolean; // AI 초안 자동생성 여부
-}
-
-// ── 리드 통합 타입 (leadStore에서 흡수) ──────────────────────
-export interface CompanyContact {
-    id: string;
-    name: string;
-    role?: string;
-    department?: string;
-    phone?: string;
-    email?: string;
-    isPrimary: boolean;
-}
-
-export interface CompanyMemo {
-    id: string;
-    createdAt: string;
-    author: string;
-    content: string;
-}
-
-export type TimelineEventType = 'status_change' | 'call' | 'email' | 'note' | 'meeting';
-export interface CompanyTimelineEvent {
-    id: string;
-    createdAt: string;
-    author: string;
-    type: TimelineEventType;
-    content: string;
-    fromStatus?: CaseStatus;
-    toStatus?: CaseStatus;
-}
-
-export interface Company {
-    id: string;
-    name: string;
-    biz: string;
-    url: string;
-    email: string;
-    phone: string;
-    storeCount: number;
-    status: CaseStatus;
-    assignedLawyer: string;
-    issues: Issue[];
-    salesConfirmed: boolean;
-    salesConfirmedAt: string;
-    salesConfirmedBy: string;
-    lawyerConfirmed: boolean;
-    lawyerConfirmedAt: string;
-    emailSentAt: string;
-    emailSubject: string;
-    clientReplied: boolean;
-    clientRepliedAt: string;
-    clientReplyNote: string;
-    loginCount: number;
-    callNote: string;
-    plan: 'none' | 'starter' | 'standard' | 'premium';
-    createdAt: string;
-    updatedAt: string;
-    // AI 자동화 메타
-    autoMode: boolean;
-    aiDraftReady: boolean;
-    source: 'manual' | 'crawler';
-    // ── 리드 통합 필드 (leadStore에서 흡수) ──
-    riskScore: number;
-    riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' | '';
-    issueCount: number;
-    bizType: string;
-    domain: string;
-    privacyUrl: string;
-    contactName: string;
-    contactEmail: string;
-    contactPhone: string;
-    contacts: CompanyContact[];
-    memos: CompanyMemo[];
-    timeline: CompanyTimelineEvent[];
-    customScript?: { call?: string; email?: string; lastEditedAt?: string };
-    lawyerNote?: string;
-    // ── 계약 프로세스 필드 ──
-    contractSentAt?: string;
-    contractSignedAt?: string;
-    contractMethod?: 'email' | 'system' | 'offline';
-    contractNote?: string;
-    // ── 자동화 필드 ──
-    callbackScheduledAt?: string;
-    followUpStep?: number;
-    aiMemoSummary?: string;
-    aiNextAction?: string;
-    aiNextActionType?: string;
-    lastCallResult?: 'connected' | 'no_answer' | 'callback';
-    lastCallAt?: string;
-    callAttempts?: number;
-}
-
-// ── 송무팀 사건 ──────────────────────────────────────────────
-export type LitigationStatus =
-    | 'preparing'    // 소장 준비
-    | 'filed'        // 접수 완료
-    | 'hearing'      // 심리 중
-    | 'settlement'   // 합의 진행
-    | 'judgment'     // 판결
-    | 'closed';      // 종결
-
-export interface LitigationDeadline {
-    id: string;
-    label: string;       // "1차 준비서면 제출"
-    dueDate: string;
-    completed: boolean;
-    completedAt: string;
-}
-
-export interface LitigationCase {
-    id: string;
-    companyId: string;   // 연결된 의뢰인
-    companyName: string;
-    caseNo: string;      // 사건번호
-    court: string;       // 법원
-    type: string;        // 소송 유형
-    opponent: string;    // 상대방
-    claimAmount: number; // 청구금액
-    status: LitigationStatus;
-    assignedLawyer: string;
-    deadlines: LitigationDeadline[];
-    notes: string;
-    result: '' | '승소' | '패소' | '합의' | '취하';
-    resultNote: string;
-    notificationSettings?: {
-        notifyEmail: boolean;
-        notifyKakao: boolean;
-        frequency: 'immediate' | 'daily' | 'weekly';
-    };
-    createdAt: string;
-    updatedAt: string;
-}
+// ── 타입들은 src/lib/types.ts로 분리됨 ───────────────────────────
+// (위의 re-export 선언으로 외부 호환성 유지)
 
 // ── AI 초안 생성 (GPT-4o Mock) ───────────────────────────────
 const AI_DRAFTS: Record<string, string> = {
@@ -602,37 +406,8 @@ const DEFAULT_LIT: LitigationCase[] = [
     },
 ];
 
-// ── 자동화 설정 ───────────────────────────────────────────────
-export interface AutoSettings {
-    autoSalesConfirm: boolean;   // 분석완료 → 자동 영업컨펌
-    autoAssignLawyer: boolean;   // 변호사 라운드로빈 배정 (항상 ON — 토글 제거됨)
-    autoGenerateDraft: boolean;  // AI 초안 자동생성
-    autoSendEmail: boolean;      // 변호사컨펌 → 자동발송
-    // ── P0+P1 자동화 ──
-    autoDeadlineAlert: boolean;      // 기한 D-day 알림 자동 발송
-    autoMonthlyBilling: boolean;     // 월 자동 청구서 발행
-    autoOverdueReminder: boolean;    // 미납 재촉 알림
-    autoSatisfactionSurvey: boolean; // 사건 종결 → 만족도 설문
-    autoAiMemoSummary: boolean;      // AI 메모 자동 요약
-    lawyerRoundRobin: number;    // 현재 배정 인덱스
-    updatedAt: string;           // 마지막 설정 변경 시각
-    updatedBy: string;           // 누가 변경했는지
-}
-
-// 자동화 활동 로그
-export interface AutoLog {
-    id: string;
-    at: string;          // 발생 시각
-    type: 'auto_confirm' | 'auto_assign' | 'auto_email' | 'setting_change' | 'ai_analysis'
-        | 'deadline_alert' | 'auto_billing' | 'overdue_reminder' | 'satisfaction_survey' | 'ai_memo_summary';
-    label: string;       // "영업 자동 컨펌"
-    companyName?: string;
-    detail: string;      // "분석완료 → 자동 컨펌 처리됨"
-    prevValue?: string;  // 설정 변경 전 값
-    newValue?: string;   // 설정 변경 후 값
-    channel?: string;    // 알림 채널 (카카오/이메일)
-    amount?: number;     // 청구 금액
-}
+// ── AutoSettings/AutoLog는 src/lib/types.ts로 분리됨 ────────────
+// (위의 re-export 선언으로 외부 호환성 유지)
 
 const DEFAULT_AUTO: AutoSettings = {
     autoSalesConfirm: true,
@@ -1072,60 +847,31 @@ export const store = {
         }
         saveLit(all); return all;
     },
+
+    closeLit(id: string, reason: string): LitigationCase[] {
+        const all = loadLit();
+        const idx = all.findIndex(l => l.id === id);
+        if (idx >= 0) {
+            all[idx] = { ...all[idx], status: 'closed', closedAt: new Date().toISOString(), closeReason: reason, updatedAt: new Date().toISOString() };
+        }
+        saveLit(all); return all;
+    },
+
+    restoreLit(id: string): LitigationCase[] {
+        const all = loadLit();
+        const idx = all.findIndex(l => l.id === id);
+        if (idx >= 0) {
+            all[idx] = { ...all[idx], status: 'preparing', closedAt: undefined, closeReason: undefined, updatedAt: new Date().toISOString() };
+        }
+        saveLit(all); return all;
+    },
 };
 
-// ── 상수 ─────────────────────────────────────────────────────
-export const STATUS_LABEL: Record<CaseStatus, string> = {
-    pending: '등록됨', crawling: '분석중', analyzed: '분석완료',
-    assigned: '변호사배정', reviewing: '검토중', lawyer_confirmed: '변호사컨펌',
-    emailed: '발송완료', client_replied: '답장수신',
-    client_viewed: '리포트열람', contract_sent: '계약서발송',
-    contract_signed: '계약서명', subscribed: '구독완료',
-};
-
-export const STATUS_COLOR: Record<CaseStatus, string> = {
-    pending: 'rgba(148,163,184,0.15)', crawling: 'rgba(251,191,36,0.15)',
-    analyzed: 'rgba(59,130,246,0.15)',
-    assigned: 'rgba(249,115,22,0.15)', reviewing: 'rgba(249,115,22,0.2)',
-    lawyer_confirmed: 'rgba(20,184,166,0.15)', emailed: 'rgba(34,197,94,0.15)',
-    client_replied: 'rgba(236,72,153,0.15)', client_viewed: 'rgba(129,140,248,0.15)',
-    contract_sent: 'rgba(251,191,36,0.2)', contract_signed: 'rgba(74,222,128,0.2)',
-    subscribed: 'rgba(201,168,76,0.2)',
-};
-
-export const STATUS_TEXT: Record<CaseStatus, string> = {
-    pending: '#94a3b8', crawling: '#fbbf24', analyzed: '#60a5fa',
-    assigned: '#fb923c', reviewing: '#fdba74',
-    lawyer_confirmed: '#2dd4bf', emailed: '#4ade80', client_replied: '#f472b6',
-    client_viewed: '#818cf8', contract_sent: '#fbbf24',
-    contract_signed: '#4ade80', subscribed: '#c9a84c',
-};
-
-export const LIT_STATUS_LABEL: Record<LitigationStatus, string> = {
-    preparing: '소장 준비', filed: '접수완료', hearing: '심리중',
-    settlement: '합의진행', judgment: '판결', closed: '종결',
-};
-
-export const LIT_STATUS_COLOR: Record<LitigationStatus, string> = {
-    preparing: 'rgba(148,163,184,0.2)', filed: 'rgba(59,130,246,0.2)',
-    hearing: 'rgba(249,115,22,0.2)', settlement: 'rgba(167,139,250,0.2)',
-    judgment: 'rgba(201,168,76,0.2)', closed: 'rgba(74,222,128,0.15)',
-};
-
-export const PIPELINE: CaseStatus[] = [
-    'pending', 'crawling', 'analyzed',
-    'assigned', 'reviewing', 'lawyer_confirmed', 'emailed', 'client_replied',
-    'client_viewed', 'contract_sent', 'contract_signed', 'subscribed',
-];
-
-export const LAWYERS = ['김수현 변호사', '이지원 변호사', '박민준 변호사', '최유진 변호사'];
-export const SALES_REPS = ['이민준', '박지수', '최현우', '강수빈'];
-export const LITIGATION_TYPES = ['개인정보 손해배상', '가맹계약 분쟁', '임직원 분쟁', '지적재산권', '계약 불이행', '기타'];
-export const COURTS = ['서울중앙지방법원', '수원지방법원', '서울고등법원', '대법원', '수원고등법원'];
+// ── 상수들은 src/lib/constants.ts로 분리됨 ──────────────────────
+// (위의 re-export 선언으로 외부 호환성 유지)
 
 // ── 문서 보관함 시스템 (E2E 동기화) ──────────────────────────────────────────
-export type DocumentCategory = '계약서' | '의견서' | '리포트' | '소장' | '영수증' | '기타';
-export type DocumentStatus = '검토 대기' | '변호사 열람 완료' | '검토 중' | '검토 완료';
+// DocumentCategory, DocumentStatus → types.ts로 분리됨 (위 re-export 참조)
 
 export interface Document {
     id: string;
@@ -1522,6 +1268,7 @@ export interface PersonalLitDeadline {
     dueDate: string;
     completed: boolean;
     completedAt: string;
+    isFixed?: boolean;
 }
 
 export interface PersonalLitDocument {
@@ -1552,6 +1299,8 @@ export interface PersonalLitigation {
     legalFee: number;        // 수임료
     courtFee: number;        // 인지대/송달료
     nextHearingDate: string;  // 다음 기일
+    closedAt?: string;
+    closeReason?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -1720,7 +1469,7 @@ function savePersonalClients(cs: PersonalClient[]) {
     }
 }
 
-function loadPersonalLits(): PersonalLitigation[] {
+function loadPersonal(): PersonalLitigation[] {
     if (typeof window === 'undefined') return DEFAULT_PERSONAL_LITS;
     sbSyncLatest<PersonalLitigation>('personal_lits', 'personal_litigations', PERSONAL_KEY, DEFAULT_PERSONAL_LITS);
     try {
@@ -1729,11 +1478,11 @@ function loadPersonalLits(): PersonalLitigation[] {
         return JSON.parse(raw);
     } catch { return DEFAULT_PERSONAL_LITS; }
 }
-function savePersonalLits(cs: PersonalLitigation[]) {
+function savePersonal(cs: PersonalLitigation[]) {
     if (typeof window !== 'undefined') {
         localStorage.setItem(PERSONAL_KEY, JSON.stringify(cs));
         if (IS_SUPABASE_CONFIGURED) {
-            const exclude = ['deadlines', 'documents'];
+            const exclude = ['deadlines', 'documents', 'paymentPlan'];
             const rows = cs.map(c => objToRow(c as unknown as Record<string, unknown>, exclude));
             sbUpsert('personal_litigations', rows);
         }
@@ -1759,27 +1508,27 @@ export const personalStore = {
     },
 
     // ── Litigations ──
-    getAll(): PersonalLitigation[] { return loadPersonalLits(); },
-    getById(id: string): PersonalLitigation | undefined { return loadPersonalLits().find(l => l.id === id); },
-    getByClient(clientId: string): PersonalLitigation[] { return loadPersonalLits().filter(l => l.clientId === clientId); },
+    getAll(): PersonalLitigation[] { return loadPersonal(); },
+    getById(id: string): PersonalLitigation | undefined { return loadPersonal().find(l => l.id === id); },
+    getByClient(clientId: string): PersonalLitigation[] { return loadPersonal().filter(l => l.clientId === clientId); },
 
     add(data: Omit<PersonalLitigation, 'id' | 'createdAt' | 'updatedAt'>): PersonalLitigation[] {
-        const all = loadPersonalLits();
+        const all = loadPersonal();
         all.unshift({ ...data, id: `pl${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-        savePersonalLits(all);
+        savePersonal(all);
         return all;
     },
 
     update(id: string, patch: Partial<PersonalLitigation>): PersonalLitigation[] {
-        const all = loadPersonalLits();
+        const all = loadPersonal();
         const idx = all.findIndex(l => l.id === id);
         if (idx >= 0) all[idx] = { ...all[idx], ...patch, updatedAt: new Date().toISOString() };
-        savePersonalLits(all);
+        savePersonal(all);
         return all;
     },
 
     toggleDeadline(litId: string, deadlineId: string): PersonalLitigation[] {
-        const all = loadPersonalLits();
+        const all = loadPersonal();
         const lit = all.find(l => l.id === litId);
         if (lit) {
             const d = lit.deadlines.find(x => x.id === deadlineId);
@@ -1789,25 +1538,257 @@ export const personalStore = {
             }
             lit.updatedAt = new Date().toISOString();
         }
-        savePersonalLits(all);
+        savePersonal(all);
         return all;
     },
 
     addDeadline(litId: string, label: string, dueDate: string): PersonalLitigation[] {
-        const all = loadPersonalLits();
+        const all = loadPersonal();
         const lit = all.find(l => l.id === litId);
         if (lit) {
             lit.deadlines.push({ id: `pd${Date.now()}`, label, dueDate, completed: false, completedAt: '' });
             lit.updatedAt = new Date().toISOString();
         }
-        savePersonalLits(all);
+        savePersonal(all);
         return all;
+    },
+
+    close(id: string, reason: string): PersonalLitigation[] {
+        const all = loadPersonal();
+        const idx = all.findIndex(l => l.id === id);
+        if (idx >= 0) {
+            all[idx] = { ...all[idx], status: 'closed', closedAt: new Date().toISOString(), closeReason: reason, updatedAt: new Date().toISOString() };
+        }
+        savePersonal(all); return all;
+    },
+
+    restore(id: string): PersonalLitigation[] {
+        const all = loadPersonal();
+        const idx = all.findIndex(l => l.id === id);
+        if (idx >= 0) {
+            all[idx] = { ...all[idx], status: 'consulting', closedAt: undefined, closeReason: undefined, updatedAt: new Date().toISOString() };
+        }
+        savePersonal(all); return all;
     },
 
     reset(): void {
         if (typeof window === 'undefined') return;
         localStorage.removeItem(PERSONAL_KEY);
         localStorage.removeItem(PERSONAL_CLIENT_KEY);
+    },
+};
+
+// ══════════════════════════════════════════════════════════════
+// ── 근태/행선지 시스템 ─────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+export type AttendanceType = '연차' | '반차(오전)' | '반차(오후)' | '출장' | '재택' | '조퇴' | '외출' | '법원출석';
+export type AttendanceStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AttendanceRecord {
+    id: string;
+    userId: string;
+    userName: string;
+    type: AttendanceType;
+    startDate: string;
+    endDate: string;
+    memo: string;
+    destination?: string;
+    status: AttendanceStatus;
+    createdAt: string;
+}
+
+export const ATTENDANCE_TYPES: AttendanceType[] = ['연차', '반차(오전)', '반차(오후)', '출장', '재택', '조퇴', '외출', '법원출석'];
+
+export const ATTENDANCE_TYPE_COLOR: Record<AttendanceType, string> = {
+    '연차': '#2563eb',
+    '반차(오전)': '#0891b2',
+    '반차(오후)': '#0891b2',
+    '출장': '#7c3aed',
+    '재택': '#16a34a',
+    '조퇴': '#ea580c',
+    '외출': '#d97706',
+    '법원출석': '#be123c',
+};
+
+export const ATTENDANCE_STATUS_LABEL: Record<AttendanceStatus, string> = {
+    pending: '대기', approved: '승인', rejected: '반려',
+};
+
+const ATTENDANCE_KEY = 'ibs_attendance_v1';
+
+const DEFAULT_ATTENDANCE: AttendanceRecord[] = [
+    { id: 'att1', userId: 'lawyer1', userName: '김수현 변호사', type: '출장', startDate: '2026-03-25', endDate: '2026-03-25', memo: '수원지방법원 변론기일', destination: '수원지방법원', status: 'approved', createdAt: '2026-03-20' },
+    { id: 'att2', userId: 'lawyer1', userName: '김수현 변호사', type: '연차', startDate: '2026-03-28', endDate: '2026-03-28', memo: '개인 사유', status: 'pending', createdAt: '2026-03-22' },
+    { id: 'att3', userId: 'lawyer1', userName: '김수현 변호사', type: '재택', startDate: '2026-03-21', endDate: '2026-03-21', memo: '준비서면 작성', status: 'approved', createdAt: '2026-03-19' },
+    { id: 'att4', userId: 'lawyer1', userName: '김수현 변호사', type: '법원출석', startDate: '2026-04-02', endDate: '2026-04-02', memo: '이영희 사건 조정기일', destination: '수원가정법원', status: 'approved', createdAt: '2026-03-22' },
+    { id: 'att5', userId: 'lawyer1', userName: '김수현 변호사', type: '반차(오후)', startDate: '2026-03-18', endDate: '2026-03-18', memo: '병원 진료', status: 'approved', createdAt: '2026-03-15' },
+];
+
+function loadAttendance(): AttendanceRecord[] {
+    if (typeof window === 'undefined') return DEFAULT_ATTENDANCE;
+    try {
+        const raw = localStorage.getItem(ATTENDANCE_KEY);
+        if (!raw) { localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(DEFAULT_ATTENDANCE)); return DEFAULT_ATTENDANCE; }
+        return JSON.parse(raw);
+    } catch { return DEFAULT_ATTENDANCE; }
+}
+function saveAttendance(recs: AttendanceRecord[]) {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(recs));
+    }
+}
+
+export const attendanceStore = {
+    getAll(): AttendanceRecord[] { return loadAttendance(); },
+    getByUser(userId: string): AttendanceRecord[] { return loadAttendance().filter(r => r.userId === userId); },
+    add(data: Omit<AttendanceRecord, 'id' | 'createdAt'>): AttendanceRecord {
+        const all = loadAttendance();
+        const rec: AttendanceRecord = { ...data, id: `att${Date.now()}`, createdAt: new Date().toISOString() };
+        all.unshift(rec);
+        saveAttendance(all);
+        return rec;
+    },
+    updateStatus(id: string, status: AttendanceStatus): void {
+        const all = loadAttendance();
+        const rec = all.find(r => r.id === id);
+        if (rec) { rec.status = status; saveAttendance(all); }
+    },
+    remove(id: string): void {
+        const all = loadAttendance().filter(r => r.id !== id);
+        saveAttendance(all);
+    },
+};
+
+// ══════════════════════════════════════════════════════════════
+// ── SMS 발송 로그 스토어 ──────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+export interface SmsLogEntry {
+    id: string;
+    to: string;
+    message: string;
+    type: 'SMS' | 'LMS' | 'MMS';
+    sentAt: string;
+    status: 'sent' | 'failed' | 'pending';
+    caseId?: string;
+    templateId?: string;
+    senderName?: string;
+}
+
+const SMS_LOG_KEY = 'ibs_sms_logs_v1';
+
+function loadSmsLogs(): SmsLogEntry[] {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem(SMS_LOG_KEY) || '[]'); } catch { return []; }
+}
+function saveSmsLogs(logs: SmsLogEntry[]) {
+    if (typeof window !== 'undefined') localStorage.setItem(SMS_LOG_KEY, JSON.stringify(logs));
+}
+
+export const smsLogStore = {
+    getAll(): SmsLogEntry[] { return loadSmsLogs(); },
+    add(log: SmsLogEntry): void {
+        const all = loadSmsLogs();
+        all.unshift(log);
+        saveSmsLogs(all.slice(0, 500));
+    },
+    getByCase(caseId: string): SmsLogEntry[] {
+        return loadSmsLogs().filter(l => l.caseId === caseId);
+    },
+};
+
+// ══════════════════════════════════════════════════════════════
+// ── 회의실 예약 시스템 ────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+export interface MeetingRoom {
+    id: string;
+    name: string;
+    capacity: number;
+    floor: string;
+}
+
+export interface MeetingReservation {
+    id: string;
+    roomId: string;
+    userId: string;
+    userName: string;
+    date: string;        // YYYY-MM-DD
+    startTime: string;   // HH:mm (예: '09:00')
+    endTime: string;     // HH:mm (예: '10:00')
+    purpose: string;
+    createdAt: string;
+}
+
+const MEETING_ROOMS: MeetingRoom[] = [
+    { id: 'room1', name: '본관-대회의실', capacity: 20, floor: '본관 3층' },
+    { id: 'room2', name: '본관-소회의실', capacity: 6, floor: '본관 2층' },
+    { id: 'room3', name: '별관-회의실', capacity: 10, floor: '별관 1층' },
+];
+
+const MEETING_KEY = 'ibs_meeting_reservations_v1';
+
+// 오늘 날짜의 샘플 예약
+function getDefaultReservations(): MeetingReservation[] {
+    const today = new Date().toISOString().slice(0, 10);
+    return [
+        { id: 'mr1', roomId: 'room1', userId: 'lawyer1', userName: '김수현 변호사', date: today, startTime: '10:00', endTime: '11:00', purpose: '파리바게뜨 사건 회의', createdAt: new Date().toISOString() },
+        { id: 'mr2', roomId: 'room2', userId: 'lawyer2', userName: '이지원 변호사', date: today, startTime: '14:00', endTime: '15:00', purpose: '의뢰인 미팅', createdAt: new Date().toISOString() },
+        { id: 'mr3', roomId: 'room1', userId: 'staff1', userName: '최서연 (총무)', date: today, startTime: '15:00', endTime: '17:00', purpose: '월간 회의', createdAt: new Date().toISOString() },
+        { id: 'mr4', roomId: 'room3', userId: 'lawyer3', userName: '박민준 변호사', date: today, startTime: '09:00', endTime: '10:00', purpose: '사건 검토', createdAt: new Date().toISOString() },
+    ];
+}
+
+function loadReservations(): MeetingReservation[] {
+    if (typeof window === 'undefined') return getDefaultReservations();
+    try {
+        const raw = localStorage.getItem(MEETING_KEY);
+        if (!raw) {
+            const def = getDefaultReservations();
+            localStorage.setItem(MEETING_KEY, JSON.stringify(def));
+            return def;
+        }
+        return JSON.parse(raw);
+    } catch { return getDefaultReservations(); }
+}
+function saveReservations(rsvps: MeetingReservation[]) {
+    if (typeof window !== 'undefined') localStorage.setItem(MEETING_KEY, JSON.stringify(rsvps));
+}
+
+export const meetingRoomStore = {
+    getRooms(): MeetingRoom[] { return MEETING_ROOMS; },
+
+    getReservations(date: string): MeetingReservation[] {
+        return loadReservations().filter(r => r.date === date);
+    },
+
+    getAllReservations(): MeetingReservation[] {
+        return loadReservations();
+    },
+
+    addReservation(data: Omit<MeetingReservation, 'id' | 'createdAt'>): MeetingReservation {
+        const all = loadReservations();
+        const rsvp: MeetingReservation = {
+            ...data,
+            id: `mr-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            createdAt: new Date().toISOString(),
+        };
+        all.push(rsvp);
+        saveReservations(all);
+        return rsvp;
+    },
+
+    deleteReservation(id: string): void {
+        const all = loadReservations().filter(r => r.id !== id);
+        saveReservations(all);
+    },
+
+    hasConflict(roomId: string, date: string, startTime: string, endTime: string, excludeId?: string): boolean {
+        const reservations = this.getReservations(date).filter(r => r.roomId === roomId && r.id !== excludeId);
+        return reservations.some(r => {
+            return startTime < r.endTime && endTime > r.startTime;
+        });
     },
 };
 

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Eye, Send, Edit3, RefreshCw, CheckCircle2, Mail, Smartphone, Monitor, User, Bell, BellOff, Clock, BarChart3, MousePointerClick, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
@@ -17,6 +17,7 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
     const trackOpen = `${baseUrl}/api/track?lid=${vars.leadId}&type=open`;
     const reportUrl = `${baseUrl}/privacy-report?company=${encodeURIComponent(vars.company)}`;
     const trackClick = `${baseUrl}/api/track?lid=${vars.leadId}&type=click&url=${encodeURIComponent(reportUrl)}`;
+    const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${vars.unsubscribeToken}`;
     return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Apple SD Gothic Neo',Pretendard,sans-serif">
@@ -114,7 +115,7 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
   <!-- 풋터 -->
   <div style="background:#04091a;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center">
     <p style="color:#64748b;font-size:11px;margin:0 0 4px">IBS 법률사무소 | 서울특별시 강남구 테헤란로 123, 14층</p>
-    <p style="color:#475569;font-size:11px;margin:0">대표번호 02-1234-5678 | ibs@ibs-law.co.kr | <a href="#" style="color:#475569">수신거부</a></p>
+    <p style="color:#475569;font-size:11px;margin:0">대표번호 02-1234-5678 | ibs@ibs-law.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
   </div>
 
   <!-- 트래킹 픽셀 (이메일 열람 추적) -->
@@ -124,14 +125,14 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
 </html>`;
 }
 
-export default function EmailPreviewPage({
+const EmailPreviewPage = React.memo(function EmailPreviewPage({
     searchParams,
 }: { searchParams: { leadId?: string } }) {
     const leadId = searchParams.leadId || 'lead_001';
-    const lead = leadStore.getById(leadId);
-    const sub = calcSubscription(lead?.storeCount || 0);
+    const lead = useMemo(() => leadStore.getById(leadId), [leadId]);
+    const sub = useMemo(() => calcSubscription(lead?.storeCount || 0), [lead?.storeCount]);
 
-    const vars: Record<string, string> = {
+    const vars: Record<string, string> = useMemo(() => ({
         company: lead?.companyName || '(주)샘플회사',
         contactName: lead?.contactName || '담당자',
         leadId,
@@ -141,7 +142,8 @@ export default function EmailPreviewPage({
         storeCount: String(lead?.storeCount || 0),
         bizType: lead?.bizType || '',
         monthlyFee: sub.monthly.toLocaleString(),
-    };
+        unsubscribeToken: typeof window !== 'undefined' ? btoa(`unsub_${leadId}`) : `unsub_${leadId}`,
+    }), [lead, leadId, sub.monthly]);
 
     const [subject, setSubject] = useState(fillTemplate(BASE_SUBJECT, vars));
     const [customMsg, setCustomMsg] = useState('');
@@ -153,9 +155,9 @@ export default function EmailPreviewPage({
     const [scheduledTime, setScheduledTime] = useState('');
     const [trackingData, setTrackingData] = useState<{ opens: number; clicks: number; score: number; lastOpenAt?: string }>({ opens: 0, clicks: 0, score: 0 });
 
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const htmlPreview = buildHookEmailHtml(vars, customMsg, baseUrl);
-    const optimalTimes = getOptimalSendTimes(vars.bizType);
+    const baseUrl = useMemo(() => typeof window !== 'undefined' ? window.location.origin : '', []);
+    const htmlPreview = useMemo(() => buildHookEmailHtml(vars, customMsg, baseUrl), [vars, customMsg, baseUrl]);
+    const optimalTimes = useMemo(() => getOptimalSendTimes(vars.bizType), [vars.bizType]);
 
     // 추적 데이터 폴링
     useEffect(() => {
@@ -171,7 +173,7 @@ export default function EmailPreviewPage({
     }, [leadId]);
 
     // 푸시 알림 구독
-    const handlePushToggle = async () => {
+    const handlePushToggle = useCallback(async () => {
         if (pushEnabled) {
             setPushEnabled(false);
             return;
@@ -201,9 +203,9 @@ export default function EmailPreviewPage({
             // 시뮬레이션 모드에서는 그냥 토글
             setPushEnabled(true);
         }
-    };
+    }, [pushEnabled]);
 
-    const handleSend = async () => {
+    const handleSend = useCallback(async () => {
         setSending(true);
         try {
             await fetch('/api/email', {
@@ -214,7 +216,7 @@ export default function EmailPreviewPage({
             setSent(true);
         } catch { alert('발송 오류'); }
         setSending(false);
-    };
+    }, [leadId, customMsg, subject]);
 
     return (
         <div className="min-h-screen" style={{ background: '#04091a' }}>
@@ -438,4 +440,6 @@ export default function EmailPreviewPage({
             </div>
         </div>
     );
-}
+});
+
+export default EmailPreviewPage;

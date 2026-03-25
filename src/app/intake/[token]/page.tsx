@@ -3,7 +3,7 @@
 // 신규 고객 전용 접수 페이지 — 로그인 없이 접근 가능
 // URL: /intake/[token] (변호사/영업팀이 생성한 전용 링크)
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Mic, StopCircle, Send, ChevronDown, ChevronUp,
@@ -14,8 +14,8 @@ import { IntakeTokenService, registerPendingClient } from '@/lib/pendingClientSe
 
 const CATEGORY_OPTIONS = ['민사', '형사', '가사', '행정', '개인정보', '가맹계약', '노무', '기타'];
 
-export default function IntakePage({ params }: { params: { token: string } }) {
-    const { token } = params;
+export default function IntakePage({ params }: { params: Promise<{ token: string }> }) {
+    const { token } = use(params);
 
     // 토큰 검증
     const [tokenValid, setTokenValid] = useState<boolean | null>(null);

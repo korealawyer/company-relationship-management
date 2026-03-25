@@ -7,6 +7,7 @@ import type { Session } from '@supabase/supabase-js';
 import {
     loginWithEmailFull,
     loginWithBiz,
+    loginWithPersonal,
     clearSession,
     _setSessionCache,
     supabaseUserToAuthUser,
@@ -21,6 +22,7 @@ interface AuthContextType {
     loading: boolean;
     login: (email: string, password: string) => Promise<{ error?: string }>;
     loginWithBizNo: (bizNo: string, password: string) => Promise<{ error?: string }>;
+    loginWithPersonalEmail: (email: string, password: string) => Promise<{ error?: string }>;
     logout: () => Promise<void>;
     isAuthenticated: boolean;
 }
@@ -30,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null, loading: true,
     login: async () => ({}),
     loginWithBizNo: async () => ({}),
+    loginWithPersonalEmail: async () => ({}),
     logout: async () => { },
     isAuthenticated: false,
 });
@@ -46,6 +49,7 @@ export const ROLE_REDIRECT: Record<RoleType, string> = {
     hr: '/admin',
     general: '/admin',
     finance: '/admin',
+    personal_client: '/personal-litigation',
 };
 
 // ── Provider ──────────────────────────────────────────────────
@@ -118,6 +122,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: result.error };
     }, []);
 
+    // ── 개인회원 로그인 ──────────────────────────────────────────
+    const loginWithPersonalEmail = useCallback(async (email: string, password: string) => {
+        const result = loginWithPersonal(email, password);
+        if (result.success) {
+            setUser(result.user);
+            return {};
+        }
+        return { error: result.error };
+    }, []);
+
     // ── 로그아웃 ──────────────────────────────────────────────
     const logout = useCallback(async () => {
         await clearSession();
@@ -125,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, loginWithBizNo, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, loading, login, loginWithBizNo, loginWithPersonalEmail, logout, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );

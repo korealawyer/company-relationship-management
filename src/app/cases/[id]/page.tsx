@@ -7,39 +7,32 @@ import { store, LitigationCase, LIT_STATUS_LABEL, LIT_STATUS_COLOR } from '@/lib
 import { Button } from '@/components/ui/Button';
 import { Bell, Mail, MessageSquare, Clock, Save, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
-
-type NotificationSettings = NonNullable<LitigationCase['notificationSettings']>;
+import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 
 export default function CaseDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const caseId = params.id as string;
+    
     const [caseData, setCaseData] = useState<LitigationCase | null>(null);
-    const [settings, setSettings] = useState<NotificationSettings>({
-        notifyEmail: true,
-        notifyKakao: true,
-        frequency: 'immediate'
-    });
-    const [isSaving, setIsSaving] = useState(false);
+    const { settings, setSettings, isSaving, saveSettings } = useNotificationSettings(caseId);
 
     useEffect(() => {
-        if (!params.id) return;
-        const c = store.getLitById(params.id as string);
+        if (!caseId) return;
+        const c = store.getLitById(caseId);
         if (c) {
             setCaseData(c);
-            if (c.notificationSettings) {
-                setSettings(c.notificationSettings);
-            }
         }
-    }, [params.id]);
+    }, [caseId]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!caseData) return;
-        setIsSaving(true);
-        setTimeout(() => {
-            store.updateLit(caseData.id, { notificationSettings: settings });
-            setIsSaving(false);
+        const success = await saveSettings();
+        if (success) {
             alert('알림 설정이 성공적으로 저장되었습니다.');
-        }, 500);
+        } else {
+            alert('알림 설정 저장에 실패했습니다.');
+        }
     };
 
     if (!caseData) {

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, User, LogOut, ChevronDown, Settings, HelpCircle } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Settings, HelpCircle, Bell, CreditCard } from 'lucide-react';
 import { getSession, clearSession, type AuthUser } from '@/lib/auth';
 import type { RoleType } from '@/lib/mockStore';
 import { useZeroTrust } from '@/components/ZeroTrustBriefingProvider';
@@ -30,12 +30,10 @@ type NavLink = { href: string; label: string; comingSoon?: boolean };
 const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     // 일반 방문자 (비로그인)
     public: [
-        { href: '/', label: '홈' },
-        { href: '/sales', label: '서비스 소개' },
-        { href: '/privacy-report', label: '개인정보 진단' },
+        { href: '/service', label: '서비스 소개' },
         { href: '/consultation', label: '법률 상담' },
         { href: '/pricing', label: '요금제' },
-        { href: '/dashboard', label: '고객 포털' },
+        { href: '/portal', label: '고객 포털' },
     ],
     // 영업팀
     sales: [
@@ -86,14 +84,10 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
     // 프랜차이즈 본사 HR (client_hr)
     client_hr: [
         { href: '/dashboard', label: '대시보드' },
-        { href: '/documents', label: '문서함' },
-        { href: '/consultation-history', label: '상담 내역' },
+        { href: '/consultation-history', label: '법률 상담' },
+        { href: '/cases', label: '사건·소송', comingSoon: true },
         { href: '/contracts', label: '전자계약', comingSoon: true },
-        { href: '/chat', label: '법률 상담', comingSoon: true },
-        { href: '/cases', label: '소송 관리', comingSoon: true },
-        { href: '/notifications', label: '알림' },
-        { href: '/company-hr', label: '사용 현황' },
-        { href: '/billing', label: '결제 관리' },
+        { href: '/documents', label: '문서함' },
     ],
     // 기타 내부
     general: [{ href: '/general', label: '총무 포털' }],
@@ -327,7 +321,21 @@ export default function Navbar() {
                     {/* 우측 버튼 영역 */}
                     <div className="hidden lg:flex items-center gap-2.5 flex-shrink-0">
                         {user ? (
-                            <UserMenu user={user} onLogout={handleLogout} />
+                            <>
+                                {user.role === 'client_hr' && (
+                                    <div className="flex items-center gap-1.5 mr-2">
+                                        <Link href="/notifications" className="relative p-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: 'rgba(240,244,255,0.7)' }}>
+                                            <Bell className="w-5 h-5" />
+                                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: '#f87171' }}></span>
+                                        </Link>
+                                        <Link href="/billing" className="p-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: 'rgba(240,244,255,0.7)' }}>
+                                            <CreditCard className="w-5 h-5" />
+                                        </Link>
+                                        <div className="w-px h-5 mx-1" style={{ background: 'rgba(255,255,255,0.1)' }}></div>
+                                    </div>
+                                )}
+                                <UserMenu user={user} onLogout={handleLogout} />
+                            </>
                         ) : (
                             <>
                                 <Link href="/login"
@@ -337,8 +345,8 @@ export default function Navbar() {
                                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'; e.currentTarget.style.color = 'rgba(240,244,255,0.8)'; }}>
                                     로그인
                                 </Link>
-                                <Link href="/#cta" className="text-sm font-bold px-5 py-2 rounded-lg btn-gold transition-all">
-                                    진단 시작
+                                <Link href="/consultation" className="inline-flex items-center justify-center text-sm font-bold px-5 py-2 rounded-lg btn-gold transition-all">
+                                    상담 신청하기
                                 </Link>
                             </>
                         )}
@@ -390,12 +398,28 @@ export default function Navbar() {
                                         {user.name} · {ROLE_META[user.role]?.label}
                                     </div>
                                     <Link href={user ? (LINKS_BY_ROLE[user.role]?.[0]?.href ?? '/dashboard') : '/dashboard'} onClick={() => setMobileOpen(false)}
-                                        className="block px-3 py-2.5 rounded-lg text-sm font-medium"
+                                        className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
                                         style={{ color: 'rgba(240,244,255,0.75)' }}>
                                         내 대시보드
                                     </Link>
+                                    
+                                    {user.role === 'client_hr' && (
+                                        <>
+                                            <Link href="/notifications" onClick={() => setMobileOpen(false)}
+                                                className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
+                                                style={{ color: 'rgba(240,244,255,0.75)' }}>
+                                                알림 관리
+                                            </Link>
+                                            <Link href="/billing" onClick={() => setMobileOpen(false)}
+                                                className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
+                                                style={{ color: 'rgba(240,244,255,0.75)' }}>
+                                                구독·결제 관리
+                                            </Link>
+                                        </>
+                                    )}
+
                                     <button onClick={() => { handleLogout(); setMobileOpen(false); }}
-                                        className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium"
+                                        className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
                                         style={{ color: '#f87171' }}>
                                         로그아웃
                                     </button>
@@ -407,9 +431,9 @@ export default function Navbar() {
                                         style={{ border: '1px solid rgba(201,168,76,0.4)', color: '#c9a84c' }}>
                                         로그인
                                     </Link>
-                                    <Link href="/#cta" onClick={() => setMobileOpen(false)}
+                                    <Link href="/consultation" onClick={() => setMobileOpen(false)}
                                         className="text-center py-2.5 rounded-lg text-sm font-bold btn-gold">
-                                        진단 시작
+                                        상담 신청하기
                                     </Link>
                                 </div>
                             )}

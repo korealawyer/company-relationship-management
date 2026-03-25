@@ -89,6 +89,18 @@ export default function KanbanBoard({ companies, onCardClick }: KanbanBoardProps
                                         <RiskDot level={c.riskLevel} />
                                         <span style={{ fontSize: 12, fontWeight: 800, color: T.body }}>{c.name}</span>
                                     </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                                        {c.bizType && (
+                                            <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 6px', background: '#f1f5f9', color: '#475569', borderRadius: 4 }}>
+                                                {c.bizType}
+                                            </span>
+                                        )}
+                                        {c.plan && c.plan !== 'none' && (
+                                            <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 6px', background: '#e0e7ff', color: '#4f46e5', borderRadius: 4 }}>
+                                                {c.plan.toUpperCase()} 플랜
+                                            </span>
+                                        )}
+                                    </div>
                                     <div style={{ display: 'flex', gap: 8, fontSize: 10, color: T.muted }}>
                                         <span>🏪 {c.storeCount.toLocaleString()}</span>
                                         {c.assignedLawyer && <span>⚖️ {c.assignedLawyer.replace(' 변호사', '')}</span>}

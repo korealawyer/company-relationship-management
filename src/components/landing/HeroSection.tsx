@@ -3,8 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { AlertTriangle, Search, Loader2, Phone, Video, ChevronDown, BadgeCheck, Zap, Lock, ArrowRight } from 'lucide-react';
+import { AlertTriangle, Search, Loader2, Phone, Video, ChevronDown, BadgeCheck, Zap, Lock, ArrowRight, Award } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import ZoomScheduleModal from '../consultation/ZoomScheduleModal';
 
 // ── URL 입력 → 법률 분석 플로우 ──────────────────────────────
 function UrlAnalyzer() {
@@ -137,10 +138,12 @@ export function ScrollProgress() {
 // ── Hero 섹션 ──────────────────────────────────────────────
 interface HeroSectionProps {
     company: { name: string; issueCount: number; riskLevel: string };
-    resolvedParams: { cid?: string };
+    resolvedParams: { cid?: string; biz?: string };
 }
 
 export default function HeroSection({ company, resolvedParams }: HeroSectionProps) {
+    const [isZoomOpen, setIsZoomOpen] = useState(false);
+
     return (
         <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
             {/* 실제 건물 배경 이미지 */}
@@ -167,7 +170,34 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
             </div>
 
             <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-32 text-center">
-                {resolvedParams.cid && (
+                {resolvedParams.biz && (
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+                        className="mx-auto max-w-2xl mb-12 p-6 rounded-2xl relative overflow-hidden text-left"
+                        style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(201,168,76,0.3)', backdropFilter: 'blur(12px)', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(45deg, rgba(201,168,76,0.05) 0%, transparent 100%)' }} />
+                        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                            <div>
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3 text-xs font-bold"
+                                    style={{ background: 'rgba(201,168,76,0.15)', color: '#e8c87a' }}>
+                                    <Lock className="w-3.5 h-3.5" /> 맞춤 리포트 대기 중
+                                </div>
+                                <h2 className="text-xl sm:text-2xl font-black mb-2" style={{ color: '#f0f4ff' }}>
+                                    기업 전용 프라이빗 포털이 준비되었습니다
+                                </h2>
+                                <p className="text-sm" style={{ color: 'rgba(240,244,255,0.6)', lineHeight: 1.6 }}>
+                                    이메일을 통해 안전하게 접속 완료하셨습니다. 아래 버튼을 눌러 고객 포털에 로그인하신 후 귀사만의 맞춤형 법률 진단 결과를 지금 바로 확인해 보세요.
+                                </p>
+                            </div>
+                            <Link href={`/login?biz=${encodeURIComponent(resolvedParams.biz)}`} className="shrink-0 w-full sm:w-auto">
+                                <Button variant="premium" className="w-full sm:w-auto py-3 px-6 shadow-lg shadow-yellow-900/20 whitespace-nowrap">
+                                    고객 포털 입장하기 <ArrowRight className="w-4 h-4 ml-2" />
+                                </Button>
+                            </Link>
+                        </div>
+                    </motion.div>
+                )}
+
+                {!resolvedParams.biz && resolvedParams.cid && (
                     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-bold"
                         style={{ background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.4)', color: '#e8c87a' }}>
@@ -176,15 +206,23 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
                     </motion.div>
                 )}
 
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-semibold"
-                    style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.35)', color: '#e8c87a' }}>
-                    <BadgeCheck className="w-4 h-4" />
-                    1,200+ 기업이 운영 중 · 설립 12년 프리미엄 인프라
-                </motion.div>
+                <div className="flex flex-wrap justify-center gap-3 mb-6">
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-black"
+                        style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.25), rgba(201,168,76,0.1))', border: '1px solid rgba(201,168,76,0.5)', color: '#ffffff' }}>
+                        <Award className="w-4 h-4" style={{ color: '#e8c87a' }} />
+                        ALB Korea Law Awards 수상
+                    </motion.div>
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+                        style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)', color: '#e8c87a' }}>
+                        <BadgeCheck className="w-4 h-4" />
+                        글로벌 파트너와 대기업이 선택한 상위 1% 법무 인프라
+                    </motion.div>
+                </div>
 
                 <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.2 }}
-                    className="text-4xl sm:text-5xl md:text-7xl font-black leading-tight mb-6" style={{ color: '#f0f4ff' }}>
+                    className="mt-4 mb-9 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight" style={{ color: '#f0f4ff' }}>
                     <span style={{ display: 'block' }}>기업의 법률·경영을</span>
                     <span style={{ display: 'block', background: 'linear-gradient(135deg, #e8c87a, #c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                         하나의 플랫폼으로
@@ -194,36 +232,42 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
                     </span>
                 </motion.h1>
 
-                <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}
-                    className="text-lg sm:text-xl mb-8 max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(240,244,255,0.7)' }}>
-                    법률 자문 · 계약서 검토 · 개인정보 컴플라이언스 · 경영 대시보드 · EAP 심리상담<br />
-                    <strong style={{ color: '#e8c87a' }}>외부 로펌 대비 70% 절감</strong>하는 통합 법무 인프라를 지금 무료 체험하세요.
+                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.4 }}
+                    className="mt-6 mb-12 text-lg sm:text-xl max-w-2xl mx-auto" style={{ color: 'rgba(240,244,255,0.7)', lineHeight: 1.7 }}>
+                    IBS <strong>Empire OS</strong>는 변호사, 컨설턴트 등 13인의 AI 에이전트 그룹이 귀사의 리스크를 실시간 방어하는 <span style={{ color: '#e8c87a' }}>상위 1% 프라이빗 인프라</span>입니다.
                 </motion.p>
 
-                <UrlAnalyzer />
+                {/* 이메일로 온 고객에게는 URL 분석기를 숨기고, 바로 로그인 버튼 제안 등 포털 접근에 집중하게 함 */}
+                {!resolvedParams.biz && (
+                    <UrlAnalyzer />
+                )}
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.8 }}
-                    className="flex flex-col sm:flex-row gap-3 justify-center mt-5 mb-16">
-                    <a href="tel:025551234">
+                    className="flex flex-col sm:flex-row gap-3 justify-center my-12">
+                    <a href="tel:025988518" onClick={(e) => {
+                        if (window.innerWidth >= 768) {
+                            e.preventDefault();
+                            navigator.clipboard.writeText('02-598-8518');
+                            alert('전화번호가 클립보드에 복사되었습니다: 02-598-8518\n(운영 시간: 평일 09:00 ~ 18:00)');
+                        }
+                    }}>
                         <Button variant="ghost" size="md" className="gap-2 w-full sm:w-auto">
                             <Phone className="w-4 h-4" /> 전화 상담
                         </Button>
                     </a>
-                    <a href="https://calendly.com" target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" size="md" className="gap-2 w-full sm:w-auto">
-                            <Video className="w-4 h-4" /> 줌 상담 예약
-                        </Button>
-                    </a>
+                    <Button onClick={() => setIsZoomOpen(true)} variant="outline" size="md" className="gap-2 w-full sm:w-auto">
+                        <Video className="w-4 h-4" /> 줌 상담 예약
+                    </Button>
                 </motion.div>
 
                 {/* 통계 */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
                     className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5 max-w-2xl mx-auto">
                     {[
-                        { value: 1247, suffix: '+', label: '기업 고객' },
-                        { value: 38400, suffix: '+', label: '상담 완료' },
-                        { value: 12800, suffix: '+', label: '리포트 발행' },
-                        { value: 99, suffix: '%', label: '고객 유지율' },
+                        { value: 45000, suffix: '+', label: '지원회원' },
+                        { value: 80000, suffix: '+', label: '누적 자문 완료' },
+                        { value: 1000, suffix: '억+', label: '엑시트 기업 자문' },
+                        { value: 48, suffix: '시간', label: '자문 답변 보장' },
                     ].map((stat, i) => (
                         <div key={i} className="text-center p-3 rounded-xl" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.12)' }}>
                             <div className="text-xl sm:text-2xl font-black" style={{ color: '#c9a84c' }}>
@@ -238,6 +282,9 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
                     <ChevronDown className="w-6 h-6" style={{ color: 'rgba(201,168,76,0.5)' }} />
                 </motion.div>
             </div>
+
+            {/* Zoom Schedule Modal */}
+            <ZoomScheduleModal isOpen={isZoomOpen} onClose={() => setIsZoomOpen(false)} />
         </section>
     );
 }

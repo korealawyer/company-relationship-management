@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, AlertTriangle, Bot, Loader2, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { Shield, AlertTriangle, Bot, Loader2, ChevronDown, ChevronUp, CheckCircle2, Upload } from 'lucide-react';
 
 interface Issue { clauseTitle: string; level: 'HIGH' | 'MEDIUM' | 'LOW'; original: string; problem: string; suggestion: string; lawRef: string; }
 interface ReviewResult { overallRisk: 'HIGH' | 'MEDIUM' | 'LOW'; summary: string; issues: Issue[]; }
@@ -44,13 +44,36 @@ export default function LegalReviewPage() {
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="font-bold text-sm" style={{ color: 'rgba(240,244,255,0.7)' }}>계약서 원문</h2>
-                            <button onClick={() => setText(SAMPLE)} className="text-xs px-3 py-1.5 rounded-lg"
-                                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(240,244,255,0.5)' }}>
-                                샘플 불러오기
-                            </button>
+                            <div className="flex gap-2">
+                                <label className="text-xs px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
+                                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(240,244,255,0.5)' }}>
+                                    {loading ? <Loader2 className="w-3 h-3 animate-spin"/> : <Upload className="w-3 h-3" />}
+                                    OCR 업로드
+                                    <input type="file" accept="image/*,application/pdf" className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            setLoading(true);
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append('file', file);
+                                                const res = await fetch('/api/ocr', { method: 'POST', body: formData });
+                                                const data = await res.json();
+                                                if (data.text) setText(data.text);
+                                                else alert('OCR 결과가 없습니다.');
+                                            } catch (err) { alert('OCR 중 오류 발생'); }
+                                            setLoading(false);
+                                        }}
+                                    />
+                                </label>
+                                <button onClick={() => setText(SAMPLE)} className="text-xs px-3 py-1.5 rounded-lg"
+                                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(240,244,255,0.5)' }}>
+                                    샘플 불러오기
+                                </button>
+                            </div>
                         </div>
                         <textarea value={text} onChange={e => setText(e.target.value)}
-                            placeholder="계약서 내용을 붙여넣으세요..." rows={14}
+                            placeholder="계약서 내용을 붙여넣거나 파일을 업로드하세요..." rows={14}
                             className="w-full p-4 rounded-xl outline-none text-sm resize-none"
                             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', lineHeight: 1.7 }} />
                         <button onClick={analyze} disabled={loading || !text.trim()}

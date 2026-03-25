@@ -154,7 +154,7 @@ export const FEATURE_FLAGS = {
   AI_CHAT: !!process.env.ANTHROPIC_API_KEY,             // 실제 AI 챗봇
   CASES: false,            // 사건 관리 → Painted Door
   DOCUMENTS: false,        // 문서 허브 → Painted Door
-  CONTRACTS: false,        // 전자계약 → Painted Door
+  CONTRACTS: true,         // 전자계약 → 실제 구현
   NOTIFICATIONS: false,    // 기일 알림 → Painted Door
   AI_REVIEW: false,        // AI 계약서 검토 → Painted Door
   EAP: false,              // EAP 심리상담 → Painted Door

@@ -79,6 +79,7 @@ export const ROLE_HOME: Record<RoleType, string> = {
     finance: '/admin',
     counselor: '/counselor',
     client_hr: '/dashboard',
+    personal_client: '/personal-litigation',
 };
 
 // ── Supabase User → AuthUser 매핑 헬퍼 ─────────────────────────
@@ -331,6 +332,40 @@ export async function clearSession(): Promise<void> {
     _setSessionCache(null);
     const sb = getBrowserSupabase();
     if (sb) await sb.auth.signOut();
+}
+
+// ── 개인회원 로그인 (Mock — 이메일 기반) ─────────────────────
+const MOCK_PERSONAL_ACCOUNTS: Record<string, { name: string; phone: string; password: string }> = {
+    'hong@personal.kr':   { name: '홍길동', phone: '010-1234-5678', password: 'hong123' },
+    'kim@personal.kr':    { name: '김민준', phone: '010-2345-6789', password: 'kim123' },
+    'lee@personal.kr':    { name: '이서연', phone: '010-3456-7890', password: 'lee123' },
+    'park@personal.kr':   { name: '박지훈', phone: '010-4567-8901', password: 'park123' },
+    'choi@personal.kr':   { name: '최유리', phone: '010-5678-9012', password: 'choi123' },
+};
+
+export function loginWithPersonal(
+    email: string,
+    password: string
+): { success: true; user: AuthUser } | { success: false; error: string } {
+    const key = email.toLowerCase().trim();
+    const account = MOCK_PERSONAL_ACCOUNTS[key];
+    if (!account) {
+        return { success: false, error: '등록되지 않은 이메일입니다.' };
+    }
+    if (account.password !== password) {
+        return { success: false, error: '비밀번호가 올바르지 않습니다.' };
+    }
+    const user: AuthUser = {
+        id: `personal_${key.replace('@', '_').replace('.', '_')}`,
+        name: account.name,
+        email: key,
+        role: 'personal_client',
+        companyId: undefined,
+        companyName: undefined,
+        loginAt: new Date().toISOString(),
+    };
+    _setSessionCache(user);
+    return { success: true, user };
 }
 
 // ── 사업자번호 로그인 (고객사 — Mock 유지) ────────────────────

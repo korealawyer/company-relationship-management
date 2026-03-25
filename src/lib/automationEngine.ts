@@ -1,7 +1,7 @@
 // src/lib/automationEngine.ts — 송무 자동화 엔진 (P0 + P1)
 // 5가지 자동화: 기한알림, 청구서발행, 미납재촉, 만족도설문(trigger in mockStore), AI메모요약
 
-import { store, addLog, LitigationCase } from './mockStore';
+import { store, personalStore, addLog, LitigationCase } from './mockStore';
 
 // ── 실행 중복 방지 ──
 const LAST_RUN_KEY = 'ibs_auto_lastrun';
@@ -73,6 +73,46 @@ export function runDeadlineAlerts(): number {
                         type: 'deadline_alert',
                         label: `기한 알림 D-${alertDay}${urgent ? ' ⚠ 긴급' : ''}`,
                         companyName: lit.companyName,
+                        detail: `[${d.label}] ${d.dueDate} (${daysLeft}일 남음) → ${lit.assignedLawyer || '미배정'}에게 ${channel} 발송${escalate}`,
+                        channel,
+                    });
+                    addSentAlert(alertKey);
+                    count++;
+                    break; // 가장 적합한 알림 단계만 발송
+                }
+            }
+        }
+    }
+    return count;
+}
+
+export function runPersonalDeadlineAlerts(): number {
+    const settings = store.getAutoSettings();
+    if (!settings.autoDeadlineAlert) return 0;
+
+    const cases = personalStore.getAll();
+    const now = Date.now();
+    const sentAlerts = getSentAlerts();
+    let count = 0;
+
+    for (const lit of cases) {
+        for (const d of lit.deadlines) {
+            if (d.completed) continue;
+            const daysLeft = Math.ceil((new Date(d.dueDate).getTime() - now) / 86400000);
+
+            for (const alertDay of ALERT_DAYS) {
+                if (daysLeft <= alertDay) {
+                    const alertKey = `personal_lit:${lit.id}:${d.id}:D-${alertDay}`;
+                    if (sentAlerts.has(alertKey)) continue;
+
+                    const urgent = alertDay <= 3;
+                    const channel = alertDay <= 7 ? '카카오 + 이메일' : '이메일';
+                    const escalate = alertDay <= 3 ? ` (대표 변호사 참조)` : '';
+
+                    addLog({
+                        type: 'deadline_alert',
+                        label: `개인기한 알림 D-${alertDay}${urgent ? ' ⚠ 긴급' : ''}`,
+                        companyName: lit.clientName,
                         detail: `[${d.label}] ${d.dueDate} (${daysLeft}일 남음) → ${lit.assignedLawyer || '미배정'}에게 ${channel} 발송${escalate}`,
                         channel,
                     });
@@ -325,6 +365,7 @@ function runAll() {
         // 기한 알림: 1시간마다 (데모에서는 30초)
         if (now - lastRun.deadlineAlert > 60_000) {
             runDeadlineAlerts();
+            runPersonalDeadlineAlerts();
             setLastRun({ deadlineAlert: now });
         }
 

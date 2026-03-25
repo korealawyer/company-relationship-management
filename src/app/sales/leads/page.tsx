@@ -36,6 +36,57 @@ export default function SalesLeadsPage() {
     const [filterStatus, setFilterStatus] = useState<LeadStatus | 'all'>('all');
     const [filterRisk, setFilterRisk] = useState<'all' | 'HIGH' | 'MEDIUM' | 'LOW'>('all');
     const [expanding, setExpanding] = useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const res = await fetch('/api/ocr', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if (data.text) {
+                const nameMatch = data.text.match(/상호:\s*(.+)/);
+                const bizMatch = data.text.match(/등록번호:\s*([\d-]+)/);
+                const ceoMatch = data.text.match(/대표자명:\s*(.+)/);
+                
+                if (nameMatch && bizMatch) {
+                    leadStore.add([{
+                        companyName: nameMatch[1],
+                        biz: bizMatch[1],
+                        domain: '',
+                        privacyUrl: '',
+                        contactName: ceoMatch ? ceoMatch[1] : '미정',
+                        contactEmail: '',
+                        contactPhone: '',
+                        storeCount: 0,
+                        bizType: '기타',
+                        riskScore: 0,
+                        riskLevel: '',
+                        issueCount: 0,
+                        status: 'pending',
+                        source: 'manual'
+                    }]);
+                    setLeads(leadStore.getAll());
+                    alert('사업자등록증이 성공적으로 등록되어 1건의 리드가 추가되었습니다.');
+                } else {
+                    alert('사업자등록증에서 상호나 등록번호를 추출할 수 없습니다.');
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            alert('업로드 처리 실패');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     useEffect(() => {
         setLeads(leadStore.getAll());
@@ -75,12 +126,30 @@ export default function SalesLeadsPage() {
                             {filtered.length}건
                         </span>
                     </div>
-                    <Link href="/sales/email-history">
-                        <button className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold"
-                            style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)' }}>
-                            <Mail className="w-4 h-4" /> 발송 이력
+                    <div className="flex gap-2">
+                        <input 
+                            type="file" 
+                            accept="image/*,application/pdf" 
+                            className="hidden" 
+                            ref={fileInputRef} 
+                            onChange={handleFileUpload} 
+                        />
+                        <button 
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold"
+                            style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                        >
+                            <Building2 className="w-4 h-4" /> 
+                            {isUploading ? '업로드 중...' : '사업자등록증 업로드'}
                         </button>
-                    </Link>
+                        <Link href="/sales/email-history">
+                            <button className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold"
+                                style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                <Mail className="w-4 h-4" /> 발송 이력
+                            </button>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* 검색 + 필터 */}

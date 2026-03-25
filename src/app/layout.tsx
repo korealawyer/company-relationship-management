@@ -97,7 +97,7 @@ export default function RootLayout({
             <main className="flex-1 pt-20">
               {children}
             </main>
-            <FloatingChatbot />
+            {/* <FloatingChatbot /> */}  {/* TODO: 챗봇 준비 완료 후 주석 해제 */}
             <RealtimeNotification />
           </ZeroTrustBriefingProvider>
         </AuthProvider>

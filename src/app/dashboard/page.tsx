@@ -17,9 +17,174 @@ import { useRequireAuth } from '@/lib/AuthContext';
 import { getSession } from '@/lib/auth';
 import { leadStore } from '@/lib/leadStore';
 import { ServiceRequestModal } from '@/components/ServiceRequestModal';
+import ZoomScheduleModal from '@/components/consultation/ZoomScheduleModal';
+import { PortalTour } from '@/components/PortalTour';
+// ── 비로그인 고객용 포털 소개 페이지 ───────────────────────────
+function ClientPortalLanding() {
+    const PORTAL_FEATURES = [
+        {
+            icon: Zap,
+            color: '#c9a84c',
+            bg: 'rgba(201,168,76,0.08)',
+            title: '서비스 진행 현황 실시간 확인',
+            desc: '법률 자문, 문서 검토, 소송 진행 상황을 클릭 한 번으로 확인합니다. 담당 변호사에게 전화하지 않아도 됩니다.',
+        },
+        {
+            icon: FileText,
+            color: '#818cf8',
+            bg: 'rgba(129,140,248,0.08)',
+            title: '문서 보관함 & 전자 서명',
+            desc: '계약서, 의견서, 리포트가 모두 클라우드에 안전하게 저장됩니다. 어디서나 찾고, 전자 서명까지 완료하세요.',
+        },
+        {
+            icon: Bot,
+            color: '#4ade80',
+            bg: 'rgba(74,222,128,0.08)',
+            title: '24시간 AI 법률 질의·응답',
+            desc: '야간·주말에도 즉시 답변 받을 수 있는 AI 법률 상담 채팅봇. 민감한 내용은 전담 변호사에게 자동 에스컬레이션됩니다.',
+        },
+        {
+            icon: Calendar,
+            color: '#fb923c',
+            bg: 'rgba(251,146,60,0.08)',
+            title: '기일·미팅 캘린더 연동',
+            desc: '변론기일, 화상 미팅, 서류 제출 기한을 한눈에 관리하고, iPhone·구글 캘린더와 즉시 동기화합니다.',
+        },
+        {
+            icon: Bell,
+            color: '#f472b6',
+            bg: 'rgba(244,114,182,0.08)',
+            title: '실시간 법무 알림',
+            desc: '사건 상태 변경, 서류 업로드, 납부 기한 등 중요한 법무 이벤트를 카카오톡·이메일·앱 푸시로 즉시 받습니다.',
+        },
+        {
+            icon: Coins,
+            color: '#60a5fa',
+            bg: 'rgba(96,165,250,0.08)',
+            title: '청구서 & 구독 관리',
+            desc: '서비스 이용 내역, 청구서, 결제 수단을 한 곳에서 투명하게 관리합니다. 세금계산서도 자동으로 발행됩니다.',
+        },
+    ];
 
+    return (
+        <div className="min-h-screen" style={{ background: '#04091a', color: '#f0f4ff' }}>
+            {/* 히어로 */}
+            <div className="relative pt-32 pb-20 px-4 text-center overflow-hidden">
+                {/* 배경 glow */}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full opacity-20"
+                        style={{ background: 'radial-gradient(ellipse, rgba(201,168,76,0.2), transparent 70%)' }} />
+                </div>
+
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8"
+                        style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)' }}>
+                        <Shield className="w-4 h-4" style={{ color: '#c9a84c' }} />
+                        <span className="text-sm font-black" style={{ color: '#c9a84c' }}>IBS 고객 전용 포털</span>
+                    </div>
+
+                    <h1 className="text-5xl md:text-6xl font-black leading-tight mb-6 tracking-tight">
+                        법무 관리의 모든 것,<br />
+                        <span style={{
+                            background: 'linear-gradient(135deg, #e8c87a, #c9a84c)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                        }}>한 곳에서</span>
+                    </h1>
+                    <p className="text-xl mb-12 max-w-2xl mx-auto font-light leading-relaxed"
+                        style={{ color: 'rgba(240,244,255,0.6)' }}>
+                        IBS 클라이언트 포털에서 진행 중인 모든 법률 서비스를 실시간으로 확인하고,<br />
+                        서류를 관리하며, 담당 변호사와 직접 소통하세요.
+                    </p>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <Link href="/sign-in">
+                            <button className="flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-lg transition-all hover:scale-105"
+                                style={{ background: 'linear-gradient(135deg, #c9a84c, #e8c87a)', color: '#0a0e1a', boxShadow: '0 10px 40px rgba(201,168,76,0.3)' }}>
+                                <ArrowRight className="w-5 h-5" />
+                                로그인하고 포털 입장
+                            </button>
+                        </Link>
+                        <Link href="/service">
+                            <button className="flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-lg transition-all hover:bg-white/10"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#f0f4ff' }}>
+                                서비스 소개 보기
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
+                        </Link>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* 기능 소개 그리드 */}
+            <div className="max-w-5xl mx-auto px-4 pb-24">
+                <motion.div
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true }}
+                    transition={{ staggerChildren: 0.1 }}
+                >
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-black mb-3">포털에서 할 수 있는 모든 것</h2>
+                        <p style={{ color: 'rgba(240,244,255,0.4)' }}>구독 기업 전담팀이 모든 법무 이슈를 처리하고, 고객님은 포털에서 실시간 확인할 수 있습니다</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-16">
+                        {PORTAL_FEATURES.map(({ icon: Icon, color, bg, title, desc }, i) => (
+                            <motion.div
+                                key={title}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: i * 0.08 }}
+                                className="p-6 rounded-2xl group hover:-translate-y-1 transition-transform duration-300"
+                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                                    style={{ background: bg }}>
+                                    <Icon className="w-6 h-6" style={{ color }} />
+                                </div>
+                                <h3 className="font-black text-base mb-2" style={{ color: '#f0f4ff' }}>{title}</h3>
+                                <p className="text-sm leading-relaxed" style={{ color: 'rgba(240,244,255,0.5)' }}>{desc}</p>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    {/* 로그인 CTA 카드 */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className="p-10 rounded-3xl text-center"
+                        style={{ background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                        <h3 className="text-2xl font-black mb-3">이미 IBS 고객이신가요?</h3>
+                        <p className="mb-8" style={{ color: 'rgba(240,244,255,0.5)' }}>
+                            담당 변호사가 발급한 초대 코드로 포털에 등록하고 모든 서비스를 이용하세요.
+                        </p>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                            <Link href="/sign-in">
+                                <button className="flex items-center gap-2 px-8 py-3.5 rounded-xl font-black text-base transition-all hover:scale-105"
+                                    style={{ background: 'linear-gradient(135deg, #c9a84c, #e8c87a)', color: '#0a0e1a' }}>
+                                    <ArrowRight className="w-4 h-4" />
+                                    포털 로그인
+                                </button>
+                            </Link>
+                            <a href="tel:025988518"
+                                className="flex items-center gap-2 px-8 py-3.5 rounded-xl font-bold text-base transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }}>
+                                <Phone className="w-4 h-4" style={{ color: '#c9a84c' }} />
+                                02-598-8518 문의
+                            </a>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            </div>
+        </div>
+    );
+}
 
 // ── 통합 서비스 진행 현황 ──────────────────────────────────────
+
 type ItemType = 'consultation' | 'document' | 'case';
 type ItemStatus = 'received' | 'reviewing' | 'completed' | 'pending_action';
 
@@ -77,7 +242,7 @@ function ServiceProgressPanel() {
     const doneItems  = MOCK_ITEMS.filter(i => i.status === 'completed').length;
 
     return (
-        <Card className="border-none shadow-sm mb-8 overflow-hidden" style={{ background: '#fff' }}>
+        <Card id="tour-summary" className="border-none shadow-sm mb-8 overflow-hidden" style={{ background: '#fff' }}>
             {/* 헤더 */}
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -107,6 +272,7 @@ function ServiceProgressPanel() {
                     return (
                         <motion.div
                             key={item.id}
+                            id={idx === 0 ? "tour-timeline" : undefined}
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.07 }}
@@ -193,9 +359,7 @@ const SERVICE_LINKS = [
     { href: '/chat', icon: Bot, label: '24시간 법률 상담', desc: '24시간 무제한 법률 질의·응답', color: '#4ade80', badge: 'NEW' },
     { href: '/cases', icon: Briefcase, label: '사건 관리', desc: '진행 중인 모든 사건 현황', color: '#fb923c', badge: null },
     { href: '/documents', icon: FolderOpen, label: '문서 보관함', desc: '계약서·의견서·리포트 관리', color: '#60a5fa', badge: null },
-    { href: '/billing', icon: Coins, label: '결제·구독', desc: '청구서 내역 및 요금제 관리', color: '#c9a84c', badge: null },
     { href: '/company-hr', icon: Users, label: 'HR·가맹점', desc: '임직원 및 가맹점 법무 관리', color: '#f472b6', badge: null },
-    { href: '/notifications', icon: Bell, label: '알림 내역', desc: '법무 진행 상황 실시간 알림', color: '#a78bfa', badge: '3' },
     { href: '/settings', icon: Settings, label: '설정', desc: '계정 보안 및 알림 수신 설정', color: '#94a3b8', badge: null },
 ];
 
@@ -289,6 +453,8 @@ export default function DashboardPage() {
     const [isRequestModalOpen, setRequestModalOpen] = useState(false);
     const [requestForm, setRequestForm] = useState({ type: 'consultation', title: '', detail: '', urgency: 'normal' });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isZoomModalOpen, setZoomModalOpen] = useState(false);
+    const [isInquiryModalOpen, setInquiryModalOpen] = useState(false);
 
     const handleServiceRequestSubmit = () => {
         if (!requestForm.title.trim()) return alert('제목을 입력해주세요.');
@@ -327,7 +493,10 @@ export default function DashboardPage() {
         }, 600);
     };
 
-    if (loading || !authorized) return (
+    // 비로그인 고객 → 포털 소개 페이지
+    if (!loading && !authorized) return <ClientPortalLanding />;
+
+    if (loading) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div>
         </div>
@@ -338,6 +507,7 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen" style={{ background: '#f8f7f4' }}>
+            <PortalTour />
             <div className="max-w-7xl mx-auto px-4 py-10">
 
                 {/* ── 환영 헤더 ── */}
@@ -373,14 +543,12 @@ export default function DashboardPage() {
                                 <Zap className="w-4 h-4" style={{ color: '#c9a84c' }} />
                                 새 법률 서비스 의뢰하기
                             </Button>
-                            {!isPaid && (
-                                <Link href="/pricing">
-                                    <Button variant="outline" size="lg" className="rounded-2xl gap-2 font-bold h-12 px-6 border-gray-300">
-                                        <Shield className="w-4 h-4" style={{ color: '#c9a84c' }} />
-                                        전방위 법무 보호 구독하기
-                                    </Button>
-                                </Link>
-                            )}
+                            <Link href="/company-hr">
+                                <Button variant="outline" size="lg" className="rounded-2xl gap-2 font-bold h-12 px-6 border-gray-300">
+                                    <Users className="w-4 h-4" style={{ color: '#c9a84c' }} />
+                                    임직원·가맹점 멤버 관리
+                                </Button>
+                            </Link>
                         </div>
                     </div>
                 </motion.div>
@@ -446,25 +614,27 @@ export default function DashboardPage() {
                             <Card className="p-0 overflow-hidden border-none shadow-sm" style={{ background: '#fff' }}>
                                 <div className="divide-y divide-gray-100">
                                     {[
-                                        { title: '가맹점 표준 계약서 (2026 개정판) 최종 검토 완료', date: '오늘 오전 10:23', type: '계약서', icon: CheckCircle2, iconColor: '#4ade80' },
-                                        { title: '개인정보처리방침 리스크 진단 리포트 (초안)', date: '어제 오후 04:15', type: '리포트', icon: Zap, iconColor: '#f59e0b' },
-                                        { title: '월간 법무 동향: 공정위 가맹사업법 단속 강화', date: '3월 20일', type: '뉴스레터', icon: Mail, iconColor: '#6366f1' },
+                                        { title: '가맹점 표준 계약서 (2026 개정판) 최종 검토 완료', date: '오늘 오전 10:23', type: '계약서', icon: CheckCircle2, iconColor: '#4ade80', href: '/documents' },
+                                        { title: '개인정보처리방침 리스크 진단 리포트 (초안)', date: '어제 오후 04:15', type: '리포트', icon: Zap, iconColor: '#f59e0b', href: '/documents' },
+                                        { title: '월간 법무 동향: 공정위 가맹사업법 단속 강화', date: '3월 20일', type: '뉴스레터', icon: Mail, iconColor: '#6366f1', href: '/documents' },
                                     ].map((doc, i) => (
-                                        <div key={i} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                                            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${doc.iconColor}15` }}>
-                                                <doc.icon className="w-5 h-5" style={{ color: doc.iconColor }} />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold truncate" style={{ color: '#111827' }}>{doc.title}</p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: '#f3f4f6', color: '#6b7280' }}>
-                                                        {doc.type}
-                                                    </span>
-                                                    <span className="text-[11px]" style={{ color: '#9ca3af' }}>{doc.date}</span>
+                                        <Link key={i} href={doc.href}>
+                                            <div className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer group">
+                                                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${doc.iconColor}15` }}>
+                                                    <doc.icon className="w-5 h-5" style={{ color: doc.iconColor }} />
                                                 </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold truncate group-hover:text-blue-600 transition-colors" style={{ color: '#111827' }}>{doc.title}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: '#f3f4f6', color: '#6b7280' }}>
+                                                            {doc.type}
+                                                        </span>
+                                                        <span className="text-[11px]" style={{ color: '#9ca3af' }}>{doc.date}</span>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9ca3af' }} />
                                             </div>
-                                            <Download className="w-4 h-4 flex-shrink-0" style={{ color: '#d1d5db' }} />
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             </Card>
@@ -477,7 +647,7 @@ export default function DashboardPage() {
 
                         {/* IBS 로펌 전담 데스크 */}
                         <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
-                            <Card className="border-none shadow-md overflow-hidden relative" style={{ background: '#fff' }}>
+                            <Card id="tour-team" className="border-none shadow-md overflow-hidden relative" style={{ background: '#fff' }}>
                                 {/* 상단 황금색 그라데이션 포인트 */}
                                 <div className="h-1.5 w-full absolute top-0 left-0" style={{ background: 'linear-gradient(90deg, #e8c87a, #c9a84c)' }} />
 
@@ -539,10 +709,10 @@ export default function DashboardPage() {
 
                                 {/* 하단 버튼 — 균형 있게 */}
                                 <div className="px-5 pb-5 flex gap-2">
-                                    <Button variant="outline" className="flex-1 gap-1.5 border-gray-200 text-sm font-bold">
+                                    <Button variant="outline" className="flex-1 gap-1.5 border-gray-200 text-sm font-bold" onClick={() => setZoomModalOpen(true)}>
                                         <Video className="w-4 h-4" /> 화상 미팅
                                     </Button>
-                                    <Button variant="premium" className="flex-1 gap-1.5 shadow-md text-sm font-bold">
+                                    <Button variant="premium" className="flex-1 gap-1.5 shadow-md text-sm font-bold" onClick={() => setInquiryModalOpen(true)}>
                                         <MessageSquare className="w-4 h-4" /> 1:1 문의
                                     </Button>
                                 </div>
@@ -587,6 +757,88 @@ export default function DashboardPage() {
                 onClose={() => setRequestModalOpen(false)} 
                 defaultType="general" 
             />
+
+            {/* ── 화상 미팅 예약 모달 ── */}
+            <ZoomScheduleModal isOpen={isZoomModalOpen} onClose={() => setZoomModalOpen(false)} />
+
+            {/* ── 1:1 문의 모달 ── */}
+            <AnimatePresence>
+                {isInquiryModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setInquiryModalOpen(false)}
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden"
+                        >
+                            <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #c9a84c, #e8c87a)' }} />
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-5">
+                                    <div>
+                                        <h3 className="text-lg font-black" style={{ color: '#111827' }}>1:1 문의</h3>
+                                        <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>편한 방법으로 문의하세요</p>
+                                    </div>
+                                    <button onClick={() => setInquiryModalOpen(false)} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                                        <X className="w-5 h-5" style={{ color: '#6b7280' }} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <a
+                                        href="mailto:info@ibslaw.co.kr"
+                                        className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 transition-all group"
+                                    >
+                                        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(99,102,241,0.1)' }}>
+                                            <Mail className="w-5 h-5" style={{ color: '#6366f1' }} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-black" style={{ color: '#111827' }}>이메일 문의</p>
+                                            <p className="text-xs" style={{ color: '#9ca3af' }}>info@ibslaw.co.kr · 4시간 내 회신</p>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#c9a84c' }} />
+                                    </a>
+
+                                    <a
+                                        href="tel:025988518"
+                                        className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 transition-all group"
+                                    >
+                                        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(201,168,76,0.1)' }}>
+                                            <Phone className="w-5 h-5" style={{ color: '#c9a84c' }} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-black" style={{ color: '#111827' }}>전화 문의</p>
+                                            <p className="text-xs" style={{ color: '#9ca3af' }}>02-598-8518 · 평일 09:00–18:00</p>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#c9a84c' }} />
+                                    </a>
+
+                                    <button
+                                        onClick={() => { setInquiryModalOpen(false); setRequestModalOpen(true); }}
+                                        className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-yellow-300 hover:bg-yellow-50 transition-all group text-left"
+                                    >
+                                        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(74,222,128,0.1)' }}>
+                                            <MessageSquare className="w-5 h-5" style={{ color: '#16a34a' }} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-black" style={{ color: '#111827' }}>온라인 의뢰 접수</p>
+                                            <p className="text-xs" style={{ color: '#9ca3af' }}>상담 내용 작성 후 제출</p>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#c9a84c' }} />
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
         </div>
     );

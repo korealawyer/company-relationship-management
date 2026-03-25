@@ -3,7 +3,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode;
     className?: string;
     gold?: boolean;
@@ -13,7 +13,7 @@ interface CardProps {
     style?: React.CSSProperties;
 }
 
-export function Card({ children, className, gold = false, light = false, hover = true, padding = 'md', style }: CardProps) {
+export function Card({ children, className, gold = false, light = false, hover = true, padding = 'md', style, ...props }: CardProps) {
     const paddingClasses = { sm: 'p-4', md: 'p-6', lg: 'p-8' };
 
     const lightStyle = {
@@ -32,6 +32,7 @@ export function Card({ children, className, gold = false, light = false, hover =
 
     return (
         <div
+            {...props}
             className={clsx(
                 'rounded-2xl transition-all duration-300',
                 paddingClasses[padding],

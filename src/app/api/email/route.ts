@@ -80,11 +80,11 @@ function buildHookEmail(leadId: string, lawyerNote: string, repId?: string) {
   if (!lead) return null;
   const issueText = `개인정보처리방침에서 ${lead.issueCount}건의 위반 가능성이 발견되었습니다.`;
   
-  // 맞춤 client-portal URL 생성: 사업자번호 + 영업담당자 ID 포함
+  // 맞춤 client-portal URL 생성 (신뢰도 향상을 위해 메인 홈페이지로 유도)
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibslaw.co.kr';
   const bizParam = lead.biz ? `&biz=${encodeURIComponent(lead.biz)}` : '';
   const repParam = repId ? `&rep=${encodeURIComponent(repId)}` : '';
-  const portalUrl = `${BASE_URL}/privacy-report?${bizParam}${repParam}`.replace('?&', '?');
+  const portalUrl = `${BASE_URL}/?${bizParam}${repParam}`.replace('?&', '?');
 
   return {
     to: lead.contactEmail,
@@ -112,7 +112,7 @@ function buildHookEmail(leadId: string, lawyerNote: string, repId?: string) {
   </ul>
   <div style="text-align:center;margin:32px 0">
     <a href="${portalUrl}" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
-      📋 ${lead.companyName} 맞춤 리포트 확인하기 →
+      🏢 IBS 법률사무소 방문 및 진단 결과 확인하기 →
     </a>
   </div>
   <p style="color:#64748b;font-size:12px;text-align:center">위 버튼을 클릭하면 귀사만의 맞춤 법률 진단 리포트를 바로 열람하실 수 있습니다.</p>

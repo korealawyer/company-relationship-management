@@ -1,10 +1,10 @@
 'use client';
 
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Phone, Lock, Clock, ArrowRight, Shield, BadgeCheck, Award, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Phone, Lock, Clock, ArrowRight, Shield, BadgeCheck, Award, CheckCircle2, ChevronDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 // ── 랜딩 섹션 컴포넌트 ────────────────────────────────────
@@ -17,6 +17,7 @@ import PricingSection from '@/components/landing/PricingSection';
 import TestimonialsSection from '@/components/landing/TestimonialsSection';
 import TrustBadgeSection from '@/components/landing/TrustBadgeSection';
 import FaqSection from '@/components/landing/FaqSection';
+import GuideDownloadForm from '@/components/marketing/GuideDownloadForm';
 
 import FeatureShowcase from '@/components/landing/FeatureShowcase';
 
@@ -26,9 +27,12 @@ import { MOCK_COMPANIES, fadeUp } from '@/lib/landingData';
 // ── useSearchParams는 Suspense 경계 안에서만 사용 가능 ──────
 function LandingPageInner() {
   const searchParams = useSearchParams();
+  const utm_source = searchParams.get('utm_source');
+  const [showCopyToast, setShowCopyToast] = useState(false);
   const cid = searchParams.get('cid') ?? '';
+  const biz = searchParams.get('biz') ?? '';
   const company = useMemo(() => (cid && MOCK_COMPANIES[cid]) ? MOCK_COMPANIES[cid] : MOCK_COMPANIES['default'], [cid]);
-  const resolvedParams: { cid?: string } = cid ? { cid } : {};
+  const resolvedParams: { cid?: string; biz?: string } = { ...(cid ? { cid } : {}), ...(biz ? { biz } : {}) };
 
   return (
     <>
@@ -80,6 +84,44 @@ function LandingPageInner() {
 
         <div className="gold-divider" />
 
+        {/* ── 9. 가이드북 다운로드 ── */}
+        <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: '#0f172a' }}>
+            <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-bold pill-gold pill-gold-text">
+                        <Download className="w-4 h-4" /> 무료 제공 자료
+                    </div>
+                    <h2 className="text-3xl sm:text-5xl font-black mb-6 text-light leading-tight">
+                        프랜차이즈 본사라면<br />
+                        <span className="text-gold-gradient">반드시 점검해야 할 5가지</span>
+                    </h2>
+                    <p className="text-lg mb-8 text-muted-80">
+                        정보공개서, 가맹계약서, 개인정보처리방침 등 법적 리스크를 피하기 위한 핵심 가이드북을 무료로 제공해 드립니다. 
+                        지금 바로 우리 회사의 상태를 진단해보세요.
+                    </p>
+                    <ul className="flex flex-col gap-4 text-muted-80">
+                        <li className="flex items-center gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-gold" />
+                            최신 법령이 반영된 <strong>필수 체크리스트</strong>
+                        </li>
+                        <li className="flex items-center gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-gold" />
+                            과태료를 피하는 <strong>개인정보 관리 노하우</strong>
+                        </li>
+                        <li className="flex items-center gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-gold" />
+                            가맹점과의 <strong>분쟁 예방 가이드</strong>
+                        </li>
+                    </ul>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
+                    <GuideDownloadForm />
+                </motion.div>
+            </div>
+        </section>
+
+        <div className="gold-divider" />
+
         {/* ── 마지막 CTA ── */}
         <section id="cta" className="py-24 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
@@ -96,7 +138,14 @@ function LandingPageInner() {
                 지금 무료 체험을 시작하고, 귀사의 법률·경영 리스크를 완전히 통제하세요.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="tel:025551234">
+                <a href="tel:025988518" onClick={(e) => {
+                  if (window.innerWidth >= 768) {
+                    e.preventDefault();
+                    navigator.clipboard.writeText('02-598-8518');
+                    setShowCopyToast(true);
+                    setTimeout(() => setShowCopyToast(false), 3000);
+                  }
+                }}>
                   <Button variant="ghost" size="xl" className="gap-3 w-full sm:w-auto">
                     <Phone className="w-6 h-6" /> 02-598-8518 지금 전화
                   </Button>
@@ -188,6 +237,22 @@ function LandingPageInner() {
           </div>
         </footer>
 
+      {/* Custom Toast Notification for Desktop Phone Click */}
+      <AnimatePresence>
+        {showCopyToast && (
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-4 rounded-xl shadow-2xl"
+            style={{ background: 'rgba(20, 24, 32, 0.95)', border: '1px solid rgba(201,168,76,0.3)', backdropFilter: 'blur(10px)' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(201,168,76,0.2)' }}>
+              <BadgeCheck className="w-5 h-5 text-gold-light" style={{ color: '#e8c87a' }} />
+            </div>
+            <div>
+              <div className="text-white font-semibold text-sm mb-0.5">전화번호가 클립보드에 복사되었습니다</div>
+              <div className="text-xs" style={{ color: 'rgba(240,244,255,0.6)' }}>02-598-8518 (평일 09:00~18:00)</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </>
   );

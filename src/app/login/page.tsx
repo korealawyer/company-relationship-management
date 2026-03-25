@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ShieldCheck, Mail, Eye, EyeOff, AlertCircle, ArrowRight,
-    Lock, Building2, Users, ChevronRight, Gavel, BarChart3, Heart, KeyRound
+    Lock, Building2, Users, ChevronRight, Gavel, BarChart3, Heart, KeyRound, UserCircle
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ROLE_HOME, getSession } from '@/lib/auth';
@@ -17,7 +17,7 @@ function setCookie(name: string, value: string, days: number) {
     }
 }
 
-type LoginMode = 'staff' | 'client';
+type LoginMode = 'staff' | 'client' | 'personal';
 
 // 역할별 레이블
 const ROLE_ICONS: Record<string, { icon: React.ReactNode; label: string; color: string; dest_label: string }> = {
@@ -53,9 +53,10 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '';
-    const { login: authLogin, loginWithBizNo: authLoginBiz } = useAuth();
+    const { login: authLogin, loginWithBizNo: authLoginBiz, loginWithPersonalEmail: authLoginPersonal } = useAuth();
 
-    const [mode, setMode] = useState<LoginMode>('staff');
+    const [mode, setMode] = useState<LoginMode>('client');
+    const [showStaffTab, setShowStaffTab] = useState(false);
 
     // 이미 로그인돼 있으면 홈으로
     useEffect(() => {
@@ -78,6 +79,13 @@ function LoginContent() {
     const [showBizPw, setShowBizPw] = useState(false);
     const [bizError, setBizError] = useState('');
     const [bizLoading, setBizLoading] = useState(false);
+
+    // Personal login state
+    const [personalEmail, setPersonalEmail] = useState('');
+    const [personalPassword, setPersonalPassword] = useState('');
+    const [showPersonalPw, setShowPersonalPw] = useState(false);
+    const [personalError, setPersonalError] = useState('');
+    const [personalLoading, setPersonalLoading] = useState(false);
 
     const formatBizNum = (v: string) => {
         const d = v.replace(/\D/g, '').slice(0, 10);
@@ -125,6 +133,25 @@ function LoginContent() {
         }
     };
 
+    const handlePersonalLogin = async () => {
+        if (!personalEmail || !personalPassword) { setPersonalError('이메일과 비밀번호를 입력해주세요.'); return; }
+        setPersonalLoading(true); setPersonalError('');
+        await new Promise(r => setTimeout(r, 700));
+        const result = await authLoginPersonal(personalEmail, personalPassword);
+        if (!result.error) {
+            const session = getSession();
+            if (session) {
+                setCookie('ibs_session', session.id, 1);
+                setCookie('ibs_role', session.role, 1);
+                setPersonalLoading(false);
+                router.replace(from || '/personal-litigation');
+            }
+        } else {
+            setPersonalError(result.error);
+            setPersonalLoading(false);
+        }
+    };
+
     const inputStyle: React.CSSProperties = {
         width: '100%', padding: '10px 14px 10px 38px',
         background: L.borderLight, border: `1px solid ${L.border}`,
@@ -143,23 +170,19 @@ function LoginContent() {
             </div>
 
             <div className="w-full max-w-md relative z-10">
-                {/* Logo */}
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
-
-                    <h1 className="text-2xl font-black mb-1" style={{ color: L.heading }}>IBS 법률사무소</h1>
-                    <p className="text-sm" style={{ color: L.muted }}>플랫폼 로그인</p>
-                </motion.div>
+                {/* Logo removed per user request */}
 
                 {/* Mode Toggle */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
                     <div className="flex rounded-xl p-1 mb-6" style={{ background: L.borderLight, border: `1px solid ${L.border}` }}>
                         {([
-                            { key: 'staff', label: '내부 직원', icon: <Users className="w-4 h-4" /> },
-                            { key: 'client', label: '고객사 로그인', icon: <Building2 className="w-4 h-4" /> },
+                            { key: 'personal', label: '개인', icon: <UserCircle className="w-4 h-4" /> },
+                            { key: 'client',   label: '기업',     icon: <Building2 className="w-4 h-4" /> },
+                            ...(showStaffTab ? [{ key: 'staff', label: '내부 직원', icon: <Users className="w-4 h-4" /> }] : []),
                         ] as { key: LoginMode; label: string; icon: React.ReactNode }[]).map((tab) => (
                             <button
                                 key={tab.key}
-                                onClick={() => { setMode(tab.key); setError(''); setBizError(''); }}
+                                onClick={() => { setMode(tab.key); setError(''); setBizError(''); setPersonalError(''); }}
                                 className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all"
                                 style={{
                                     background: mode === tab.key ? 'linear-gradient(135deg,#e8c87a,#c9a84c)' : 'transparent',
@@ -334,7 +357,7 @@ function LoginContent() {
                             {mode === 'client' && (
                                 <div className="space-y-5">
                                     <div>
-                                        <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>고객사 로그인</h2>
+                                        <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>기업 로그인</h2>
                                         <p className="text-xs" style={{ color: L.muted }}>사업자번호와 발급받은 비밀번호를 입력하세요.</p>
                                     </div>
 
@@ -358,7 +381,7 @@ function LoginContent() {
                                     >
                                         <Building2 className="w-4 h-4 flex-shrink-0" />
                                         <div className="min-w-0">
-                                            <div className="font-black">고객사 테스트 로그인 ((주)놀부NBG)</div>
+                                            <div className="font-black">기업 테스트 로그인 ((주)놀부NBG)</div>
                                             <div className="text-[10px]" style={{ color: L.muted }}>123-45-67890 · 비번 1234 → 고객 포털</div>
                                         </div>
                                         <ArrowRight className="w-4 h-4 flex-shrink-0 ml-auto" />
@@ -370,18 +393,19 @@ function LoginContent() {
                                         <div className="flex-1 h-px" style={{ background: L.border }} />
                                     </div>
 
-                                    {/* Biz number */}
+                                    {/* Biz number / Email */}
                                     <div>
-                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>사업자등록번호</label>
+                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>
+                                            담당자 이메일 <span className="text-xs font-normal" style={{ color: L.faint }}>(또는 사업자번호)</span>
+                                        </label>
                                         <div className="relative">
-                                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
                                             <input
-                                                style={{ ...inputStyle, fontFamily: 'monospace', letterSpacing: '0.06em' }}
-                                                placeholder="000-00-00000"
+                                                style={inputStyle}
+                                                placeholder="name@company.com"
                                                 value={bizNum}
-                                                onChange={(e) => { setBizNum(formatBizNum(e.target.value)); setBizError(''); }}
+                                                onChange={(e) => { setBizNum(e.target.value); setBizError(''); }}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleClientLogin()}
-                                                maxLength={12}
                                             />
                                         </div>
                                     </div>
@@ -403,6 +427,13 @@ function LoginContent() {
                                                 {showBizPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                             </button>
                                         </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: L.muted }}>
+                                            <input type="checkbox" className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                            이메일(아이디) 저장
+                                        </label>
                                     </div>
 
                                     {bizError && (
@@ -433,6 +464,94 @@ function LoginContent() {
                                     </button>
                                 </div>
                             )}
+                            {/* ── Personal Login ── */}
+                            {mode === 'personal' && (
+                                <div className="space-y-5">
+                                    <div>
+                                        <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>개인 로그인</h2>
+                                        <p className="text-xs" style={{ color: L.muted }}>가입하신 이메일과 비밀번호를 입력하세요.</p>
+                                    </div>
+
+                                    {/* Email */}
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>이메일</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
+                                            <input
+                                                style={inputStyle}
+                                                type="email"
+                                                placeholder="name@email.com"
+                                                value={personalEmail}
+                                                onChange={(e) => { setPersonalEmail(e.target.value); setPersonalError(''); }}
+                                                onKeyDown={(e) => e.key === 'Enter' && handlePersonalLogin()}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Password */}
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>비밀번호</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
+                                            <input
+                                                style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                                                type={showPersonalPw ? 'text' : 'password'}
+                                                placeholder="••••••••"
+                                                value={personalPassword}
+                                                onChange={(e) => { setPersonalPassword(e.target.value); setPersonalError(''); }}
+                                                onKeyDown={(e) => e.key === 'Enter' && handlePersonalLogin()}
+                                            />
+                                            <button onClick={() => setShowPersonalPw(!showPersonalPw)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: L.faint }}>
+                                                {showPersonalPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: L.muted }}>
+                                            <input type="checkbox" className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                            이메일 저장
+                                        </label>
+                                        <a href="#" className="text-xs font-medium hover:underline" style={{ color: L.faint }}>비밀번호 찾기</a>
+                                    </div>
+
+                                    {personalError && (
+                                        <div className="flex items-center gap-2 text-sm" style={{ color: '#dc2626' }}>
+                                            <AlertCircle className="w-4 h-4 flex-shrink-0" />{personalError}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handlePersonalLogin}
+                                        disabled={personalLoading}
+                                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+                                        style={{
+                                            background: personalLoading ? 'rgba(201,168,76,0.3)' : 'linear-gradient(135deg,#e8c87a,#c9a84c)',
+                                            color: '#0f172a',
+                                            opacity: personalLoading ? 0.8 : 1,
+                                            boxShadow: personalLoading ? 'none' : '0 2px 12px rgba(184,150,10,0.25)',
+                                        }}
+                                    >
+                                        {personalLoading ? (
+                                            <span className="flex items-center gap-2">
+                                                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                                </svg>
+                                                로그인 중...
+                                            </span>
+                                        ) : (<>내 사건 보기 <ChevronRight className="w-4 h-4" /></>)}
+                                    </button>
+
+                                    <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: L.borderLight }}>
+                                        <p className="text-xs font-medium" style={{ color: L.sub }}>아직 계정이 없으신가요?</p>
+                                        <a href="/signup" className="text-xs font-bold px-3 py-1.5 rounded-lg transition-colors hover:scale-[1.02] active:scale-[0.98]" 
+                                           style={{ color: L.gold, background: L.goldLight, border: `1px solid ${L.goldBorder}` }}>
+                                            무료 회원가입
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 </AnimatePresence>
@@ -445,7 +564,13 @@ function LoginContent() {
                     <p className="text-xs" style={{ color: L.faint }}>
                         계정이 없으신가요?{' '}
                         <a href="/signup" className="font-bold" style={{ color: L.gold }}>회원가입</a>
-                        {' '}· © 2026 IBS 법률사무소
+                        {' '}· © 2026 IBS 법률사무소 ·{' '}
+                        <button 
+                            onClick={() => { setShowStaffTab(true); setMode('staff'); }}
+                            className="hover:underline hover:text-[#94a3b8] transition-colors"
+                        >
+                            직원 접속
+                        </button>
                     </p>
                 </div>
             </div>
