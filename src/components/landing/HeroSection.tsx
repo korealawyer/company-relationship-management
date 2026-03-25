@@ -176,15 +176,11 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
                         style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(201,168,76,0.3)', backdropFilter: 'blur(12px)', boxShadow: '0 24px 64px rgba(0,0,0,0.4)' }}>
                         <div className="absolute inset-0" style={{ background: 'linear-gradient(45deg, rgba(201,168,76,0.05) 0%, transparent 100%)' }} />
                         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                            <div>
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-3 text-xs font-bold"
-                                    style={{ background: 'rgba(201,168,76,0.15)', color: '#e8c87a' }}>
-                                    <Lock className="w-3.5 h-3.5" /> 맞춤 리포트 대기 중
-                                </div>
-                                <h2 className="text-xl sm:text-2xl font-black mb-2" style={{ color: '#f0f4ff' }}>
+                            <div className="flex-1 pr-0 sm:pr-6">
+                                <h2 className="text-xl sm:text-2xl font-black mb-2 break-keep" style={{ color: '#f0f4ff' }}>
                                     기업 전용 프라이빗 포털이 준비되었습니다
                                 </h2>
-                                <p className="text-sm" style={{ color: 'rgba(240,244,255,0.6)', lineHeight: 1.6 }}>
+                                <p className="text-sm break-keep" style={{ color: 'rgba(240,244,255,0.6)', lineHeight: 1.6 }}>
                                     이메일을 통해 안전하게 접속 완료하셨습니다. 아래 버튼을 눌러 고객 포털에 로그인하신 후 귀사만의 맞춤형 법률 진단 결과를 지금 바로 확인해 보세요.
                                 </p>
                             </div>
@@ -232,9 +228,10 @@ export default function HeroSection({ company, resolvedParams }: HeroSectionProp
                     </span>
                 </motion.h1>
 
-                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.4 }}
-                    className="mt-6 mb-12 text-lg sm:text-xl max-w-2xl mx-auto" style={{ color: 'rgba(240,244,255,0.7)', lineHeight: 1.7 }}>
-                    IBS <strong>Empire OS</strong>는 변호사, 컨설턴트 등 13인의 AI 에이전트 그룹이 귀사의 리스크를 실시간 방어하는 <span style={{ color: '#e8c87a' }}>상위 1% 프라이빗 인프라</span>입니다.
+                <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}
+                    className="text-lg sm:text-xl mb-8 max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(240,244,255,0.7)' }}>
+                    법률 자문 · 계약서 검토 · 개인정보 컴플라이언스 · 경영 대시보드 · EAP 심리상담<br />
+                    <strong style={{ color: '#e8c87a' }}>외부 로펌 대비 70% 절감</strong>하는 통합 법무 인프라를 지금 무료 체험하세요.
                 </motion.p>
 
                 {/* 이메일로 온 고객에게는 URL 분석기를 숨기고, 바로 로그인 버튼 제안 등 포털 접근에 집중하게 함 */}

@@ -48,10 +48,10 @@ const SERVICES = [
 ];
 
 const STATS = [
-    { value: 45000, suffix: '+', label: '누적 관리 회원사', icon: Building2, color: '#c9a84c' },
+    { value: 45000, suffix: '+', label: '플랫폼 누적 이용자', icon: Building2, color: '#c9a84c' },
     { value: 80000, suffix: '+', label: '누적 자문 완료', icon: MessageSquare, color: '#818cf8' },
     { value: 1000, suffix: '억+', label: '엑시트 기업 자문', icon: TrendingUp, color: '#34d399' },
-    { value: 48, suffix: '시간', label: '자문 답변 보장', icon: CheckCircle2, color: '#f472b6' },
+    { value: 48, suffix: '시간', label: '평균 자문 답변', icon: CheckCircle2, color: '#f472b6' },
 ];
 
 const COMPARE = [
