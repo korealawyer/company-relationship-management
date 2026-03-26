@@ -31,8 +31,9 @@ function LandingPageInner() {
   const [showCopyToast, setShowCopyToast] = useState(false);
   const cid = searchParams.get('cid') ?? '';
   const biz = searchParams.get('biz') ?? '';
+  const cname = searchParams.get('cname') ?? '';
   const company = useMemo(() => (cid && MOCK_COMPANIES[cid]) ? MOCK_COMPANIES[cid] : MOCK_COMPANIES['default'], [cid]);
-  const resolvedParams: { cid?: string; biz?: string } = { ...(cid ? { cid } : {}), ...(biz ? { biz } : {}) };
+  const resolvedParams: { cid?: string; biz?: string; cname?: string } = { ...(cid ? { cid } : {}), ...(biz ? { biz } : {}), ...(cname ? { cname } : {}) };
 
   return (
     <>
