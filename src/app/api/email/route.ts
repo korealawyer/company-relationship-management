@@ -85,9 +85,12 @@ function buildHookEmail(leadId: string, lawyerNote: string, repId?: string) {
   
   // 맞춤 client-portal URL 생성 (신뢰도 향상을 위해 메인 홈페이지로 유도)
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibslaw.co.kr';
-  const bizParam = lead.biz ? `&biz=${encodeURIComponent(lead.biz)}` : '';
-  const repParam = repId ? `&rep=${encodeURIComponent(repId)}` : '';
-  const portalUrl = `${BASE_URL}/?${bizParam}${repParam}`.replace('?&', '?');
+  const params = new URLSearchParams();
+  if (lead.biz) params.append('biz', lead.biz);
+  if (repId) params.append('rep', repId);
+  if (lead.companyName) params.append('cname', lead.companyName);
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const portalUrl = `${BASE_URL}/${queryString}`;
 
   return {
     to: lead.contactEmail,
