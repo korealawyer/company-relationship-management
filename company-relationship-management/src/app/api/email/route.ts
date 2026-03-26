@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { leadStore } from '@/lib/leadStore';
 import { requireSessionFromCookie } from '@/lib/auth';
 import nodemailer from 'nodemailer';
+import { checkRateLimit } from '@/lib/rateLimit';
+
+// SEC-FIX #3: HTML XSS 새니타이즈 — 이메일 템플릿 내 사용자 입력 보호
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
 
 // ── SMTP 설정 ────────────────────────────────────────────────
 // .env.local에서 읽어옴 — 설정이 없으면 Mock 모드
@@ -56,7 +67,7 @@ function buildSalesEmail(leadId: string, lawyerNote: string) {
     <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">리스크</td><td style="padding:8px;color:${lead.riskLevel === 'HIGH' ? '#f87171' : '#fb923c'}">${lead.riskLevel} (${lead.riskScore}점) — ${lead.issueCount}건</td></tr>
     <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">가맹점수</td><td style="padding:8px">${lead.storeCount}개</td></tr>
   </table>
-  ${lawyerNote ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:12px;margin:16px 0"><strong>변호사 메모:</strong><br/>${lawyerNote}</div>` : ''}
+  ${lawyerNote ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:12px;margin:16px 0"><strong>변호사 메모:</strong><br/>${escapeHtml(lawyerNote)}</div>` : ''}
   <p style="color:#64748b">지금 바로 연락하세요. 업체에는 자동 이메일이 발송되었습니다.</p>
   <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0"/>
   <p style="color:#94a3b8;font-size:12px">발신: ${FROM}</p>
@@ -107,17 +118,44 @@ function buildHookEmail(leadId: string, lawyerNote: string) {
 // ── POST 핸들러 ──────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+    const rateLimit = await checkRateLimit(`email_${ip}`, 10, 60);
+    if (!rateLimit.success) {
+        return NextResponse.json({ error: '이메일 발송 한도를 초과했습니다. 잠시 후 시도하세요.' }, { status: 429 });
+    }
+
     const body = await req.json();
     const { type, leadId, lawyerNote = '' }: EmailPayload = body;
 
-    // 서버 내부 자동화 파이프라인: x-internal-secret 헤더로만 인증 스킵 허용
-    const isInternalCall = req.headers.get('x-internal-secret') === (process.env.INTERNAL_API_SECRET || '__dev_internal__');
+    // 서버 내부 자동화 파이프라인: 환경변수에 INTERNAL_API_SECRET이 설정된 경우에만 내부 호출 허용
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const isInternalCall = !!internalSecret && req.headers.get('x-internal-secret') === internalSecret;
+    let authRole = '';
+    let authCompanyId = '';
     if (!isInternalCall) {
-      const auth = requireSessionFromCookie(req);
+      const auth = await requireSessionFromCookie(req);
       if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+      // H5: 역할 기반 권한 검증 — 영업/관리/변호사만 이메일 발송 허용
+      const ALLOWED_EMAIL_ROLES = ['sales', 'super_admin', 'admin', 'lawyer'];
+      if (!ALLOWED_EMAIL_ROLES.includes(auth.role)) {
+        return NextResponse.json({ error: '이메일 발송 권한이 없습니다.' }, { status: 403 });
+      }
+      authRole = auth.role;
+      authCompanyId = auth.companyId || '';
     }
 
     const emails: { to: string; subject: string; html: string }[] = [];
+
+    // QA-FIX #5: 리드 존재 여부 사전 확인 (IDOR 방지)
+    const targetLead = leadStore.getById(leadId);
+    if (!targetLead) {
+      return NextResponse.json({ error: '리드를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // SEC-FIX #15: 역할 기반 리드 범위 제한
+    // TODO(Phase 4): Supabase RLS 전환 후 Lead에 companyId 추가하여 tenant isolation 적용
+    // 현재는 ALLOWED_EMAIL_ROLES에서 client_hr을 이미 차단하므로 내부 직원만 접근 가능
+
     if (type === 'sales_notify') {
       const e = buildSalesEmail(leadId, lawyerNote);
       if (e) emails.push(e);

@@ -4,6 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { RoleType } from './mockStore';
+import { isTokenBlacklisted } from '@/lib/tokenBlacklist';
 
 export interface AuthUser {
     id: string;
@@ -113,18 +114,32 @@ export const MOCK_ACCOUNTS: Array<{
     ];
 
 // ── API 라우트용 서버사이드 세션 검증 ──────────────────────────
-// middleware.ts의 쿠키 기반 인증을 API 라우트 내부에서 이중 검증하는 헬퍼
-// ⚠️ Phase 3: JWT 서명 검증으로 교체 (현재는 쿠키 존재 여부만 확인)
-export function requireSessionFromCookie(req: NextRequest): { ok: true; role: string } | { ok: false; status: number; error: string } {
-    const sessionCookie = req.cookies.get('ibs_session') || req.cookies.get('ibs_auth');
-    if (!sessionCookie?.value) {
+// middleware.ts와 동일한 ibs_jwt 쿠키를 사용하여 JWT 서명 검증
+import { jwtVerify } from 'jose';
+
+const API_JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || '');
+
+export async function requireSessionFromCookie(req: NextRequest): Promise<{ ok: true; role: string; companyId?: string } | { ok: false; status: number; error: string }> {
+    const jwtCookie = req.cookies.get('ibs_jwt');
+    if (!jwtCookie?.value) {
         return { ok: false, status: 401, error: '로그인이 필요합니다.' };
     }
-    const roleCookie = req.cookies.get('ibs_role');
-    if (!roleCookie?.value) {
-        return { ok: false, status: 401, error: '역할 정보가 없습니다. 다시 로그인하세요.' };
+    try {
+        const { payload } = await jwtVerify(jwtCookie.value, API_JWT_SECRET);
+
+        // SEC-FIX: 블랙리스트 검증 로직 추가 (강제 로그아웃된 토큰 차단)
+        if (payload.jti && await isTokenBlacklisted(payload.jti)) {
+            return { ok: false, status: 401, error: '비정상적이거나 유효하지 않은 세션입니다. 다시 로그인하세요.' };
+        }
+
+        const role = payload.role as string;
+        if (!role) {
+            return { ok: false, status: 401, error: '역할 정보가 없습니다. 다시 로그인하세요.' };
+        }
+        return { ok: true, role, companyId: payload.companyId as string | undefined };
+    } catch {
+        return { ok: false, status: 401, error: '세션이 만료되었습니다. 다시 로그인하세요.' };
     }
-    return { ok: true, role: roleCookie.value };
 }
 
 // 역할이 허용 목록에 포함되는지 검증
@@ -180,7 +195,7 @@ export function loginWithEmail(
 
 // ── 사업자번호 로그인 (고객사) ────────────────────────────────
 // 실제 배포 시: Supabase 회원 테이블의 해시화된 비밀번호로 교체
-const MOCK_BIZ_ACCOUNTS: Record<string, { name: string; ceo: string; password: string }> = {
+export const MOCK_BIZ_ACCOUNTS: Record<string, { name: string; ceo: string; password: string }> = {
     '1234567890': { name: '(주)놀부NBG', ceo: '김정래', password: '1234' },
     '2345678901': { name: '(주)교촌에프앤비', ceo: '권원강', password: '1234' },
     '3456789012': { name: '(주)파리바게뜨', ceo: '허영인', password: '1234' },
@@ -195,11 +210,13 @@ export function loginWithBiz(
     const digits = bizNum.replace(/\D/g, '');
     const biz = MOCK_BIZ_ACCOUNTS[digits];
     if (!biz) {
-        return { success: false, error: '등록되지 않은 사업자번호입니다.' };
+        // M4: 에러 메시지 통일 — 계정 존재 여부 유추 방지
+        return { success: false, error: '사업자번호 또는 비밀번호가 올바르지 않습니다.' };
     }
     // 비밀번호 검증: 등록된 비밀번호와 정확히 일치해야 함
     if (biz.password !== password) {
-        return { success: false, error: '비밀번호가 올바르지 않습니다.' };
+        // M4: 동일한 에러 메시지 사용
+        return { success: false, error: '사업자번호 또는 비밀번호가 올바르지 않습니다.' };
     }
     const user: AuthUser = {
         id: `biz_${digits}`,
@@ -236,26 +253,38 @@ function saveUsers(users: AuthUser[]) {
 }
 
 // ── 회원가입 ─────────────────────────────────────────────────
-// ⚠️ Phase 3 필수: bcryptjs로 해싱 후 저장. 현재는 mock 전용 평문 저장.
+// ⚠️ SECURITY WARNING: 현재 평문 비밀번호 저장 — Phase 3에서 bcryptjs 해싱으로 교체 필수
 export function signUp(name: string, email: string, password: string): { success: true; user: AuthUser } | { success: false; error: string } {
+    // M1: 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return { success: false, error: '유효한 이메일 주소를 입력해 주세요.' };
+    }
     // 최소 비밀번호 길이 검증
     if (password.length < 6) {
         return { success: false, error: '비밀번호는 6자 이상이어야 합니다.' };
     }
+    // M2: XSS 새니타이즈 — name/email에서 HTML 특수문자 이스케이프
+    const sanitize = (s: string) => s.replace(/[<>"'&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' }[c] || c));
+    const safeName = sanitize(name.trim());
+    const safeEmail = email.trim().toLowerCase();
     const all = loadUsers();
-    if (all.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    if (all.find(u => u.email.toLowerCase() === safeEmail)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
     }
     const user: AuthUser = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID
             ? `u_${crypto.randomUUID()}`
             : `u_${Date.now()}`,
-        name,
-        email,
+        name: safeName,
+        email: safeEmail,
         role: 'client_hr' as RoleType,
         loginAt: new Date().toISOString(),
     };
-    // TODO(Phase 3): passwordHash = await bcrypt.hash(password, 12); — 평문 저장 제거
+    // ⚠️ SECURITY: 평문 저장 중 — Phase 3에서 반드시 bcrypt.hash() 교체
+    if (process.env.NODE_ENV === 'production') {
+        console.warn('[auth] ⚠️ 평문 비밀번호 저장 감지 — Phase 3 bcrypt 전환 필수');
+    }
     saveUsers([...all, { ...user, passwordHash: password }]);
     setSession(user);
     return { success: true, user };
@@ -285,7 +314,12 @@ export function loginWithEmailFull(email: string, password: string): { success: 
 export function verifyInviteCode(code: string): { valid: true; companyId: string; companyName: string; role: RoleType } | { valid: false; error: string } {
     const entry = INVITE_CODES[code.toUpperCase().trim()];
     if (!entry) return { valid: false, error: '유효하지 않은 코드입니다.' };
-    if (new Date(entry.expires) < new Date()) return { valid: false, error: '만료된 코드입니다.' };
+    
+    // SEC-FIX: 만료일을 당일 23:59:59 로 조정하여 타임존(UTC 00:00) 차이로 인한 조기 만료 방지
+    const expDate = new Date(entry.expires);
+    expDate.setHours(23, 59, 59, 999);
+    
+    if (expDate < new Date()) return { valid: false, error: '만료된 코드입니다.' };
     return { valid: true, ...entry };
 }
 

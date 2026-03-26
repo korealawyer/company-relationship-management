@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 import { callClaude, parseAIJson, hasAIKey, mockDelay } from '@/lib/ai';
 import { buildRAGContext } from '@/lib/rag/vectorSearch';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 interface ReviewIssue {
     clauseTitle: string;
@@ -56,11 +57,24 @@ function mockCompare(): CompareResult {
 }
 
 export async function POST(req: NextRequest) {
-    const auth = requireSessionFromCookie(req);
+    const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
+    // SEC-FIX: AI 자원 보호를 위한 Rate Limit (IP 기반)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+    const rateLimit = await checkRateLimit(`review_${ip}_${auth.role}`, 5, 60);
+    if (!rateLimit.success) {
+        return NextResponse.json({ error: 'AI 검토 요청 한도를 초과했습니다. 잠시 후 시도하세요.' }, { status: 429 });
+    }
+
+    let body;
     try {
-        const body = await req.json();
+        body = await req.json();
+    } catch (err) {
+        return NextResponse.json({ error: '잘못된 JSON 형식입니다.' }, { status: 400 });
+    }
+
+    try {
         const { text, textA, textB, mode = 'single' } = body;
 
         // B4: 비교 분석 모드
@@ -96,9 +110,10 @@ export async function POST(req: NextRequest) {
         if (hasAIKey) {
             try {
                 const ragCtx = buildRAGContext(text.slice(0, 500));
+                const safeText = String(text).slice(0, 8000); // 최대 8000자 제한
                 const result = await callClaude({
                     system: `한국 가맹사업법 전문 계약서 검토 AI입니다. 반드시 JSON만 반환: {"overallRisk":"HIGH|MEDIUM|LOW","summary":"요약","issues":[{"clauseTitle":"","level":"HIGH","original":"","problem":"","suggestion":"","lawRef":""}]}${ragCtx}`,
-                    messages: [{ role: 'user', content: `계약서 검토:\n\n${text.slice(0, 8000)}` }],
+                    messages: [{ role: 'user', content: `계약서 검토:\n\n${safeText}` }],
                     maxTokens: 4096,
                 });
                 const parsed = parseAIJson<ReviewResult>(result.text, mockAnalysis());

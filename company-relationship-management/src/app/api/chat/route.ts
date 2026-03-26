@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 import { callClaude, hasAIKey, mockDelay } from '@/lib/ai';
 import { buildRAGContext } from '@/lib/rag/vectorSearch';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 
@@ -21,19 +22,32 @@ function generateMockResponse(messages: ChatMessage[], consultType: string): str
 }
 
 export async function POST(req: NextRequest) {
-    const auth = requireSessionFromCookie(req);
+    const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     try {
+        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+        const rateLimit = await checkRateLimit(`chat_${ip}`, 20, 60);
+        if (!rateLimit.success) {
+            return NextResponse.json({ error: '요청 한도를 초과했습니다. 잠시 후 텍스트를 입력해주세요.' }, { status: 429 });
+        }
+
         const { messages, consultType = 'general' } = await req.json();
+
+        // SEC-FIX: AI 토큰 고갈 방어 (최대 50개 메시지 및 길이 잘라내기)
+        if (!Array.isArray(messages)) return NextResponse.json({ error: 'Invalid format' }, { status: 400 });
+        const truncatedMessages = messages.slice(-50);
 
         if (hasAIKey) {
             try {
-                const lastQuestion = messages[messages.length - 1]?.content || '';
+                const lastQuestion = truncatedMessages[truncatedMessages.length - 1]?.content || '';
                 const ragContext = buildRAGContext(lastQuestion);
                 const result = await callClaude({
                     system: `당신은 IBS 법률사무소의 AI 상담 어시스턴트입니다. 법률·심리·경영 상담 정보를 수집하고 전문가에게 연결합니다. 항상 한국어로 응답하세요. 마크다운 형식을 사용하여 깔끔하게 응답하세요.${ragContext}`,
-                    messages: messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })),
+                    messages: truncatedMessages.map((m: ChatMessage) => ({ 
+                        role: m.role, 
+                        content: m.content.length > 2000 ? m.content.slice(0, 2000) : m.content 
+                    })),
                     maxTokens: 1024,
                 });
                 return NextResponse.json({ message: result.text, mock: false, usage: result.usage });
@@ -43,7 +57,7 @@ export async function POST(req: NextRequest) {
         }
 
         await mockDelay(800);
-        return NextResponse.json({ message: generateMockResponse(messages, consultType), mock: true });
+        return NextResponse.json({ message: generateMockResponse(truncatedMessages, consultType), mock: true });
     } catch (err) {
         console.error('[chat API] 오류:', err);
         const message = err instanceof Error ? err.message : '서버 오류';

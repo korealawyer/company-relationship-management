@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { jwtVerify } from 'jose';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-mock-secret-for-phase-1');
+// ⚠️ JWT_SECRET 환경변수 필수 — fallback 제거 (보안 강화)
+const JWT_SECRET_RAW = process.env.JWT_SECRET || '';
+// QA-FIX #4: 모든 환경에서 JWT_SECRET 미설정 경고 (기존: production에서만)
+if (!JWT_SECRET_RAW) {
+    if (process.env.NODE_ENV === 'production') {
+        console.error('[middleware] 🔴 CRITICAL: JWT_SECRET 환경변수가 설정되지 않았습니다! 모든 인증이 무효화됩니다.');
+    } else {
+        console.warn('[middleware] ⚠️ JWT_SECRET 미설정 — 개발 환경에서도 빈 시크릿은 보안 위험입니다.');
+    }
+}
+const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 // 보호 경로 → 허용 역할
 const PROTECTED: Record<string, string[]> = {
-    '/admin': ['super_admin', 'admin', 'sales', 'hr', 'general', 'finance'],
+    '/admin': ['super_admin', 'admin', 'hr', 'general', 'finance'],
     '/lawyer': ['super_admin', 'admin', 'sales', 'lawyer'],
     '/litigation': ['super_admin', 'admin', 'sales', 'litigation', 'lawyer'],
     '/client-portal': ['client_hr'],
@@ -25,8 +35,9 @@ const PROTECTED: Record<string, string[]> = {
 
 // 퍼블릭 경로 (인증 불필요)
 // '/'는 정확 일치만, 나머지는 prefix 매칭 허용
-const PUBLIC_EXACT = ['/', '/chat'];
-const PUBLIC_PREFIX = ['/login', '/pricing', '/sales', '/onboarding', '/signup', '/landing', '/legal', '/about', '/help', '/api/auth'];
+// C3: '/legal' 전체를 PUBLIC에서 제거, '/legal/privacy'만 정확 매칭으로 퍼블릭 허용
+const PUBLIC_EXACT = ['/', '/chat', '/legal/privacy'];
+const PUBLIC_PREFIX = ['/login', '/pricing', '/sales', '/onboarding', '/signup', '/landing', '/about', '/help', '/api/auth'];
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
@@ -48,6 +59,15 @@ export async function middleware(req: NextRequest) {
     let jwtPayload: any = null;
     try {
         const { payload } = await jwtVerify(jwtCookie.value, JWT_SECRET);
+        
+        // SEC-FIX: 로그아웃을 통해 무효화(Blacklisted)된 토큰인지 검사
+        if (payload.jti) {
+            const { isTokenBlacklisted } = await import('@/lib/tokenBlacklist');
+            if (await isTokenBlacklisted(payload.jti)) {
+                throw new Error('Blacklisted token');
+            }
+        }
+        
         jwtPayload = payload;
     } catch (error) {
         console.error('JWT Verification failed:', error);
@@ -106,6 +126,6 @@ export const config = {
         '/settings/:path*',
         '/notifications/:path*',
         '/profile/:path*',
-
+        '/eap/:path*',
     ],
 };

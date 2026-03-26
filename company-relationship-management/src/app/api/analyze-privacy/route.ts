@@ -89,7 +89,7 @@ function buildMockAnalysis(leadId: string, companyName: string, url: string): Pr
 
 export async function POST(req: NextRequest) {
     // A3: 인증 검증 추가
-    const auth = requireSessionFromCookie(req);
+    const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     try {

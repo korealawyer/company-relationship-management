@@ -47,7 +47,7 @@ function estimateRiskLevel(url: string): 'HIGH' | 'MEDIUM' | 'LOW' {
 
 export async function POST(request: NextRequest) {
     // 인증 검증
-    const auth = requireSessionFromCookie(request);
+    const auth = await requireSessionFromCookie(request);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     // 입력값 파싱

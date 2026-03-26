@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 import { callClaude, hasAIKey, mockDelay } from '@/lib/ai';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 interface BriefResult {
     briefing: string;
@@ -30,8 +31,15 @@ function buildMockBrief(): BriefResult {
 }
 
 export async function GET(req: NextRequest) {
-    const auth = requireSessionFromCookie(req);
+    const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+    // SEC-FIX: AI 자원 보호를 위한 Rate Limit (IP 기반)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+    const rateLimit = await checkRateLimit(`brief_get_${ip}_${auth.role}`, 10, 60);
+    if (!rateLimit.success) {
+        return NextResponse.json({ error: '브리핑 생성을 위한 요청 한도를 초과했습니다.' }, { status: 429 });
+    }
 
     if (hasAIKey) {
         try {
@@ -69,10 +77,24 @@ export async function GET(req: NextRequest) {
 
 // POST: 클라이언트가 현황 데이터를 전달하여 맞춤 브리핑 생성
 export async function POST(req: NextRequest) {
-    const auth = requireSessionFromCookie(req);
+    const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    const { stats } = await req.json();
+    // SEC-FIX: AI 자원 보호를 위한 Rate Limit (IP 기반)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+    const rateLimit = await checkRateLimit(`brief_post_${ip}_${auth.role}`, 10, 60);
+    if (!rateLimit.success) {
+        return NextResponse.json({ error: '브리핑 생성을 위한 요청 한도를 초과했습니다.' }, { status: 429 });
+    }
+
+    let body;
+    try {
+        body = await req.json();
+    } catch {
+        return NextResponse.json({ error: '잘못된 JSON 형식입니다.' }, { status: 400 });
+    }
+
+    const { stats } = body;
 
     if (hasAIKey && stats) {
         try {

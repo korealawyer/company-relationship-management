@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSessionFromCookie } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
+    // QA-FIX #1: 인증 추가 — 기존에 누락되어 누구나 호출 가능했음
+    const auth = await requireSessionFromCookie(request);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const body = await request.json();
 
     // Mock Notion DB sync response

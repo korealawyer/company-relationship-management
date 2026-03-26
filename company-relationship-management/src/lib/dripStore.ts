@@ -220,8 +220,7 @@ export const dripStore = {
         // 임시 비밀번호 생성 — 이메일 발송에만 사용하고 저장 안 함
         // TODO(Phase 3): 실제 이메일 발송 API 연동 (sendEmail(data.contactEmail, tempPw))
         const tempPw = `IBS${Math.floor(100000 + Math.random() * 900000)}`;
-        // ⚠️ tempPw를 절대 저장하지 않음: 발송 후 즉시 폐기
-        console.log(`[dripStore] 임시 비밀번호 생성 (발송 전용, 저장 안 함): ${data.contactEmail}`);
+        // ⚠️ tempPw를 절대 로그에 저장하지 않음: 발송 후 즉시 폐기
         void tempPw; // TODO(Phase 3): await sendEmail(data.contactEmail, tempPw);
 
         const member: DripMember = {
@@ -242,10 +241,15 @@ export const dripStore = {
 
 
     markSent: (id: string, day: number) => {
-        const updated = loadMembers().map(m => m.id !== id ? m : {
-            ...m,
-            sentDays: [...m.sentDays, day],
-            lastSentAt: new Date().toISOString(),
+        // M3: 중복 day 발송 방지
+        const updated = loadMembers().map(m => {
+            if (m.id !== id) return m;
+            if (m.sentDays.includes(day)) return m; // 이미 발송된 day는 스킵
+            return {
+                ...m,
+                sentDays: [...m.sentDays, day],
+                lastSentAt: new Date().toISOString(),
+            };
         });
         saveMembers(updated);
     },

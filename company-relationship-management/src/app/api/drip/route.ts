@@ -3,17 +3,42 @@ import { requireSessionFromCookie } from '@/lib/auth';
 import { dripStore, fillTemplate, DRIP_SEQUENCE, type DripMember } from '@/lib/dripStore';
 import { leadStore, calcSubscription } from '@/lib/leadStore';
 import { callClaude, hasAIKey } from '@/lib/ai';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 const SMTP_CONFIGURED = !!(process.env.SMTP_HOST && process.env.SMTP_USER);
 
-// ── 사업자번호로 회원 등록 ────────────────────────────────────
+// QA-FIX #10: HTML 이스케이프 — 이메일 템플릿 XSS 방지
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
 export async function POST(req: NextRequest) {
   // A3: 인증 추가
-  const auth = requireSessionFromCookie(req);
+  const auth = await requireSessionFromCookie(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { leadId, bizRegNo } = await req.json();
-  if (!leadId || !bizRegNo) return NextResponse.json({ error: 'leadId, bizRegNo 필수' }, { status: 400 });
+  // SEC-FIX: RBAC (인가) 검증
+  const ALLOWED_ROLES = ['sales', 'super_admin', 'admin', 'lawyer'];
+  if (!ALLOWED_ROLES.includes(auth.role)) {
+    return NextResponse.json({ error: '드립 이메일 등록 권한이 없습니다.' }, { status: 403 });
+  }
+
+  // SEC-FIX: 페이로드 유효성 검증
+  let body;
+  try {
+    body = await req.json();
+  } catch (err) {
+    return NextResponse.json({ error: '잘못된 JSON 형식입니다.' }, { status: 400 });
+  }
+
+  const { leadId, bizRegNo } = body;
+  if (!leadId || typeof leadId !== 'string' || !bizRegNo || typeof bizRegNo !== 'string') {
+    return NextResponse.json({ error: 'leadId, bizRegNo는 문자열 형식의 필수 값입니다.' }, { status: 400 });
+  }
 
   const lead = leadStore.getById(leadId);
   if (!lead) return NextResponse.json({ error: '리드 없음' }, { status: 404 });
@@ -41,8 +66,13 @@ export async function POST(req: NextRequest) {
 // ── 드립 발송 대기 목록 조회 ─────────────────────────────────
 export async function GET(req: NextRequest) {
   // A3: 인증 추가
-  const auth = requireSessionFromCookie(req);
+  const auth = await requireSessionFromCookie(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const ALLOWED_ROLES = ['sales', 'super_admin', 'admin', 'lawyer'];
+  if (!ALLOWED_ROLES.includes(auth.role)) {
+    return NextResponse.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
+  }
 
   const pending = dripStore.getPendingEmails();
   return NextResponse.json({
@@ -59,10 +89,34 @@ export async function GET(req: NextRequest) {
 // ── 드립 이메일 즉시 발송 (B2: AI 개인화 포함) ─────────────────
 export async function PUT(req: NextRequest) {
   // A3: 인증 추가
-  const auth = requireSessionFromCookie(req);
+  const auth = await requireSessionFromCookie(req);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { memberId, day } = await req.json();
+  const ALLOWED_ROLES = ['sales', 'super_admin', 'admin', 'lawyer'];
+  if (!ALLOWED_ROLES.includes(auth.role)) {
+    return NextResponse.json({ error: '발송 권한이 없습니다.' }, { status: 403 });
+  }
+
+  // SEC-FIX: AI 자원 보호를 위한 Rate Limit (IP 기반)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+  const rateLimit = await checkRateLimit(`drip_put_${ip}`, 10, 60);
+  if (!rateLimit.success) {
+    return NextResponse.json({ error: 'AI 이메일 발송 요청 한도를 초과했습니다. 잠시 후 시도하세요.' }, { status: 429 });
+  }
+
+  // SEC-FIX: 페이로드 유효성 검증
+  let body;
+  try {
+    body = await req.json();
+  } catch (err) {
+    return NextResponse.json({ error: '잘못된 JSON 형식입니다.' }, { status: 400 });
+  }
+
+  const { memberId, day } = body;
+  if (!memberId || typeof memberId !== 'string' || typeof day !== 'number') {
+    return NextResponse.json({ error: '유효한 memberId(string)와 day(number)가 필요합니다.' }, { status: 400 });
+  }
+
   const member = dripStore.getById(memberId);
   if (!member) return NextResponse.json({ error: '멤버 없음' }, { status: 404 });
 
@@ -71,14 +125,15 @@ export async function PUT(req: NextRequest) {
 
   const lead = leadStore.getById(member.leadId);
   const sub = calcSubscription(lead?.storeCount || 0);
+  // QA-FIX #10: 사용자 입력 데이터에 HTML 이스케이프 적용 (이메일 XSS 방지)
   const vars = {
-    company: member.companyName,
-    contactName: member.contactName,
+    company: escapeHtml(member.companyName),
+    contactName: escapeHtml(member.contactName),
     leadId: member.leadId,
     riskScore: String(lead?.riskScore || 0),
-    riskLevel: member.riskLevel,
+    riskLevel: escapeHtml(member.riskLevel),
     storeCount: String(lead?.storeCount || 0),
-    bizType: lead?.bizType || '업종',
+    bizType: escapeHtml(lead?.bizType || '업종'),
     monthlyFee: sub.monthly.toLocaleString(),
   };
 
@@ -119,7 +174,7 @@ ${content}`,
 
   const html = buildDripEmailHtml(content, {
     subject, ctaText: emailTemplate.ctaText,
-    ctaUrl: `http://localhost:3000${fillTemplate(emailTemplate.ctaUrl, vars)}`,
+    ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com'}${fillTemplate(emailTemplate.ctaUrl, vars)}`,
     companyName: member.companyName, day, contactName: member.contactName,
   });
 
@@ -132,9 +187,19 @@ ${content}`,
 // ── 헬퍼 함수 ────────────────────────────────────────────────
 async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
   if (SMTP_CONFIGURED) {
-    // nodemailer 실 발송 (Phase 2)
-    // const transporter = nodemailer.createTransport({ ... });
-    // await transporter.sendMail({ from: ..., to, subject, html });
+    // H4: SMTP 실 발송 복원 — 주석 해제
+    const nodemailer = await import('nodemailer');
+    const transporter = nodemailer.default.createTransport({
+      host: process.env.SMTP_HOST!,
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: process.env.SMTP_SECURE !== 'false',
+      auth: { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! },
+    });
+    await transporter.sendMail({
+      from: `${process.env.SMTP_FROM_NAME || 'IBS 법률사무소'} <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+      to, subject, html,
+    });
+    console.log(`[drip] ✅ 실 발송 완료 → ${to}`);
   }
   // 개발 모드: 콘솔 출력은 intentional (이메일 확인용)
   if (process.env.NODE_ENV === 'development') {
@@ -143,6 +208,11 @@ async function sendEmail({ to, subject, html }: { to: string; subject: string; h
 }
 
 function buildWelcomeEmail(member: DripMember): string {
+  // SEC-FIX #3b: 사용자 데이터에 HTML 이스케이프 적용 (XSS 방지)
+  const safeCompanyName = escapeHtml(member.companyName);
+  const safeContactName = escapeHtml(member.contactName);
+  const safeBizRegNo = escapeHtml(member.bizRegNo);
+  const safeTempPassword = escapeHtml(member.tempPassword);
   return `
 <div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:600px;margin:0 auto;background:#04091a;padding:32px;border-radius:16px">
   <div style="text-align:center;margin-bottom:28px">
@@ -151,14 +221,14 @@ function buildWelcomeEmail(member: DripMember): string {
   </div>
   <div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:12px;padding:20px;margin-bottom:20px">
     <h2 style="color:#4ade80;margin:0 0 8px;font-size:18px">🎉 회원 가입을 환영합니다!</h2>
-    <p style="color:#f0f4ff;margin:0">${member.companyName}의 ${member.contactName}님이 IBS 법률사무소 회원으로 등록되었습니다.</p>
+    <p style="color:#f0f4ff;margin:0">${safeCompanyName}의 ${safeContactName}님이 IBS 법률사무소 회원으로 등록되었습니다.</p>
   </div>
   <table style="width:100%;border-collapse:collapse;margin:16px 0">
-    <tr><td style="padding:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:13px;border-radius:6px 0 0 6px">로그인 ID (사업자번호)</td><td style="padding:10px;background:rgba(255,255,255,0.05);color:#f0f4ff;font-size:13px;font-weight:bold">${member.bizRegNo}</td></tr>
-    <tr><td style="padding:10px;color:#94a3b8;font-size:13px">임시 비밀번호</td><td style="padding:10px;color:#c9a84c;font-size:18px;font-weight:bold;letter-spacing:2px">${member.tempPassword}</td></tr>
+    <tr><td style="padding:10px;background:rgba(255,255,255,0.05);color:#94a3b8;font-size:13px;border-radius:6px 0 0 6px">로그인 ID (사업자번호)</td><td style="padding:10px;background:rgba(255,255,255,0.05);color:#f0f4ff;font-size:13px;font-weight:bold">${safeBizRegNo}</td></tr>
+    <tr><td style="padding:10px;color:#94a3b8;font-size:13px">임시 비밀번호</td><td style="padding:10px;color:#c9a84c;font-size:18px;font-weight:bold;letter-spacing:2px">${safeTempPassword}</td></tr>
   </table>
   <div style="text-align:center;margin:24px 0">
-    <a href="http://localhost:3000/client-login" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:900;display:inline-block;font-size:15px">
+    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com'}/client-login" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:900;display:inline-block;font-size:15px">
       지금 로그인하여 분석 결과 확인 →
     </a>
   </div>

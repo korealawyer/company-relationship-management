@@ -289,7 +289,21 @@ function saveLeads(leads: Lead[]): void {
     try {
         localStorage.setItem(LEAD_STORE_KEY, JSON.stringify(leads));
     } catch (e) {
-        console.error('[leadStore] localStorage 저장 실패:', e);
+        // H1: QuotaExceededError 대응 — 히스토리 정리 후 재시도
+        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
+            console.warn('[leadStore] localStorage 용량 초과 — 히스토리 정리 후 재시도');
+            try {
+                localStorage.removeItem(LEAD_HISTORY_KEY);
+                localStorage.setItem(LEAD_STORE_KEY, JSON.stringify(leads));
+            } catch (e2) {
+                console.error('[leadStore] 히스토리 정리 후에도 저장 실패:', e2);
+                if (typeof window !== 'undefined' && window.alert) {
+                    window.alert('저장 공간이 부족합니다. 브라우저 데이터를 정리하거나 관리자에게 문의하세요.');
+                }
+            }
+        } else {
+            console.error('[leadStore] localStorage 저장 실패:', e);
+        }
     }
 }
 

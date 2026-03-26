@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 // ── 인증 SSOT: auth.ts만 참조 (이 파일에 별도 계정 목록 금지) ──
-import { loginWithEmailFull, loginWithBiz, clearSession, getSession, AUTH_KEY, ROLE_HOME, type AuthUser } from './auth';
+import { loginWithEmailFull, loginWithBiz, signUp as authSignUp, clearSession, getSession, setSession, AUTH_KEY, ROLE_HOME, type AuthUser } from './auth';
 import type { RoleType } from './mockStore';
 
 export type { RoleType, AuthUser };
@@ -13,6 +13,7 @@ interface AuthContextType {
     loading: boolean;
     login: (email: string, password: string) => Promise<{ error?: string }>;
     loginWithBizNo: (bizNo: string, password: string) => Promise<{ error?: string }>;
+    signup: (name: string, email: string, password: string) => Promise<{ error?: string }>;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
     user: null, loading: true,
     login: async () => ({}),
     loginWithBizNo: async () => ({}),
+    signup: async () => ({}),
     logout: () => { },
     isAuthenticated: false,
 });
@@ -57,32 +59,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(u);
     };
 
-    // ── auth.ts SSOT 함수 위임 ───────────────────────────────────
-    const login = useCallback(async (email: string, password: string) => {
-        const result = loginWithEmailFull(email, password);
-        if (result.success) {
-            saveUser(result.user);
-            return {};
+    // SEC-FIX #9: 로그인/회원가입 성공 후 JWT httpOnly 쿠키 발급
+    // middleware.ts가 ibs_jwt 쿠키로 인증 → 쿠키 없으면 보호 경로 접근 불가
+    const issueJwtCookie = async (user: AuthUser) => {
+        try {
+            await fetch('/api/auth/jwt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: user.id,
+                    role: user.role,
+                    companyId: user.companyId || '',
+                }),
+            });
+        } catch (err) {
+            console.warn('[auth] JWT 쿠키 발급 실패 — localStorage 세션으로 동작:', err);
         }
-        return { error: result.error };
+    };
+
+    // ── auth.ts SSOT 함수 위임 (서버 인증 연동) ───────────────────────────────────
+    const login = useCallback(async (email: string, password: string) => {
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'staff', email, password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                saveUser(data.user);
+                setSession(data.user);
+                return {};
+            }
+            return { error: data.error };
+        } catch {
+            return { error: '서버 오류가 발생했습니다.' };
+        }
     }, []);
 
     const loginWithBizNo = useCallback(async (bizNo: string, password: string) => {
-        const result = loginWithBiz(bizNo, password);
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'client', bizNum: bizNo, bizPassword: password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                saveUser(data.user);
+                setSession(data.user);
+                return {};
+            }
+            return { error: data.error };
+        } catch {
+            return { error: '서버 오류가 발생했습니다.' };
+        }
+    }, []);
+
+    const signup = useCallback(async (name: string, email: string, password: string) => {
+        // Mock 로컬 전용 가입: 서버 JWT 미발급 (Phase 3에서 실제 DB 연동 필요)
+        const result = authSignUp(name, email, password);
         if (result.success) {
             saveUser(result.user);
+            console.warn('[auth] Mock 회원가입은 서버 Auth 연동 불가 (Phase 3 예정)');
             return {};
         }
         return { error: result.error };
     }, []);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
         clearSession();
+        // QA-FIX #18: httpOnly 쿠키는 document.cookie로 삭제 불가
+        // 서버사이드 로그아웃 API 호출하여 쿠키 만료 처리
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+        } catch {
+            // 네트워크 오류 시에도 클라이언트 세션은 정리
+            console.warn('[auth] 로그아웃 API 호출 실패 — 클라이언트 세션만 정리');
+        }
         setUser(null);
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, loginWithBizNo, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, loading, login, loginWithBizNo, signup, logout, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );
