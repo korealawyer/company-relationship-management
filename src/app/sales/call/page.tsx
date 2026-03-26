@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
 import { C, CALLABLE } from '@/lib/callPageUtils';
-import { CaseStatus, Company } from '@/lib/store';
+import { CaseStatus, Company } from '@/lib/types';
 import Link from 'next/link';
 
 import CallbackModal from '@/components/sales/call/CallbackModal';

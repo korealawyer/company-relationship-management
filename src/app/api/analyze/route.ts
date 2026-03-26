@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 
+// [아키텍처 혁신]: 병목이 긴 크롤링/분석 API의 Vercel 타임아웃 방어 및 Edge 강제 탑재
+export const runtime = 'edge';
+export const maxDuration = 60;
+
 // 데모 분석 결과 (실제 배포 시: OpenAI API + Puppeteer로 URL 실제 분석)
 const DEMO_ISSUES = [
     {

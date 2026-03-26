@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
-import { Company, PIPELINE, SALES_REPS, LAWYERS } from '@/lib/store';
+import { Company } from '@/lib/types';
+import { PIPELINE, SALES_REPS, LAWYERS } from '@/lib/constants';
 import { RiskBadge } from '@/components/crm/SlidePanel';
 import { T, StatusBadge, StepCell, ActionButton, ExpandedRow } from './shared';
 

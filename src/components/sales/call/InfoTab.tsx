@@ -3,8 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { Mail, FileText, CheckCircle2, ExternalLink } from 'lucide-react';
-import { Company, type CaseStatus } from '@/lib/mockStore';
-import { store } from '@/lib/mockStore';
+import { Company, type CaseStatus } from '@/lib/types';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 /* ── CRM 라이트 색상 (공유 상수 추출 전 임시 로컬 복사) ─────── */
 const C = {
@@ -26,6 +26,7 @@ export interface InfoTabProps {
 
 /* ── Component ───────────────────────────────────────────── */
 export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
+    const { updateCompany } = useCompanies();
     return (
         <div className="grid grid-cols-4 gap-3">
             {/* ── 기업 정보 ── */}
@@ -94,7 +95,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                 <div className="space-y-1.5">
                     {co.status === 'lawyer_confirmed' && (
                         <button
-                            onClick={() => { store.sendEmail(co.id); onRefresh(); setToast('✉️ 이메일 발송'); }}
+                            onClick={() => { updateCompany(co.id, { status: 'emailed' }); onRefresh(); setToast('✉️ 이메일 발송'); }}
                             className="w-full flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold"
                             style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd' }}
                         >
@@ -103,7 +104,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                     )}
                     {(co.status === 'client_replied' || co.status === 'client_viewed') && (
                         <button
-                            onClick={() => { store.sendContract(co.id, 'email'); onRefresh(); setToast('📄 계약서 발송'); }}
+                            onClick={() => { updateCompany(co.id, { status: 'contract_sent' }); onRefresh(); setToast('📄 계약서 발송'); }}
                             className="w-full flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold"
                             style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}
                         >
@@ -112,7 +113,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                     )}
                     {co.status === 'contract_sent' && (
                         <button
-                            onClick={() => { store.signContract(co.id); onRefresh(); setToast('✅ 서명 확인'); }}
+                            onClick={() => { updateCompany(co.id, { status: 'contract_signed' }); onRefresh(); setToast('✅ 서명 확인'); }}
                             className="w-full flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold"
                             style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}
                         >

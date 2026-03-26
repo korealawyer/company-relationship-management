@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, Search, Loader2, Phone, Video, ChevronDown, BadgeCheck, Zap, Lock, ArrowRight, Award } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import ZoomScheduleModal from '../consultation/ZoomScheduleModal';
@@ -100,8 +102,7 @@ function UrlAnalyzer() {
 function AnimatedNumber({ target, suffix = '' }: { target: number; suffix?: string }) {
     const [count, setCount] = useState(0);
     const ref = useRef(null);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { useInView } = require('framer-motion');
+     
     const inView = useInView(ref, { once: true });
 
     useEffect(() => {
@@ -136,20 +137,25 @@ export function ScrollProgress() {
 }
 
 // ── Hero 섹션 ──────────────────────────────────────────────
-interface HeroSectionProps {
-    company: { name: string; issueCount: number; riskLevel: string };
-    resolvedParams: { cid?: string; biz?: string };
-}
-
-export default function HeroSection({ company, resolvedParams }: HeroSectionProps) {
+export default function HeroSection() {
     const [isZoomOpen, setIsZoomOpen] = useState(false);
+    const searchParams = useSearchParams();
+    const cid = searchParams?.get('cid') || '';
+    const biz = searchParams?.get('biz') || '';
+    
+    const company = { 
+        name: biz ? decodeURIComponent(biz) : '협력사', 
+        issueCount: 3, 
+        riskLevel: 'High' 
+    };
+    const resolvedParams = { cid, biz };
 
     return (
         <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
             {/* 실제 건물 배경 이미지 */}
             <div className="absolute inset-0">
-                <img src="/ibs-hero-bg.png" alt=""
-                    className="w-full h-full object-cover"
+                <Image src="/ibs-hero-bg.png" alt="Background" fill priority
+                    className="object-cover"
                     style={{ objectPosition: 'center 17%', filter: 'brightness(0.55) saturate(1.2)' }} />
                 {/* 그라데이션 오버레이 */}
                 <div className="absolute inset-0" style={{

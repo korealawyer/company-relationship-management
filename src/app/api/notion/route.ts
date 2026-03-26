@@ -1,6 +1,10 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     const body = await request.json();
 
     // Mock Notion DB sync response

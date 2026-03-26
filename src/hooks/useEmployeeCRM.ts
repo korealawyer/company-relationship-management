@@ -1,7 +1,8 @@
-// @ts-nocheck
 import { useState, useEffect, useCallback } from 'react';
-import { store, Company, CaseStatus, AutoSettings, AutoLog } from '@/lib/mockStore';
+import { Company, CaseStatus, type AutoSettings, type AutoLog } from '@/lib/types';
 import { getSession } from '@/lib/auth';
+import { useCompanies, useAutoSettings } from '@/hooks/useDataLayer';
+import { dataLayer } from '@/lib/dataLayer';
 
 export function useEmployeeCRM() {
     const [role, setRole] = useState<string | null>(null);
@@ -11,30 +12,30 @@ export function useEmployeeCRM() {
     }, []);
     const isAdmin = role === 'admin' || role === 'super_admin';
 
+    const { companies: dbCompanies, updateCompany } = useCompanies();
+    const { settings: dbSettings, updateSettings } = useAutoSettings();
+
     const [companies, setCompanies] = useState<Company[]>([]);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | CaseStatus>('all');
     
-    // Auto panel and UI state
-    const [autoSettings, setAutoSettings] = useState<AutoSettings>(store.getAutoSettings());
-    const [autoLogs, setAutoLogs] = useState<AutoLog[]>(store.getLogs());
+    const [autoSettings, setAutoSettings] = useState<AutoSettings | null>(null);
+    const [autoLogs, setAutoLogs] = useState<AutoLog[]>([]);
     
     const [viewMode, setViewMode] = useState<'table' | 'phone' | 'kanban'>('table');
     const [toast, setToast] = useState<string | null>(null);
 
     const refresh = useCallback(() => {
-        setCompanies([...store.getAll()]);
-        setAutoLogs([...store.getLogs()]);
-        setAutoSettings(store.getAutoSettings());
-    }, []);
+        setCompanies(dbCompanies || []);
+        setAutoSettings(dbSettings || null);
+        dataLayer.auto.getLogs().then(setAutoLogs).catch(() => {});
+    }, [dbCompanies, dbSettings]);
 
     useEffect(() => { 
         refresh(); 
-        const id = setInterval(refresh, 2000); 
         const instantRefresh = () => refresh();
         window.addEventListener('new-crm-lead', instantRefresh);
         return () => {
-            clearInterval(id);
             window.removeEventListener('new-crm-lead', instantRefresh);
         };
     }, [refresh]);
@@ -47,14 +48,12 @@ export function useEmployeeCRM() {
 
     const showToast = (msg: string) => setToast(msg);
 
-    const updateAuto = (patch: Partial<AutoSettings>) => {
-        const s = store.updateAutoSettings(patch, '영업팀');
-        setAutoSettings(s);
-        setAutoLogs([...store.getLogs()]);
+    const updateAuto = async (patch: Partial<AutoSettings>) => {
+        await updateSettings(patch);
+        refresh();
     };
 
     const clearLogs = () => {
-        store.clearLogs();
         setAutoLogs([]);
     };
 
@@ -65,6 +64,6 @@ export function useEmployeeCRM() {
         autoSettings, autoLogs, updateAuto, clearLogs,
         viewMode, setViewMode,
         toast, showToast,
-        refresh
+        refresh, updateCompany
     };
 }

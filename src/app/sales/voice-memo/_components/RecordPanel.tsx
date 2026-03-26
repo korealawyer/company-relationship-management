@@ -6,7 +6,7 @@ import {
   Edit3, MessageSquare, Clock, Mic, Square, User,
 } from 'lucide-react';
 import { formatDuration, type CallRecording } from '@/lib/callRecordingService';
-import { type Company } from '@/lib/store';
+import { type Company } from '@/lib/types';
 
 /* ─── 디자인 토큰 (인라인 복사) ─── */
 const C = {

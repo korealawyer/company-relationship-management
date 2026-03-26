@@ -1,9 +1,13 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 
 // Note: OpenAI API SDK (또는 fetch) 및 docxtemplater는 실제 프로덕션 환경에서 패키지로 설치해야 합니다.
 // npm install openai
 
 export async function POST(request: Request) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     const { userInput, caseContext, formId } = await request.json();
 

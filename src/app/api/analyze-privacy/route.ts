@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
@@ -87,6 +88,9 @@ function buildMockAnalysis(leadId: string, companyName: string, url: string): Pr
 }
 
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const { leadId, companyName, url, text } = await req.json();
         if (!leadId || !companyName) return NextResponse.json({ error: 'leadId, companyName 필수' }, { status: 400 });

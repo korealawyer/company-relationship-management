@@ -1,7 +1,9 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap } from 'lucide-react';
-import { Company, CaseStatus, STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS, store } from '@/lib/mockStore';
+import { Company, CaseStatus } from '@/lib/types';
+import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS } from '@/lib/constants';
+import { useCompanies } from '@/hooks/useDataLayer';
 import { Button } from '@/components/ui/Button';
 
 export const T = {
@@ -54,9 +56,10 @@ export function ActionButton({
 }) {
     const s = c.status;
     const selectStyle = { background: T.card, border: `1px solid ${T.border}`, color: T.body, borderRadius: 6, padding: '2px 6px', fontSize: 12 };
+    const { updateCompany } = useCompanies();
 
     if (s === 'pending') return (
-        <Button variant="premium" size="sm" onClick={() => run(c.id, () => store.triggerAI(c.id))}>
+        <Button variant="premium" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { status: 'crawling' }))}>
             <Zap className="w-3.5 h-3.5 mr-1" /> 법률 분석
         </Button>
     );
@@ -72,7 +75,7 @@ export function ActionButton({
                     <select value={assignLawyer} onChange={e => setAssignLawyer(e.target.value)} style={selectStyle}>
                         {LAWYERS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
-                    <Button variant="premium" size="sm" onClick={() => run(c.id, () => { store.assignLawyer(c.id, assignLawyer); setAssigningId(null); })}>배정</Button>
+                    <Button variant="premium" size="sm" onClick={() => run(c.id, () => { updateCompany(c.id, { status: 'reviewing', assignedLawyer: assignLawyer }); setAssigningId(null); })}>배정</Button>
                     <button onClick={() => setAssigningId(null)} className="text-xs font-bold" style={{ color: T.muted }}>✕</button>
                 </div>
             ) : (
@@ -87,7 +90,7 @@ export function ActionButton({
     );
     if (s === 'lawyer_confirmed') return (
         <div className="flex items-center gap-1.5">
-            <Button variant="premium" size="sm" onClick={() => run(c.id, () => store.sendEmail(c.id))} disabled={loading === c.id}>
+            <Button variant="premium" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { status: 'emailed' }))} disabled={loading === c.id}>
                 <Mail className="w-3.5 h-3.5 mr-1" />
                 {loading === c.id ? '발송 중...' : '이메일 발송'}
             </Button>
@@ -104,19 +107,19 @@ export function ActionButton({
         </span>
     );
     if (s === 'client_replied' || s === 'client_viewed') return (
-        <Button variant="premium" size="sm" onClick={() => run(c.id, () => store.sendContract(c.id, 'email'))} disabled={loading === c.id}>
+        <Button variant="premium" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { status: 'contract_sent' }))} disabled={loading === c.id}>
             <FileText className="w-3.5 h-3.5 mr-1" />
             {loading === c.id ? '발송 중...' : '계약서 발송'}
         </Button>
     );
     if (s === 'contract_sent') return (
-        <Button variant="outline" size="sm" onClick={() => run(c.id, () => store.signContract(c.id))} disabled={loading === c.id}>
+        <Button variant="outline" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { status: 'contract_signed', currentStage: '가입/온보딩' }))} disabled={loading === c.id}>
             <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
             {loading === c.id ? '처리 중...' : '서명 확인'}
         </Button>
     );
     if (s === 'contract_signed') return (
-        <Button variant="premium" size="sm" onClick={() => run(c.id, () => store.subscribe(c.id, 'standard'))} disabled={loading === c.id}>
+        <Button variant="premium" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { plan: 'standard' }))} disabled={loading === c.id}>
             <Star className="w-3.5 h-3.5 mr-1" />
             {loading === c.id ? '처리 중...' : '구독 확정'}
         </Button>
@@ -125,8 +128,9 @@ export function ActionButton({
 }
 
 export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
-    const [note, setNote] = useState(c.callNote);
-    const [reply, setReply] = useState(c.clientReplyNote);
+    const { updateCompany } = useCompanies();
+    const [note, setNote] = useState(c.callNote || '');
+    const [reply, setReply] = useState(c.clientReplyNote || '');
     const taStyle = { background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', borderRadius: 8, padding: '8px 12px', resize: 'none' as const, fontSize: 12, lineHeight: '1.6', width: '100%' };
 
     return (
@@ -137,7 +141,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                     <div>
                         <p className="text-xs font-bold mb-1.5" style={{ color: T.sub }}>📞 통화 메모</p>
                         <textarea value={note} onChange={e => setNote(e.target.value)}
-                            onBlur={() => { store.update(c.id, { callNote: note }); refresh(); }}
+                            onBlur={() => { updateCompany(c.id, { callNote: note }); refresh(); }}
                             rows={2} placeholder="통화 내용 메모..." style={taStyle} />
                     </div>
                     <div>
@@ -146,7 +150,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                             {c.clientReplied && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#fce7f3', color: '#be185d' }}>답장 수신</span>}
                         </p>
                         <textarea value={reply} onChange={e => setReply(e.target.value)}
-                            onBlur={() => { store.update(c.id, { clientReplyNote: reply }); refresh(); }}
+                            onBlur={() => { updateCompany(c.id, { clientReplyNote: reply }); refresh(); }}
                             rows={2} placeholder="클라이언트 답장 내용..." style={taStyle} />
                     </div>
                 </div>

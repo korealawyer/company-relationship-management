@@ -238,7 +238,13 @@ export interface AutoLog {
 }
 
 // ── 문서 보관함 ─────────────────────────────────────────────────
-export type DocumentCategory = '계약서' | '의견서' | '리포트' | '소장' | '영수증' | '기타';
+export interface SmsLogEntry { id: string; [key: string]: any; }
+export interface PendingClient { id: string; [key: string]: any; }
+export interface CrmNotification { id: string; [key: string]: any; }
+export interface ConsultRecord { id: string; [key: string]: any; }
+
+export type DocumentCategory = 
+'계약서' | '의견서' | '리포트' | '소장' | '영수증' | '기타';
 export type DocumentStatus = '검토 대기' | '변호사 열람 완료' | '검토 중' | '검토 완료';
 
 export interface Document {
@@ -250,10 +256,27 @@ export interface Document {
     type: string;
     category: DocumentCategory;
     status: DocumentStatus;
+    createdBy?: string; // 작성자 정보 추가
     url: string;
     createdAt: string;
     isNewForClient: boolean;
     isNewForLawyer: boolean;
+}
+
+export interface ConsultItem {
+    id: string;
+    companyName: string;
+    companyId: string;
+    title: string;
+    category: string;
+    urgency: 'normal' | 'urgent';
+    created: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    content: string;
+    lawyerName?: string;
+    lawyerId?: string;
+    assignedAt?: string;
+    [key: string]: any;
 }
 
 // ── 전자계약 (E-Contract) ───────────────────────────────────────

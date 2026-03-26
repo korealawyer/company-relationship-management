@@ -1,7 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { Volume2 } from 'lucide-react';
-import { Company, STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, type CaseStatus } from '@/lib/store';
+import { Company, type CaseStatus } from '@/lib/types';
+import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL } from '@/lib/constants';
 
 /* ── CRM 라이트 색상 (공유 상수 추출 전 임시 로컬 복사) ─────── */
 const C = {

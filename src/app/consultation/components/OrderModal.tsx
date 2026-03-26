@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, X, UploadCloud, CheckCircle2, CreditCard, MessageSquare, Shield, ArrowRight } from 'lucide-react';
-import { consultStore, documentStore, store } from '@/lib/mockStore';
 import { getSession } from '@/lib/auth';
 import { ConsultService } from '../constants';
+import dataLayer from '@/lib/dataLayer';
 
 // ── 주문 폼 모달 ────────────────────────────────────
 export default function OrderModal({ service, onClose }: { service: ConsultService; onClose: () => void }) {
@@ -19,15 +19,13 @@ export default function OrderModal({ service, onClose }: { service: ConsultServi
         setIsSubmitting(true);
         await new Promise(r => setTimeout(r, 1500));
         
-        let companyId = session?.companyId;
-        if (!companyId) {
-            const allCompanies = store.getAll();
-            companyId = allCompanies.length > 0 ? allCompanies[0].id : 'new-company-id';
-        }
+        let companyId = session?.companyId || 'new-company-id';
 
+        // Document upload logic placeholder (Mock was empty, real implementation via Supabase Storage & DB needed)
         const uploadedDocs: any[] = [];
         files.forEach(file => {
-            const doc = documentStore.upload({
+            // Placeholder: await uploadToSupabaseStorage(...)
+            uploadedDocs.push({
                 companyId: companyId!,
                 authorRole: 'client',
                 name: file.name,
@@ -39,7 +37,6 @@ export default function OrderModal({ service, onClose }: { service: ConsultServi
                 isNewForClient: false,
                 isNewForLawyer: true
             });
-            uploadedDocs.push(doc);
         });
 
         let mappedCategory: any = '기타';
@@ -47,7 +44,7 @@ export default function OrderModal({ service, onClose }: { service: ConsultServi
         if (service.category.includes('개인정보')) mappedCategory = '개인정보';
         if (service.category.includes('노무')) mappedCategory = '노무';
 
-        consultStore.submit({
+        await dataLayer.consult.create({
             companyId: companyId,
             companyName: form.company || '미지정',
             branchName: '본점',

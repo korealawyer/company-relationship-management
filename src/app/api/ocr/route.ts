@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 // ── Cloud Vision OCR API Route ───────────────────────────
 // POST /api/ocr — 단일 파일 OCR 처리
 // multipart/form-data로 파일 수신 → Cloud Vision API → JSON 반환
@@ -253,7 +254,7 @@ async function processPdfWithVision(
     const pages: VisionPage[] = [];
     let totalConf = 0;
     let confCount = 0;
-    let handwritingDetected = false;
+    const handwritingDetected = false;
     const tables: VisionTable[] = [];
 
     for (let i = 0; i < responses.length; i++) {
@@ -382,6 +383,9 @@ function generateMockResponse(fileName: string, mode: string): VisionApiResponse
 // ── Route Handler ────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -451,7 +455,10 @@ export async function POST(req: NextRequest) {
 
 // ── GET /api/ocr — 현재 상태 확인 ───────────────────────
 
-export async function GET() {
+export async function GET(req: any) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   const today = new Date().toDateString();
   if (today !== dailyResetDate) {
     dailyCount = 0;

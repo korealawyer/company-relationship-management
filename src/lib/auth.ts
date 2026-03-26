@@ -136,30 +136,7 @@ export async function loginWithEmailFull(
     email: string,
     password: string
 ): Promise<{ success: true; user: AuthUser } | { success: false; error: string }> {
-    // Supabase 미설정 시 fallback (개발 환경)
     if (!IS_SUPABASE_CONFIGURED) {
-        if (process.env.NODE_ENV === 'development' && email.endsWith('@ibslaw.kr')) {
-            const prefix = email.split('@')[0];
-            const roleMap: Record<string, RoleType> = {
-                'admin': 'super_admin',
-                'lawyer1': 'lawyer',
-                'sales': 'sales',
-                'counselor': 'counselor',
-                'lit': 'litigation'
-            };
-            const role = roleMap[prefix] || 'sales';
-            const user: AuthUser = {
-                id: `dev_${prefix}`,
-                name: 'Test ' + prefix.toUpperCase(),
-                email,
-                role,
-                companyId: 'ibs',
-                companyName: 'IBS 법률사무소',
-                loginAt: new Date().toISOString(),
-            };
-            _setSessionCache(user);
-            return { success: true, user };
-        }
         return { success: false, error: 'Supabase가 설정되지 않았습니다. .env.local을 확인하세요.' };
     }
 
@@ -168,32 +145,6 @@ export async function loginWithEmailFull(
 
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error || !data.user) {
-        // [DEV MODE] If it's a test user, auto signup
-        if (process.env.NODE_ENV === 'development' && email.endsWith('@ibslaw.kr')) {
-            const prefix = email.split('@')[0];
-            const roleMap: Record<string, RoleType> = {
-                'admin': 'super_admin',
-                'lawyer1': 'lawyer',
-                'sales': 'sales',
-                'counselor': 'counselor',
-                'lit': 'litigation'
-            };
-            const role = roleMap[prefix] || 'sales';
-            
-            const { data: signUpData } = await sb.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: { name: 'Test ' + prefix.toUpperCase(), role, companyId: 'ibs', companyName: 'IBS 법률사무소' },
-                },
-            });
-            
-            if (signUpData?.user) {
-                const user = supabaseUserToAuthUser(signUpData.user);
-                _setSessionCache(user);
-                return { success: true, user };
-            }
-        }
         return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
     }
 
@@ -334,73 +285,22 @@ export async function clearSession(): Promise<void> {
     if (sb) await sb.auth.signOut();
 }
 
-// ── 개인회원 로그인 (Mock — 이메일 기반) ─────────────────────
-const MOCK_PERSONAL_ACCOUNTS: Record<string, { name: string; phone: string; password: string }> = {
-    'hong@personal.kr':   { name: '홍길동', phone: '010-1234-5678', password: 'hong123' },
-    'kim@personal.kr':    { name: '김민준', phone: '010-2345-6789', password: 'kim123' },
-    'lee@personal.kr':    { name: '이서연', phone: '010-3456-7890', password: 'lee123' },
-    'park@personal.kr':   { name: '박지훈', phone: '010-4567-8901', password: 'park123' },
-    'choi@personal.kr':   { name: '최유리', phone: '010-5678-9012', password: 'choi123' },
-};
-
+// ── 개인회원 로그인 (Mock 제거됨) ─────────────────────
+// 개인회원도 공통 email + password 흐름을 타야 하므로, 이 함수는 사용 금지. (하위 호환을 위해 에러 반환)
 export function loginWithPersonal(
     email: string,
     password: string
 ): { success: true; user: AuthUser } | { success: false; error: string } {
-    const key = email.toLowerCase().trim();
-    const account = MOCK_PERSONAL_ACCOUNTS[key];
-    if (!account) {
-        return { success: false, error: '등록되지 않은 이메일입니다.' };
-    }
-    if (account.password !== password) {
-        return { success: false, error: '비밀번호가 올바르지 않습니다.' };
-    }
-    const user: AuthUser = {
-        id: `personal_${key.replace('@', '_').replace('.', '_')}`,
-        name: account.name,
-        email: key,
-        role: 'personal_client',
-        companyId: undefined,
-        companyName: undefined,
-        loginAt: new Date().toISOString(),
-    };
-    _setSessionCache(user);
-    return { success: true, user };
+    return { success: false, error: '이 기능은 더 이상 지원되지 않습니다. 표준 로그인을 이용해주세요.' };
 }
 
-// ── 사업자번호 로그인 (고객사 — Mock 유지) ────────────────────
-// 사업자번호 기반 로그인은 Supabase 계정 없이 동작하는 별도 플로우
-const MOCK_BIZ_ACCOUNTS: Record<string, { name: string; ceo: string; password: string }> = {
-    '1234567890': { name: '(주)놀부NBG', ceo: '김정래', password: '1234' },
-    '2345678901': { name: '(주)교촌에프앤비', ceo: '권원강', password: '1234' },
-    '3456789012': { name: '(주)파리바게뜨', ceo: '허영인', password: '1234' },
-    '4567890123': { name: '(주)bhc치킨', ceo: '박현종', password: '1234' },
-    '5678901234': { name: '(주)본죽', ceo: '김철호', password: '1234' },
-};
-
+// ── 사업자번호 로그인 (Mock 제거됨) ────────────────────
+// 공통 로그인 흐름 또는 전용 페이지로 마이그레이션 해야함.
 export function loginWithBiz(
     bizNum: string,
     password: string
 ): { success: true; user: AuthUser } | { success: false; error: string } {
-    const digits = bizNum.replace(/\D/g, '');
-    const biz = MOCK_BIZ_ACCOUNTS[digits];
-    if (!biz) {
-        return { success: false, error: '등록되지 않은 사업자번호입니다.' };
-    }
-    if (biz.password !== password) {
-        return { success: false, error: '비밀번호가 올바르지 않습니다.' };
-    }
-    const user: AuthUser = {
-        id: `biz_${digits}`,
-        name: biz.ceo,
-        email: `${digits}@client.ibslaw.kr`,
-        role: 'client_hr' as RoleType,
-        companyId: digits,
-        companyName: biz.name,
-        loginAt: new Date().toISOString(),
-    };
-    _setSessionCache(user);
-    return { success: true, user };
+     return { success: false, error: '이 기능은 더 이상 지원되지 않습니다. 표준 로그인을 이용해주세요.' };
 }
 
 // ── 권한 체크 헬퍼 ────────────────────────────────────────────

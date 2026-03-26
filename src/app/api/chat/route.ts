@@ -1,5 +1,11 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { IBS_FULL_CHAT_PROMPT, IBS_SYSTEM_PROMPT } from '@/lib/prompts/chat';
+
+// [아키텍처 혁신]: Vercel Edge Runtime 강제 적용 및 타임아웃 최대 연장
+// 무거운 AI 프롬프트 생성 시 기본 10초 타임아웃에 걸리는 문제를 방어합니다.
+export const runtime = 'edge';
+export const maxDuration = 60;
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -32,6 +38,9 @@ function generateMockResponse(messages: ChatMessage[], consultType: string): str
 // ── POST /api/chat — 인증 없음 (외부 방문자 포함) ────────────────
 // 주의: 배포 전 Rate Limiting 미들웨어 추가 권장
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const { messages, consultType = 'general', isPublic = false } = await req.json();
 
@@ -63,7 +72,7 @@ export async function POST(req: NextRequest) {
             }
 
             const data = await resp.json();
-            aiResponse = data.content?.[0]?.text || '죄송합니다. 응답 생성 중 문제가 발생했습니다. 잠시 후 다시 시도해 주시거나 전화(02-598-8518)로 문의 주세요.';
+            aiResponse = data.content?.[0]?.text || '죄송합니다. 응답 생성 대기 중 문제가 발생했습니다. 잠시 후 다시 시도해 주시거나 전화(02-598-8518)로 문의 주세요.';
         } else {
             // 개발 환경 mock
             await new Promise(r => setTimeout(r, 800));

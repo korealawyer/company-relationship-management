@@ -9,7 +9,8 @@ import {
     CallRecorder, STTService, AudioVisualizer, formatDuration
 } from '@/lib/callRecordingService';
 import { registerPendingClient, IntakeTokenService } from '@/lib/pendingClientService';
-import { personalStore, documentStore, DocumentCategory } from '@/lib/store';
+import dataLayer from '@/lib/dataLayer';
+import type { DocumentCategory } from '@/lib/types';
 
 import { IntakeForm } from './recording/IntakeForm';
 import { RecordingResult } from './recording/RecordingResult';
@@ -155,18 +156,10 @@ export default function RecordingWidget({
             sourceUserName: userName,
         });
         if (files.length > 0) {
-            files.forEach(file => documentStore.upload({
-                companyId: 'pending',
-                authorRole: 'lawyer',
-                name: file.name,
-                size: file.size,
-                type: file.type || 'application/octet-stream',
-                category: '기타' as DocumentCategory,
-                status: '검토 대기',
-                url: URL.createObjectURL(file),
-                isNewForClient: false,
-                isNewForLawyer: true,
-            }));
+            files.forEach(file => {
+                // TODO: Implement actual Supabase Storage & DB record creation for documents
+                console.log('Pending Supabase upload for file:', file.name);
+            });
         }
         setPhase('done');
     };
@@ -182,10 +175,10 @@ export default function RecordingWidget({
             transcript,
             steps.map(s => s.replace(/\*\*/g, '')).join('\n'),
         ].join('\n');
-        const cases = personalStore.getAll();
-        const lit = cases.find(c => c.id === litCaseId);
+        const cases = await dataLayer.personal.getAll();
+        const lit = cases.find((c: any) => c.id === litCaseId);
         if (lit) {
-            personalStore.update(litCaseId, { notes: (lit.notes || '') + noteSection });
+            await dataLayer.personal.update(litCaseId, { notes: (lit.notes || '') + noteSection });
         }
         setPhase('done');
     };

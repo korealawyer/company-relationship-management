@@ -4,7 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
-import { smsLogStore, type SmsLogEntry } from '@/lib/mockStore';
+import { type SmsLogEntry } from '@/lib/types';
+import { smsLogStore } from '@/lib/store';
 import { sendSMS, SMS_TEMPLATES, type SmsTemplate } from '@/lib/smsService';
 
 export default function SmsTab() {

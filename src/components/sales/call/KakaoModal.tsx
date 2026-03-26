@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle, X, Check, Send, RefreshCw } from 'lucide-react';
 import { C } from '@/lib/callPageUtils';
-import { Company } from '@/lib/store';
+import { Company } from '@/lib/types';
 
 export interface KakaoModalProps {
   kakaoTarget: Company | null;

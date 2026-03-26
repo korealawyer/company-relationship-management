@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    store, Company, CaseStatus,
-    SALES_REPS,
+    Company, CaseStatus,
     type AutoSettings,
-} from '@/lib/store';
+} from '@/lib/types';
+import { SALES_REPS } from '@/lib/constants';
+import { useCompanies, useAutoSettings } from '@/hooks/useDataLayer';
 import {
     CallQueueManager, AutoEmailService, FollowUpService,
     RiskAlertService, AIMemoService, NewsLeadService, AutoKakaoService,
@@ -74,6 +75,8 @@ export interface UseCallPageReturn {
 
 /* ── Hook ────────────────────────────────────────────────────────── */
 export function useCallPage(): UseCallPageReturn {
+    const { companies: dbCompanies, updateCompany } = useCompanies();
+    const { settings: dbSettings } = useAutoSettings();
     const [companies, setCompanies] = useState<Company[]>([]);
     const [search, setSearch] = useState('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -107,13 +110,13 @@ export function useCallPage(): UseCallPageReturn {
 
     /* ── refresh ── */
     const refresh = useCallback(() => {
-        setCompanies(store.getAll().filter(c => CALLABLE.includes(c.status)));
+        setCompanies(dbCompanies.filter(c => CALLABLE.includes(c.status)));
         const counts: Record<string, number> = {};
         const allRecs = CallRecordingStore.getAll();
         allRecs.forEach(r => { counts[r.companyId] = (counts[r.companyId] || 0) + 1; });
         setRecordingCounts(counts);
-        setAutoSettings(store.getAutoSettings());
-    }, []);
+        setAutoSettings(dbSettings || null);
+    }, [dbCompanies, dbSettings]);
 
     /* ── effects ── */
     useEffect(() => { refresh(); const id = setInterval(refresh, 2000); return () => clearInterval(id); }, [refresh]);
@@ -159,11 +162,11 @@ export function useCallPage(): UseCallPageReturn {
 
             const signed = AutoSignatureService.checkSigned();
             signed.forEach(s => {
-                store.signContract(s.companyId);
+                updateCompany(s.companyId, { status: 'contract_signed' });
                 setToast(`✍️ 전자서명 자동 감지 → ${s.companyName}`);
                 setTimeout(() => {
-                    const co = store.getById(s.companyId);
-                    if (co && co.status === 'contract_signed') {
+                    const co = dbCompanies.find(c => c.id === s.companyId);
+                    if (co) {
                         AutoSubscriptionService.convertToSubscribed(s.companyId);
                         AutoSubscriptionService.sendOnboardingEmail(co);
                         setToast(`🎉 구독 자동 전환 + 온보딩 이메일 → ${s.companyName}`);
@@ -176,7 +179,7 @@ export function useCallPage(): UseCallPageReturn {
             const opened = EmailTrackingService.checkOpened();
             opened.forEach(o => {
                 setToast(`👁️ 이메일 열람 감지! → ${o.companyName} (${o.contactName}님) — 지금 전화하세요!`);
-                store.update(o.companyId, { status: 'client_viewed' as any });
+                updateCompany(o.companyId, { status: 'client_viewed' as any });
                 refresh();
             });
         }, 2000);
@@ -237,10 +240,10 @@ export function useCallPage(): UseCallPageReturn {
     const endCall = async () => {
         if (!selected) return;
         const result = callResult || 'connected';
-        store.update(selected.id, { lastCallResult: result, lastCallAt: new Date().toISOString(), callAttempts: (selected.callAttempts || 0) + 1 });
+        updateCompany(selected.id, { lastCallResult: result, lastCallAt: new Date().toISOString(), callAttempts: (selected.callAttempts || 0) + 1 });
         if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
         else if (result === 'callback') { setShowCallbackModal(true); }
-        else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') store.salesConfirm(selected.id, SALES_REPS[0]); }
+        else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'lawyer_confirmed', assignedLawyer: SALES_REPS[0] }); }
 
         if (isRecording) {
             if (waveformInterval.current) { clearInterval(waveformInterval.current); waveformInterval.current = null; }

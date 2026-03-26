@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
+import dynamic from 'next/dynamic';
 import Navbar from "@/components/layout/Navbar";
-import FloatingChatbot from "@/components/layout/FloatingChatbot";
-import RealtimeNotification from "@/components/layout/RealtimeNotification";
 import { AuthProvider } from "@/lib/AuthContext";
 import { ZeroTrustBriefingProvider } from "@/components/ZeroTrustBriefingProvider";
 import "./globals.css";
+
+import FloatingChatbot from '@/components/layout/FloatingChatbot';
+import RealtimeNotification from '@/components/layout/RealtimeNotification';
 
 const notoSansKR = Noto_Sans_KR({
   weight: ["400", "500", "600", "700", "800", "900"],

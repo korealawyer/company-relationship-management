@@ -6,10 +6,9 @@ import {
     Phone, Mail, BarChart3, Gavel, ChevronDown, ChevronUp
 } from 'lucide-react';
 import Link from 'next/link';
-import { store } from '@/lib/store';
 import { DocumentWidget } from '@/components/DocumentWidget';
-
-type Company = ReturnType<typeof store.getAll>[number];
+import type { Company } from '@/lib/types';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 const PLAN_META: Record<string, { label: string; color: string; bg: string }> = {
     premium:  { label: 'Premium',  color: '#c9a84c', bg: 'rgba(201,168,76,0.1)' },
@@ -26,16 +25,13 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 export default function AdminClientsPage() {
-    const [clients, setClients] = useState<Company[]>([]);
+    const { companies } = useCompanies();
+    const clients = companies.filter(c => c.plan && c.plan !== 'none');
     const [search, setSearch] = useState('');
     const [filterPlan, setFilterPlan] = useState<string>('all');
     const [sortBy, setSortBy] = useState<'name' | 'stores' | 'plan'>('name');
     const [sortAsc, setSortAsc] = useState(true);
     const [expandId, setExpandId] = useState<string | null>(null);
-
-    useEffect(() => {
-        setClients(store.getAll().filter(c => c.plan && c.plan !== 'none'));
-    }, []);
 
     const filtered = clients
         .filter(c => {

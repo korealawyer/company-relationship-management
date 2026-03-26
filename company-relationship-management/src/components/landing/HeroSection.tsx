@@ -100,7 +100,7 @@ function UrlAnalyzer() {
 function AnimatedNumber({ target, suffix = '' }: { target: number; suffix?: string }) {
     const [count, setCount] = useState(0);
     const ref = useRef(null);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     const { useInView } = require('framer-motion');
     const inView = useInView(ref, { once: true });
 

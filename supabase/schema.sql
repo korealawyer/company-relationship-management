@@ -119,12 +119,12 @@ ALTER TABLE sales_contacts ENABLE ROW LEVEL SECURITY;
 -- ── 헬퍼: 현재 사용자 역할 ───────────────────────────────────
 CREATE OR REPLACE FUNCTION get_my_role()
 RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT role FROM users WHERE id = auth.uid()
+    SELECT COALESCE((auth.jwt() -> 'app_metadata' ->> 'role')::text, (auth.jwt() -> 'user_metadata' ->> 'role')::text, 'client_hr')
 $$;
 
 CREATE OR REPLACE FUNCTION get_my_company_id()
 RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT company_id FROM users WHERE id = auth.uid()
+    SELECT (auth.jwt() -> 'user_metadata' ->> 'company_id')::uuid
 $$;
 
 CREATE OR REPLACE FUNCTION is_internal()
@@ -178,7 +178,7 @@ CREATE POLICY "subs_client_select"     ON subscriptions FOR SELECT TO authentica
 
 -- ── sales_contacts RLS ────────────────────────────────────────
 CREATE POLICY "sales_contacts_insert"  ON sales_contacts FOR INSERT TO authenticated
-    WITH CHECK (true);
+    WITH CHECK (company_id = get_my_company_id() OR is_internal());
 
 CREATE POLICY "sales_contacts_internal"ON sales_contacts FOR SELECT TO authenticated
     USING (is_internal());

@@ -2,7 +2,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, FileText, DollarSign } from 'lucide-react';
-import { Company, AutoLog, PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/store';
+import { Company, AutoLog } from '@/lib/types';
+import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
 
 const T = {
     heading: '#0f172a', body: '#1e293b', sub: '#475569',

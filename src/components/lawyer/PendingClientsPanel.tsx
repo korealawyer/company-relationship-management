@@ -4,16 +4,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, UserPlus, Loader2, FileText } from 'lucide-react';
-import { 
-    store, 
-    LAWYERS, 
-    LITIGATION_TYPES, 
-    COURTS, 
-    PendingClientStore, 
-    type PendingClient 
-} from '@/lib/mockStore';
+import { type PendingClient } from '@/lib/types';
+import { LAWYERS, LITIGATION_TYPES, COURTS } from '@/lib/constants';
+import { store, PendingClientStore } from '@/lib/store';
+import { useLitigations } from '@/hooks/useDataLayer';
 
 export default function PendingClientsPanel({ onConfirm }: { onConfirm: () => void }) {
+    const { addLitigation } = useLitigations();
     const [pendings, setPendings] = useState<PendingClient[]>([]);
     const [selId, setSelId] = useState<string | null>(null);
     const [openStep, setOpenStep] = useState<number | null>(0);
@@ -36,7 +33,7 @@ export default function PendingClientsPanel({ onConfirm }: { onConfirm: () => vo
         const confirmed = PendingClientStore.confirm(selected.id);
         if (confirmed) {
             // 송무 사건 자동 등록
-            store.addLit({
+            addLitigation({
                 companyId: 'personal',
                 companyName: confirmed.clientName,
                 caseNo: '',

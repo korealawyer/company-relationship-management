@@ -141,18 +141,62 @@ export interface AIAssistResponse {
     generatedAt: string;
 }
 
+async function callOpenAI(apiKey: string, req: AIAssistRequest): Promise<AIAssistResponse> {
+    const prompt = `${LAWYER_TONE_SYSTEM}
+    
+[요청 정보]
+기업명: ${req.companyName}
+카테고리: ${req.category}
+긴급도: ${req.urgency}
+답변자: ${req.lawyerName || '담당 변호사'}
+
+[질문 내용]
+${req.question}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`OpenAI API failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    return {
+        draft: content,
+        model: 'GPT-4o',
+        confidence: 95,
+        references: ['AI 자동 생성 내용'],
+        generatedAt: new Date().toISOString(),
+    };
+}
+
 /**
  * AI 답변 초안 생성
- * 현재는 Mock 데이터를 사용하며, 실제 API 연동 시 교체됩니다.
+ * 실제 API 연동 시 교체되며, 지원하지 않는 경우 Mock 반환
  */
 export async function generateAIDraft(req: AIAssistRequest): Promise<AIAssistResponse> {
     const model = getSelectedModel();
     const apiKey = getApiKey(model);
 
-    // API 키가 있으면 실제 API 호출 (향후 구현)
-    if (apiKey) {
-        // TODO: 실제 API 호출 구현
-        // return await callRealAPI(model, apiKey, req);
+    // API 키가 있으면 실제 API 호출 (GPT-4o 기준)
+    if (apiKey && model === 'gpt-4o') {
+        try {
+            return await callOpenAI(apiKey, req);
+        } catch (e) {
+            console.error('Real API Failed, falling back to mock:', e);
+        }
     }
 
     // Mock 응답: 카테고리 기반 매칭

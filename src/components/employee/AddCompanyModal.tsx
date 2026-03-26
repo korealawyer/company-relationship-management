@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { T } from './shared';
-import { store } from '@/lib/mockStore';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 interface AddCompanyModalProps {
     onClose: () => void;
@@ -12,6 +12,7 @@ interface AddCompanyModalProps {
 }
 
 export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalProps) {
+    const { addCompany } = useCompanies();
     const [addForm, setAddForm] = useState({ name: '', biz: '', url: '', email: '', phone: '', storeCount: '', contactName: '', contactPhone: '', bizType: '' });
 
     return (
@@ -50,7 +51,7 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                     <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
                     <Button variant="premium" className="flex-1" onClick={() => {
                         if (!addForm.name || !addForm.email) return;
-                        store.add({
+                        addCompany({
                             name: addForm.name, biz: addForm.biz, url: addForm.url,
                             email: addForm.email, phone: addForm.phone,
                             storeCount: parseInt(addForm.storeCount) || 0,

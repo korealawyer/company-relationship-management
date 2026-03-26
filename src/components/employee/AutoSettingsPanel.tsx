@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot } from 'lucide-react';
-import { AutoSettings, AutoLog } from '@/lib/store';
+import { AutoSettings, AutoLog } from '@/lib/types';
 import { T } from './shared';
 
 interface AutoSettingsPanelProps {

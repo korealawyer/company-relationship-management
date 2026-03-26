@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { LeadScoringService } from '@/lib/leadScoring';
 
@@ -11,6 +12,9 @@ const TRANSPARENT_GIF = Buffer.from(
 // ?lid=lead_001&type=open          → 트래킹 픽셀 (1x1 GIF)
 // ?lid=lead_001&type=click&url=... → 클릭 리다이렉트
 export async function GET(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     const { searchParams } = new URL(req.url);
     const leadId = searchParams.get('lid');
     const type = searchParams.get('type') as 'open' | 'click';

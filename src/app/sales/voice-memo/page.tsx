@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { store, type Company } from '@/lib/store';
+import type { Company } from '@/lib/types';
+import { useCompanies } from '@/hooks/useDataLayer';
 import { CallRecordingStore, type CallRecording } from '@/lib/callRecordingService';
 import type { Step } from './_constants';
 import { getPhoneList } from './_utils/helpers';
@@ -15,7 +16,7 @@ import ResultPanel from './_components/ResultPanel';
 
 export default function VoiceMemoPage() {
   const [step, setStep] = useState<Step>('select');
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const { companies, mutate: mutateCompanies } = useCompanies();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Company | null>(null);
   const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback'>('connected');
@@ -27,10 +28,10 @@ export default function VoiceMemoPage() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [recentRecordings, setRecentRecordings] = useState<CallRecording[]>([]);
 
-  const refresh = useCallback(() => {
-    setCompanies(store.getAll());
+  const refresh = useCallback(async () => {
+    await mutateCompanies();
     setRecentRecordings(CallRecordingStore.getRecent(20));
-  }, []);
+  }, [mutateCompanies]);
 
   const { isRecording, elapsed, waveformData, sttStatus, lastRecording, startRecording, stopRecording, resetRecording } =
     useRecording(selected, quickMemo, callResult, setToast, setStep, refresh);

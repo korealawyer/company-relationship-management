@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Company, CaseStatus, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/store';
+import { Company, CaseStatus } from '@/lib/types';
+import { STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
 
 /* ── CRM 라이트 색상 ──────────────────────────── */
 export const C = {

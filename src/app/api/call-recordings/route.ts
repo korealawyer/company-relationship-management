@@ -1,8 +1,12 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 // src/app/api/call-recordings/route.ts — 통화 녹음 API
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/call-recordings?company_id=xxx — 기업별 녹음 내역 조회
 export async function GET(request: NextRequest) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('company_id');
 
@@ -16,6 +20,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/call-recordings — 녹음 업로드 + STT 처리
 export async function POST(request: NextRequest) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const formData = await request.formData();
         const audioFile = formData.get('audio') as File | null;

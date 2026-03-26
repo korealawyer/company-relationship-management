@@ -6,8 +6,8 @@ import {
     Coins, RefreshCw, Download, FileText, CheckCircle2,
     Clock, Search, X, Receipt
 } from 'lucide-react';
-import { store, Company } from '@/lib/store';
 import { PaymentRecord, PLAN_PRICE, PLAN_LABEL, PAY_STATUS_STYLE, T } from '../types';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 import { BillingKPIs } from './internal/BillingKPIs';
 import { SubscribedCompanyList } from './internal/SubscribedCompanyList';
@@ -15,17 +15,17 @@ import { PlanRevenueCharts } from './internal/PlanRevenueCharts';
 import { exportToExcel } from '@/lib/exportUtils';
 
 export function InternalBillingMain() {
-    const [companies, setCompanies] = useState<Company[]>([]);
+    const { companies: allCompanies } = useCompanies();
+    const companies = allCompanies || [];
     const [payments, setPayments] = useState<PaymentRecord[]>([]);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+    const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
     const [toast, setToast] = useState('');
 
     // ── 데이터 로드 (store 연동) ─────────────────────────
     const refresh = useCallback(() => {
-        const all = store.getAll();
-        setCompanies(all);
+        const all = companies;
 
         // 구독 완료된 기업에서 결제 내역 생성
         const subscribedCompaniesList = all.filter(c => c.status === 'subscribed' || c.plan !== 'none');
@@ -72,7 +72,7 @@ export function InternalBillingMain() {
 
         records.sort((a, b) => b.date.localeCompare(a.date));
         setPayments(records);
-    }, []);
+    }, [companies]);
 
     useEffect(() => { refresh(); }, [refresh]);
     useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 3000); return () => clearTimeout(t); } }, [toast]);

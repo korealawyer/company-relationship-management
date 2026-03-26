@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 // ── Batch OCR API Route ──────────────────────────────────
 // POST /api/ocr/batch — 여러 파일 배치 처리
 // 각 파일별 결과 배열 반환, 개별 에러 시 해당 파일만 에러 처리
@@ -5,6 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     const formData = await req.formData();
     const files: File[] = [];

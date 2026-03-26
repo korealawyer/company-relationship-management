@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dripStore, fillTemplate, DRIP_SEQUENCE, type DripMember } from '@/lib/dripStore';
 import { leadStore, calcSubscription } from '@/lib/leadStore';
+import { requireSessionFromCookie } from '@/lib/auth';
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const SMTP_CONFIGURED = !!(process.env.SMTP_HOST && process.env.SMTP_USER);
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 // ── 사업자번호로 회원 등록 ────────────────────────────────────
 export async function POST(req: NextRequest) {
+    const auth = await requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    
     const { leadId, bizRegNo } = await req.json();
     if (!leadId || !bizRegNo) return NextResponse.json({ error: 'leadId, bizRegNo 필수' }, { status: 400 });
 
@@ -37,7 +44,10 @@ export async function POST(req: NextRequest) {
 }
 
 // ── 드립 발송 대기 목록 조회 ─────────────────────────────────
-export async function GET() {
+export async function GET(req: NextRequest) {
+    const auth = await requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const pending = dripStore.getPendingEmails();
     return NextResponse.json({
         pending: pending.map(p => ({
@@ -52,6 +62,9 @@ export async function GET() {
 
 // ── 드립 이메일 즉시 발송 ────────────────────────────────────
 export async function PUT(req: NextRequest) {
+    const auth = await requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const { memberId, day } = await req.json();
     const member = dripStore.getById(memberId);
     if (!member) return NextResponse.json({ error: '멤버 없음' }, { status: 404 });
@@ -73,9 +86,10 @@ export async function PUT(req: NextRequest) {
     };
 
     const subject = fillTemplate(emailTemplate.subject, vars);
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ibslaw.co.kr';
     const html = buildDripEmailHtml(fillTemplate(emailTemplate.content, vars), {
         subject, ctaText: emailTemplate.ctaText,
-        ctaUrl: `http://localhost:3000${fillTemplate(emailTemplate.ctaUrl, vars)}`,
+        ctaUrl: `${baseUrl}${fillTemplate(emailTemplate.ctaUrl, vars)}`,
         companyName: member.companyName, day, contactName: member.contactName,
     });
 
@@ -87,7 +101,14 @@ export async function PUT(req: NextRequest) {
 
 // ── 헬퍼 함수 ────────────────────────────────────────────────
 async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
-    if (SMTP_CONFIGURED) {
+    if (resend) {
+        await resend.emails.send({
+            from: process.env.SMTP_FROM_EMAIL || 'info@ibslaw.co.kr',
+            to,
+            subject,
+            html,
+        });
+    } else if (SMTP_CONFIGURED) {
         // nodemailer 실 발송 (Phase 2)
     } else {
         console.log(`\n📧 [드립 이메일] To: ${to}\nSubject: ${subject}\n`);
@@ -110,7 +131,7 @@ function buildWelcomeEmail(member: DripMember): string {
     <tr><td style="padding:10px;color:#94a3b8;font-size:13px">임시 비밀번호</td><td style="padding:10px;color:#c9a84c;font-size:18px;font-weight:bold;letter-spacing:2px">${member.tempPassword}</td></tr>
   </table>
   <div style="text-align:center;margin:24px 0">
-    <a href="http://localhost:3000/client-login" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:900;display:inline-block;font-size:15px">
+    <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://ibslaw.co.kr'}/client-login" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:900;display:inline-block;font-size:15px">
       지금 로그인하여 분석 결과 확인 →
     </a>
   </div>

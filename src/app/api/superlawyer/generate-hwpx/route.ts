@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 /**
  * HWPX 생성 API 엔드포인트
  * 
@@ -38,6 +39,9 @@ interface GenerateHwpxBody {
 }
 
 export async function POST(request: NextRequest) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     const body: GenerateHwpxBody = await request.json();
 

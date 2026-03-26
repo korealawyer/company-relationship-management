@@ -80,7 +80,7 @@ export default function CompanyHRPage() {
     const handleReject = (id: string) => { rejectPending(id); loadPending(); };
 
     const addMockPending = () => {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+         
         const { requestAffiliation } = require('@/lib/auth');
         requestAffiliation({ name: '김가맹점주', email: 'test@franchise.com', phone: '010-1234-5678', companyId, companyName: COMPANY.name, message: '교촌 서초점 점주입니다' });
         loadPending();

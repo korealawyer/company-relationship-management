@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireSessionFromCookie } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireSessionFromCookie(req as any);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    
     const body = await req.json();
     const { phone, reason, amount } = body;
 

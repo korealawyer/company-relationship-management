@@ -3,7 +3,9 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { ArrowRight, Search, FileText, AlertTriangle, FolderOpen, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { store, type Company, NotificationStore, PendingClientStore } from '@/lib/store';
+import { type Company } from '@/lib/types';
+import { NotificationStore, PendingClientStore } from '@/lib/store';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 import { useRequireAuth } from '@/lib/AuthContext';
 import { DocumentWidget } from '@/components/DocumentWidget';
@@ -40,9 +42,10 @@ export default function LawyerPage() {
     const [pendingCount, setPendingCount] = useState(0);
 
     const userId = getCurrentUserId();
+    const { companies } = useCompanies();
 
     useEffect(() => {
-        setCases(store.getAll());
+        setCases(companies || []);
         const refreshCounts = () => {
             setNotifCount(NotificationStore.unreadCount());
             setPendingCount(PendingClientStore.count());
@@ -54,7 +57,7 @@ export default function LawyerPage() {
             window.removeEventListener('ibs-notif-updated', refreshCounts);
             window.removeEventListener('ibs-pending-updated', refreshCounts);
         };
-    }, []);
+    }, [companies]);
 
     if (loading || !authorized) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

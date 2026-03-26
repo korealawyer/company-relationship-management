@@ -1,7 +1,7 @@
 'use client';
 
 import { Building2, Phone, ChevronRight } from 'lucide-react';
-import type { Company } from '@/lib/store';
+import type { Company } from '@/lib/types';
 
 /* ─── 디자인 토큰 ─── */
 const C = {

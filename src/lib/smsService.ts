@@ -104,49 +104,56 @@ IBS 법률사무소 02-1234-5678`,
 ];
 
 /**
- * SMS 발송 (현재 Mock)
- * 실제 구현 시 이 함수 내부만 교체하면 됩니다.
+ * SMS 발송
+ * 실제 서버 연동 API(/api/sms/send)를 호출합니다.
  */
 export async function sendSMS(params: SendSmsParams): Promise<SmsResult> {
-  // 네트워크 지연 시뮬레이션
-  await new Promise(res => setTimeout(res, 500 + Math.random() * 500));
-
   const recipients = Array.isArray(params.to) ? params.to : [params.to];
-  const logs: SmsLog[] = [];
-  let failedCount = 0;
-
-  for (const to of recipients) {
-    // 5% 확률로 실패 시뮬레이션
-    const success = Math.random() > 0.05;
-    const log: SmsLog = {
+  
+  try {
+    const res = await fetch('/api/sms/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    
+    const data = await res.json();
+    
+    // 로컬 로그 저장 (Mock UI 호환용)
+    const logs: SmsLog[] = recipients.map(to => ({
       id: `sms-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       to,
       message: params.message,
       type: params.type,
       sentAt: new Date().toISOString(),
-      status: success ? 'sent' : 'failed',
+      status: (res.ok && data.success) ? 'sent' : 'failed',
       caseId: params.caseId,
       templateId: params.templateId,
       senderName: params.senderName,
+    }));
+
+    if (typeof window !== 'undefined') {
+      const SMS_LOG_KEY = 'ibs_sms_logs_v1';
+      try {
+        const existing: SmsLog[] = JSON.parse(localStorage.getItem(SMS_LOG_KEY) || '[]');
+        const updated = [...logs, ...existing].slice(0, 500); 
+        localStorage.setItem(SMS_LOG_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+    }
+
+    return {
+      success: res.ok && data.success,
+      sentCount: res.ok ? data.sentCount : 0,
+      failedCount: res.ok ? data.failedCount : recipients.length,
+      logs,
     };
-    logs.push(log);
-    if (!success) failedCount++;
+  } catch (error) {
+    console.error('SMS Request Error:', error);
+    return {
+      success: false,
+      sentCount: 0,
+      failedCount: recipients.length,
+      logs: [],
+    };
   }
-
-  // smsLogStore에 저장 — 동적 import 방지를 위해 직접 localStorage 사용
-  if (typeof window !== 'undefined') {
-    const SMS_LOG_KEY = 'ibs_sms_logs_v1';
-    try {
-      const existing: SmsLog[] = JSON.parse(localStorage.getItem(SMS_LOG_KEY) || '[]');
-      const updated = [...logs, ...existing].slice(0, 500); // 최대 500건 유지
-      localStorage.setItem(SMS_LOG_KEY, JSON.stringify(updated));
-    } catch { /* ignore */ }
-  }
-
-  return {
-    success: failedCount === 0,
-    sentCount: recipients.length - failedCount,
-    failedCount,
-    logs,
-  };
 }

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ChevronDown, ChevronUp, CheckCircle2, Clock, Calendar } from 'lucide-react';
-import { store, LitigationCase, LitigationDeadline, LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/store';
+import { LitigationCase, LitigationDeadline } from '@/lib/types';
+import { LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/constants';
 import { generateAiMemoSummary } from '@/lib/automationEngine';
 import { STATUS_TEXT_MAP, STATUSES, daysUntil } from '@/app/litigation/constants';
+import { useLitigations } from '@/hooks/useDataLayer';
 
 function DeadlineBadge({ d }: { d: LitigationDeadline }) {
     const days = daysUntil(d.dueDate);
@@ -43,13 +45,14 @@ export default function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpd
     const [editResult, setEditResult] = useState(lit.result);
     const [editResultNote, setEditResultNote] = useState(lit.resultNote);
     const [saving, setSaving] = useState(false);
+    const { updateLitigation } = useLitigations();
 
     const urgentDeadlines = lit.deadlines.filter(d => !d.completed && daysUntil(d.dueDate) <= 7);
     const doneCount = lit.deadlines.filter(d => d.completed).length;
 
     const saveNotes = () => {
         setSaving(true);
-        store.updateLit(lit.id, { notes: editNote, result: editResult as LitigationCase['result'], resultNote: editResultNote });
+        updateLitigation(lit.id, { notes: editNote, result: editResult as LitigationCase['result'], resultNote: editResultNote });
         if (editNote.trim()) {
             generateAiMemoSummary(lit.id, editNote);
         }
@@ -58,7 +61,8 @@ export default function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpd
 
     const toggleDeadline = (d: LitigationDeadline) => {
         const now = new Date().toLocaleString('ko-KR', { hour12: false });
-        store.updateDeadline(lit.id, d.id, { completed: !d.completed, completedAt: !d.completed ? now : '' });
+        const updatedDeadlines = lit.deadlines.map(x => x.id === d.id ? { ...x, completed: !x.completed, completedAt: !x.completed ? now : '' } : x);
+        updateLitigation(lit.id, { deadlines: updatedDeadlines });
         onUpdate();
     };
 
@@ -146,7 +150,7 @@ export default function CaseCard({ lit, onUpdate }: { lit: LitigationCase; onUpd
                                         <div className="flex flex-wrap gap-1">
                                             {STATUSES.map(s => (
                                                 <button key={s}
-                                                    onClick={() => { store.updateLit(lit.id, { status: s }); onUpdate(); }}
+                                                    onClick={() => { updateLitigation(lit.id, { status: s }); onUpdate(); }}
                                                     className="text-[10px] px-2 py-1 rounded-full font-bold transition-all"
                                                     style={{
                                                         background: lit.status === s ? LIT_STATUS_COLOR[s] : '#f1f5f9',

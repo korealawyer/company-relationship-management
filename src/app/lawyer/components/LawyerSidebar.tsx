@@ -1,6 +1,6 @@
 import React from 'react';
 import { Scale, MessageSquare, Users, UserCheck, Gavel, User, TrendingDown, Send, Building, FileText, FolderOpen, CalendarDays } from 'lucide-react';
-import { personalStore } from '@/lib/store';
+import { usePersonalLitigations } from '@/hooks/useDataLayer';
 
 export const LAWYER_TABS = [
     { id: 'overview' as const, label: '검토 대기', icon: Scale },
@@ -28,7 +28,8 @@ export interface LawyerSidebarProps {
 }
 
 export function LawyerSidebar({ tab, setTab, assignedCasesLength, urgentCount, pendingCount }: LawyerSidebarProps) {
-    const personalLits = React.useMemo(() => personalStore.getAll().filter(l => l.status !== 'closed'), []);
+    const { personalLitigations } = usePersonalLitigations();
+    const personalLits = React.useMemo(() => personalLitigations.filter((l: any) => l.status !== 'closed'), [personalLitigations]);
     const personalUrgentCount = React.useMemo(() => {
         const today = new Date();
         const sevenDaysLater = new Date(today.getTime() + 7 * 86400000);
@@ -69,7 +70,8 @@ export function LawyerSidebar({ tab, setTab, assignedCasesLength, urgentCount, p
 }
 
 export function LawyerMobileTabbar({ tab, setTab, assignedCasesLength, urgentCount, pendingCount }: LawyerSidebarProps) {
-    const personalLits = React.useMemo(() => personalStore.getAll().filter(l => l.status !== 'closed'), []);
+    const { personalLitigations } = usePersonalLitigations();
+    const personalLits = React.useMemo(() => personalLitigations.filter((l: any) => l.status !== 'closed'), [personalLitigations]);
     const personalUrgentCount = React.useMemo(() => {
         const today = new Date();
         const sevenDaysLater = new Date(today.getTime() + 7 * 86400000);

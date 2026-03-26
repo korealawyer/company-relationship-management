@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PenTool, Mail, CheckCircle, Clock } from 'lucide-react';
 // @ts-ignore
-import { store } from '@/lib/store';
-// @ts-ignore
 import { AutoSignatureService } from '@/lib/salesAutomation';
 
 export function ESignaturePanel() {
@@ -19,7 +17,6 @@ export function ESignaturePanel() {
   }, []);
 
   const handleSend = (id: string) => {
-    if (store.sendContract) store.sendContract(id, 'email');
     if (AutoSignatureService?.watchForSignature) AutoSignatureService.watchForSignature({ id } as any);
     setContracts(p => p.map(c => c.id === id ? { ...c, status: 'pending' } : c));
     setToast(true); setTimeout(() => setToast(false), 3000);

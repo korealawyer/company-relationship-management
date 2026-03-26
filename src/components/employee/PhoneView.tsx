@@ -2,7 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Phone, CheckCircle2, Mail, FileText, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Company, CaseStatus, AutoSettings, store } from '@/lib/store';
+import { Company, CaseStatus, AutoSettings } from '@/lib/types';
+import { useCompanies } from '@/hooks/useDataLayer';
 import { T, StatusBadge } from './shared';
 import { RiskBadge } from '@/components/crm/SlidePanel';
 
@@ -20,6 +21,8 @@ export default function PhoneView({
     filtered, phoneIdx, setPhoneIdx,
     autoSettings, refresh, showToast, setContractModal
 }: PhoneViewProps) {
+    const { updateCompany } = useCompanies();
+
     if (filtered.length === 0) {
         return <div className="text-center py-12 text-sm" style={{ color: T.muted }}>표시할 기업이 없습니다.</div>;
     }
@@ -98,7 +101,7 @@ export default function PhoneView({
                         <p className="text-xs font-black mb-1.5" style={{ color: T.sub }}>📝 통화 메모</p>
                         <textarea
                             defaultValue={c.callNote}
-                            onBlur={(e) => { store.update(c.id, { callNote: e.target.value }); refresh(); }}
+                            onBlur={(e) => { updateCompany(c.id, { callNote: e.target.value }); refresh(); }}
                             rows={3} placeholder="통화 결과를 메모하세요..."
                             className="w-full rounded-xl text-sm p-3"
                             style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', resize: 'none' }} />
@@ -123,8 +126,12 @@ export default function PhoneView({
                 <div className="flex gap-2">
                     {callableStatuses.includes(c.status) && c.status !== 'emailed' && (
                         <Button variant="outline" size="sm" onClick={() => {
-                            store.salesConfirm(c.id, autoSettings.updatedBy || '영업팀');
-                            store.update(c.id, { callNote: c.callNote || '전화 완료' });
+                            updateCompany(c.id, { 
+                                salesConfirmed: true, 
+                                salesConfirmedBy: autoSettings.updatedBy || '영업팀',
+                                salesConfirmedAt: new Date().toISOString(),
+                                callNote: c.callNote || '전화 완료'
+                            });
                             refresh();
                             const nextIdx = phoneIdx + 1;
                             if (nextIdx < filtered.length) {
@@ -150,12 +157,12 @@ export default function PhoneView({
                         </Button>
                     )}
                     {c.status === 'contract_sent' && (
-                        <Button variant="outline" size="sm" onClick={() => { store.signContract(c.id); refresh(); }}>
+                        <Button variant="outline" size="sm" onClick={() => { updateCompany(c.id, { status: 'contract_signed' }); refresh(); }}>
                             <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> 서명 확인
                         </Button>
                     )}
                     {c.status === 'contract_signed' && (
-                        <Button variant="premium" size="sm" onClick={() => { store.subscribe(c.id, 'standard'); refresh(); }}>
+                        <Button variant="premium" size="sm" onClick={() => { updateCompany(c.id, { plan: 'standard' }); refresh(); }}>
                             <Star className="w-3.5 h-3.5 mr-1" /> 구독 확정 + 이관
                         </Button>
                     )}

@@ -6,15 +6,14 @@ import {
     CheckCircle2, Clock, ArrowRight, Shield, Mail, Gavel, Activity
 } from 'lucide-react';
 import Link from 'next/link';
-import { store } from '@/lib/store';
 import { leadStore } from '@/lib/leadStore';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 export default function AdminPage() {
-    const [clients, setClients] = useState<ReturnType<typeof store.getAll>>([]);
+    const { companies: clients } = useCompanies();
     const [leads, setLeads] = useState<ReturnType<typeof leadStore.getAll>>([]);
 
     useEffect(() => {
-        setClients(store.getAll());
         setLeads(leadStore.getAll());
     }, []);
 

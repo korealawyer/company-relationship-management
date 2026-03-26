@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, User, LogOut, ChevronDown, Settings, HelpCircle, Bell, CreditCard } from 'lucide-react';
 import { getSession, clearSession, type AuthUser } from '@/lib/auth';
-import type { RoleType } from '@/lib/store';
+import type { RoleType } from '@/lib/types';
 import { useZeroTrust } from '@/components/ZeroTrustBriefingProvider';
 import { startAutomationEngine } from '@/lib/automationEngine';
 

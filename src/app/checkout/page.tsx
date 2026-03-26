@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { store } from '@/lib/store';
+import { useCompanies } from '@/hooks/useDataLayer';
 import { PRICE_RANGES, CRM_PLAN_MAP, calcPrice } from '@/lib/pricing';
 
 // ── 플랜 데이터 (중앙 관리 모듈에서 가져옴) ─────────────────
@@ -128,6 +128,8 @@ function CheckoutContent() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
+    const { companies, updateCompany } = useCompanies();
+
     const [form, setForm] = useState({
         companyName: company,
         bizNo: '',
@@ -160,12 +162,11 @@ function CheckoutContent() {
 
         // CRM 연동: 회사명으로 매칭되는 기업이 있으면 구독 상태 업데이트
         const crmPlan = (CRM_PLAN_MAP[planId] || 'standard') as 'starter' | 'standard' | 'premium';
-        const allCompanies = store.getAll();
-        const matched = allCompanies.find(c =>
+        const matched = companies.find(c =>
             c.name === form.companyName || c.email === form.contactEmail
         );
         if (matched) {
-            store.subscribe(matched.id, crmPlan);
+            await updateCompany(matched.id, { plan: crmPlan, status: 'subscribed' });
         }
 
         setDone(true);

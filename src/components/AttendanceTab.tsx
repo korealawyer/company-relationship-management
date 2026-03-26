@@ -8,10 +8,8 @@ import {
     MapPin, ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import {
-    attendanceStore, type AttendanceRecord, type AttendanceType,
-    ATTENDANCE_TYPES, ATTENDANCE_TYPE_COLOR, ATTENDANCE_STATUS_LABEL, type AttendanceStatus,
-} from '@/lib/mockStore';
+import { ATTENDANCE_TYPES, ATTENDANCE_TYPE_COLOR, ATTENDANCE_STATUS_LABEL } from '@/lib/constants';
+import { attendanceStore, type AttendanceRecord, type AttendanceType, type AttendanceStatus } from '@/lib/store';
 
 // ── Apply Modal ──
 function ApplyModal({ onClose, onSubmit, initial }: {

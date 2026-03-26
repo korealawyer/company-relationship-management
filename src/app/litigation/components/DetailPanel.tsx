@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, Clock, AlertTriangle, Calendar, Archive, RotateCcw } from 'lucide-react';
-import { store, LitigationCase, LitigationDeadline, LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/mockStore';
+import { LitigationCase, LitigationDeadline } from '@/lib/types';
+import { LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/constants';
 import { getAiSummary, generateAiMemoSummary } from '@/lib/automationEngine';
+import { useLitigations } from '@/hooks/useDataLayer';
 
 import CloseModal from './CloseModal';
 import { STATUS_TEXT_MAP, STATUSES, daysUntil } from '../constants';
@@ -14,16 +16,18 @@ export default function DetailPanel({ lit, onClose, onUpdate }: { lit: Litigatio
     const [editResultNote, setEditResultNote] = useState(lit.resultNote);
     const [saving, setSaving] = useState(false);
     const [showCloseModal, setShowCloseModal] = useState(false);
+    const { updateLitigation } = useLitigations();
 
     const saveNotes = () => {
         setSaving(true);
-        store.updateLit(lit.id, { notes: editNote, result: editResult as LitigationCase['result'], resultNote: editResultNote });
+        updateLitigation(lit.id, { notes: editNote, result: editResult as LitigationCase['result'], resultNote: editResultNote });
         if (editNote.trim()) generateAiMemoSummary(lit.id, editNote);
         setTimeout(() => { setSaving(false); onUpdate(); }, 400);
     };
     const toggleDeadline = (d: LitigationDeadline) => {
         const now = new Date().toLocaleString('ko-KR', { hour12: false });
-        store.updateDeadline(lit.id, d.id, { completed: !d.completed, completedAt: !d.completed ? now : '' });
+        const updatedDeadlines = lit.deadlines.map(x => x.id === d.id ? { ...x, completed: !x.completed, completedAt: !x.completed ? now : '' } : x);
+        updateLitigation(lit.id, { deadlines: updatedDeadlines });
         onUpdate();
     };
 
@@ -71,7 +75,7 @@ export default function DetailPanel({ lit, onClose, onUpdate }: { lit: Litigatio
                     <p className="text-xs font-bold mb-2" style={{ color: '#64748b' }}>⚡ 사건 상태</p>
                     <div className="flex flex-wrap gap-1">
                         {STATUSES.map(s => (
-                            <button key={s} onClick={() => { store.updateLit(lit.id, { status: s }); onUpdate(); }}
+                            <button key={s} onClick={() => { updateLitigation(lit.id, { status: s }); onUpdate(); }}
                                 className="text-[10px] px-2 py-1 rounded-full font-bold transition-all"
                                 style={{
                                     background: lit.status === s ? LIT_STATUS_COLOR[s] : '#f1f5f9',
@@ -167,7 +171,7 @@ export default function DetailPanel({ lit, onClose, onUpdate }: { lit: Litigatio
                         </button>
                     )}
                     {lit.status === 'closed' && (
-                        <button onClick={() => { store.restoreLit(lit.id); onUpdate(); }}
+                        <button onClick={() => { updateLitigation(lit.id, { status: 'preparing' }); onUpdate(); }}
                             className="text-sm px-4 py-2.5 rounded-xl font-bold"
                             style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd' }}>
                             <RotateCcw className="w-3.5 h-3.5 inline mr-1" />복원
@@ -178,7 +182,7 @@ export default function DetailPanel({ lit, onClose, onUpdate }: { lit: Litigatio
         </motion.div>
         <AnimatePresence>
             {showCloseModal && <CloseModal ids={[lit.id]} onClose={() => setShowCloseModal(false)}
-                onConfirm={(reason) => { store.closeLit(lit.id, reason); setShowCloseModal(false); onUpdate(); }} />}
+                onConfirm={(reason) => { updateLitigation(lit.id, { status: 'closed', resultNote: reason }); setShowCloseModal(false); onUpdate(); }} />}
         </AnimatePresence>
         </>
     );

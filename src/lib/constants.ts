@@ -61,3 +61,16 @@ export const SALES_REPS = ['이민준', '박지수', '최현우', '강수빈'];
 // ── 소송 분류 상수 ───────────────────────────────────────────────
 export const LITIGATION_TYPES = ['개인정보 손해배상', '가맹계약 분쟁', '임직원 분쟁', '지적재산권', '계약 불이행', '기타'];
 export const COURTS = ['서울중앙지방법원', '수원지방법원', '서울고등법원', '대법원', '수원고등법원'];
+
+export const PERSONAL_LIT_STATUS_TEXT: any = {};
+export const PERSONAL_LIT_TYPES: any[] = [];
+export const PERSONAL_LIT_STATUS_LABEL: any = {};
+export const STATUS_COLORS: any = {};
+export const SAMPLE_CONSULTS: any[] = [];
+export const SAMPLE_BILLING: any[] = [];
+export const PERSONAL_LIT_STATUS_COLOR: any = {};
+export const ATTENDANCE_STATUS_LABEL: any = {};
+export const ATTENDANCE_TYPES: any[] = [];
+export const ATTENDANCE_TYPE_COLOR: any = {};
+export const CONSULTS: any[] = [];
+export const PERSONAL_LIT_STATUSES: any[] = [];

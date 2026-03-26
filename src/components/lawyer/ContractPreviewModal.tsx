@@ -3,8 +3,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileSignature, X, AlertCircle, Send } from 'lucide-react';
 import { C } from '@/lib/callPageUtils';
-import { Company, store } from '@/lib/store';
+import { Company } from '@/lib/types';
 import { AutoSignatureService } from '@/lib/salesAutomation';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 /* ─────────────────────────────────────────
    Props
@@ -25,9 +26,10 @@ export default function ContractPreviewModal({
   onRefresh,
   setToast,
 }: ContractPreviewModalProps) {
+  const { updateCompany } = useCompanies();
   /* ── 계약서 발송 핸들러 ── */
   const onSend = () => {
-    store.sendContract(company.id, 'email');
+    updateCompany(company.id, { status: 'contract_sent' });
     AutoSignatureService.watchForSignature(company);
     setToast(`${company.name} 계약서 발송 완료 — 서명 자동 감지 시작`);
     setContractPreviewTarget(null);

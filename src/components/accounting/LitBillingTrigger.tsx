@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, Send, TrendingUp } from 'lucide-react';
-// @ts-ignore
-import { store } from '@/lib/store';
+import { useLitigations } from '@/hooks/useDataLayer';
 
 export function LitBillingTrigger() {
+  const { litigations } = useLitigations();
   const [unbilled, setUnbilled] = useState<any[]>([]);
   const [toast, setToast] = useState(false);
 
   useEffect(() => {
-    const all = store.getLitAll ? store.getLitAll() : [];
+    const all = litigations || [];
     const filtered = all.filter((i: any) => i.status === 'closed' && (i.claimAmount > 0 || i.successFee > 0));
     setUnbilled(filtered.length ? filtered : [
       { id: '1', title: '손해배상(기)', clientName: '김철수', claimAmount: 5500000 },
       { id: '2', title: '부당해고구제', clientName: '박영희', claimAmount: 3300000 }
     ]);
-  }, []);
+  }, [litigations]);
 
   const total = unbilled.reduce((acc, i) => acc + (i.claimAmount || i.successFee || 0), 0);
 

@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 const MOCK_DB: Record<string, {
@@ -12,6 +13,9 @@ export async function GET(
     _request: NextRequest,
     { params }: { params: Promise<{ cid: string }> }
 ) {
+  const __auth = await requireSessionFromCookie(_request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     const { cid } = await params;
     const company = MOCK_DB[cid];
 

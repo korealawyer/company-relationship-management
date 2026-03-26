@@ -1,7 +1,7 @@
 import React from 'react';
 import { Activity, Star, TrendingUp, Users } from 'lucide-react';
 // @ts-ignore
-import { SAMPLE_BILLING } from '@/lib/store';
+import { SAMPLE_BILLING } from '@/lib/constants';
 
 export function ClientLTVPanel() {
   const data = [

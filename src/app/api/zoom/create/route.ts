@@ -1,7 +1,11 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     // Supabase 클라이언트 초기화 (요청 시마다 최신 env 반영)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { Company } from '@/lib/store';
+import { Company } from '@/lib/types';
 import { PaymentRecord, PLAN_LABEL, PLAN_PRICE, PAY_STATUS_STYLE, T } from '../../types';
 
 interface CompanyDetailSidebarProps {

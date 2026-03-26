@@ -51,18 +51,20 @@ function getConfig(): PortOneConfig | null {
     return null;
 }
 
+import * as PortOne from '@portone/browser-sdk/v2';
+
 /**
  * 결제 요청 (포트원 v2)
  * 
  * - 환경변수 미설정 시: mock 결제 (항상 성공)
- * - 환경변수 설정 시: 실제 PortOne SDK 호출 (TODO: SDK import)
+ * - 환경변수 설정 시: 실제 PortOne SDK 호출
  */
 export async function requestPayment(req: PaymentRequest): Promise<PaymentResult> {
     const config = getConfig();
 
     if (!config) {
-        // ── Mock 모드 ──
-        console.log('[PortOne Mock] 결제 요청:', req.orderName, req.totalAmount);
+        // ── 환경변수 누락 시 Mock 모드로 동작 (개발/테스트용) ──
+        console.warn('[PortOne Mock] 환경변수 미설정. 결제 시뮬레이션을 진행합니다:', req.orderName, req.totalAmount);
         await new Promise(r => setTimeout(r, 1500)); // 결제 시뮬레이션
 
         return {
@@ -73,25 +75,41 @@ export async function requestPayment(req: PaymentRequest): Promise<PaymentResult
         };
     }
 
-    // ── 실연동 모드 (TODO: SDK 연동) ──
-    // import PortOne from '@portone/browser-sdk/v2';
-    // const response = await PortOne.requestPayment({
-    //     storeId: config.storeId,
-    //     channelKey: config.channelKey,
-    //     paymentId: req.paymentId,
-    //     orderName: req.orderName,
-    //     totalAmount: req.totalAmount,
-    //     currency: req.currency,
-    //     payMethod: req.payMethod,
-    //     customer: req.customer,
-    // });
-    
-    console.warn('[PortOne] 실연동 모드 활성화됨. SDK import 필요.');
-    return {
-        success: false,
-        paymentId: req.paymentId,
-        failReason: 'SDK 미설치. npm install @portone/browser-sdk 실행 필요.',
-    };
+    // ── 실연동 모드 (실제 PortOne v2 SDK 연동) ──
+    try {
+        const response = await PortOne.requestPayment({
+            storeId: config.storeId,
+            channelKey: config.channelKey,
+            paymentId: req.paymentId,
+            orderName: req.orderName,
+            totalAmount: req.totalAmount,
+            currency: req.currency,
+            payMethod: req.payMethod,
+            customer: req.customer,
+        });
+        
+        if (response?.code !== undefined) {
+             return { 
+                success: false, 
+                paymentId: req.paymentId, 
+                failReason: response.message || '결제 실패' 
+             };
+        }
+        
+        return {
+            success: true,
+            paymentId: req.paymentId,
+            transactionId: response?.paymentId, // PortOne v2 often returns paymentId and txId based on PG
+            paidAt: new Date().toISOString()
+        };
+    } catch (error: any) {
+        console.error('[PortOne Error]', error);
+        return {
+            success: false,
+            paymentId: req.paymentId,
+            failReason: error?.message || '결제 진행 중 오류가 발생했습니다.',
+        };
+    }
 }
 
 /**

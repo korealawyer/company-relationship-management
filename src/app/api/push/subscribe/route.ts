@@ -1,9 +1,13 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { PushService } from '@/lib/leadScoring';
 
 // ── POST /api/push/subscribe ────────────────────────────
 // 클라이언트 Push 구독 정보 저장
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const body = await req.json();
         const { endpoint, keys, userId } = body;
@@ -24,6 +28,9 @@ export async function POST(req: NextRequest) {
 
 // ── DELETE /api/push/subscribe ──────────────────────────
 export async function DELETE(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const { endpoint } = await req.json();
         PushService.unsubscribe(endpoint);

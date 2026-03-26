@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gavel } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { store, COURTS, LITIGATION_TYPES, LAWYERS } from '@/lib/store';
+import { COURTS, LITIGATION_TYPES, LAWYERS } from '@/lib/constants';
+import { useCompanies, useLitigations } from '@/hooks/useDataLayer';
 
 export const INSTANCE_TYPES = ['1심', '2심(항소)', '3심(상고)', '헌법', '가처분', '가압류', '조정'];
 export const CASE_CATEGORIES = ['민사', '형사', '가사', '행정', '헌법', '회생/파산', '국제중재'];
 
 export default function AddCaseModal({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
-    const companies = store.getAll();
+    const { companies } = useCompanies();
+    const { addLitigation } = useLitigations();
     const [form, setForm] = useState({
-        companyId: companies[0]?.id ?? '', caseNo: '', court: COURTS[0], type: LITIGATION_TYPES[0],
+        companyId: companies?.[0]?.id ?? '', caseNo: '', court: COURTS[0], type: LITIGATION_TYPES[0],
         category: '민사', instance: '1심', opponent: '', opponentCounsel: '', claimAmount: '',
         assignedLawyer: LAWYERS[0], coLawyer: '', assistLawyer: '', notes: '', filingDate: '',
     });
@@ -37,7 +39,7 @@ export default function AddCaseModal({ onClose, onAdd }: { onClose: () => void; 
 
     const handleAdd = () => {
         const company = companies.find(c => c.id === form.companyId);
-        store.addLit({
+        addLitigation({
             companyId: form.companyId, companyName: company?.name ?? '',
             caseNo: form.caseNo, court: form.court, type: form.type,
             opponent: form.opponent, claimAmount: parseInt(form.claimAmount.replace(/,/g, '')) || 0,

@@ -10,12 +10,9 @@ import {
     ChevronRight, Archive, Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import {
-    personalStore, PersonalLitigation, PersonalLitStatus, PersonalClient,
-    PersonalLitType, PersonalLitDeadline,
-    PERSONAL_LIT_STATUS_LABEL, PERSONAL_LIT_STATUS_COLOR, PERSONAL_LIT_STATUS_TEXT,
-    PERSONAL_LIT_STATUSES, PERSONAL_LIT_TYPES, LAWYERS, COURTS,
-} from '@/lib/mockStore';
+import { PersonalLitigation, PersonalLitStatus, PersonalClient, PersonalLitType, PersonalLitDeadline } from '@/lib/types';
+import { PERSONAL_LIT_STATUS_LABEL, PERSONAL_LIT_STATUS_COLOR, PERSONAL_LIT_STATUS_TEXT, PERSONAL_LIT_STATUSES, PERSONAL_LIT_TYPES, LAWYERS, COURTS } from '@/lib/constants';
+import { personalStore } from '@/lib/store';
 
 const formatMoney = (n: number) => n >= 100000000 ? `${(n / 100000000).toFixed(1)}억` : n >= 10000 ? `${(n / 10000).toFixed(0)}만원` : `${n.toLocaleString()}원`;
 function daysUntil(dateStr: string) { return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000); }

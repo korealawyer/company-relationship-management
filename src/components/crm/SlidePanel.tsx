@@ -7,11 +7,9 @@ import {
     Copy, Save, CheckCircle2, CheckCheck, Send,
     PhoneCall, Calendar, Gavel, Edit3, ChevronRight, Plus,
 } from 'lucide-react';
-import {
-    store, Company, CaseStatus,
-    CompanyTimelineEvent, TimelineEventType,
-    STATUS_LABEL, STATUS_COLOR, STATUS_TEXT,
-} from '@/lib/mockStore';
+import { Company, CaseStatus, CompanyTimelineEvent, TimelineEventType } from '@/lib/types';
+import { STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 // ── 색상 ──
 const RISK_META = {
@@ -99,8 +97,9 @@ function ScriptTab({ company, onUpdate }: { company: Company; onUpdate: () => vo
     const [activeScript, setActiveScript] = useState<'call' | 'email'>('call');
     const [saved, setSaved] = useState(false);
 
+    const { updateCompany } = useCompanies();
     const handleSave = () => {
-        store.saveScript(company.id, { call: callScript, email: emailScript });
+        updateCompany(company.id, { customScript: { call: callScript, email: emailScript } });
         onUpdate(); setSaved(true); setTimeout(() => setSaved(false), 2000);
     };
 
@@ -146,9 +145,18 @@ function TimelineTab({ company, onUpdate }: { company: Company; onUpdate: () => 
     const [newType, setNewType] = useState<TimelineEventType>('call');
     const sorted = [...(company.timeline || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+    const { updateCompany } = useCompanies();
     const handleAdd = () => {
         if (!newContent.trim()) return;
-        store.addTimelineEvent(company.id, { createdAt: new Date().toISOString(), author: '영업팀', type: newType, content: newContent });
+        updateCompany(company.id, { 
+            timeline: [...(company.timeline || []), { 
+                id: crypto.randomUUID(), 
+                createdAt: new Date().toISOString(), 
+                author: '영업팀', 
+                type: newType, 
+                content: newContent 
+            }] 
+        });
         onUpdate(); setNewContent('');
     };
 
@@ -214,9 +222,17 @@ function TimelineTab({ company, onUpdate }: { company: Company; onUpdate: () => 
 // ── 메모 탭 ──
 function MemoTab({ company, onUpdate }: { company: Company; onUpdate: () => void }) {
     const [text, setText] = useState('');
+    const { updateCompany } = useCompanies();
     const handleSave = () => {
         if (!text.trim()) return;
-        store.addMemo(company.id, { author: '영업팀', content: text });
+        updateCompany(company.id, { 
+            memos: [...(company.memos || []), { 
+                id: crypto.randomUUID(), 
+                createdAt: new Date().toISOString(), 
+                author: '영업팀', 
+                content: text 
+            }] 
+        });
         onUpdate(); setText('');
     };
     return (

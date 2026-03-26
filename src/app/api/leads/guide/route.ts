@@ -1,8 +1,12 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 
 // ── [가이드북 리드 수신] POST /api/leads/guide ──────────────────
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const body = await req.json();
         const { companyName, contactName, contactEmail, contactPhone, bizType } = body;

@@ -1,6 +1,10 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     // 1. URL에서 쿼리 파라미터 가져오기 (?date=YYYY-MM-DD)
     const searchParams = req.nextUrl.searchParams;

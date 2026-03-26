@@ -12,7 +12,7 @@ export default function ClientPortalMyCasesPage() {
 
     useEffect(() => {
         const allCases = personalStore.getAll();
-        const activeCase = allCases.find(c => c.status !== 'closed') || allCases[0];
+        const activeCase = allCases.find((c: any) => c.status !== 'closed') || allCases[0];
         setCaseData(activeCase);
     }, []);
 

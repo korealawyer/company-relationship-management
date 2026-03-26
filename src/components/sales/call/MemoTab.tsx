@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Send, RefreshCw, BrainCircuit, Sparkles, Zap } from 'lucide-react';
-import { Company } from '@/lib/store';
-import { store } from '@/lib/store';
+import { Company } from '@/lib/types';
+import { useCompanies } from '@/hooks/useDataLayer';
 import { AIMemoService, type AIMemoResult } from '@/lib/salesAutomation';
 
 /* ── CRM 라이트 색상 (공유 상수 추출 전 임시 로컬 복사) ─────── */
@@ -24,6 +24,7 @@ export interface MemoTabProps {
 
 /* ── Component ───────────────────────────────────────────── */
 export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
+    const { updateCompany } = useCompanies();
     const [note, setNote] = useState(co.callNote || '');
     const [aiResult, setAiResult] = useState<AIMemoResult | null>(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -35,19 +36,19 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
     }, [co.id]);
 
     const saveMemo = () => {
-        store.update(co.id, { callNote: note });
+        updateCompany(co.id, { callNote: note });
         onRefresh();
         setToast('💾 저장');
     };
 
     const saveWithAI = async () => {
         if (!note.trim()) return;
-        store.update(co.id, { callNote: note });
+        updateCompany(co.id, { callNote: note });
         setAiLoading(true);
         try {
             const r = await AIMemoService.analyze(co, note);
             setAiResult(r);
-            store.update(co.id, {
+            updateCompany(co.id, {
                 aiMemoSummary: r.summary,
                 aiNextAction: r.nextAction,
                 aiNextActionType: r.nextActionType,

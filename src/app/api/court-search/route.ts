@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -125,6 +126,9 @@ const MOCK_COURT_DB: Record<string, CourtCaseResult> = {
 // }
 
 export async function POST(request: NextRequest) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const { caseNumber } = await request.json();
 
@@ -160,7 +164,10 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: 등록된 사건번호 목록 반환 (관리용)
-export async function GET() {
+export async function GET(req: any) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     const cases = Object.values(MOCK_COURT_DB).map(c => ({
         caseNumber: c.caseNumber,
         caseName: c.caseName,

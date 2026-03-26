@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { store, LitigationCase, LIT_STATUS_LABEL, LIT_STATUS_COLOR } from '@/lib/store';
+import { LitigationCase } from '@/lib/types';
+import { LIT_STATUS_LABEL, LIT_STATUS_COLOR } from '@/lib/constants';
 import { Button } from '@/components/ui/Button';
+import { useLitigations } from '@/hooks/useDataLayer';
 import { Bell, Mail, MessageSquare, Clock, Save, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
@@ -16,14 +18,15 @@ export default function CaseDetailPage() {
     
     const [caseData, setCaseData] = useState<LitigationCase | null>(null);
     const { settings, setSettings, isSaving, saveSettings } = useNotificationSettings(caseId);
+    const { litigations } = useLitigations();
 
     useEffect(() => {
-        if (!caseId) return;
-        const c = store.getLitById(caseId);
+        if (!caseId || !litigations) return;
+        const c = litigations.find(l => l.id === caseId);
         if (c) {
             setCaseData(c);
         }
-    }, [caseId]);
+    }, [caseId, litigations]);
 
     const handleSave = async () => {
         if (!caseData) return;

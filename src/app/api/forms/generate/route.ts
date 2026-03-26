@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 
 // ==========================================
@@ -6,6 +7,9 @@ import { NextResponse } from 'next/server';
 // ==========================================
 
 export async function POST(request: Request) {
+  const __auth = await requireSessionFromCookie(request as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
   try {
     const { formId, mappedData } = await request.json();
 

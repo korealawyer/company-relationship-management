@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { leadStore } from '@/lib/leadStore';
 import { requireSessionFromCookie } from '@/lib/auth';
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // ── SMTP 설정 ────────────────────────────────────────────────
 // .env.local에서 읽어옴 — 설정이 없으면 Mock 모드
@@ -200,7 +203,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '처리할 수 없는 요청입니다.' }, { status: 400 });
     }
 
-    if (SMTP_CONFIGURED) {
+    if (resend) {
+      // ─ 실 발송 (Resend) ─
+      for (const email of emails) {
+        await resend.emails.send({
+          from: FROM,
+          to: email.to,
+          subject: email.subject,
+          html: email.html,
+        });
+      }
+      console.log(`[email] ✅ 실 발송 완료 (Resend) | from: ${FROM} | to: ${emails.map(e => e.to).join(', ')}`);
+    } else if (SMTP_CONFIGURED) {
       // ─ 실 발송 (nodemailer) ─
       const transporter = createTransporter();
       for (const email of emails) {
@@ -211,7 +225,7 @@ export async function POST(req: NextRequest) {
           html: email.html,
         });
       }
-      console.log(`[email] ✅ 실 발송 완료 | from: ${FROM} | to: ${emails.map(e => e.to).join(', ')}`);
+      console.log(`[email] ✅ 실 발송 완료 (Nodemailer) | from: ${FROM} | to: ${emails.map(e => e.to).join(', ')}`);
     } else {
       // ─ Mock 모드 (콘솔 출력) ─
       for (const email of emails) {

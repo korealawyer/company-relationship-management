@@ -1,5 +1,5 @@
 import { C } from '../_constants/colors';
-import { type Company } from '@/lib/store';
+import { type Company } from '@/lib/types';
 
 /** 전화번호에서 숫자와 + 기호만 남깁니다. */
 export function cleanPhone(raw: string): string {

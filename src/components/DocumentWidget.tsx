@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileText, UploadCloud } from 'lucide-react';
-import { documentStore, Document, DocumentCategory, DocumentStatus } from '@/lib/mockStore';
+import type { Document, DocumentCategory, DocumentStatus } from '@/lib/types';
 
 import { OcrResultData, OcrResultPanel } from './documents/OcrResultPanel';
 import { DocumentList } from './documents/DocumentList';
@@ -31,7 +31,8 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
 
     // load docs
     useEffect(() => {
-        const load = () => setDocs(documentStore.getByCompanyId(companyId));
+        // TODO: Replace with SWR-based fetching from Supabase Storage & DB
+        const load = () => setDocs([]);
         load();
         window.addEventListener('ibs-docs-updated', load);
         return () => window.removeEventListener('ibs-docs-updated', load);
@@ -46,7 +47,9 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
                 return;
             }
             
-            documentStore.upload({
+            // TODO: Implement Supabase Storage upload
+            const fileDoc: Document = {
+                id: Math.random().toString(),
                 companyId,
                 authorRole: currentUserRole,
                 name: file.name,
@@ -56,18 +59,23 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
                 status: '검토 완료',
                 url: URL.createObjectURL(file),
                 isNewForClient: true,
-                isNewForLawyer: false
-            });
+                isNewForLawyer: false,
+                createdAt: new Date().toISOString()
+            };
+            setDocs(prev => [fileDoc, ...prev]);
+            console.log('Document upload pending Supabase Integration:', file.name);
         });
     };
 
     const handleStatusChange = (docId: string, newStatus: DocumentStatus) => {
-        documentStore.updateStatus(docId, newStatus);
+        // TODO: Update via Supabase DB mutation
+        setDocs(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
     };
 
     const handleDocClick = (doc: Document) => {
         if (doc.isNewForLawyer) {
-            documentStore.markAsReadByLawyer(doc.id);
+            // TODO: Mark as read via Supabase DB mutation
+            setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, isNewForLawyer: false } : d));
         }
         window.open(doc.url, '_blank');
     };

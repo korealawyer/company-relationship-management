@@ -1,3 +1,4 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { leadStore, type Lead, type LeadStatus } from '@/lib/leadStore';
 
@@ -30,6 +31,9 @@ const COL_MAP: Record<string, keyof Lead> = {
 };
 
 export async function POST(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req as any);
+  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
     try {
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
                 storeCount: (mapped.storeCount as number) || 0,
                 bizType: (mapped.bizType as string) || '미분류',
                 riskScore: 0,
-                riskLevel: '' as '',
+                riskLevel: '' as const,
                 issueCount: 0,
                 status: 'pending' as LeadStatus,
                 source: 'excel' as const,

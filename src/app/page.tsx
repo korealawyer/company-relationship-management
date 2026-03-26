@@ -1,13 +1,7 @@
-'use client';
-
-import React, { Suspense, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { Phone, Lock, Clock, ArrowRight, Shield, BadgeCheck, Award, CheckCircle2, ChevronDown, Download } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { ChevronDown, Shield, BadgeCheck, Award, CheckCircle2 } from 'lucide-react';
 
-// ── 랜딩 섹션 컴포넌트 ────────────────────────────────────
 import HeroSection, { ScrollProgress } from '@/components/landing/HeroSection';
 import InfraMapSection from '@/components/landing/InfraMapSection';
 import UseCaseSection from '@/components/landing/UseCaseSection';
@@ -17,252 +11,125 @@ import PricingSection from '@/components/landing/PricingSection';
 import TestimonialsSection from '@/components/landing/TestimonialsSection';
 import TrustBadgeSection from '@/components/landing/TrustBadgeSection';
 import FaqSection from '@/components/landing/FaqSection';
-import GuideDownloadForm from '@/components/marketing/GuideDownloadForm';
-
 import FeatureShowcase from '@/components/landing/FeatureShowcase';
 
-// ── Mock 회사 데이터 ────────────────────────────────────────
-import { MOCK_COMPANIES, fadeUp } from '@/lib/landingData';
+import GuideDownloadSection from '@/components/landing/GuideDownloadSection';
+import CtaSection from '@/components/landing/CtaSection';
 
-// ── useSearchParams는 Suspense 경계 안에서만 사용 가능 ──────
-function LandingPageInner() {
-  const searchParams = useSearchParams();
-  const utm_source = searchParams.get('utm_source');
-  const [showCopyToast, setShowCopyToast] = useState(false);
-  const cid = searchParams.get('cid') ?? '';
-  const biz = searchParams.get('biz') ?? '';
-  const company = useMemo(() => (cid && MOCK_COMPANIES[cid]) ? MOCK_COMPANIES[cid] : MOCK_COMPANIES['default'], [cid]);
-  const resolvedParams: { cid?: string; biz?: string } = { ...(cid ? { cid } : {}), ...(biz ? { biz } : {}) };
+export const revalidate = 3600; // Cache ISR revalidation strategy (1 hour)
 
-  return (
-    <>
-      <ScrollProgress />
-      <div className="bg-navy-deep">
-
-        {/* ── 1. HERO — 플랫폼 규모감 ── */}
-        <HeroSection company={company} resolvedParams={resolvedParams} />
-
-        <div className="gold-divider" />
-
-        {/* ── 2. 인프라 맵 — "이 모든 걸 합니다" ── */}
-        <InfraMapSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 3. 업종별 유즈케이스 — 사회적 증거 ── */}
-        <UseCaseSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 3.5. 기능 쇼케이스 — "가입하면 바로 사용 가능" ── */}
-        <FeatureShowcase />
-
-        <div className="gold-divider" />
-
-        {/* ── 4. 5대 포함 서비스 ── */}
-        <ServicesSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 5. 무료 체험 + 대시보드 프리뷰 ── */}
-        <FreeTierSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 6. PRICING (ROI 비교 포함) ── */}
-        <PricingSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 7. TESTIMONIALS + 미디어 + 케이스 스터디 ── */}
-        <TestimonialsSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 8. 신뢰 배지 & 인증 ── */}
-        <TrustBadgeSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 9. 가이드북 다운로드 ── */}
-        <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: '#0f172a' }}>
-            <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-                <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-bold pill-gold pill-gold-text">
-                        <Download className="w-4 h-4" /> 무료 제공 자료
-                    </div>
-                    <h2 className="text-3xl sm:text-5xl font-black mb-6 text-light leading-tight">
-                        프랜차이즈 본사라면<br />
-                        <span className="text-gold-gradient">반드시 점검해야 할 5가지</span>
-                    </h2>
-                    <p className="text-lg mb-8 text-muted-80">
-                        정보공개서, 가맹계약서, 개인정보처리방침 등 법적 리스크를 피하기 위한 핵심 가이드북을 무료로 제공해 드립니다. 
-                        지금 바로 우리 회사의 상태를 진단해보세요.
-                    </p>
-                    <ul className="flex flex-col gap-4 text-muted-80">
-                        <li className="flex items-center gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-gold" />
-                            최신 법령이 반영된 <strong>필수 체크리스트</strong>
-                        </li>
-                        <li className="flex items-center gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-gold" />
-                            과태료를 피하는 <strong>개인정보 관리 노하우</strong>
-                        </li>
-                        <li className="flex items-center gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-gold" />
-                            가맹점과의 <strong>분쟁 예방 가이드</strong>
-                        </li>
-                    </ul>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                    <GuideDownloadForm />
-                </motion.div>
-            </div>
-        </section>
-
-        <div className="gold-divider" />
-
-        {/* ── 마지막 CTA ── */}
-        <section id="cta" className="py-24 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 text-sm font-bold pill-gold pill-gold-text">
-                <Clock className="w-4 h-4" /> 지금 바로 시작하세요
-              </div>
-              <h2 className="text-3xl sm:text-5xl font-black mb-6 text-light">
-                이 인프라를 쓰지 않는 것이<br />
-                <span className="text-danger-gradient">오히려 손해입니다</span>
-              </h2>
-              <p className="text-lg mb-12 max-w-2xl mx-auto text-muted-70">
-                1,200+ 기업이 이미 선택한 통합 법무 인프라.<br />
-                지금 무료 체험을 시작하고, 귀사의 법률·경영 리스크를 완전히 통제하세요.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="tel:025988518" onClick={(e) => {
-                  if (window.innerWidth >= 768) {
-                    e.preventDefault();
-                    navigator.clipboard.writeText('02-598-8518');
-                    setShowCopyToast(true);
-                    setTimeout(() => setShowCopyToast(false), 3000);
-                  }
-                }}>
-                  <Button variant="ghost" size="xl" className="gap-3 w-full sm:w-auto">
-                    <Phone className="w-6 h-6" /> 02-598-8518 지금 전화
-                  </Button>
-                </a>
-                <Link href="/signup">
-                  <Button variant="premium" size="xl" className="gap-3 w-full sm:w-auto">
-                    <Lock className="w-6 h-6" /> 무료 체험 시작하기 <ArrowRight className="w-6 h-6" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        <div className="gold-divider" />
-
-        {/* ── FAQ ── */}
-        <FaqSection />
-
-        <div className="gold-divider" />
-
-        {/* ── 푸터 ── */}
-        <footer className="footer-bg">
-          <div className="max-w-6xl mx-auto px-4 py-16">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0 logo-gold"
-                    style={{ width: 32, height: 32 }}>
-                    IBS
-                  </div>
-                  <div>
-                    <p className="font-black text-sm text-light">법률사무소</p>
-                    <p className="text-[10px] text-gold-50">IBS LAW FIRM</p>
-                  </div>
-                </div>
-                <p className="text-xs leading-relaxed text-muted-40">
-                  한국 No.1 프랜차이즈 전문 로펌<br />설립 2013년 · 본점 서울 서초구
-                </p>
-                <div className="flex gap-2 mt-4">
-                  {[Shield, BadgeCheck, Award].map((I, i) => (
-                    <div key={i} className="w-8 h-8 rounded-lg flex items-center justify-center bg-gold-subtle border-gold-light">
-                      <I className="w-4 h-4 text-gold" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="font-bold text-sm mb-4 text-gold">서비스</p>
-                {['프랜차이즈 자문', '가맹점 분쟁 해결', '개인정보 컴플라이언스', '소송·분쟁 해결', '연간 법률 진단'].map((s, i) => (
-                  <p key={i} className="text-xs mb-2 flex items-center gap-1.5 text-muted-45">
-                    <ChevronDown className="w-3 h-3 -rotate-90 text-gold-40" />{s}
-                  </p>
-                ))}
-              </div>
-              <div>
-                <p className="font-bold text-sm mb-4 text-gold">연락정보</p>
-                {[
-                  { text: '02-598-8518' },
-                  { text: 'legal@ibs-law.co.kr' },
-                  { text: '서울시 서초구 서초대로 272, IBS빌딩' },
-                  { text: '평일 09:00‒18:00' },
-                ].map((c, i) => (
-                  <div key={i} className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-muted-45">{c.text}</span>
-                  </div>
-                ))}
-              </div>
-              <div>
-                <p className="font-bold text-sm mb-4 text-gold">신뢰 인증</p>
-                {['대한변호사협회 등록', '대한법조코리아 회원사', '개인정보보호위원회 자문사', '공정거래위원회 등록 법률사무소'].map((b, i) => (
-                  <div key={i} className="flex items-center gap-1.5 mb-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-green" />
-                    <span className="text-xs text-muted-45">{b}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 border-glass-top">
-              <p className="text-xs text-muted-45">
-                © 2026 IBS 법률사무소. All rights reserved. · 사업자등록번호 123-45-67890 · 대표변호사 유정훈
-              </p>
-              <div className="flex gap-4">
-                <Link href="/legal/terms" className="text-xs hover:underline text-muted-45">이용약관</Link>
-                <Link href="/legal/privacy" className="text-xs hover:underline text-muted-45">개인정보처리방침</Link>
-                <Link href="/legal" className="text-xs hover:underline text-muted-45">광고성 정보 수신 거부</Link>
-              </div>
-            </div>
-          </div>
-        </footer>
-
-      {/* Custom Toast Notification for Desktop Phone Click */}
-      <AnimatePresence>
-        {showCopyToast && (
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-4 rounded-xl shadow-2xl"
-            style={{ background: 'rgba(20, 24, 32, 0.95)', border: '1px solid rgba(201,168,76,0.3)', backdropFilter: 'blur(10px)' }}>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(201,168,76,0.2)' }}>
-              <BadgeCheck className="w-5 h-5 text-gold-light" style={{ color: '#e8c87a' }} />
-            </div>
-            <div>
-              <div className="text-white font-semibold text-sm mb-0.5">전화번호가 클립보드에 복사되었습니다</div>
-              <div className="text-xs" style={{ color: 'rgba(240,244,255,0.6)' }}>02-598-8518 (평일 09:00~18:00)</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
-    </>
-  );
-}
-
-// Suspense 래퍼: useSearchParams 사용을 위해 필수
 export default function LandingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: '#04091a' }}><div className="text-gold text-lg font-bold animate-pulse">로딩 중...</div></div>}>
-      <LandingPageInner />
-    </Suspense>
+    <main className="bg-navy-deep">
+      <ScrollProgress />
+
+      {/* ── 1. HERO — 플랫폼 규모감 ── */}
+      <Suspense fallback={<div className="h-[600px] w-full bg-[#04091a] animate-pulse rounded-lg" />}>
+        <HeroSection />
+      </Suspense>
+
+      <div className="gold-divider" />
+      <InfraMapSection />
+      
+      <div className="gold-divider" />
+      <UseCaseSection />
+      
+      <div className="gold-divider" />
+      <FeatureShowcase />
+      
+      <div className="gold-divider" />
+      <ServicesSection />
+      
+      <div className="gold-divider" />
+      <FreeTierSection />
+      
+      <div className="gold-divider" />
+      <PricingSection />
+      
+      <div className="gold-divider" />
+      <TestimonialsSection />
+      
+      <div className="gold-divider" />
+      <TrustBadgeSection />
+      
+      <div className="gold-divider" />
+      <GuideDownloadSection />
+      
+      <div className="gold-divider" />
+      <CtaSection />
+
+      <div className="gold-divider" />
+      <FaqSection />
+
+      <div className="gold-divider" />
+      <footer className="footer-bg">
+        <div className="max-w-6xl mx-auto px-4 py-16">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0 logo-gold"
+                  style={{ width: 32, height: 32 }}>
+                  IBS
+                </div>
+                <div>
+                  <p className="font-black text-sm text-light">법률사무소</p>
+                  <p className="text-[10px] text-gold-50">IBS LAW FIRM</p>
+                </div>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-40">
+                한국 No.1 프랜차이즈 전문 로펌<br />설립 2013년 · 본점 서울 서초구
+              </p>
+              <div className="flex gap-2 mt-4">
+                {[Shield, BadgeCheck, Award].map((Icon, i) => (
+                  <div key={i} className="w-8 h-8 rounded-lg flex items-center justify-center bg-gold-subtle border-gold-light">
+                    <Icon className="w-4 h-4 text-gold" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="font-bold text-sm mb-4 text-gold">서비스</p>
+              {['프랜차이즈 자문', '가맹점 분쟁 해결', '개인정보 컴플라이언스', '소송·분쟁 해결', '연간 법률 진단'].map((s, i) => (
+                <p key={i} className="text-xs mb-2 flex items-center gap-1.5 text-muted-45">
+                  <ChevronDown className="w-3 h-3 -rotate-90 text-gold-40" />{s}
+                </p>
+              ))}
+            </div>
+            <div>
+              <p className="font-bold text-sm mb-4 text-gold">연락정보</p>
+              {[
+                { text: '02-598-8518' },
+                { text: 'legal@ibs-law.co.kr' },
+                { text: '서울시 서초구 서초대로 272, IBS빌딩' },
+                { text: '평일 09:00‒18:00' },
+              ].map((c, i) => (
+                <div key={i} className="flex items-center gap-2 mb-2">
+                  <span className="text-xs text-muted-45">{c.text}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="font-bold text-sm mb-4 text-gold">신뢰 인증</p>
+              {['대한변호사협회 등록', '대한법조코리아 회원사', '개인정보보호위원회 자문사', '공정거래위원회 등록 법률사무소'].map((b, i) => (
+                <div key={i} className="flex items-center gap-1.5 mb-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-green" />
+                  <span className="text-xs text-muted-45">{b}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 border-glass-top">
+            <p className="text-xs text-muted-45">
+              © 2026 IBS 법률사무소. All rights reserved. · 사업자등록번호 123-45-67890 · 대표변호사 유정훈
+            </p>
+            <div className="flex gap-4">
+              <Link href="/legal/terms" className="text-xs hover:underline text-muted-45">이용약관</Link>
+              <Link href="/legal/privacy" className="text-xs hover:underline text-muted-45">개인정보처리방침</Link>
+              <Link href="/legal" className="text-xs hover:underline text-muted-45">광고성 정보 수신 거부</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }

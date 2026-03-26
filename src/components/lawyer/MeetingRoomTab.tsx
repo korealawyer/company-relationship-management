@@ -4,11 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2 } from 'lucide-react';
-import { 
-    meetingRoomStore, 
-    type MeetingRoom, 
-    type MeetingReservation 
-} from '@/lib/mockStore';
+import { meetingRoomStore, type MeetingRoom, type MeetingReservation } from '@/lib/store';
 import { getCurrentUserId } from '@/lib/permissions';
 
 const TIME_SLOTS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];

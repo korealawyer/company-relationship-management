@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, TrendingUp, Bot, Phone, LayoutGrid, Ticket, Download, Upload, AlertTriangle, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT, store, Company } from '@/lib/store';
+import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
+import { Company } from '@/lib/types';
 import SlidePanel from '@/components/crm/SlidePanel';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import SalesDashboard from '@/components/crm/SalesDashboard';
@@ -88,11 +89,6 @@ export default function EmployeePage() {
                                 style={{ background: showInvitePanel ? '#fef3c7' : T.card, color: showInvitePanel ? '#92400e' : T.sub, border: `1px solid ${showInvitePanel ? '#fde68a' : T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                 <Ticket className="w-3.5 h-3.5" /> 초대
                             </button>
-                            <button onClick={() => { store.reset(); crm.refresh(); }}
-                                className="hidden sm:block text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                                style={{ background: T.card, color: T.muted, border: `1px solid ${T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                초기화
-                            </button>
                             <button onClick={excel.handleExcelDownload}
                                 className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -115,7 +111,7 @@ export default function EmployeePage() {
             </div>
 
             {/* Panels */}
-            {crm.isAdmin && <AnimatePresence>{showAutoPanel && <AutoSettingsPanel autoSettings={crm.autoSettings} autoLogs={crm.autoLogs} updateAuto={crm.updateAuto} clearLogs={crm.clearLogs} />}</AnimatePresence>}
+            {crm.isAdmin && <AnimatePresence>{showAutoPanel && crm.autoSettings && <AutoSettingsPanel autoSettings={crm.autoSettings} autoLogs={crm.autoLogs} updateAuto={crm.updateAuto} clearLogs={crm.clearLogs} />}</AnimatePresence>}
             {crm.isAdmin && <AnimatePresence>{showInvitePanel && <InvitePanel />}</AnimatePresence>}
 
             {/* Action Banners & Filters */}
@@ -167,7 +163,7 @@ export default function EmployeePage() {
 
             {/* main views */}
             {crm.viewMode === 'phone' ? (
-                <PhoneView filtered={filtered} phoneIdx={phoneIdx} setPhoneIdx={setPhoneIdx} autoSettings={crm.autoSettings} refresh={crm.refresh} showToast={crm.showToast} setContractModal={setContractModal} />
+                <PhoneView filtered={filtered} phoneIdx={phoneIdx} setPhoneIdx={setPhoneIdx} autoSettings={crm.autoSettings!} refresh={crm.refresh} showToast={crm.showToast} setContractModal={setContractModal} />
             ) : crm.viewMode === 'kanban' ? (
                 <KanbanBoard companies={filtered} onCardClick={setPanelCompany} />
             ) : (
@@ -181,7 +177,7 @@ export default function EmployeePage() {
                 {panelCompany && (
                     <>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={() => setPanelCompany(null)} />
-                        <SlidePanel company={panelCompany} onClose={() => setPanelCompany(null)} onUpdate={() => { crm.refresh(); const updated = store.getById(panelCompany.id); if (updated) setPanelCompany(updated); }} />
+                        <SlidePanel company={panelCompany} onClose={() => setPanelCompany(null)} onUpdate={() => { crm.refresh(); const updated = crm.companies.find((c: Company) => c.id === panelCompany.id); if (updated) setPanelCompany(updated); }} />
                     </>
                 )}
                 {contractModal && (
@@ -194,7 +190,7 @@ export default function EmployeePage() {
                             <div className="p-6"><ContractEmailTemplate company={contractModal} plan="standard" /></div>
                             <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #e5e7eb', background: '#f8f9fc' }}>
                                 <Button variant="ghost" className="flex-1" onClick={() => setContractModal(null)}>취소</Button>
-                                <Button variant="premium" className="flex-1" onClick={() => { store.sendContract(contractModal.id, 'email'); crm.refresh(); crm.showToast(`📧 ${contractModal.name}에 계약서가 발송되었습니다`); setContractModal(null); }}>
+                                <Button variant="premium" className="flex-1" onClick={() => { crm.updateCompany(contractModal.id, { status: 'contract_sent' }); crm.refresh(); crm.showToast(`📧 ${contractModal.name}에 계약서가 발송되었습니다`); setContractModal(null); }}>
                                     <Send className="w-4 h-4 mr-1" /> 발송 확인
                                 </Button>
                             </div>
