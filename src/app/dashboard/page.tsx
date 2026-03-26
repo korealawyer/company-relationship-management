@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Link from 'next/link';
-import { store, Company } from '@/lib/mockStore';
+import { store, Company } from '@/lib/store';
 import { useRequireAuth } from '@/lib/AuthContext';
 import { getSession } from '@/lib/auth';
 import { leadStore } from '@/lib/leadStore';
@@ -368,7 +368,7 @@ function CalendarWidget({ companyId }: { companyId?: string }) {
 
     useEffect(() => {
         if (!companyId) return;
-        // mockStore.ts에 getLitAll()가 있으므로 접근.
+        // store.ts에 getLitAll()가 있으므로 접근.
         const cases = (store as any).getLitAll ? (store as any).getLitAll().filter((c: any) => c.companyId === companyId) : [];
         const allDeadlines = cases.flatMap((c: any) => 
             (c.deadlines || []).filter((d: any) => !d.completed).map((d: any) => ({

@@ -1,7 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MessageSquare, Clock, CheckCircle2, AlertCircle, ShieldCheck, Phone, Mail, Briefcase } from 'lucide-react';
-import { MONTHLY, BY_TYPE, BY_GROUP, THIS_MONTH } from '@/lib/mockData/companyHrMock';
+
+const MONTHLY: any[] = [];
+const BY_TYPE: any[] = [];
+const BY_GROUP: any[] = [];
+const THIS_MONTH = { total: 0, avgResponse: '-', satisfaction: 0, pending: 0 };
 
 function StatCard({ icon, label, value, sub, color }: {
     icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string;

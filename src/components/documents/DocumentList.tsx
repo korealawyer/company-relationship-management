@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, FileImage, File, CheckCircle2, Clock, MessageSquare, Eye, ScanSearch, Loader2 } from 'lucide-react';
-import { Document, DocumentStatus } from '@/lib/mockStore';
+import { Document, DocumentStatus } from '@/lib/store';
 
 export const STATUS_CONFIG: Record<DocumentStatus, { color: string, bg: string, icon: any }> = {
     '검토 대기': { color: '#dc2626', bg: '#fef2f2', icon: Clock },

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Company } from '@/lib/mockStore';
+import { Company } from '@/lib/store';
 
 interface ContractEmailTemplateProps {
     company: Company;

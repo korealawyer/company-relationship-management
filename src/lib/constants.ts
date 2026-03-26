@@ -1,5 +1,5 @@
 // src/lib/constants.ts
-// mockStore.ts에서 분리된 상수들.
+// store.ts에서 분리된 상수들.
 // Supabase 전환 후에도 영구 사용됩니다.
 
 import type { CaseStatus, LitigationStatus } from './types';

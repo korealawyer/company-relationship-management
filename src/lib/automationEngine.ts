@@ -1,7 +1,7 @@
 // src/lib/automationEngine.ts — 송무 자동화 엔진 (P0 + P1)
-// 5가지 자동화: 기한알림, 청구서발행, 미납재촉, 만족도설문(trigger in mockStore), AI메모요약
+// 5가지 자동화: 기한알림, 청구서발행, 미납재촉, 만족도설문(trigger in store), AI메모요약
 
-import { store, personalStore, addLog, LitigationCase } from './mockStore';
+import { store, personalStore, addLog, LitigationCase } from './store';
 
 // ── 실행 중복 방지 ──
 const LAST_RUN_KEY = 'ibs_auto_lastrun';

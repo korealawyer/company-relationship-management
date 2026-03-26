@@ -1,19 +1,14 @@
 // ================================================================
-// Data Layer — Mock ↔ Supabase 자동 전환 통합 인터페이스
+// Data Layer — Supabase 전용 전환 통합 인터페이스
 // 
 // 사용법:
 //   import { dataLayer } from '@/lib/dataLayer';
 //   const companies = await dataLayer.companies.getAll();
 //
-// IS_SUPABASE_CONFIGURED 에 따라 자동으로 Backend 전환
+// 이제 영구적으로 Supabase 데이터만 바라보도록 고정되었습니다. (Zero-Mockup)
 // ================================================================
 
-import { IS_SUPABASE_CONFIGURED } from './supabase';
-import { store, personalStore, consultStore } from './mockStore';
-import type {
-  Company, LitigationCase, Consultation, AutoSettings, AutoLog,
-  PersonalClient, PersonalLitigation,
-} from './mockStore';
+import type { Company, LitigationCase, Consultation, AutoSettings, AutoLog, PersonalClient, PersonalLitigation } from './types';
 
 import {
   supabaseCompanyStore,
@@ -60,46 +55,6 @@ export interface AutoDataSource {
   getLogs(): Promise<AutoLog[]>;
 }
 
-// ── Mock 래퍼 (sync → async 변환) ────────────────────────────
-
-const mockCompanies: CompanyDataSource = {
-  getAll: async () => store.getAll(),
-  getById: async (id) => store.getById(id),
-  update: async (id, patch) => { store.update(id, patch); },
-  create: async (company) => { store.add(company as Parameters<typeof store.add>[0]); },
-  delete: async () => { /* mock doesn't support delete */ },
-};
-
-const mockLitigation: LitigationDataSource = {
-  getAll: async () => store.getLitAll(),
-  create: async (data) => { store.addLit(data as Parameters<typeof store.addLit>[0]); },
-  update: async (id, patch) => { store.updateLit(id, patch); },
-  delete: async () => {},
-};
-
-const mockConsult: ConsultDataSource = {
-  getAll: async () => consultStore.getAll(),
-  create: async () => {},
-  update: async (id, patch) => {
-    if (patch.lawyerAnswer && patch.assignedLawyer) {
-      consultStore.sendAnswer(id, patch.lawyerAnswer);
-    }
-  },
-};
-
-const mockPersonal: PersonalDataSource = {
-  getClients: async () => personalStore.getClients(),
-  getAll: async () => personalStore.getAll(),
-  create: async (data) => { personalStore.add(data as Parameters<typeof personalStore.add>[0]); },
-  update: async (id, patch) => { personalStore.update(id, patch); },
-};
-
-const mockAuto: AutoDataSource = {
-  getSettings: async () => store.getAutoSettings(),
-  saveSettings: async (patch) => { store.updateAutoSettings(patch); },
-  getLogs: async () => store.getLogs(),
-};
-
 // ── Supabase 래퍼 ────────────────────────────────────────────
 
 const sbCompanies: CompanyDataSource = {
@@ -139,23 +94,23 @@ const sbAuto: AutoDataSource = {
 // ── 통합 Export ──────────────────────────────────────────────
 
 export const dataLayer = {
-  /** 현재 모드 */
-  mode: IS_SUPABASE_CONFIGURED ? ('supabase' as const) : ('mock' as const),
+  /** 현재 모드 (영구 고정) */
+  mode: 'supabase' as const,
 
   /** 기업 (영업 CRM) */
-  companies: IS_SUPABASE_CONFIGURED ? sbCompanies : mockCompanies,
+  companies: sbCompanies,
 
   /** 송무팀 소송 */
-  litigation: IS_SUPABASE_CONFIGURED ? sbLitigation : mockLitigation,
+  litigation: sbLitigation,
 
   /** 법률 상담 */
-  consult: IS_SUPABASE_CONFIGURED ? sbConsult : mockConsult,
+  consult: sbConsult,
 
   /** 개인 소송 */
-  personal: IS_SUPABASE_CONFIGURED ? sbPersonal : mockPersonal,
+  personal: sbPersonal,
 
   /** 자동화 설정 */
-  auto: IS_SUPABASE_CONFIGURED ? sbAuto : mockAuto,
+  auto: sbAuto,
 
   /** 사용자 */
   users: supabaseUserStore,

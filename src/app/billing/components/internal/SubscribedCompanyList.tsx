@@ -1,6 +1,6 @@
 import React from 'react';
 import { BadgeCheck, Wallet } from 'lucide-react';
-import { Company } from '@/lib/mockStore';
+import { Company } from '@/lib/store';
 import { PLAN_LABEL, PLAN_PRICE, T } from '../../types';
 
 interface SubscribedCompanyListProps {

@@ -3,7 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Building2, Download, Lock } from 'lucide-react';
 import { getSession, getPendingByCompany, approvePending, rejectPending, type PendingMember } from '@/lib/auth';
-import { COMPANY, MONTHLY, BY_TYPE, BY_GROUP, THIS_MONTH } from '@/lib/mockData/companyHrMock';
+
+const COMPANY = { name: '기업', plan: '기본', since: '2024-01', headCount: 0, storeCount: 0 };
+const MONTHLY: any[] = [];
+const BY_TYPE: any[] = [];
+const BY_GROUP: any[] = [];
+const THIS_MONTH = { total: 0, avgResponse: '-', satisfaction: 0, pending: 0 };
 
 // Components
 import { CompanyStatsTab } from './components/CompanyStatsTab';

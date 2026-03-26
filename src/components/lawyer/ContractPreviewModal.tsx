@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileSignature, X, AlertCircle, Send } from 'lucide-react';
 import { C } from '@/lib/callPageUtils';
-import { Company, store } from '@/lib/mockStore';
+import { Company, store } from '@/lib/store';
 import { AutoSignatureService } from '@/lib/salesAutomation';
 
 /* ─────────────────────────────────────────

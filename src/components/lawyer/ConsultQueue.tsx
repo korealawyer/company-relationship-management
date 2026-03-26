@@ -6,7 +6,7 @@ import {
     Phone, Edit3, ChevronRight, ChevronLeft, Paperclip, X, CreditCard
 } from 'lucide-react';
 import { generateAIDraft, type AIAssistResponse } from '@/lib/ai-assist';
-import { type ConsultItem, CONSULTS } from '@/lib/lawyerMockData';
+import { type ConsultItem, CONSULTS } from '@/lib/store';
 
 // ── 상담 검토 패널 (모바일 탭 전환 지원) ─────────────────────────
 export default function ConsultQueue() {

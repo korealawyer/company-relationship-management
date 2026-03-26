@@ -6,7 +6,7 @@ import {
     Coins, RefreshCw, Download, FileText, CheckCircle2,
     Clock, Search, X, Receipt
 } from 'lucide-react';
-import { store, Company } from '@/lib/mockStore';
+import { store, Company } from '@/lib/store';
 import { PaymentRecord, PLAN_PRICE, PLAN_LABEL, PAY_STATUS_STYLE, T } from '../types';
 
 import { BillingKPIs } from './internal/BillingKPIs';
@@ -22,7 +22,7 @@ export function InternalBillingMain() {
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
     const [toast, setToast] = useState('');
 
-    // ── 데이터 로드 (mockStore 연동) ─────────────────────────
+    // ── 데이터 로드 (store 연동) ─────────────────────────
     const refresh = useCallback(() => {
         const all = store.getAll();
         setCompanies(all);

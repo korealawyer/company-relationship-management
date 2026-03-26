@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Company, CaseStatus, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT, PIPELINE } from '@/lib/mockStore';
+import { Company, CaseStatus, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT, PIPELINE } from '@/lib/store';
 
 const T = {
     heading: '#0f172a', body: '#1e293b', sub: '#475569',

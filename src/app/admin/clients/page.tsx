@@ -6,7 +6,7 @@ import {
     Phone, Mail, BarChart3, Gavel, ChevronDown, ChevronUp
 } from 'lucide-react';
 import Link from 'next/link';
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 import { DocumentWidget } from '@/components/DocumentWidget';
 
 type Company = ReturnType<typeof store.getAll>[number];

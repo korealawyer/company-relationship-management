@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Scale, ChevronLeft, MapPin, Calendar, Clock, Bell, CheckCircle2, User } from 'lucide-react';
-import { personalStore, PersonalLitigation } from '@/lib/mockStore';
+import { personalStore, PersonalLitigation } from '@/lib/store';
 
 const formatMoney = (n: number) => n >= 100000000 ? `${(n / 100000000).toFixed(1)}억` : n >= 10000 ? `${(n / 10000).toFixed(0)}만원` : `${n.toLocaleString()}원`;
 

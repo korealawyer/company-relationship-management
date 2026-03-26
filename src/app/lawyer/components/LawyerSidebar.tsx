@@ -1,6 +1,6 @@
 import React from 'react';
 import { Scale, MessageSquare, Users, UserCheck, Gavel, User, TrendingDown, Send, Building, FileText, FolderOpen, CalendarDays } from 'lucide-react';
-import { personalStore } from '@/lib/mockStore';
+import { personalStore } from '@/lib/store';
 
 export const LAWYER_TABS = [
     { id: 'overview' as const, label: '검토 대기', icon: Scale },

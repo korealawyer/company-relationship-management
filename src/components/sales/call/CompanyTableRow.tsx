@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import InlinePanel from './InlinePanel';
 import { C, Badge, riskColor, useTimer } from '@/lib/callPageUtils';
-import { Company } from '@/lib/mockStore';
+import { Company } from '@/lib/store';
 import {
   AutoSignatureService,
   EmailTrackingService,

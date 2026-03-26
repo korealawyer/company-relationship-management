@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Phone, CheckCircle2, Mail, FileText, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Company, CaseStatus, AutoSettings, store } from '@/lib/mockStore';
+import { Company, CaseStatus, AutoSettings, store } from '@/lib/store';
 import { T, StatusBadge } from './shared';
 import { RiskBadge } from '@/components/crm/SlidePanel';
 

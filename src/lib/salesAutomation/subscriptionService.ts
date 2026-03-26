@@ -1,4 +1,4 @@
-import { Company, store } from '../mockStore';
+import { Company, store } from '../store';
 
 export const AutoSubscriptionService = {
     /** 서명 완료 → 구독 자동 전환 */

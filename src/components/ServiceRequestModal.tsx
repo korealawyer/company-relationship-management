@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { getSession } from '@/lib/auth';
 import { leadStore } from '@/lib/leadStore';
-import { documentStore, DocumentCategory } from '@/lib/mockStore';
+import { documentStore, DocumentCategory } from '@/lib/store';
 
 export type RequestType = 'consultation' | 'document' | 'contract_draft' | 'case' | 'general';
 export type FormRequestType = Exclude<RequestType, 'general'>;

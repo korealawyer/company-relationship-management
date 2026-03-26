@@ -1,6 +1,6 @@
 import React from 'react';
 import { Scale, AlertTriangle, CheckCircle2, Clock, CalendarClock, Briefcase } from 'lucide-react';
-import { personalStore } from '@/lib/mockStore';
+import { personalStore } from '@/lib/store';
 
 export interface LawyerStatsOverviewProps {
     assignedCasesLength: number;

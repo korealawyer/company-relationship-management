@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, TrendingUp, Bot, Phone, LayoutGrid, Ticket, Download, Upload, AlertTriangle, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT, store, Company } from '@/lib/mockStore';
+import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT, store, Company } from '@/lib/store';
 import SlidePanel from '@/components/crm/SlidePanel';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import SalesDashboard from '@/components/crm/SalesDashboard';

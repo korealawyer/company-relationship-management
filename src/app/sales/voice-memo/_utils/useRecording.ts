@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { CallRecorder, STTService, CallRecordingStore, AudioVisualizer, type CallRecording } from '@/lib/callRecordingService';
-import { type Company } from '@/lib/mockStore';
+import { type Company } from '@/lib/store';
 import { getPrimaryPhone } from '../_utils/helpers';
 
 export function useRecording(

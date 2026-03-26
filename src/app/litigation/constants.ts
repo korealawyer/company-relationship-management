@@ -1,4 +1,4 @@
-import { LitigationStatus } from '@/lib/mockStore';
+import { LitigationStatus } from '@/lib/store';
 
 export const STATUS_TEXT_MAP: Record<LitigationStatus, string> = {
     preparing: '#64748b', filed: '#2563eb', hearing: '#d97706',

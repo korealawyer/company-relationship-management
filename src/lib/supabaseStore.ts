@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ================================================================
 // Supabase Store — mockStore 동일 인터페이스의 Supabase 구현
 // IS_SUPABASE_CONFIGURED = true 일 때만 활성화

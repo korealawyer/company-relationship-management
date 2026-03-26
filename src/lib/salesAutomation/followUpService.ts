@@ -1,4 +1,4 @@
-import { Company } from '../mockStore';
+import { Company } from '../store';
 
 export interface FollowUpStep {
     step: number;          // 1=D1, 2=D3, 3=D7

@@ -1,4 +1,4 @@
-import { Company } from '../mockStore';
+import { Company } from '../store';
 
 export const ConversionPredictionService = {
     /** 전환 확률 계산 — 7가지 신호 종합 */

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, Send, TrendingUp } from 'lucide-react';
 // @ts-ignore
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 
 export function LitBillingTrigger() {
   const [unbilled, setUnbilled] = useState<any[]>([]);

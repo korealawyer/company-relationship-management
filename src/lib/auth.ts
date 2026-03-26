@@ -2,7 +2,7 @@
 // Phase 3: Mock 제거 완료 → Supabase Auth + JWT
 
 import { NextRequest } from 'next/server';
-import { RoleType } from './mockStore';
+import { RoleType } from './store';
 import { getBrowserSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
 
 // ── AuthUser 인터페이스 (SSOT) ─────────────────────────────────

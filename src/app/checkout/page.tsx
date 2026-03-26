@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 import { PRICE_RANGES, CRM_PLAN_MAP, calcPrice } from '@/lib/pricing';
 
 // ── 플랜 데이터 (중앙 관리 모듈에서 가져옴) ─────────────────

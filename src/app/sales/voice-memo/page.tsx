@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { store, type Company } from '@/lib/mockStore';
+import { store, type Company } from '@/lib/store';
 import { CallRecordingStore, type CallRecording } from '@/lib/callRecordingService';
 import type { Step } from './_constants';
 import { getPhoneList } from './_utils/helpers';

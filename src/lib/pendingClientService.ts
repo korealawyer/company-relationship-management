@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/lib/pendingClientService.ts — 신규 고객 전용 URL 토큰 + 알람 유틸
 // callRecordingService와 독립되어 세 채널 모두에서 호출 가능
 

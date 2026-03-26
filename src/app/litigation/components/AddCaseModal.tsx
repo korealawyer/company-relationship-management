@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gavel } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { store, COURTS, LITIGATION_TYPES, LAWYERS } from '@/lib/mockStore';
+import { store, COURTS, LITIGATION_TYPES, LAWYERS } from '@/lib/store';
 
 export const INSTANCE_TYPES = ['1심', '2심(항소)', '3심(상고)', '헌법', '가처분', '가압류', '조정'];
 export const CASE_CATEGORIES = ['민사', '형사', '가사', '행정', '헌법', '회생/파산', '국제중재'];

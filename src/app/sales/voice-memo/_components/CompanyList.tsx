@@ -1,7 +1,7 @@
 'use client';
 
 import { Building2, Mic, Search, Sparkles, X } from 'lucide-react';
-import type { Company } from '@/lib/mockStore';
+import type { Company } from '@/lib/store';
 import { CompanyCard } from './CompanyCard';
 
 /* ─── 디자인 토큰 ─── */

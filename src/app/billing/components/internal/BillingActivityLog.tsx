@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, CheckCircle2, FileText } from 'lucide-react';
 import { T } from '../../types';
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 
 export default function BillingActivityLog() {
     return (

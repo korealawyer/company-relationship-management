@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard } from 'lucide-react';
 import { getSession } from '@/lib/auth';
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 import { T, PLAN_PRICE, PLAN_LABEL, PaymentRecord } from '../types';
 
 import NoSubscriptionCard from './client/NoSubscriptionCard';
@@ -19,7 +19,7 @@ export default function ClientBillingMain() {
     const [toast, setToast] = useState('');
     useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 3000); return () => clearTimeout(t); } }, [toast]);
 
-    // 실제 구독 상태 확인: mockStore에서 회사 조회
+    // 실제 구독 상태 확인: store에서 회사 조회
     const company = companyId ? store.getAll().find(c => c.id === companyId) : null;
     const hasSubscription = !!(company && company.plan && company.plan !== 'none' && company.status === 'subscribed');
 

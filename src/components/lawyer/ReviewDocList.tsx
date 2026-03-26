@@ -3,7 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Building, CheckCircle2, Clock, Scale, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { type Company } from '@/lib/mockStore';
+import { type Company } from '@/lib/store';
 
 // ── 로컬 상수 ────────────────────────────────────────────────
 const LEVEL_COLOR: Record<string, { text: string; bg: string; border: string }> = {

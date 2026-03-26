@@ -1,4 +1,4 @@
-import { Company } from '../mockStore';
+import { Company } from '../store';
 
 export interface KakaoScheduleItem {
     companyId: string;

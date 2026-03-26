@@ -1,7 +1,7 @@
 // src/lib/callRecordingService.ts — 통화 녹음 + STT 자동 변환 서비스
 // MediaRecorder API (브라우저 마이크 녹음) → Mock STT → CRM 자동 입력
 
-import { store, type Company } from './mockStore';
+import { store, type Company } from './store';
 
 /* ══════════════════════════════════════════════════════════════
    타입 정의

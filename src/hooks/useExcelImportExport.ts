@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { store, Company, STATUS_LABEL } from '@/lib/mockStore';

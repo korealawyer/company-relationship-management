@@ -174,7 +174,7 @@ export function formatPriceMan(amount: number): string {
   return man % 1 === 0 ? `${man}만원` : `${man.toFixed(1)}만원`;
 }
 
-/* ── CRM 플랜 매핑 (mockStore 호환) ── */
+/* ── CRM 플랜 매핑 (store 호환) ── */
 export const CRM_PLAN_MAP: Record<string, string> = {
   entry: 'starter',
   growth: 'standard',

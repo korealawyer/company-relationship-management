@@ -5,7 +5,7 @@ import {
     Phone, PhoneOff, Building2, Headphones,
     Pause, Play, RefreshCw, X,
 } from 'lucide-react';
-import { Company, STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, type CaseStatus } from '@/lib/mockStore';
+import { Company, STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, type CaseStatus } from '@/lib/store';
 import { type CallRecording } from '@/lib/callRecordingService';
 import ScriptTab from './ScriptTab';
 import InfoTab from './InfoTab';

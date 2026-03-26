@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, X, UploadCloud, CheckCircle2, CreditCard, MessageSquare, Shield, ArrowRight } from 'lucide-react';

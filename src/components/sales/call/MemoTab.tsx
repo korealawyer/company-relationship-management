@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Send, RefreshCw, BrainCircuit, Sparkles, Zap } from 'lucide-react';
-import { Company } from '@/lib/mockStore';
-import { store } from '@/lib/mockStore';
+import { Company } from '@/lib/store';
+import { store } from '@/lib/store';
 import { AIMemoService, type AIMemoResult } from '@/lib/salesAutomation';
 
 /* ── CRM 라이트 색상 (공유 상수 추출 전 임시 로컬 복사) ─────── */

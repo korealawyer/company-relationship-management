@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 import {
     Step, Message, ChatSession,
     IBS_PHONE, IBS_PHONE_DISPLAY,
@@ -9,7 +9,7 @@ import {
 } from './chatbot.constants';
 import { faqs, faqAnswers } from './chatbot.data';
 
-// ── CRM 저장 (API 우선, mockStore 폴백) ──────────────────────────
+// ── CRM 저장 (API 우선, store 폴백) ──────────────────────────
 async function saveLead(question: string, contact: string, customerName: string, preferredTime?: string) {
     const timeNote = preferredTime ? `\n선호 연락 시간: ${preferredTime}` : '';
     const payload = {

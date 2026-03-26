@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ChevronDown, ChevronUp, CheckCircle2, Clock, Calendar } from 'lucide-react';
-import { store, LitigationCase, LitigationDeadline, LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/mockStore';
+import { store, LitigationCase, LitigationDeadline, LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/store';
 import { generateAiMemoSummary } from '@/lib/automationEngine';
 import { STATUS_TEXT_MAP, STATUSES, daysUntil } from '@/app/litigation/constants';
 

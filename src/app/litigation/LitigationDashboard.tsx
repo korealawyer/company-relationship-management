@@ -12,7 +12,7 @@ import {
     store, LitigationCase, LitigationDeadline, LitigationStatus,
     LIT_STATUS_LABEL, LIT_STATUS_COLOR,
     LAWYERS, LITIGATION_TYPES, COURTS,
-} from '@/lib/mockStore';
+} from '@/lib/store';
 import { getAutomationStats, getAiSummary, generateAiMemoSummary } from '@/lib/automationEngine';
 
 // 라이트 테마용 상태 텍스트 색상

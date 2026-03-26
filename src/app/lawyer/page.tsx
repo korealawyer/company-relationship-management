@@ -3,7 +3,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { ArrowRight, Search, FileText, AlertTriangle, FolderOpen, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { store, type Company, NotificationStore, PendingClientStore } from '@/lib/mockStore';
+import { store, type Company, NotificationStore, PendingClientStore } from '@/lib/store';
 
 import { useRequireAuth } from '@/lib/AuthContext';
 import { DocumentWidget } from '@/components/DocumentWidget';
@@ -236,12 +236,12 @@ export default function LawyerPage() {
                     )}
                     {tab === 'litigation' && (
                         <div className="flex-1 p-0 sm:p-2 lg:p-4">
-                            <LitigationDashboard isEmbedded={true} />
+                            <LitigationDashboard />
                         </div>
                     )}
                     {tab === 'personalLit' && (
                         <div className="flex-1 p-0 sm:p-2 lg:p-4">
-                            <PersonalLitigationDashboard isEmbedded={true} />
+                            <PersonalLitigationDashboard />
                         </div>
                     )}
                     {tab === 'attendance' && (

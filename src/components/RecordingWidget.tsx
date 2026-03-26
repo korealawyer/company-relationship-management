@@ -9,7 +9,7 @@ import {
     CallRecorder, STTService, AudioVisualizer, formatDuration
 } from '@/lib/callRecordingService';
 import { registerPendingClient, IntakeTokenService } from '@/lib/pendingClientService';
-import { personalStore, documentStore, DocumentCategory } from '@/lib/mockStore';
+import { personalStore, documentStore, DocumentCategory } from '@/lib/store';
 
 import { IntakeForm } from './recording/IntakeForm';
 import { RecordingResult } from './recording/RecordingResult';

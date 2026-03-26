@@ -4,7 +4,7 @@ import {
     store, Company, CaseStatus,
     SALES_REPS,
     type AutoSettings,
-} from '@/lib/mockStore';
+} from '@/lib/store';
 import {
     CallQueueManager, AutoEmailService, FollowUpService,
     RiskAlertService, AIMemoService, NewsLeadService, AutoKakaoService,

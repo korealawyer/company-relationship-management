@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { C } from '@/lib/callPageUtils';
-import { Company } from '@/lib/mockStore';
+import { Company } from '@/lib/store';
 
 interface CallbackModalProps {
   show: boolean;

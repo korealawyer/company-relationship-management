@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { RoleType } from './mockStore';
+import type { RoleType } from './store';
 import type { Session } from '@supabase/supabase-js';
 import {
     loginWithEmailFull,

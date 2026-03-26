@@ -6,7 +6,7 @@ import {
     CheckCircle2, Clock, ArrowRight, Shield, Mail, Gavel, Activity
 } from 'lucide-react';
 import Link from 'next/link';
-import { store } from '@/lib/mockStore';
+import { store } from '@/lib/store';
 import { leadStore } from '@/lib/leadStore';
 
 export default function AdminPage() {

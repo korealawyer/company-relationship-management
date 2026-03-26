@@ -1,4 +1,4 @@
-import { Company, store } from '../mockStore';
+import { Company, store } from '../store';
 
 export interface CallQueueItem {
     companyId: string;

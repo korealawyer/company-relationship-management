@@ -1,4 +1,4 @@
-import { Company, store } from '../mockStore';
+import { Company, store } from '../store';
 
 const SIGNATURE_KEY = 'ibs_auto_signature';
 

@@ -1,4 +1,4 @@
-import { Company } from '../mockStore';
+import { Company } from '../store';
 
 // 실제 BigKinds / 연합뉴스 API 연동 시 복원 예정
 export interface NewsItem {

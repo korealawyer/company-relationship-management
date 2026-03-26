@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRequireAuth } from '@/lib/AuthContext';
 import { getSession } from '@/lib/auth';
-import { store, documentStore, Document, DocumentCategory, DocumentStatus, useSupabaseAutoRefresh } from '@/lib/mockStore';
+import { store, documentStore, Document, DocumentCategory, DocumentStatus, useSupabaseAutoRefresh } from '@/lib/store';
 import { ServiceRequestModal } from '@/components/ServiceRequestModal';
 
 /* ── 메타데이터 매핑 ──────────────────────────────────────── */

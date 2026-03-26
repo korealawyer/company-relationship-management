@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 
 import { LawCase, CaseStatus } from '@/types/cases';
-import { getCases } from '@/lib/mockData/cases';
+
+const getCases = (companyName: string): LawCase[] => [];
 
 import CourtSearchPanel from '@/components/cases/CourtSearchPanel';
 import KpiCard from '@/components/cases/KpiCard';

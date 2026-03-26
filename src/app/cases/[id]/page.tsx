@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { store, LitigationCase, LIT_STATUS_LABEL, LIT_STATUS_COLOR } from '@/lib/mockStore';
+import { store, LitigationCase, LIT_STATUS_LABEL, LIT_STATUS_COLOR } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
 import { Bell, Mail, MessageSquare, Clock, Save, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';

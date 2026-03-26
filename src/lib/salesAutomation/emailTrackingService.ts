@@ -1,4 +1,4 @@
-import { Company } from '../mockStore';
+import { Company } from '../store';
 
 const EMAIL_TRACKING_KEY = 'ibs_email_tracking';
 
