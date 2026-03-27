@@ -285,23 +285,7 @@ export async function clearSession(): Promise<void> {
     if (sb) await sb.auth.signOut();
 }
 
-// ── 개인회원 로그인 (Mock 제거됨) ─────────────────────
-// 개인회원도 공통 email + password 흐름을 타야 하므로, 이 함수는 사용 금지. (하위 호환을 위해 에러 반환)
-export function loginWithPersonal(
-    email: string,
-    password: string
-): { success: true; user: AuthUser } | { success: false; error: string } {
-    return { success: false, error: '이 기능은 더 이상 지원되지 않습니다. 표준 로그인을 이용해주세요.' };
-}
 
-// ── 사업자번호 로그인 (Mock 제거됨) ────────────────────
-// 공통 로그인 흐름 또는 전용 페이지로 마이그레이션 해야함.
-export function loginWithBiz(
-    bizNum: string,
-    password: string
-): { success: true; user: AuthUser } | { success: false; error: string } {
-     return { success: false, error: '이 기능은 더 이상 지원되지 않습니다. 표준 로그인을 이용해주세요.' };
-}
 
 // ── 권한 체크 헬퍼 ────────────────────────────────────────────
 export function hasRole(user: AuthUser | null, ...roles: RoleType[]): boolean {

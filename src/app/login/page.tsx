@@ -305,6 +305,7 @@ function LoginContent() {
                                                 style={{ ...inputStyle, paddingRight: '2.75rem' }}
                                                 type={showPw ? 'text' : 'password'}
                                                 placeholder="••••••••"
+                                                autoComplete="off"
                                                 value={password}
                                                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleStaffLogin()}
@@ -358,45 +359,13 @@ function LoginContent() {
                                 <div className="space-y-5">
                                     <div>
                                         <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>기업 로그인</h2>
-                                        <p className="text-xs" style={{ color: L.muted }}>사업자번호와 발급받은 비밀번호를 입력하세요.</p>
-                                    </div>
-
-                                    {/* Quick client login */}
-                                    <button
-                                        onClick={async () => {
-                                            setBizLoading(true); setBizError('');
-                                            await new Promise(r => setTimeout(r, 500));
-                                            const result = await authLoginBiz('123-45-67890', '1234');
-                                            if (!result.error) {
-                                                const session = getSession();
-                                                if (session) {
-                                                    setCookie('ibs_session', session.id, 1);
-                                                    setCookie('ibs_role', session.role, 1);
-                                                }
-                                                router.replace('/dashboard');
-                                            } else { setBizError(result.error); setBizLoading(false); }
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-left transition-all hover:scale-[1.01]"
-                                        style={{ background: L.goldLight, border: `1px solid ${L.goldBorder}`, color: L.gold }}
-                                    >
-                                        <Building2 className="w-4 h-4 flex-shrink-0" />
-                                        <div className="min-w-0">
-                                            <div className="font-black">기업 테스트 로그인 ((주)놀부NBG)</div>
-                                            <div className="text-[10px]" style={{ color: L.muted }}>123-45-67890 · 비번 1234 → 고객 포털</div>
-                                        </div>
-                                        <ArrowRight className="w-4 h-4 flex-shrink-0 ml-auto" />
-                                    </button>
-
-                                    <div className="relative flex items-center gap-2" style={{ color: L.faint }}>
-                                        <div className="flex-1 h-px" style={{ background: L.border }} />
-                                        <span className="text-[10px]">또는 직접 입력</span>
-                                        <div className="flex-1 h-px" style={{ background: L.border }} />
+                                        <p className="text-xs" style={{ color: L.muted }}>담당자 이메일과 발급받은 비밀번호를 입력하세요.</p>
                                     </div>
 
                                     {/* Biz number / Email */}
                                     <div>
                                         <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>
-                                            담당자 이메일 <span className="text-xs font-normal" style={{ color: L.faint }}>(또는 사업자번호)</span>
+                                            담당자 이메일
                                         </label>
                                         <div className="relative">
                                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
@@ -419,6 +388,7 @@ function LoginContent() {
                                                 style={{ ...inputStyle, paddingRight: '2.75rem' }}
                                                 type={showBizPw ? 'text' : 'password'}
                                                 placeholder="발급받은 비밀번호"
+                                                autoComplete="off"
                                                 value={bizPassword}
                                                 onChange={(e) => { setBizPassword(e.target.value); setBizError(''); }}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleClientLogin()}
@@ -497,6 +467,7 @@ function LoginContent() {
                                                 style={{ ...inputStyle, paddingRight: '2.75rem' }}
                                                 type={showPersonalPw ? 'text' : 'password'}
                                                 placeholder="••••••••"
+                                                autoComplete="off"
                                                 value={personalPassword}
                                                 onChange={(e) => { setPersonalPassword(e.target.value); setPersonalError(''); }}
                                                 onKeyDown={(e) => e.key === 'Enter' && handlePersonalLogin()}

@@ -6,8 +6,6 @@ import type { RoleType } from './store';
 import type { Session } from '@supabase/supabase-js';
 import {
     loginWithEmailFull,
-    loginWithBiz,
-    loginWithPersonal,
     clearSession,
     _setSessionCache,
     supabaseUserToAuthUser,
@@ -112,9 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: result.error };
     }, []);
 
-    // ── 사업자번호 로그인 ──────────────────────────────────────
+    // ── 사업자번호 로그인 (이메일 맵핑) ──────────────────────────────────────
     const loginWithBizNo = useCallback(async (bizNo: string, password: string) => {
-        const result = loginWithBiz(bizNo, password);
+        const result = await loginWithEmailFull(bizNo, password);
         if (result.success) {
             setUser(result.user);
             return {};
@@ -122,9 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: result.error };
     }, []);
 
-    // ── 개인회원 로그인 ──────────────────────────────────────────
+    // ── 개인회원 로그인 (이메일 맵핑) ──────────────────────────────────────────
     const loginWithPersonalEmail = useCallback(async (email: string, password: string) => {
-        const result = loginWithPersonal(email, password);
+        const result = await loginWithEmailFull(email, password);
         if (result.success) {
             setUser(result.user);
             return {};
