@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
         if (companyError) {
             console.error('[Consultation API] Supabase company insert error:', companyError);
-            return NextResponse.json({ error: '기업 정보 등록 중 오류가 발생했습니다.' }, { status: 500 });
+            return NextResponse.json({ error: '기업 정보 등록 중 오류가 발생했습니다.', debug: companyError.message || JSON.stringify(companyError) }, { status: 500 });
         }
 
         // 2. 진단(상담) 내역 저장
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         if (consultError) {
             console.error('[Consultation API] Supabase consultation insert error:', consultError);
             // Even if consultation fails, company was created. Not ideal but acceptable for simple flow.
-            return NextResponse.json({ error: '상담 내역 등록 중 오류가 발생했습니다.' }, { status: 500 });
+            return NextResponse.json({ error: '상담 내역 등록 중 오류가 발생했습니다.', debug: consultError.message || JSON.stringify(consultError) }, { status: 500 });
         }
 
         return NextResponse.json({ ok: true, message: '진단 요청이 성공적으로 접수되었습니다.' });

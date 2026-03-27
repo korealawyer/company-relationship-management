@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
     const isEmail = contact.includes('@');
     const now = new Date().toISOString();
 
+    let dbErrorMsg: string | null = null;
+    
     // ── Mode 1: Supabase 연결됨 → companies 테이블에 저장 ──────────
     if (IS_SUPABASE_CONFIGURED) {
         const sb = getServiceSupabase() ?? (await import('@/lib/supabase').then(m => m.supabase));
@@ -44,9 +46,14 @@ export async function POST(req: NextRequest) {
 
             if (error) {
                 console.error('[POST /api/leads] Supabase insert error:', error);
+                dbErrorMsg = error.message || JSON.stringify(error);
                 // Supabase 실패 시에도 200 반환 (챗봇 UX 중단 방지)
             }
+        } else {
+            dbErrorMsg = 'Supabase client could not be initialized';
         }
+    } else {
+        dbErrorMsg = 'IS_SUPABASE_CONFIGURED is false (missing env vars)';
     }
 
     // ── Mode 2: 항상 실행 — CRM 실시간 알림 이벤트 ─────────────────
@@ -59,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
         ok: true,
         message: '리드가 접수되었습니다.',
-        meta: { source, receivedAt: now },
+        meta: { source, receivedAt: now, debugError: dbErrorMsg },
     });
 }
 
