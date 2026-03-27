@@ -9,7 +9,8 @@ import type {
   PersonalClient, 
   PersonalLitigation,
   AutoSettings,
-  AutoLog
+  AutoLog,
+  AppNotification
 } from '@/lib/types';
 
 // =========================================================================
@@ -71,6 +72,31 @@ export function useConsultations() {
   );
 
   return { consultations: data || [], isLoading, error, mutate };
+}
+
+export function useNotifications() {
+  const { data, error, isLoading, mutate } = useSWR<AppNotification[]>(
+    'notifications',
+    async () => await dataLayer.notifications.getAll(),
+    { fallbackData: [] }
+  );
+
+  const markAsRead = async (id: string) => {
+    await dataLayer.notifications.markAsRead(id);
+    mutate();
+  };
+
+  const markAllAsRead = async () => {
+    await dataLayer.notifications.markAllAsRead();
+    mutate();
+  };
+
+  const deleteNotification = async (id: string) => {
+    await dataLayer.notifications.delete(id);
+    mutate();
+  };
+
+  return { notifications: data || [], isLoading, error, markAsRead, markAllAsRead, deleteNotification };
 }
 
 export function usePersonalLitigations() {

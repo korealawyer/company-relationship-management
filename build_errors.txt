@@ -1,0 +1,77 @@
+
+> company-relationship-management@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 2 errors:
+./src/app/personal-litigation/PersonalLitigationDashboard.tsx:14:1
+Export PERSONAL_LIT_STATUSES doesn't exist in target module
+[0m [90m 12 |[39m [36mimport[39m { [33mButton[39m } [36mfrom[39m [32m'@/components/ui/Button'[39m[33m;[39m
+ [90m 13 |[39m [36mimport[39m { [33mPersonalLitigation[39m[33m,[39m [33mPersonalLitStatus[39m[33m,[39m [33mPersonalClient[39m[33m,[39m [33mPersonalLitType[39m[33m,[39m [33mPersonalLitDeadline[39m } [36mfrom[39m [32m'@/lib/types'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 14 |[39m [36mimport[39m { [33mPERSONAL_LIT_STATUS_LABEL[39m[33m,[39m [33mPERSONAL_LIT_STATUS_COLOR[39m[33m,[39m [33mPERSONAL_LIT_STATUS_TEXT[39m[33m,[39m [33mPERSONAL_LIT_STATUSES[39m[33m,[39m [33mPERSONAL_LIT_TYPES[39m[33m,[39m [33mLAWYERS[39m[33m,[39m [33mCOURTS[39m } [36mfrom[39m [32m'@/lib/constants'[39m[33m;[39m
+ [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 15 |[39m [36mimport[39m { personalStore } [36mfrom[39m [32m'@/lib/store'[39m[33m;[39m
+ [90m 16 |[39m
+ [90m 17 |[39m [36mconst[39m formatMoney [33m=[39m (n[33m:[39m number) [33m=>[39m n [33m>=[39m [35m100000000[39m [33m?[39m [32m`${(n / 100000000).toFixed(1)}억`[39m [33m:[39m n [33m>=[39m [35m10000[39m [33m?[39m [32m`${(n / 10000).toFixed(0)}만원`[39m [33m:[39m [32m`${n.toLocaleString()}원`[39m[33m;[39m[0m
+
+The export PERSONAL_LIT_STATUSES was not found in module [project]/src/lib/constants.ts [app-client] (ecmascript).
+Did you mean to import PERSONAL_LIT_STATUS_TEXT?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Server Component:
+    ./src/app/personal-litigation/PersonalLitigationDashboard.tsx
+    ./src/app/personal-litigation/page.tsx
+
+  Client Component Browser:
+    ./src/app/personal-litigation/PersonalLitigationDashboard.tsx [Client Component Browser]
+    ./src/app/personal-litigation/page.tsx [Client Component Browser]
+    ./src/app/lawyer/page.tsx [Client Component Browser]
+    ./src/app/lawyer/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/personal-litigation/PersonalLitigationDashboard.tsx [Client Component SSR]
+    ./src/app/personal-litigation/page.tsx [Client Component SSR]
+    ./src/app/lawyer/page.tsx [Client Component SSR]
+    ./src/app/lawyer/page.tsx [Server Component]
+
+
+./src/app/personal-litigation/PersonalLitigationDashboard.tsx:14:1
+Export PERSONAL_LIT_STATUSES doesn't exist in target module
+[0m [90m 12 |[39m [36mimport[39m { [33mButton[39m } [36mfrom[39m [32m'@/components/ui/Button'[39m[33m;[39m
+ [90m 13 |[39m [36mimport[39m { [33mPersonalLitigation[39m[33m,[39m [33mPersonalLitStatus[39m[33m,[39m [33mPersonalClient[39m[33m,[39m [33mPersonalLitType[39m[33m,[39m [33mPersonalLitDeadline[39m } [36mfrom[39m [32m'@/lib/types'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 14 |[39m [36mimport[39m { [33mPERSONAL_LIT_STATUS_LABEL[39m[33m,[39m [33mPERSONAL_LIT_STATUS_COLOR[39m[33m,[39m [33mPERSONAL_LIT_STATUS_TEXT[39m[33m,[39m [33mPERSONAL_LIT_STATUSES[39m[33m,[39m [33mPERSONAL_LIT_TYPES[39m[33m,[39m [33mLAWYERS[39m[33m,[39m [33mCOURTS[39m } [36mfrom[39m [32m'@/lib/constants'[39m[33m;[39m
+ [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 15 |[39m [36mimport[39m { personalStore } [36mfrom[39m [32m'@/lib/store'[39m[33m;[39m
+ [90m 16 |[39m
+ [90m 17 |[39m [36mconst[39m formatMoney [33m=[39m (n[33m:[39m number) [33m=>[39m n [33m>=[39m [35m100000000[39m [33m?[39m [32m`${(n / 100000000).toFixed(1)}억`[39m [33m:[39m n [33m>=[39m [35m10000[39m [33m?[39m [32m`${(n / 10000).toFixed(0)}만원`[39m [33m:[39m [32m`${n.toLocaleString()}원`[39m[33m;[39m[0m
+
+The export PERSONAL_LIT_STATUSES was not found in module [project]/src/lib/constants.ts [app-ssr] (ecmascript).
+Did you mean to import PERSONAL_LIT_STATUS_TEXT?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Server Component:
+    ./src/app/personal-litigation/PersonalLitigationDashboard.tsx
+    ./src/app/personal-litigation/page.tsx
+
+  Client Component Browser:
+    ./src/app/personal-litigation/PersonalLitigationDashboard.tsx [Client Component Browser]
+    ./src/app/personal-litigation/page.tsx [Client Component Browser]
+    ./src/app/lawyer/page.tsx [Client Component Browser]
+    ./src/app/lawyer/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/personal-litigation/PersonalLitigationDashboard.tsx [Client Component SSR]
+    ./src/app/personal-litigation/page.tsx [Client Component SSR]
+    ./src/app/lawyer/page.tsx [Client Component SSR]
+    ./src/app/lawyer/page.tsx [Server Component]
+
+
+    at <unknown> (./src/app/personal-litigation/PersonalLitigationDashboard.tsx:14:1)
+    at <unknown> (./src/app/personal-litigation/PersonalLitigationDashboard.tsx:14:1)

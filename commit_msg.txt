@@ -1,0 +1,23 @@
+feat: CRM 프로덕션 마이그레이션 완료 (보안 강화, 아키텍처 최적화 및 알림 시스템 연동)
+
+[1] 보안 및 인증 프로세스 강화 (Security & Auth Hardening)
+- 미들웨어(Middleware) 보안 세션 관리 최적화 및 서버 사이드 세션 검증 로직 구현
+- Vercel 배포 시 퍼블릭 폼(상담, 결제, 계약 등) 제출을 위한 Service Role 권한 분리 및 RLS 바이패스 보안 설정
+- 사용자별 데이터 접근 제어를 위한 엄격한 Row Level Security (RLS) 정책 도입
+
+[2] Next.js 프로덕션 아키텍처 최적화 (Architecture & Performance)
+- 클라이언트 컴포넌트를 React Server Components(RSC) 및 Suspense 아키텍처로 리팩토링
+- URL searchParams 렌더링 의존성 분리를 통한 정적 생성(ISR) 복구 및 로딩 속도 최적화
+- `store.ts` 내부의 정적 Mock 데이터 의존성을 완전히 제거하고, 100% 비동기식 Supabase 백엔드 아키텍처로 전환
+- Dynamic Imports 및 Tree-shaking을 적용하여 초기 번들 사이즈(Bundle Size) 최적화
+
+[3] 신규 기능: 실시간 알림 시스템 (Notification System)
+- `notifications` 테이블 DDL 및 RLS 정책 적용 (사용자 본인의 알림만 읽기/수정/삭제 가능)
+- 타입 안정성을 위한 `AppNotification` 인터페이스 추가 및 Supabase CRUD 데이터 레이어 연동
+- Client-side 상태 관리를 위한 `useNotifications` SWR 커스텀 훅(Hook) 개발
+- 알림 센터 UI(`/notifications/page.tsx`) 모의 데이터 제거 및 실제 DB 실시간 연동 완료
+
+[4] 버그 수정 및 시스템 안정성 (QA & Fixes)
+- Vercel 프로덕션 배포를 막고 있던 빌드 타임의 Lint 및 TypeScript 타입 에러 전면 수정
+- `seed-auth-users.ts` 스크립트의 의존성(dotenv) 문제 해결 및 슈퍼 관리자, 테스트 클라이언트 계정 프로비저닝 로직 개선
+- 프로덕션 환경의 서버 부하 및 인젝션 공격 등 보안 취약점을 방지하기 위한 시스템 QA 시나리오 확립

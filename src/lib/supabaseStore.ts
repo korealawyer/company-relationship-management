@@ -12,6 +12,7 @@ import type {
   PersonalClient, PersonalLitigation, PersonalLitDeadline,
   PersonalLitDocument, AutoSettings, AutoLog,
 } from './mockStore';
+import type { AppNotification } from './types';
 import { LAWYERS } from './mockStore';
 
 // ── snake_case ↔ camelCase 변환 유틸 ──────────────────────────
@@ -311,6 +312,50 @@ export const supabaseAutoStore = {
       created_at: new Date().toISOString(),
     });
   },
+};
+
+// ── Notifications ────────────────────────────────────────────
+
+export const supabaseNotificationStore = {
+  getAll: async () => {
+    const sb = getSupabase();
+    if (!sb) return [];
+    
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.user) return [];
+
+    const { data } = await sb
+        .from('notifications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+    return (data || []).map(r => rowToObj<AppNotification>(r));
+  },
+
+  markAsRead: async (id: string) => {
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.from('notifications').update({ status: 'read' }).eq('id', id);
+  },
+
+  markAllAsRead: async () => {
+    const sb = getSupabase();
+    if (!sb) return;
+
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.user) return;
+
+    await sb.from('notifications')
+        .update({ status: 'read' })
+        .eq('user_id', session.user.id)
+        .eq('status', 'unread');
+  },
+
+  delete: async (id: string) => {
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.from('notifications').delete().eq('id', id);
+  }
 };
 
 // ── User CRUD ────────────────────────────────────────────────

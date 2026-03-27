@@ -17,50 +17,39 @@ export default function OrderModal({ service, onClose }: { service: ConsultServi
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        await new Promise(r => setTimeout(r, 1500));
         
-        let companyId = session?.companyId || 'new-company-id';
-
-        // Document upload logic placeholder (Mock was empty, real implementation via Supabase Storage & DB needed)
-        const uploadedDocs: any[] = [];
-        files.forEach(file => {
-            // Placeholder: await uploadToSupabaseStorage(...)
-            uploadedDocs.push({
-                companyId: companyId!,
-                authorRole: 'client',
-                name: file.name,
-                size: file.size,
-                type: file.type || 'application/octet-stream',
-                category: '기타',
-                status: '검토 대기',
-                url: URL.createObjectURL(file), 
-                isNewForClient: false,
-                isNewForLawyer: true
-            });
-        });
-
         let mappedCategory: any = '기타';
         if (service.category.includes('계약')) mappedCategory = '가맹계약';
         if (service.category.includes('개인정보')) mappedCategory = '개인정보';
         if (service.category.includes('노무')) mappedCategory = '노무';
 
-        await dataLayer.consult.create({
-            companyId: companyId,
-            companyName: form.company || '미지정',
-            branchName: '본점',
-            authorName: form.name,
-            authorRole: '임직원',
-            category: mappedCategory,
-            title: `[${service.title}] ${form.detail.substring(0, 20)}...`,
-            body: form.detail,
-            urgency: 'normal'
-        });
+        try {
+            const res = await fetch('/api/consultation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyName: form.company,
+                    contactName: form.name,
+                    phone: form.phone,
+                    email: form.email,
+                    inquiryType: mappedCategory,
+                    details: `[서비스: ${service.title}]\n${form.detail}`,
+                })
+            });
 
-        window.dispatchEvent(new Event('ibs-consults-updated'));
-        
-        setIsSubmitting(false);
-        setIsDone(true);
-        setTimeout(() => onClose(), 2500);
+            if (!res.ok) {
+                throw new Error('의뢰 저장 중 오류가 발생했습니다.');
+            }
+
+            window.dispatchEvent(new Event('ibs-consults-updated'));
+            setIsDone(true);
+            setTimeout(() => onClose(), 2500);
+        } catch (error) {
+            console.error(error);
+            alert('의뢰 제출에 실패했습니다. 다시 시도해 주세요.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (

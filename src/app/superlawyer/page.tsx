@@ -12,6 +12,7 @@ import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import FactInputPanel, { FactInputData } from '@/components/superlawyer/FactInputPanel';
 import ToolbarActions from '@/components/superlawyer/ToolbarActions';
+import { getSession } from '@/lib/auth';
 import { DUMMY_OPINION_BLOCKS, DUMMY_METADATA } from '@/lib/superlawyer/dummy-opinion';
 import { Block, PartialBlock } from '@blocknote/core';
 import './superlawyer.css';
@@ -42,6 +43,25 @@ export default function SuperLawyerPage() {
       clientName: facts.clientName || DUMMY_METADATA.clientName,
       opponentName: facts.opponentName || DUMMY_METADATA.opponentName,
     });
+    
+    // Timeline API 로 기록 남기기
+    try {
+      const session = typeof window !== 'undefined' ? getSession() : null;
+      if (session?.companyId) {
+        await fetch('/api/timeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: session.companyId,
+            author: session.name || '임직원',
+            type: 'superlawyer_generated',
+            content: `AI 법률 의견서 생성: ${facts.clientName} vs ${facts.opponentName} (${facts.caseType})`
+          })
+        });
+      }
+    } catch (e) {
+      console.error('Timeline record failed', e);
+    }
 
     setInitialBlocks(DUMMY_OPINION_BLOCKS as unknown as PartialBlock[]);
     setIsGenerated(true);

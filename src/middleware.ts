@@ -51,9 +51,7 @@ export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
     const host = request.headers.get('host') || '';
 
-    let response = NextResponse.next({
-        request: { headers: request.headers },
-    });
+    let response = NextResponse.next();
 
     const isApiOrStatic = pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname === '/favicon.ico';
     
@@ -66,9 +64,7 @@ export async function middleware(request: NextRequest) {
         if (matchedDomain && !pathname.startsWith(matchedDomain.rewriteTo)) {
             const rewriteUrl = request.nextUrl.clone();
             rewriteUrl.pathname = `${matchedDomain.rewriteTo}${pathname === '/' ? '' : pathname}`;
-            response = NextResponse.rewrite(rewriteUrl, {
-                request: { headers: request.headers },
-            });
+            response = NextResponse.rewrite(rewriteUrl);
         }
     }
 

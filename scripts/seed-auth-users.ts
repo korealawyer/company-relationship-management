@@ -69,6 +69,19 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         companyId: 'c1',
         companyName: '(주)놀부NBG',
     },
+    {
+        email: 'personal@client.com',
+        password: 'personal123',
+        name: '김개인',
+        role: 'personal_client',
+    },
+    {
+        email: 'ceo@client.com',
+        password: 'ceo1234',
+        name: '이대표',
+        role: 'client_hr',
+        companyName: '(주)스타트업',
+    },
 ];
 
 async function seed() {
@@ -95,6 +108,14 @@ async function seed() {
             } else {
                 console.log(`   ✅ 업데이트 완료 (role: ${account.role})`);
             }
+            
+            // Sync to public.users
+            await supabase.from('users').upsert({
+                id: exists.id,
+                email: account.email,
+                name: account.name,
+                role: account.role || 'client_hr',
+            });
         } else {
             // 신규 생성
             const { data, error } = await supabase.auth.admin.createUser({
@@ -115,6 +136,14 @@ async function seed() {
                 console.log(`✅ ${account.email} 생성 완료`);
                 console.log(`   ID: ${data.user?.id}`);
                 console.log(`   role: ${account.role}`);
+                
+                // Sync to public.users
+                await supabase.from('users').upsert({
+                    id: data.user!.id,
+                    email: account.email,
+                    name: account.name,
+                    role: account.role || 'client_hr',
+                });
             }
         }
         console.log('');
@@ -122,10 +151,12 @@ async function seed() {
 
     console.log('🎉 시드 완료!');
     console.log('\n테스트 계정:');
-    console.log('  admin@ibslaw.kr   / admin123   → super_admin');
-    console.log('  sales@ibslaw.kr   / sales123   → sales');
-    console.log('  lawyer1@ibslaw.kr / lawyer123  → lawyer');
-    console.log('  hr@client.com     / hr1234     → client_hr (놀부NBG)');
+    console.log('  admin@ibslaw.kr     / admin123    → super_admin');
+    console.log('  sales@ibslaw.kr     / sales123    → sales');
+    console.log('  lawyer1@ibslaw.kr   / lawyer123   → lawyer');
+    console.log('  hr@client.com       / hr1234      → client_hr (놀부NBG)');
+    console.log('  ceo@client.com      / ceo1234     → client_hr ((주)스타트업)');
+    console.log('  personal@client.com / personal123 → personal_client (개인회원)');
 }
 
 seed().catch(console.error);

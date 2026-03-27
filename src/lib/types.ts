@@ -416,3 +416,16 @@ export interface PersonalLitigation {
     createdAt: string;
     updatedAt: string;
 }
+
+// ── 알림 시스템 (Notifications) ────────────────────────────────
+export interface AppNotification {
+    id: string;
+    user_id: string;
+    type: 'document' | 'payment' | 'consultation' | 'member' | 'system';
+    title: string;
+    message: string;
+    status: 'unread' | 'read';
+    href?: string;
+    action_label?: string;
+    created_at: string;
+}

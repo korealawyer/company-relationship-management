@@ -1,0 +1,11 @@
+src/app/client-portal/my-cases/page.tsx(16,42): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/app/litigation/LitigationDashboard.tsx(125,59): error TS2339: Property 'type' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(127,51): error TS2339: Property 'id' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(135,119): error TS2339: Property 'label' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(136,54): error TS2339: Property 'companyName' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(138,114): error TS2339: Property 'companyName' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(140,54): error TS2339: Property 'channel' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(142,113): error TS2339: Property 'channel' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(145,113): error TS2339: Property 'detail' does not exist on type 'never'.
+src/app/litigation/LitigationDashboard.tsx(147,137): error TS2339: Property 'at' does not exist on type 'never'.
+src/components/lawyer/ConsultQueue.tsx(9,15): error TS2305: Module '"@/lib/types"' has no exported member 'ConsultItem'.

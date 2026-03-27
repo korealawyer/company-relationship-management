@@ -128,8 +128,6 @@ function CheckoutContent() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
-    const { companies, updateCompany } = useCompanies();
-
     const [form, setForm] = useState({
         companyName: company,
         bizNo: '',
@@ -158,19 +156,31 @@ function CheckoutContent() {
         e.preventDefault();
         if (!canSubmit) return;
         setSubmitting(true);
-        await new Promise(r => setTimeout(r, 2000));
+        
+        try {
+            const res = await fetch('/api/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...form,
+                    bizNumber: form.bizNo,
+                    planId,
+                    signature
+                })
+            });
 
-        // CRM 연동: 회사명으로 매칭되는 기업이 있으면 구독 상태 업데이트
-        const crmPlan = (CRM_PLAN_MAP[planId] || 'standard') as 'starter' | 'standard' | 'premium';
-        const matched = companies.find(c =>
-            c.name === form.companyName || c.email === form.contactEmail
-        );
-        if (matched) {
-            await updateCompany(matched.id, { plan: crmPlan, status: 'subscribed' });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || '구독 신청 중 요류가 발생했습니다.');
+            }
+
+            setDone(true);
+        } catch (err: any) {
+            console.error('Checkout error:', err);
+            alert(err.message || '오류가 발생했습니다.');
+        } finally {
+            setSubmitting(false);
         }
-
-        setDone(true);
-        setSubmitting(false);
     };
 
     // ── 제출 완료 화면 ─────────────────────────────────

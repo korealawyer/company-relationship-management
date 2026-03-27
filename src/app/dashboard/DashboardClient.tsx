@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useLitigations, useCompanies } from '@/hooks/useDataLayer';
+import { useLitigations, useCompanies, useConsultations } from '@/hooks/useDataLayer';
 import dataLayer from '@/lib/dataLayer';
 
 const ServiceRequestModal = dynamic(() => import('@/components/ServiceRequestModal').then(mod => mod.ServiceRequestModal), { ssr: false });
@@ -213,33 +213,47 @@ const TYPE_META: Record<ItemType, { label: string; color: string; gradFrom: stri
     case:         { label: '사건 관리', color: '#c2410c', gradFrom: '#c2410c', gradTo: '#fb923c', icon: Briefcase },
 };
 
-const MOCK_ITEMS: ServiceItem[] = [
-    {
-        id: 's1', type: 'document',
-        title: '개인정보처리방침 법률 진단',
-        date: '2026.02.28 접수', status: 'reviewing',
-        steps: ['접수', '법무 진단', '변호사 검토', '리포트 발송'],
-        currentStep: 1, href: '/client-portal',
-    },
-    {
-        id: 's2', type: 'consultation',
-        title: '가맹점 계약서 수정 자문',
-        date: '2026.03.10 접수', status: 'completed',
-        steps: ['접수', '변호사 배정', '검토 완료', '수정본 발송'],
-        currentStep: 3, href: '/consultation-history',
-    },
-    {
-        id: 's3', type: 'case',
-        title: '가맹점주 손해배상 청구 대응',
-        date: '2026.03.15 접수', status: 'reviewing',
-        steps: ['사건 접수', '증거 수집', '답변서 작성', '조정·소송'],
-        currentStep: 1, href: '/cases', urgent: true,
-    },
-];
+// Hooks already imported at top of file
 
-function ServiceProgressPanel() {
-    const inProgress = MOCK_ITEMS.filter(i => i.status !== 'completed').length;
-    const doneItems  = MOCK_ITEMS.filter(i => i.status === 'completed').length;
+function ServiceProgressPanel({ companyId }: { companyId?: string }) {
+    const { litigations, isLoading: isLitLoading } = useLitigations();
+    const { consultations, isLoading: isConLoading } = useConsultations();
+
+    const items = React.useMemo(() => {
+        if (!companyId || isLitLoading || isConLoading) return [];
+        
+        const myLitigations = (litigations || []).filter((l: any) => l.companyId === companyId);
+        const myConsultations = (consultations || []).filter((c: any) => c.companyId === companyId);
+
+        // Convert to ServiceItem
+        const lits: ServiceItem[] = myLitigations.map((l: any) => ({
+            id: l.id,
+            type: 'case',
+            title: l.caseName || `${l.opponent} 관련 소송`,
+            date: new Date(l.createdAt).toLocaleDateString() + ' 접수',
+            status: l.status === 'completed' ? 'completed' : 'reviewing',
+            steps: ['사건 접수', '증거 수집', '답변서 작성', '조정·소송'],
+            currentStep: l.status === 'completed' ? 3 : 1,
+            href: `/cases/${l.id}`,
+            urgent: false
+        }));
+
+        const cons: ServiceItem[] = myConsultations.map((c: any) => ({
+             id: c.id,
+             type: c.category === 'contract' ? 'document' : 'consultation',
+             title: c.title,
+             date: new Date(c.createdAt).toLocaleDateString() + ' 접수',
+             status: c.status === 'completed' ? 'completed' : (c.status === 'in_progress' ? 'reviewing' : 'received'),
+             steps: ['접수', '변호사 배정', '검토 중', '답변 완료'],
+             currentStep: c.status === 'completed' ? 3 : (c.status === 'in_progress' ? 2 : 0),
+             href: `/consultation-history`
+        }));
+
+        return [...lits, ...cons].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+    }, [companyId, litigations, consultations, isLitLoading, isConLoading]);
+
+    const inProgress = items.filter(i => i.status !== 'completed').length;
+    const doneItems  = items.filter(i => i.status === 'completed').length;
 
     return (
         <Card id="tour-summary" className="border-none shadow-sm mb-8 overflow-hidden" style={{ background: '#fff' }}>
@@ -261,7 +275,11 @@ function ServiceProgressPanel() {
 
             {/* 게이지 카드 목록 */}
             <div style={{ padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {MOCK_ITEMS.map((item, idx) => {
+                {items.length === 0 ? (
+                    <div className="text-center py-6">
+                        <p className="text-sm text-gray-500">진행 중인 진행 현황이 없습니다.</p>
+                    </div>
+                ) : items.map((item, idx) => {
                     const tm = TYPE_META[item.type];
                     const sm = STATUS_META[item.status];
                     const Icon = tm.icon;
@@ -437,6 +455,68 @@ function CalendarWidget({ companyId }: { companyId?: string }) {
     );
 }
 
+function RecentDocumentsWidget({ companyId }: { companyId?: string }) {
+    const { consultations } = useConsultations();
+    
+    const recentDocs = React.useMemo(() => {
+        if (!companyId || !consultations) return [];
+        const myDocs = consultations
+            .filter((c: any) => c.companyId === companyId)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 3);
+            
+        if (myDocs.length === 0) return [];
+
+        return myDocs.map((doc: any) => {
+            const isCompleted = doc.status === 'completed';
+            return {
+                title: doc.title,
+                date: new Date(doc.createdAt).toLocaleDateString(),
+                type: doc.category === 'contract' ? '계약서' : (doc.category === 'legal_advice' ? '의견서' : '자문'),
+                icon: isCompleted ? CheckCircle2 : (doc.category === 'contract' ? FileText : Zap),
+                iconColor: isCompleted ? '#4ade80' : (doc.category === 'contract' ? '#60a5fa' : '#f59e0b'),
+                href: '/consultation-history'
+            };
+        });
+    }, [companyId, consultations]);
+
+    if (recentDocs.length === 0) {
+        return (
+            <Card className="p-0 overflow-hidden border-none shadow-sm" style={{ background: '#fff' }}>
+                <div className="p-6 text-center">
+                    <p className="text-sm text-gray-500">최근 업데이트된 문서가 없습니다.</p>
+                </div>
+            </Card>
+        );
+    }
+
+    return (
+        <Card className="p-0 overflow-hidden border-none shadow-sm" style={{ background: '#fff' }}>
+            <div className="divide-y divide-gray-100">
+                {recentDocs.map((doc, i) => (
+                    <Link key={i} href={doc.href}>
+                        <div className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer group">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${doc.iconColor}15` }}>
+                                <doc.icon className="w-5 h-5" style={{ color: doc.iconColor }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold truncate group-hover:text-blue-600 transition-colors" style={{ color: '#111827' }}>{doc.title}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: '#f3f4f6', color: '#6b7280' }}>
+                                        {doc.type}
+                                    </span>
+                                    <span className="text-[11px]" style={{ color: '#9ca3af' }}>{doc.date}</span>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9ca3af' }} />
+                        </div>
+                    </Link>
+                ))}
+            </div>
+        </Card>
+    );
+}
+
 export function DashboardClient({ initialUser, initialCompany }: { initialUser: any, initialCompany: any }) {
     const session = initialUser;
     
@@ -540,7 +620,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
 
                 {/* ── 통합 서비스 진행 현황 ── */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <ServiceProgressPanel />
+                    <ServiceProgressPanel companyId={company?.id} />
                 </motion.div>
 
                 {/* ── 메인 레이아웃 ── */}
@@ -596,33 +676,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                     문서 보관함 가기 →
                                 </button>
                             </div>
-                            <Card className="p-0 overflow-hidden border-none shadow-sm" style={{ background: '#fff' }}>
-                                <div className="divide-y divide-gray-100">
-                                    {[
-                                        { title: '가맹점 표준 계약서 (2026 개정판) 최종 검토 완료', date: '오늘 오전 10:23', type: '계약서', icon: CheckCircle2, iconColor: '#4ade80', href: '/documents' },
-                                        { title: '개인정보처리방침 리스크 진단 리포트 (초안)', date: '어제 오후 04:15', type: '리포트', icon: Zap, iconColor: '#f59e0b', href: '/documents' },
-                                        { title: '월간 법무 동향: 공정위 가맹사업법 단속 강화', date: '3월 20일', type: '뉴스레터', icon: Mail, iconColor: '#6366f1', href: '/documents' },
-                                    ].map((doc, i) => (
-                                        <Link key={i} href={doc.href}>
-                                            <div className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer group">
-                                                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${doc.iconColor}15` }}>
-                                                    <doc.icon className="w-5 h-5" style={{ color: doc.iconColor }} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold truncate group-hover:text-blue-600 transition-colors" style={{ color: '#111827' }}>{doc.title}</p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: '#f3f4f6', color: '#6b7280' }}>
-                                                            {doc.type}
-                                                        </span>
-                                                        <span className="text-[11px]" style={{ color: '#9ca3af' }}>{doc.date}</span>
-                                                    </div>
-                                                </div>
-                                                <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#9ca3af' }} />
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            </Card>
+                            <RecentDocumentsWidget companyId={company?.id} />
                         </div>
                     </div>
 

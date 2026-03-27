@@ -63,11 +63,26 @@ export default function ConsultationLandingPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        // Simulate API call
-        setTimeout(() => {
+        
+        try {
+            const res = await fetch('/api/consultation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                setIsSuccess(true);
+            } else {
+                alert(data.error || '진단 요청 중 오류가 발생했습니다. 다시 시도해 주세요.');
+            }
+        } catch (error) {
+            console.error('Submit error:', error);
+            alert('서버와의 통신에 실패했습니다.');
+        } finally {
             setIsSubmitting(false);
-            setIsSuccess(true);
-        }, 1500);
+        }
     };
 
     if (isSuccess) {

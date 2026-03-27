@@ -8,7 +8,7 @@
 // 이제 영구적으로 Supabase 데이터만 바라보도록 고정되었습니다. (Zero-Mockup)
 // ================================================================
 
-import type { Company, LitigationCase, Consultation, AutoSettings, AutoLog, PersonalClient, PersonalLitigation } from './types';
+import type { Company, LitigationCase, Consultation, AutoSettings, AutoLog, PersonalClient, PersonalLitigation, AppNotification } from './types';
 
 import {
   supabaseCompanyStore,
@@ -17,6 +17,7 @@ import {
   supabasePersonalStore,
   supabaseAutoStore,
   supabaseUserStore,
+  supabaseNotificationStore,
 } from './supabaseStore';
 
 // ── 타입 ──────────────────────────────────────────────────────
@@ -55,6 +56,13 @@ export interface AutoDataSource {
   getLogs(): Promise<AutoLog[]>;
 }
 
+export interface NotificationDataSource {
+  getAll(): Promise<AppNotification[]>;
+  markAsRead(id: string): Promise<void>;
+  markAllAsRead(): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+
 // ── Supabase 래퍼 ────────────────────────────────────────────
 
 const sbCompanies: CompanyDataSource = {
@@ -91,6 +99,13 @@ const sbAuto: AutoDataSource = {
   getLogs: supabaseAutoStore.getLogs,
 };
 
+const sbNotifications: NotificationDataSource = {
+  getAll: supabaseNotificationStore.getAll,
+  markAsRead: supabaseNotificationStore.markAsRead,
+  markAllAsRead: supabaseNotificationStore.markAllAsRead,
+  delete: supabaseNotificationStore.delete,
+};
+
 // ── 통합 Export ──────────────────────────────────────────────
 
 export const dataLayer = {
@@ -114,6 +129,9 @@ export const dataLayer = {
 
   /** 사용자 */
   users: supabaseUserStore,
+
+  /** 알림 */
+  notifications: sbNotifications,
 };
 
 export default dataLayer;

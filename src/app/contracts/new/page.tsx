@@ -7,6 +7,7 @@ import {
     PenTool, AlertTriangle, Clock, ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { getSession } from '@/lib/auth';
 
 /* ── 계약서 유형 ─────────────────────────────────────────── */
 const CONTRACT_TYPES = [
@@ -127,7 +128,24 @@ export default function NewContractPage() {
 
     const handleSubmit = async () => {
         setSubmitting(true);
-        await new Promise(r => setTimeout(r, 2000));
+        try {
+            const session = typeof window !== 'undefined' ? getSession() : null;
+            if (session?.companyId) {
+                await fetch('/api/timeline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        companyId: session.companyId,
+                        author: session.name || '임직원',
+                        type: 'contract_drafted',
+                        content: `계약 요청 발송: ${selectedContract?.label} (상대방: ${form.partyA})`
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('Failed to log timeline event', e);
+        }
+        await new Promise(r => setTimeout(r, 1000)); // Minimum UI delay
         setStep('done');
         setSubmitting(false);
     };
