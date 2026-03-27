@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { store, Company, STATUS_LABEL } from '@/lib/mockStore';
+import { Company, STATUS_LABEL } from '@/lib/mockStore';
+import dataLayer from '@/lib/dataLayer';
 
 export function useExcelImportExport(companies: Company[], refresh: () => void, showToast: (msg: string) => void) {
     const [showExcelUpload, setShowExcelUpload] = useState(false);
@@ -59,15 +60,15 @@ export function useExcelImportExport(companies: Company[], refresh: () => void, 
         e.target.value = '';
     };
 
-    const handleExcelImport = () => {
+    const handleExcelImport = async () => {
         setExcelUploading(true);
-        setTimeout(() => {
+        try {
             let imported = 0;
-            excelPreview.forEach(row => {
+            for (const row of excelPreview) {
                 const name = row['기업명'] || row['회사명'] || row['name'] || '';
                 const email = row['이메일'] || row['email'] || '';
-                if (!name) return;
-                store.add({
+                if (!name) continue;
+                await dataLayer.companies.create({
                     name,
                     biz: row['사업자번호'] || row['biz'] || '',
                     url: row['홈페이지'] || row['url'] || row['website'] || '',
@@ -92,13 +93,17 @@ export function useExcelImportExport(companies: Company[], refresh: () => void, 
                     contacts: [], memos: [], timeline: [],
                 });
                 imported++;
-            });
+            }
             setExcelUploading(false);
             setShowExcelUpload(false);
             setExcelPreview([]);
             refresh();
             showToast(`📤 ${imported}개 기업이 Excel에서 등록되었습니다`);
-        }, 1000);
+        } catch (error) {
+            console.error('Excel import error:', error);
+            showToast('❌ 업로드 중 오류가 발생했습니다');
+            setExcelUploading(false);
+        }
     };
 
     return {
