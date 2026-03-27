@@ -41,6 +41,7 @@ function isPathAllowed(pathname: string, role: string): boolean {
         general:    ['/admin'],
         client_hr:  ['/dashboard', '/consultation', '/chat', '/cases', '/documents',
                      '/billing', '/company-hr', '/privacy-report', '/consultation-history'],
+        personal_client: ['/personal-litigation'],
     };
 
     const allowed = ROLE_ALLOWED[role] ?? [];
@@ -100,6 +101,7 @@ export async function middleware(request: NextRequest) {
                 },
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
+                        request.cookies.set(name, value);
                         response.cookies.set(name, value, options);
                     });
                 },
@@ -127,7 +129,8 @@ export async function middleware(request: NextRequest) {
                           role === 'sales' ? '/employee' : 
                           role === 'lawyer' ? '/lawyer' : 
                           role === 'litigation' ? '/litigation' : 
-                          role === 'counselor' ? '/counselor' : '/dashboard';
+                          role === 'counselor' ? '/counselor' : 
+                          role === 'personal_client' ? '/personal-litigation' : '/dashboard';
         return NextResponse.redirect(homeUrl);
     }
 

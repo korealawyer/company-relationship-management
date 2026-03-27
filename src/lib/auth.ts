@@ -324,8 +324,10 @@ export async function requireSessionFromCookie(req: NextRequest): Promise<
                 getAll() {
                     return req.cookies.getAll();
                 },
-                setAll() {
-                    // API Route에서는 응답 쿠키 설정 불필요
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value }) => {
+                        req.cookies.set(name, value);
+                    });
                 },
             },
         }
