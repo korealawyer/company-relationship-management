@@ -53,7 +53,16 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
 
   const companies: Company[] = [];
   for (const row of rows) {
-    const c = rowToObj<Company>(row);
+    const anyC = rowToObj<Record<string, any>>(row);
+    const c = anyC as unknown as Company;
+    
+    // DB schema -> frontend model mapping
+    c.biz = anyC.bizNo || '';
+    c.bizType = anyC.bizCategory || '';
+    c.assignedLawyer = anyC.assignedLawyerId || '';
+    c.url = anyC.domain || '';
+    c.email = anyC.contactEmail || '';
+    c.phone = anyC.contactPhone || '';
 
     // issues
     const { data: issueRows } = await sb.from('issues').select('*').eq('company_id', c.id);
@@ -68,12 +77,67 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
     c.memos = (memoRows || []).map(r => rowToObj<CompanyMemo>(r));
 
     // timeline
-    const { data: tlRows } = await sb.from('company_timeline').select('*').eq('company_id', c.id).order('created_at', { ascending: false });
+    const { data: tlRows } = await sb.from('timelines').select('*').eq('company_id', c.id).order('created_at', { ascending: false });
     c.timeline = (tlRows || []).map(r => rowToObj<CompanyTimelineEvent>(r));
 
     companies.push(c);
   }
   return companies;
+}
+
+function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = false): Record<string, any> {
+  const { issues, contacts, memos, timeline, biz, bizType, assignedLawyer, id, ...flat } = companyData as Record<string, any>;
+  const rawRow = objToRow(flat);
+  
+  if (id !== undefined) rawRow.id = id;
+  if (biz !== undefined || isCreate) {
+    rawRow.biz_no = biz || `T${Math.floor(Math.random() * 10000000000).toString().padStart(10, '0')}`;
+  }
+  if (bizType !== undefined) rawRow.biz_category = bizType || null;
+  if (assignedLawyer !== undefined) {
+    rawRow.assigned_lawyer_id = (typeof assignedLawyer === 'string' && assignedLawyer.length === 36) ? assignedLawyer : null;
+  }
+
+  // Fallbacks for frontend aliases
+  if (rawRow.url !== undefined && !rawRow.domain) rawRow.domain = rawRow.url;
+  if (rawRow.email !== undefined && !rawRow.contact_email) rawRow.contact_email = rawRow.email;
+  if (rawRow.phone !== undefined && !rawRow.contact_phone) rawRow.contact_phone = rawRow.phone;
+
+  const allowedDbColumns = [
+    // 기존 컬럼
+    'name', 'domain', 'url', 'email', 'phone',
+    'contact_name', 'contact_email', 'contact_phone',
+    'biz_category', 'store_count', 'plan', 'status', 'risk_level',
+    'risk_score', 'issue_count', 'privacy_url', 'assigned_lawyer_id',
+    'email_sent_at', 'lawyer_confirmed', 'lawyer_confirmed_at', 'source', 'biz_no', 'id',
+    'created_at', 'updated_at',
+    // 영업 프로세스
+    'sales_confirmed', 'sales_confirmed_at', 'sales_confirmed_by',
+    // 이메일 / 클라이언트 응답
+    'email_subject', 'client_replied', 'client_replied_at', 'client_reply_note',
+    // 통화 / 로그인
+    'login_count', 'call_note',
+    // 자동화 / AI
+    'auto_mode', 'ai_draft_ready', 'custom_script', 'lawyer_note',
+    // 계약 프로세스
+    'contract_sent_at', 'contract_signed_at', 'contract_method', 'contract_note',
+    // 자동화 추적
+    'callback_scheduled_at', 'follow_up_step', 'ai_memo_summary',
+    'ai_next_action', 'ai_next_action_type',
+    'last_call_result', 'last_call_at', 'call_attempts',
+  ];
+  
+  const row: Record<string, any> = {};
+  for (const key of allowedDbColumns) {
+    if (rawRow[key] !== undefined) {
+      if (rawRow[key] === '' && (key.endsWith('_at') || key.endsWith('_id') || key.endsWith('_count') || key.endsWith('_score'))) {
+        row[key] = null;
+      } else {
+        row[key] = rawRow[key];
+      }
+    }
+  }
+  return row;
 }
 
 export const supabaseCompanyStore = {
@@ -89,12 +153,26 @@ export const supabaseCompanyStore = {
   create: async (company: Partial<Company>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
-    const { issues, contacts, memos, timeline, ...flat } = company as Record<string, unknown>;
-    await sb.from('companies').insert(objToRow(flat as Record<string, unknown>));
+    
+    
+    // Explicitly generate a UUID if not provided 
+    // This handles the case where companies table lacks `DEFAULT gen_random_uuid()` 
+    if (!company.id) {
+      company.id = crypto.randomUUID();
+    }
 
-    if (Array.isArray(issues)) {
+    const row = cleanCompanyRow(company, true);
+
+    const { data: newCompany, error } = await sb.from('companies').insert(row).select().single();
+    if (error || !newCompany) {
+      console.error('Failed to create company:', error);
+      return;
+    }
+
+    const { issues } = company as Record<string, any>;
+    if (Array.isArray(issues) && issues.length > 0) {
       for (const iss of issues) {
-        await sb.from('issues').insert({ ...objToRow(iss as Record<string, unknown>), company_id: flat.id });
+        await sb.from('issues').insert({ ...objToRow(iss as Record<string, any>), company_id: newCompany.id });
       }
     }
   },
@@ -102,9 +180,10 @@ export const supabaseCompanyStore = {
   update: async (id: string, updates: Partial<Company>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
-    const { issues, contacts, memos, timeline, ...flat } = updates as Record<string, unknown>;
-    const row = objToRow(flat as Record<string, unknown>);
+    
+    const row = cleanCompanyRow(updates, false);
     row.updated_at = new Date().toISOString();
+    
     await sb.from('companies').update(row).eq('id', id);
   },
 

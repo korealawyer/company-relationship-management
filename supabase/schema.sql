@@ -25,6 +25,37 @@ CREATE TABLE IF NOT EXISTS companies (
     lawyer_confirmed boolean DEFAULT false,
     lawyer_confirmed_at timestamptz,
     source          text DEFAULT 'manual',
+    -- 영업 프로세스
+    sales_confirmed       boolean DEFAULT false,
+    sales_confirmed_at    timestamptz,
+    sales_confirmed_by    text,
+    -- 이메일 / 클라이언트 응답
+    email_subject         text,
+    client_replied        boolean DEFAULT false,
+    client_replied_at     timestamptz,
+    client_reply_note     text,
+    -- 통화 / 로그인
+    login_count           integer DEFAULT 0,
+    call_note             text,
+    -- 자동화 / AI
+    auto_mode             boolean DEFAULT true,
+    ai_draft_ready        boolean DEFAULT false,
+    custom_script         jsonb,
+    lawyer_note           text,
+    -- 계약 프로세스
+    contract_sent_at      timestamptz,
+    contract_signed_at    timestamptz,
+    contract_method       text,
+    contract_note         text,
+    -- 자동화 추적
+    callback_scheduled_at timestamptz,
+    follow_up_step        integer,
+    ai_memo_summary       text,
+    ai_next_action        text,
+    ai_next_action_type   text,
+    last_call_result      text,
+    last_call_at          timestamptz,
+    call_attempts         integer DEFAULT 0,
     created_at      timestamptz DEFAULT now(),
     updated_at      timestamptz DEFAULT now()
 );

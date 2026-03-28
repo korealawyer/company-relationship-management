@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { store, Company, STATUS_LABEL } from '@/lib/mockStore';
 
-export function useExcelImportExport(companies: Company[], refresh: () => void, showToast: (msg: string) => void) {
+export function useExcelImportExport(companies: Company[], refresh: () => void, showToast: (msg: string) => void, addCompany: (data: Partial<Company>) => Promise<any> | void) {
     const [showExcelUpload, setShowExcelUpload] = useState(false);
     const [excelPreview, setExcelPreview] = useState<Record<string, string>[]>([]);
     const [excelUploading, setExcelUploading] = useState(false);
@@ -59,46 +59,45 @@ export function useExcelImportExport(companies: Company[], refresh: () => void, 
         e.target.value = '';
     };
 
-    const handleExcelImport = () => {
+    const handleExcelImport = async () => {
         setExcelUploading(true);
-        setTimeout(() => {
-            let imported = 0;
-            excelPreview.forEach(row => {
-                const name = row['기업명'] || row['회사명'] || row['name'] || '';
-                const email = row['이메일'] || row['email'] || '';
-                if (!name) return;
-                store.add({
-                    name,
-                    biz: row['사업자번호'] || row['biz'] || '',
-                    url: row['홈페이지'] || row['url'] || row['website'] || '',
-                    email,
-                    phone: row['전화번호'] || row['phone'] || '',
-                    storeCount: parseInt(row['가맹점수'] || row['storeCount'] || '0') || 0,
-                    status: 'pending',
-                    assignedLawyer: '', issues: [],
-                    salesConfirmed: false, salesConfirmedAt: '', salesConfirmedBy: '',
-                    lawyerConfirmed: false, lawyerConfirmedAt: '',
-                    emailSentAt: '', emailSubject: '',
-                    clientReplied: false, clientRepliedAt: '', clientReplyNote: '',
-                    loginCount: 0, callNote: '', plan: 'none',
-                    autoMode: true, aiDraftReady: false, source: 'manual' as const,
-                    riskScore: 0, riskLevel: '', issueCount: 0,
-                    bizType: row['업종'] || row['bizType'] || '',
-                    domain: row['홈페이지'] || row['domain'] || '',
-                    privacyUrl: '',
-                    contactName: row['담당자'] || row['contactName'] || '',
-                    contactEmail: row['담당자 이메일'] || email || '',
-                    contactPhone: row['담당자 전화'] || row['contactPhone'] || '',
-                    contacts: [], memos: [], timeline: [],
-                });
-                imported++;
+        let imported = 0;
+        for (const row of excelPreview) {
+            const name = row['기업명'] || row['회사명'] || row['name'] || '';
+            const email = row['이메일'] || row['email'] || '';
+            if (!name) continue;
+            
+            await addCompany({
+                name,
+                biz: row['사업자번호'] || row['biz'] || '',
+                url: row['홈페이지'] || row['url'] || row['website'] || '',
+                email,
+                phone: row['전화번호'] || row['phone'] || '',
+                storeCount: parseInt(row['가맹점수'] || row['storeCount'] || '0') || 0,
+                status: 'pending',
+                assignedLawyer: '', issues: [],
+                salesConfirmed: false, salesConfirmedAt: '', salesConfirmedBy: '',
+                lawyerConfirmed: false, lawyerConfirmedAt: '',
+                emailSentAt: '', emailSubject: '',
+                clientReplied: false, clientRepliedAt: '', clientReplyNote: '',
+                loginCount: 0, callNote: '', plan: 'none',
+                autoMode: true, aiDraftReady: false, source: 'manual' as const,
+                riskScore: 0, riskLevel: '', issueCount: 0,
+                bizType: row['업종'] || row['bizType'] || '',
+                domain: row['홈페이지'] || row['domain'] || '',
+                privacyUrl: '',
+                contactName: row['담당자'] || row['contactName'] || '',
+                contactEmail: row['담당자 이메일'] || email || '',
+                contactPhone: row['담당자 전화'] || row['contactPhone'] || '',
+                contacts: [], memos: [], timeline: [],
             });
-            setExcelUploading(false);
-            setShowExcelUpload(false);
-            setExcelPreview([]);
-            refresh();
-            showToast(`📤 ${imported}개 기업이 Excel에서 등록되었습니다`);
-        }, 1000);
+            imported++;
+        }
+        setExcelUploading(false);
+        setShowExcelUpload(false);
+        setExcelPreview([]);
+        refresh();
+        showToast(`📤 ${imported}개 기업이 Excel에서 등록되었습니다`);
     };
 
     return {

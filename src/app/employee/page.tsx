@@ -23,7 +23,7 @@ import TableView from '@/components/employee/TableView';
 export default function EmployeePage() {
     const { loading: authLoading, authorized } = useRequireAuth(['super_admin', 'admin', 'sales']);
     const crm = useEmployeeCRM();
-    const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast);
+    const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast, crm.addCompany);
 
     const [showAutoPanel, setShowAutoPanel] = useState(false);
     const [showInvitePanel, setShowInvitePanel] = useState(false);
