@@ -296,24 +296,57 @@ export default function SalesLeadsPage() {
                                             transition={{ duration: 0.2 }}
                                             className="overflow-hidden"
                                             style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <div className="px-5 py-4 space-y-2">
-                                                <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                                                    활동 타임라인
-                                                </p>
-                                                {[...lead.timeline].reverse().slice(0, 5).map((event) => (
-                                                    <div key={event.id} className="flex items-start gap-2.5">
-                                                        <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#c9a84c' }} />
-                                                        <div>
-                                                            <span className="text-xs font-bold" style={{ color: '#f0f4ff' }}>{event.content}</span>
-                                                            <span className="text-[10px] ml-2" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                                                                {new Date(event.createdAt).toLocaleDateString('ko-KR')} · {event.author}
-                                                            </span>
-                                                        </div>
+                                            <div className="px-5 py-4 space-y-5">
+                                                {/* 개인정보처리방침 URL 관리 */}
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                                                        개인정보처리방침 URL 관리
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <input 
+                                                            type="text" 
+                                                            defaultValue={lead.privacyUrl}
+                                                            placeholder="https://example.com/privacy"
+                                                            onBlur={(e) => {
+                                                                if (e.target.value !== lead.privacyUrl) {
+                                                                    leadStore.update(lead.id, { privacyUrl: e.target.value });
+                                                                    setLeads(leadStore.getAll());
+                                                                }
+                                                            }}
+                                                            className="flex-1 px-3 py-2 rounded-xl text-sm outline-none"
+                                                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }}
+                                                        />
+                                                        {lead.privacyUrl && (
+                                                            <a href={lead.privacyUrl} target="_blank" rel="noreferrer">
+                                                                <button className="px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-1 transition-all hover:scale-[1.02]"
+                                                                    style={{ background: 'rgba(255,255,255,0.08)', color: '#f0f4ff', height: '100%' }}>
+                                                                    <ExternalLink className="w-4 h-4" />
+                                                                </button>
+                                                            </a>
+                                                        )}
                                                     </div>
-                                                ))}
-                                                {lead.timeline.length === 0 && (
-                                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.3)' }}>활동 내역 없음</p>
-                                                )}
+                                                    <p className="text-[10px] mt-1.5" style={{ color: 'rgba(240,244,255,0.4)' }}>수정 후 다른 곳을 클릭하면 자동 저장됩니다.</p>
+                                                </div>
+
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                                                        활동 타임라인
+                                                    </p>
+                                                    {[...lead.timeline].reverse().slice(0, 5).map((event) => (
+                                                        <div key={event.id} className="flex items-start gap-2.5">
+                                                            <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#c9a84c' }} />
+                                                            <div>
+                                                                <span className="text-xs font-bold" style={{ color: '#f0f4ff' }}>{event.content}</span>
+                                                                <span className="text-[10px] ml-2" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                                                                    {new Date(event.createdAt).toLocaleDateString('ko-KR')} · {event.author}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {lead.timeline.length === 0 && (
+                                                        <p className="text-xs" style={{ color: 'rgba(240,244,255,0.3)' }}>활동 내역 없음</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </motion.div>
                                     )}

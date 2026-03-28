@@ -18,11 +18,19 @@ import type {
 // N+1 쿼리를 방지하고, 클라이언트 단에서 비동기 Supabase 쿼리를 캐싱합니다.
 // =========================================================================
 
+// ── 공통 SWR 옵션 (중복 요청 방지 + 불필요한 재검증 차단) ──
+const SWR_OPTS = {
+  dedupingInterval: 10_000,       // 10초 내 동일 키 중복 요청 방지
+  revalidateOnFocus: false,       // 탭 전환 시 불필요한 재요청 방지
+  revalidateOnReconnect: true,    // 네트워크 재연결 시만 재검증
+  errorRetryCount: 2,             // 에러 시 재시도 2회 제한
+};
+
 export function useCompanies() {
   const { data, error, isLoading, mutate } = useSWR<Company[]>(
     'companies',
     async () => await dataLayer.companies.getAll(),
-    { fallbackData: [] }
+    { fallbackData: [], ...SWR_OPTS }
   );
 
   const addCompany = async (company: Partial<Company>) => {
@@ -48,7 +56,7 @@ export function useLitigations() {
   const { data, error, isLoading, mutate } = useSWR<LitigationCase[]>(
     'litigations',
     async () => await dataLayer.litigation.getAll(),
-    { fallbackData: [] }
+    { fallbackData: [], ...SWR_OPTS }
   );
 
   const addLitigation = async (lit: Partial<LitigationCase>) => {
@@ -68,7 +76,7 @@ export function useConsultations() {
   const { data, error, isLoading, mutate } = useSWR<Consultation[]>(
     'consultations',
     async () => await dataLayer.consult.getAll(),
-    { fallbackData: [] }
+    { fallbackData: [], ...SWR_OPTS }
   );
 
   return { consultations: data || [], isLoading, error, mutate };
@@ -78,7 +86,7 @@ export function useNotifications() {
   const { data, error, isLoading, mutate } = useSWR<AppNotification[]>(
     'notifications',
     async () => await dataLayer.notifications.getAll(),
-    { fallbackData: [] }
+    { fallbackData: [], ...SWR_OPTS }
   );
 
   const markAsRead = async (id: string) => {
@@ -103,7 +111,7 @@ export function usePersonalLitigations() {
   const { data, error, isLoading, mutate } = useSWR<PersonalLitigation[]>(
     'personal-litigations',
     async () => await dataLayer.personal.getAll(),
-    { fallbackData: [] }
+    { fallbackData: [], ...SWR_OPTS }
   );
 
   return { personalLitigations: data || [], isLoading, error, mutate };
@@ -112,7 +120,8 @@ export function usePersonalLitigations() {
 export function useAutoSettings() {
   const { data, error, isLoading, mutate } = useSWR<AutoSettings>(
     'auto-settings',
-    async () => await dataLayer.auto.getSettings()
+    async () => await dataLayer.auto.getSettings(),
+    SWR_OPTS
   );
 
   const updateSettings = async (patch: Partial<AutoSettings>) => {
@@ -127,7 +136,7 @@ export function useAutoLogs() {
   const { data, error, isLoading, mutate } = useSWR<AutoLog[]>(
     'auto-logs',
     async () => await dataLayer.auto.getLogs(),
-    { fallbackData: [] }
+    { fallbackData: [], ...SWR_OPTS }
   );
 
   return { logs: data || [], isLoading, error, mutate };

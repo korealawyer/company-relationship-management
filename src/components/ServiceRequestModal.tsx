@@ -37,6 +37,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
     const [selectedType, setSelectedType] = useState<FormRequestType>(resolveType(defaultType));
     const [title, setTitle] = useState('');
     const [detail, setDetail] = useState('');
+    const [privacyUrl, setPrivacyUrl] = useState('');
 
     const [files, setFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -50,6 +51,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
             setSelectedType(resolveType(defaultType));
             setTitle('');
             setDetail('');
+            setPrivacyUrl('');
             setFiles([]);
             setSubmitted(false);
         }
@@ -76,7 +78,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
             ];
             const newLeads = leadStore.add([{
                 companyName: session?.companyName || '새로운 고객사',
-                domain: '', privacyUrl: '',
+                domain: '', privacyUrl: privacyUrl,
                 contactName: session?.name || 'Client',
                 contactEmail: session?.email || 'client@example.com',
                 contactPhone: '', storeCount: 1,
@@ -210,6 +212,17 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                                                 type="text"
                                                 placeholder="예: 가맹점주 계약 해지 관련 자문"
                                                 value={title} onChange={e => setTitle(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
+                                            />
+                                        </div>
+
+                                        {/* Privacy URL */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1.5">개인정보처리방침 URL <span className="text-gray-400 font-normal">(선택)</span></label>
+                                            <input
+                                                type="url"
+                                                placeholder="https://example.com/privacy"
+                                                value={privacyUrl} onChange={e => setPrivacyUrl(e.target.value)}
                                                 className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
                                             />
                                         </div>

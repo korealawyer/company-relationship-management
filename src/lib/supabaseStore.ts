@@ -42,6 +42,20 @@ function objToRow(obj: Record<string, unknown>): Record<string, unknown> {
   return row;
 }
 
+// ── 배치 조회용 groupBy 유틸 ──────────────────────────────────
+
+function groupBy(rows: Record<string, any>[] | null, key: string): Record<string, Record<string, any>[]> {
+  const map: Record<string, Record<string, any>[]> = {};
+  if (!rows) return map;
+  for (const row of rows) {
+    const k = row[key];
+    if (k == null) continue;
+    if (!map[k]) map[k] = [];
+    map[k].push(row);
+  }
+  return map;
+}
+
 // ── Company CRUD ──────────────────────────────────────────────
 
 async function fetchCompaniesWithRelations(): Promise<Company[]> {
@@ -50,6 +64,19 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
 
   const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false });
   if (!rows) return [];
+
+  // ── 배치 쿼리: 서브 테이블을 한 번씩만 조회 (N+1 → 5 고정) ──
+  const [issuesRes, contactsRes, memosRes, timelinesRes] = await Promise.all([
+    sb.from('issues').select('*'),
+    sb.from('company_contacts').select('*'),
+    sb.from('company_memos').select('*'),
+    sb.from('timelines').select('*').order('created_at', { ascending: false }),
+  ]);
+
+  const issueMap = groupBy(issuesRes.data, 'company_id');
+  const contactMap = groupBy(contactsRes.data, 'company_id');
+  const memoMap = groupBy(memosRes.data, 'company_id');
+  const timelineMap = groupBy(timelinesRes.data, 'company_id');
 
   const companies: Company[] = [];
   for (const row of rows) {
@@ -64,25 +91,49 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
     c.email = anyC.contactEmail || '';
     c.phone = anyC.contactPhone || '';
 
-    // issues
-    const { data: issueRows } = await sb.from('issues').select('*').eq('company_id', c.id);
-    c.issues = (issueRows || []).map(r => rowToObj<Issue>(r));
-
-    // contacts
-    const { data: contactRows } = await sb.from('company_contacts').select('*').eq('company_id', c.id);
-    c.contacts = (contactRows || []).map(r => rowToObj<CompanyContact>(r));
-
-    // memos
-    const { data: memoRows } = await sb.from('company_memos').select('*').eq('company_id', c.id);
-    c.memos = (memoRows || []).map(r => rowToObj<CompanyMemo>(r));
-
-    // timeline
-    const { data: tlRows } = await sb.from('timelines').select('*').eq('company_id', c.id).order('created_at', { ascending: false });
-    c.timeline = (tlRows || []).map(r => rowToObj<CompanyTimelineEvent>(r));
+    // 클라이언트 사이드 조인 (네트워크 요청 없음)
+    c.issues = (issueMap[c.id] || []).map(r => rowToObj<Issue>(r));
+    c.contacts = (contactMap[c.id] || []).map(r => rowToObj<CompanyContact>(r));
+    c.memos = (memoMap[c.id] || []).map(r => rowToObj<CompanyMemo>(r));
+    c.timeline = (timelineMap[c.id] || []).map(r => rowToObj<CompanyTimelineEvent>(r));
 
     companies.push(c);
   }
   return companies;
+}
+
+// ── 단건 회사 조회 (전체 getAll 호출 없이 직접 조회) ──────────
+async function fetchCompanyById(id: string): Promise<Company | null> {
+  const sb = getSupabase();
+  if (!sb) return null;
+
+  const { data: row } = await sb.from('companies').select('*').eq('id', id).single();
+  if (!row) return null;
+
+  const anyC = rowToObj<Record<string, any>>(row);
+  const c = anyC as unknown as Company;
+
+  c.biz = anyC.bizNo || '';
+  c.bizType = anyC.bizCategory || '';
+  c.assignedLawyer = anyC.assignedLawyerId || '';
+  c.url = anyC.domain || '';
+  c.email = anyC.contactEmail || '';
+  c.phone = anyC.contactPhone || '';
+
+  // 해당 회사의 서브 데이터만 병렬 조회
+  const [issuesRes, contactsRes, memosRes, tlRes] = await Promise.all([
+    sb.from('issues').select('*').eq('company_id', id),
+    sb.from('company_contacts').select('*').eq('company_id', id),
+    sb.from('company_memos').select('*').eq('company_id', id),
+    sb.from('timelines').select('*').eq('company_id', id).order('created_at', { ascending: false }),
+  ]);
+
+  c.issues = (issuesRes.data || []).map(r => rowToObj<Issue>(r));
+  c.contacts = (contactsRes.data || []).map(r => rowToObj<CompanyContact>(r));
+  c.memos = (memosRes.data || []).map(r => rowToObj<CompanyMemo>(r));
+  c.timeline = (tlRes.data || []).map(r => rowToObj<CompanyTimelineEvent>(r));
+
+  return c;
 }
 
 function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = false): Record<string, any> {
@@ -146,8 +197,7 @@ export const supabaseCompanyStore = {
   },
 
   getById: async (id: string): Promise<Company | null> => {
-    const all = await fetchCompaniesWithRelations();
-    return all.find(c => c.id === id) || null;
+    return fetchCompanyById(id);
   },
 
   create: async (company: Partial<Company>): Promise<void> => {
@@ -209,11 +259,14 @@ export const supabaseLitigationStore = {
     const { data: rows } = await sb.from('litigation_cases').select('*').order('created_at', { ascending: false });
     if (!rows) return [];
 
+    // 배치 쿼리: 기일 데이터를 한 번에 조회 (N+1 → 2 고정)
+    const { data: allDeadlines } = await sb.from('litigation_deadlines').select('*').order('due_date');
+    const dlMap = groupBy(allDeadlines, 'case_id');
+
     const cases: LitigationCase[] = [];
     for (const row of rows) {
       const c = rowToObj<LitigationCase>(row);
-      const { data: dlRows } = await sb.from('litigation_deadlines').select('*').eq('case_id', c.id).order('due_date');
-      c.deadlines = (dlRows || []).map(r => rowToObj<LitigationDeadline>(r));
+      c.deadlines = (dlMap[c.id] || []).map(r => rowToObj<LitigationDeadline>(r));
       cases.push(c);
     }
     return cases;
@@ -296,15 +349,19 @@ export const supabasePersonalStore = {
     const { data: rows } = await sb.from('personal_litigations').select('*').order('created_at', { ascending: false });
     if (!rows) return [];
 
+    // 배치 쿼리: 기일 + 문서 데이터를 한 번에 조회 (N+1 → 3 고정)
+    const [allDl, allDocs] = await Promise.all([
+      sb.from('personal_lit_deadlines').select('*').order('due_date'),
+      sb.from('personal_lit_documents').select('*'),
+    ]);
+    const dlMap = groupBy(allDl.data, 'litigation_id');
+    const docMap = groupBy(allDocs.data, 'litigation_id');
+
     const cases: PersonalLitigation[] = [];
     for (const row of rows) {
       const c = rowToObj<PersonalLitigation>(row);
-      // deadlines
-      const { data: dlRows } = await sb.from('personal_lit_deadlines').select('*').eq('litigation_id', c.id).order('due_date');
-      c.deadlines = (dlRows || []).map(r => rowToObj<PersonalLitDeadline>(r));
-      // documents
-      const { data: docRows } = await sb.from('personal_lit_documents').select('*').eq('litigation_id', c.id);
-      c.documents = (docRows || []).map(r => rowToObj<PersonalLitDocument>(r));
+      c.deadlines = (dlMap[c.id] || []).map(r => rowToObj<PersonalLitDeadline>(r));
+      c.documents = (docMap[c.id] || []).map(r => rowToObj<PersonalLitDocument>(r));
       cases.push(c);
     }
     return cases;
