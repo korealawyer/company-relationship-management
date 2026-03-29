@@ -4,7 +4,7 @@ import { AlertTriangle, ChevronDown, ChevronUp, CheckCircle2, Clock, Calendar } 
 import { LitigationCase, LitigationDeadline } from '@/lib/types';
 import { LIT_STATUS_COLOR, LIT_STATUS_LABEL } from '@/lib/constants';
 import { generateAiMemoSummary } from '@/lib/automationEngine';
-import { STATUS_TEXT_MAP, STATUSES, daysUntil } from '@/app/litigation/constants';
+import { STATUS_TEXT_MAP, STATUSES, daysUntil } from '@/app/(client)/litigation/constants';
 import { useLitigations } from '@/hooks/useDataLayer';
 
 function DeadlineBadge({ d }: { d: LitigationDeadline }) {
