@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
@@ -25,6 +26,10 @@ export async function POST(req: NextRequest) {
     // 인증 검증 (변호사/관리자만 접근 허용)
     const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+    // AI 리뷰 API는 비용 문제로 분당 5회로 엄격하게 제한합니다. (테스트 환경 기준)
+    const rateLimitResponse = checkRateLimit(req, { max: 5, windowMs: 60000 });
+    if (rateLimitResponse) return rateLimitResponse;
 
     try {
         const { text } = await req.json();

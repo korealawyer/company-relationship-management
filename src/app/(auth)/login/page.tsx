@@ -170,6 +170,7 @@ function LoginContent() {
             </div>
 
             <div className="w-full max-w-md relative z-10">
+                <h1 className="sr-only">IBS 법률사무소 로그인</h1>
                 {/* Logo removed per user request */}
 
                 {/* Mode Toggle */}

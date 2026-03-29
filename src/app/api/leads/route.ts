@@ -108,6 +108,15 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: `허용되지 않은 status 값입니다: ${status}` }, { status: 422 });
     }
 
+    // IDOR (Insecure Direct Object Reference) 방어: 권한 검증
+    if (auth.role === 'client_hr' || auth.role === 'client') {
+        const lead = leadStore.getById(id);
+        if (!lead) return NextResponse.json({ error: '리드를 찾을 수 없습니다.' }, { status: 404 });
+        
+        // 기업 고객은 리드 상태를 임의로 수정할 수 없습니다 (읽기만 가능)
+        return NextResponse.json({ error: '리드를 수정할 권한이 없습니다.' }, { status: 403 });
+    }
+
     leadStore.update(id, { status, ...(memo ? { lastMemo: memo } : {}) });
     return NextResponse.json({ ok: true });
 }

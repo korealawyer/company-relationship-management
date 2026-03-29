@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import Navbar from "@/components/layout/Navbar";
 import { AuthProvider } from "@/lib/AuthContext";
 import { ZeroTrustBriefingProvider } from "@/components/ZeroTrustBriefingProvider";
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import "./globals.css";
 
 import FloatingChatbot from '@/components/layout/FloatingChatbot';
@@ -103,6 +105,8 @@ export default function RootLayout({
             <RealtimeNotification />
           </ZeroTrustBriefingProvider>
         </AuthProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -21,6 +21,7 @@ export const revalidate = 3600; // Cache ISR revalidation strategy (1 hour)
 export default function LandingPage() {
   return (
     <main className="bg-navy-deep">
+      <h1 className="sr-only">IBS 프랜차이즈 법률사무소 공식 홈페이지</h1>
       <ScrollProgress />
 
       {/* ── 1. HERO — 플랫폼 규모감 ── */}

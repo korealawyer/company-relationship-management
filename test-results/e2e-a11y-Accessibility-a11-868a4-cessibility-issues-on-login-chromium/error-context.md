@@ -1,0 +1,69 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "IBS" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: IBS
+      - generic [ref=e7]:
+        - link "서비스 소개" [ref=e8] [cursor=pointer]:
+          - /url: /service
+        - link "법률 상담" [ref=e9] [cursor=pointer]:
+          - /url: /consultation
+        - link "요금제" [ref=e10] [cursor=pointer]:
+          - /url: /pricing
+        - link "고객 포털" [ref=e11] [cursor=pointer]:
+          - /url: /portal
+      - generic [ref=e12]:
+        - link "로그인" [ref=e13] [cursor=pointer]:
+          - /url: /login
+        - link "상담 신청하기" [ref=e14] [cursor=pointer]:
+          - /url: /consultation
+  - main [ref=e15]:
+    - generic [ref=e17]:
+      - heading "IBS 법률사무소 로그인" [level=1] [ref=e18]
+      - generic [ref=e20]:
+        - button "개인" [ref=e21]:
+          - img [ref=e22]
+          - text: 개인
+        - button "기업" [ref=e26]:
+          - img [ref=e27]
+          - text: 기업
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - heading "기업 로그인" [level=2] [ref=e35]
+          - paragraph [ref=e36]: 담당자 이메일과 발급받은 비밀번호를 입력하세요.
+        - generic [ref=e37]:
+          - generic [ref=e38]: 담당자 이메일
+          - generic [ref=e39]:
+            - img [ref=e40]
+            - textbox "name@company.com" [ref=e43]
+        - generic [ref=e44]:
+          - generic [ref=e45]: 비밀번호
+          - generic [ref=e46]:
+            - img [ref=e47]
+            - textbox "발급받은 비밀번호" [ref=e50]
+            - button [ref=e51]:
+              - img [ref=e52]
+        - generic [ref=e56] [cursor=pointer]:
+          - checkbox "이메일(아이디) 저장" [ref=e57]
+          - text: 이메일(아이디) 저장
+        - button "나의 리포트 보기" [ref=e58]:
+          - text: 나의 리포트 보기
+          - img [ref=e59]
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - img [ref=e63]
+          - text: 안전한 암호화 로그인
+        - paragraph [ref=e66]:
+          - text: 계정이 없으신가요?
+          - link "회원가입" [ref=e67] [cursor=pointer]:
+            - /url: /signup
+          - text: · © 2026 IBS 법률사무소 ·
+          - button "직원 접속" [ref=e68]
+  - button "Open Next.js Dev Tools" [ref=e74] [cursor=pointer]:
+    - img [ref=e75]
+  - alert [ref=e78]
+```

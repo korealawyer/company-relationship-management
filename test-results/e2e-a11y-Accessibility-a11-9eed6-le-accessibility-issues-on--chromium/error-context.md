@@ -1,0 +1,1204 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "IBS" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: IBS
+      - generic [ref=e7]:
+        - link "서비스 소개" [ref=e8] [cursor=pointer]:
+          - /url: /service
+        - link "법률 상담" [ref=e9] [cursor=pointer]:
+          - /url: /consultation
+        - link "요금제" [ref=e10] [cursor=pointer]:
+          - /url: /pricing
+        - link "고객 포털" [ref=e11] [cursor=pointer]:
+          - /url: /portal
+      - generic [ref=e12]:
+        - link "로그인" [ref=e13] [cursor=pointer]:
+          - /url: /login
+        - link "상담 신청하기" [ref=e14] [cursor=pointer]:
+          - /url: /consultation
+  - main [ref=e15]:
+    - main [ref=e16]:
+      - heading "IBS 프랜차이즈 법률사무소 공식 홈페이지" [level=1] [ref=e17]
+      - generic [ref=e18]:
+        - img "Background" [ref=e20]
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - generic [ref=e24]:
+              - img [ref=e25]
+              - text: ALB Korea Law Awards 수상
+            - generic [ref=e28]:
+              - img [ref=e29]
+              - text: 글로벌 파트너와 대기업이 선택한 상위 1% 법무 인프라
+          - heading "기업의 법률·경영을 하나의 플랫폼으로 통합 관리합니다" [level=1] [ref=e32]:
+            - generic [ref=e33]: 기업의 법률·경영을
+            - generic [ref=e34]: 하나의 플랫폼으로
+            - generic [ref=e35]: 통합 관리합니다
+          - paragraph [ref=e36]:
+            - text: 법률 자문 · 계약서 검토 · 개인정보 컴플라이언스 · 경영 대시보드 · EAP 심리상담
+            - strong [ref=e37]: 외부 로펌 대비 70% 절감
+            - text: 하는 통합 법무 인프라를 지금 무료 체험하세요.
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - img [ref=e41]
+              - textbox "https://your-franchise.co.kr 입력" [ref=e44]
+              - button "진단 시작" [ref=e45]
+            - paragraph [ref=e46]: 귀사의 법적 리스크를 변호사가 진단해드립니다
+          - generic [ref=e47]:
+            - link "전화 상담" [ref=e48] [cursor=pointer]:
+              - /url: tel:025988518
+              - button "전화 상담" [ref=e49]:
+                - img [ref=e50]
+                - text: 전화 상담
+            - button "줌 상담 예약" [ref=e52]:
+              - img [ref=e53]
+              - text: 줌 상담 예약
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - generic [ref=e59]: 0+
+              - generic [ref=e60]: 지원회원
+            - generic [ref=e61]:
+              - generic [ref=e63]: 0+
+              - generic [ref=e64]: 누적 자문 완료
+            - generic [ref=e65]:
+              - generic [ref=e67]: 0억+
+              - generic [ref=e68]: 엑시트 기업 자문
+            - generic [ref=e69]:
+              - generic [ref=e71]: 0시간
+              - generic [ref=e72]: 자문 답변 보장
+          - img [ref=e74]
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - generic [ref=e80]: 🏗 통합 인프라 플랫폼
+          - heading "하나의 플랫폼으로 법률·경영·HR을 통합관리" [level=2] [ref=e81]
+          - paragraph [ref=e82]:
+            - text: 외부 로펌, 노무사, 컨설팅을 개별로 쓰는 시대는 끝났습니다.
+            - text: 9가지 인프라 모듈이 하나의 구독으로 제공됩니다.
+        - generic [ref=e83]:
+          - button "법률 인프라" [ref=e84]
+          - button "경영 인프라" [ref=e85]
+          - button "HR·복지 인프라" [ref=e86]
+        - generic [ref=e87]:
+          - generic [ref=e88] [cursor=pointer]:
+            - img [ref=e90]
+            - heading "전문 법률 자문" [level=3] [ref=e98]
+            - paragraph [ref=e99]: 24시간 즉시 법률 질문 답변. 전문 변호사가 판례·법령을 검색하여 정확한 자문을 제공합니다.
+            - generic [ref=e100]: ✓ 24/7 즉시 답변
+          - generic [ref=e101] [cursor=pointer]:
+            - img [ref=e103]
+            - heading "계약서 전문 검토" [level=3] [ref=e108]
+            - paragraph [ref=e109]: 가맹계약, 근로계약, 임대차계약 등 모든 계약서를 변호사가 즉시 검토. 독소조항·누락조항을 탐지합니다.
+            - generic [ref=e110]: ✓ 신속 검토 완료
+          - generic [ref=e111] [cursor=pointer]:
+            - img [ref=e113]
+            - heading "소송·분쟁 관리" [level=3] [ref=e117]
+            - paragraph [ref=e118]: 진행 중인 소송 현황, 변호사 배정, 기일 관리까지. 전담 변호사가 실시간으로 사건을 추적합니다.
+            - generic [ref=e119]: ✓ 전담 변호사 배정
+        - generic [ref=e120]:
+          - paragraph [ref=e121]: 9가지 인프라 모듈 · 하나의 구독 · 하나의 대시보드
+          - link "무료 체험 시작하기" [ref=e122] [cursor=pointer]:
+            - /url: /login
+            - button "무료 체험 시작하기" [ref=e123]:
+              - text: 무료 체험 시작하기
+              - img [ref=e124]
+      - generic [ref=e128]:
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - img [ref=e131]
+            - text: 업종별 실제 성과
+          - heading "1,200+ 기업이 IBS를 선택한 이유" [level=2] [ref=e135]
+          - paragraph [ref=e136]: 귀사와 같은 업종의 실제 도입 사례를 확인하세요
+        - generic [ref=e137]:
+          - button "🍕 프랜차이즈" [ref=e138]:
+            - generic [ref=e139]: 🍕
+            - text: 프랜차이즈
+          - button "💻 IT·스타트업" [ref=e140]:
+            - generic [ref=e141]: 💻
+            - text: IT·스타트업
+          - button "🏭 제조업" [ref=e142]:
+            - generic [ref=e143]: 🏭
+            - text: 제조업
+          - button "🏬 유통·리테일" [ref=e144]:
+            - generic [ref=e145]: 🏬
+            - text: 유통·리테일
+        - generic [ref=e146]:
+          - generic [ref=e147]:
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - generic [ref=e150]: 🍕
+                - generic [ref=e151]:
+                  - heading "외식 프랜차이즈 A사" [level=3] [ref=e152]
+                  - paragraph [ref=e153]: 외식 · 280개점
+                - generic [ref=e154]: 2025년 1월 도입
+              - generic [ref=e155]:
+                - paragraph [ref=e156]: 도입 전 문제
+                - paragraph [ref=e157]: 가맹계약 분쟁 3건 + 개인정보 과태료 위기
+              - generic [ref=e158]:
+                - paragraph [ref=e159]: 도입 후 결과
+                - paragraph [ref=e160]: 분쟁 사전 차단, 과태료 0원 달성
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - generic [ref=e163]:
+                  - paragraph [ref=e164]: 도입 전
+                  - paragraph [ref=e165]: 월 850만원
+                - img [ref=e167]
+                - generic [ref=e170]:
+                  - paragraph [ref=e171]: 도입 후
+                  - paragraph [ref=e172]: Enterprise 별도 협의
+              - generic [ref=e174]: 💰 연간 법무비용 47% 절감
+            - paragraph [ref=e177]: "\"외부 로펌 3곳에 나눠 쓰던 걸 하나로 통합하니 비용도 줄고, 대응 속도도 3배 빨라졌습니다.\""
+          - generic [ref=e178]:
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - generic [ref=e181]: 🍕
+                - generic [ref=e182]:
+                  - heading "미용 프랜차이즈 B사" [level=3] [ref=e183]
+                  - paragraph [ref=e184]: 뷰티 · 150개점
+                - generic [ref=e185]: 2024년 10월 완료
+              - generic [ref=e186]:
+                - paragraph [ref=e187]: 도입 전 문제
+                - paragraph [ref=e188]: 가맹점주 12명 집단 소송 위기
+              - generic [ref=e189]:
+                - paragraph [ref=e190]: 도입 후 결과
+                - paragraph [ref=e191]: 전원 합의 완료, 본사 리스크 차단
+            - generic [ref=e192]:
+              - generic [ref=e193]:
+                - generic [ref=e194]:
+                  - paragraph [ref=e195]: 도입 전
+                  - paragraph [ref=e196]: 소송 예상비 2억원
+                - img [ref=e198]
+                - generic [ref=e201]:
+                  - paragraph [ref=e202]: 도입 후
+                  - paragraph [ref=e203]: 합의 비용 8,000만원
+              - generic [ref=e205]: 💰 소송비용 1.2억 절감
+            - paragraph [ref=e208]: "\"집단 소송이 터질 뻔했는데, IBS 전담팀이 48시간 만에 초기 대응해서 합의로 마무리했습니다.\""
+        - link "우리 업종에 맞는 상담 받기" [ref=e210] [cursor=pointer]:
+          - /url: /login
+          - button "우리 업종에 맞는 상담 받기" [ref=e211]:
+            - text: 우리 업종에 맞는 상담 받기
+            - img [ref=e212]
+      - generic [ref=e216]:
+        - generic [ref=e217]:
+          - generic [ref=e218]:
+            - img [ref=e219]
+            - generic [ref=e222]: 20개 기능 지금 바로 사용 가능
+          - heading "하나의 플랫폼으로 전체 법무를 관리하세요" [level=2] [ref=e223]
+          - paragraph [ref=e224]: 법률 자문부터 계약·소송·EAP·경영 자문까지. 가입 즉시 모든 기능을 사용할 수 있습니다.
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - heading "법률 자문" [level=3] [ref=e228]: 법률 자문
+            - generic [ref=e230]:
+              - link "💬 법률 상담 챗봇 ✅ 사용 가능 24시간 법률 질문에 즉시 답변. 1차 분석 후 전문 변호사에게 연결" [ref=e231] [cursor=pointer]:
+                - /url: /chat
+                - generic [ref=e233]:
+                  - generic [ref=e234]: 💬
+                  - generic [ref=e235]:
+                    - generic [ref=e236]:
+                      - heading "법률 상담 챗봇" [level=3] [ref=e237]
+                      - generic [ref=e238]: ✅ 사용 가능
+                    - paragraph [ref=e239]: 24시간 법률 질문에 즉시 답변. 1차 분석 후 전문 변호사에게 연결
+                  - img [ref=e240]
+              - link "🔍 개인정보처리방침 전문 검토 ✅ 사용 가능 법률 위반 항목 자동 탐지 후 수정안 즉시 제공" [ref=e242] [cursor=pointer]:
+                - /url: /privacy-report
+                - generic [ref=e244]:
+                  - generic [ref=e245]: 🔍
+                  - generic [ref=e246]:
+                    - generic [ref=e247]:
+                      - heading "개인정보처리방침 전문 검토" [level=3] [ref=e248]
+                      - generic [ref=e249]: ✅ 사용 가능
+                    - paragraph [ref=e250]: 법률 위반 항목 자동 탐지 후 수정안 즉시 제공
+                  - img [ref=e251]
+              - link "⚖️ 전문 변호사 1:1 자문 ✅ 사용 가능 프랜차이즈·기업법 전문 변호사 즉시 배정 상담" [ref=e253] [cursor=pointer]:
+                - /url: /consultation
+                - generic [ref=e255]:
+                  - generic [ref=e256]: ⚖️
+                  - generic [ref=e257]:
+                    - generic [ref=e258]:
+                      - heading "전문 변호사 1:1 자문" [level=3] [ref=e259]
+                      - generic [ref=e260]: ✅ 사용 가능
+                    - paragraph [ref=e261]: 프랜차이즈·기업법 전문 변호사 즉시 배정 상담
+                  - img [ref=e262]
+              - link "📝 법률 의견서 자동 작성 ✅ 사용 가능 전문 변호사가 법률 의견서 초안을 5분 내 생성" [ref=e264] [cursor=pointer]:
+                - /url: /superlawyer
+                - generic [ref=e266]:
+                  - generic [ref=e267]: 📝
+                  - generic [ref=e268]:
+                    - generic [ref=e269]:
+                      - heading "법률 의견서 자동 작성" [level=3] [ref=e270]
+                      - generic [ref=e271]: ✅ 사용 가능
+                    - paragraph [ref=e272]: 전문 변호사가 법률 의견서 초안을 5분 내 생성
+                  - img [ref=e273]
+          - generic [ref=e275]:
+            - heading "계약 관리" [level=3] [ref=e277]: 계약 관리
+            - generic [ref=e279]:
+              - link "✍️ 전자 계약/서명 ✅ 사용 가능 온라인 계약 체결부터 전자서명, PDF 보관까지 원스톱" [ref=e280] [cursor=pointer]:
+                - /url: /contracts
+                - generic [ref=e282]:
+                  - generic [ref=e283]: ✍️
+                  - generic [ref=e284]:
+                    - generic [ref=e285]:
+                      - heading "전자 계약/서명" [level=3] [ref=e286]
+                      - generic [ref=e287]: ✅ 사용 가능
+                    - paragraph [ref=e288]: 온라인 계약 체결부터 전자서명, PDF 보관까지 원스톱
+                  - img [ref=e289]
+              - generic [ref=e292] [cursor=pointer]:
+                - generic [ref=e293]: 📋
+                - generic [ref=e294]:
+                  - generic [ref=e295]:
+                    - heading "계약서 위험 분석" [level=3] [ref=e296]
+                    - generic [ref=e297]: ✅ 사용 가능
+                  - paragraph [ref=e298]: 독소 조항·불리 조건을 자동 검출하고 대안 제시
+                - img [ref=e299]
+              - generic [ref=e302] [cursor=pointer]:
+                - generic [ref=e303]: 🔔
+                - generic [ref=e304]:
+                  - generic [ref=e305]:
+                    - heading "계약 만료 자동 알림" [level=3] [ref=e306]
+                    - generic [ref=e307]: ✅ 사용 가능
+                  - paragraph [ref=e308]: 만료 30일 전 담당자에게 자동 알림. 갱신 누락 방지
+                - img [ref=e309]
+          - generic [ref=e311]:
+            - heading "사건/소송" [level=3] [ref=e313]: 사건/소송
+            - generic [ref=e315]:
+              - link "📂 사건 칸반 보드 ✅ 사용 가능 수임 → 진행 → 종결 전 과정을 드래그&드롭으로 관리" [ref=e316] [cursor=pointer]:
+                - /url: /cases
+                - generic [ref=e318]:
+                  - generic [ref=e319]: 📂
+                  - generic [ref=e320]:
+                    - generic [ref=e321]:
+                      - heading "사건 칸반 보드" [level=3] [ref=e322]
+                      - generic [ref=e323]: ✅ 사용 가능
+                    - paragraph [ref=e324]: 수임 → 진행 → 종결 전 과정을 드래그&드롭으로 관리
+                  - img [ref=e325]
+              - generic [ref=e328] [cursor=pointer]:
+                - generic [ref=e329]: 📅
+                - generic [ref=e330]:
+                  - generic [ref=e331]:
+                    - heading "기일 자동 캘린더" [level=3] [ref=e332]
+                    - generic [ref=e333]: ✅ 사용 가능
+                  - paragraph [ref=e334]: 법원 기일 D-14/7/3/1 자동 알림 + 카카오톡 발송
+                - img [ref=e335]
+              - link "📊 송무 통합 대시보드 ✅ 사용 가능 전사 소송 현황·승소율·비용을 한눈에 파악" [ref=e337] [cursor=pointer]:
+                - /url: /litigation
+                - generic [ref=e339]:
+                  - generic [ref=e340]: 📊
+                  - generic [ref=e341]:
+                    - generic [ref=e342]:
+                      - heading "송무 통합 대시보드" [level=3] [ref=e343]
+                      - generic [ref=e344]: ✅ 사용 가능
+                    - paragraph [ref=e345]: 전사 소송 현황·승소율·비용을 한눈에 파악
+                  - img [ref=e346]
+          - generic [ref=e348]:
+            - heading "문서 관리" [level=3] [ref=e350]: 문서 관리
+            - generic [ref=e352]:
+              - generic [ref=e354] [cursor=pointer]:
+                - generic [ref=e355]: 📁
+                - generic [ref=e356]:
+                  - generic [ref=e357]:
+                    - heading "문서 허브" [level=3] [ref=e358]
+                    - generic [ref=e359]: ✅ 사용 가능
+                  - paragraph [ref=e360]: 계약서·소송자료·의견서를 클라우드에서 통합 관리
+                - img [ref=e361]
+              - generic [ref=e364] [cursor=pointer]:
+                - generic [ref=e365]: 💬
+                - generic [ref=e366]:
+                  - generic [ref=e367]:
+                    - heading "문서 코멘트·승인" [level=3] [ref=e368]
+                    - generic [ref=e369]: ✅ 사용 가능
+                  - paragraph [ref=e370]: 변호사↔고객 간 실시간 코멘트 및 전자결재
+                - img [ref=e371]
+          - generic [ref=e373]:
+            - heading "EAP 심리상담" [level=3] [ref=e375]: EAP 심리상담
+            - generic [ref=e377]:
+              - link "💛 심리 상담 ✅ 사용 가능 24시간 비밀 보장 상담. PHQ-9 기반 위험도 분석" [ref=e378] [cursor=pointer]:
+                - /url: /counselor
+                - generic [ref=e380]:
+                  - generic [ref=e381]: 💛
+                  - generic [ref=e382]:
+                    - generic [ref=e383]:
+                      - heading "심리 상담" [level=3] [ref=e384]
+                      - generic [ref=e385]: ✅ 사용 가능
+                    - paragraph [ref=e386]: 24시간 비밀 보장 상담. PHQ-9 기반 위험도 분석
+                  - img [ref=e387]
+              - link "🧠 임직원 정신건강 관리 ✅ 사용 가능 조직 멘탈 헬스 모니터링 및 익명 리포트" [ref=e389] [cursor=pointer]:
+                - /url: /company-hr
+                - generic [ref=e391]:
+                  - generic [ref=e392]: 🧠
+                  - generic [ref=e393]:
+                    - generic [ref=e394]:
+                      - heading "임직원 정신건강 관리" [level=3] [ref=e395]
+                      - generic [ref=e396]: ✅ 사용 가능
+                    - paragraph [ref=e397]: 조직 멘탈 헬스 모니터링 및 익명 리포트
+                  - img [ref=e398]
+              - generic [ref=e401] [cursor=pointer]:
+                - generic [ref=e402]: 🗓️
+                - generic [ref=e403]:
+                  - generic [ref=e404]:
+                    - heading "전문 상담사 예약" [level=3] [ref=e405]
+                    - generic [ref=e406]: ✅ 사용 가능
+                  - paragraph [ref=e407]: 1:1 심리상담 실시간 예약 및 화상 상담
+                - img [ref=e408]
+          - generic [ref=e410]:
+            - heading "경영 자문" [level=3] [ref=e412]: 경영 자문
+            - generic [ref=e414]:
+              - link "🛡️ 가맹사업법 컴플라이언스 ✅ 사용 가능 법규 준수 현황 자동 체크 및 과태료 리스크 분석" [ref=e415] [cursor=pointer]:
+                - /url: /dashboard
+                - generic [ref=e417]:
+                  - generic [ref=e418]: 🛡️
+                  - generic [ref=e419]:
+                    - generic [ref=e420]:
+                      - heading "가맹사업법 컴플라이언스" [level=3] [ref=e421]
+                      - generic [ref=e422]: ✅ 사용 가능
+                    - paragraph [ref=e423]: 법규 준수 현황 자동 체크 및 과태료 리스크 분석
+                  - img [ref=e424]
+              - generic [ref=e427] [cursor=pointer]:
+                - generic [ref=e428]: 📈
+                - generic [ref=e429]:
+                  - generic [ref=e430]:
+                    - heading "기업 리스크 대시보드" [level=3] [ref=e431]
+                    - generic [ref=e432]: ✅ 사용 가능
+                  - paragraph [ref=e433]: 법률·재무·인사 리스크를 통합 스코어링
+                - img [ref=e434]
+          - generic [ref=e436]:
+            - heading "자동화" [level=3] [ref=e438]: 자동화
+            - generic [ref=e440]:
+              - generic [ref=e442] [cursor=pointer]:
+                - generic [ref=e443]: 📊
+                - generic [ref=e444]:
+                  - generic [ref=e445]:
+                    - heading "월간 법무 리포트" [level=3] [ref=e446]
+                    - generic [ref=e447]: ✅ 사용 가능
+                  - paragraph [ref=e448]: 매월 자동 생성되는 법무 현황 보고서. PDF 다운로드
+                - img [ref=e449]
+              - generic [ref=e452] [cursor=pointer]:
+                - generic [ref=e453]: 💳
+                - generic [ref=e454]:
+                  - generic [ref=e455]:
+                    - heading "수임료 자동 청구" [level=3] [ref=e456]
+                    - generic [ref=e457]: ✅ 사용 가능
+                  - paragraph [ref=e458]: 계약 기반 수임료 자동 인보이싱 및 미납 추적
+                - img [ref=e459]
+              - generic [ref=e462] [cursor=pointer]:
+                - generic [ref=e463]: 💬
+                - generic [ref=e464]:
+                  - generic [ref=e465]:
+                    - heading "카카오 알림톡 자동 발송" [level=3] [ref=e466]
+                    - generic [ref=e467]: ✅ 사용 가능
+                  - paragraph [ref=e468]: 기일·결제·상담 완료 시 카카오 알림톡 즉시 발송
+                - img [ref=e469]
+        - generic [ref=e472]:
+          - paragraph [ref=e473]:
+            - text: ✅
+            - generic [ref=e474]: 20개 전체 기능
+            - text: 을 지금 바로 사용할 수 있습니다
+          - link "무료 체험 시작하기 →" [ref=e475] [cursor=pointer]:
+            - /url: /signup
+            - button "무료 체험 시작하기 →" [ref=e476]
+      - generic [ref=e479]:
+        - generic [ref=e480]:
+          - generic [ref=e481]:
+            - img [ref=e482]
+            - text: 프리미엄 연간자문 — 기본 포함 서비스
+          - heading "IBS 법률사무소가 5가지를 기본 제공합니다" [level=2] [ref=e485]
+          - paragraph [ref=e486]: 단순 법률자문이 아닌 — 본사·가맹점·임직원 전체를 커버하는 브랜드 리스크 운영 예산
+        - generic [ref=e487]:
+          - generic [ref=e489] [cursor=pointer]:
+            - generic [ref=e490]:
+              - img [ref=e492]
+              - generic [ref=e496]:
+                - paragraph [ref=e497]: 본사 법률자문
+                - paragraph [ref=e498]: HQ Legal Advisory
+            - paragraph [ref=e499]: 무제한 자문. 계약서·약관·분쟁 대응 변호사 직접 응대. 긴급 시 24시간.
+            - generic [ref=e500]: ✅ 무제한 자문
+          - generic [ref=e502] [cursor=pointer]:
+            - generic [ref=e503]:
+              - img [ref=e505]
+              - generic [ref=e509]:
+                - paragraph [ref=e510]: 가맹점 법률상담
+                - paragraph [ref=e511]: Franchisee Consultation
+            - paragraph [ref=e512]: 챗봇 접수 → 변호사 BACKCALL 24시간 내 대응. 상담 내용 본사 절대 비공개.
+            - generic [ref=e513]: ✅ BACKCALL 시스템
+          - generic [ref=e515] [cursor=pointer]:
+            - generic [ref=e516]:
+              - img [ref=e518]
+              - generic [ref=e521]:
+                - paragraph [ref=e522]: 임직원 법률상담
+                - paragraph [ref=e523]: Employee Consultation
+            - paragraph [ref=e524]: 복리후생 프로그램. 부동산·가족·소비자 분쟁 등 개인 생활법률 익명 상담.
+            - generic [ref=e525]: ✅ 복리후생 포함
+          - generic [ref=e527] [cursor=pointer]:
+            - generic [ref=e528]:
+              - img [ref=e530]
+              - generic [ref=e532]:
+                - paragraph [ref=e533]: 분기 리스크 브리핑
+                - paragraph [ref=e534]: Franchise Risk Briefing
+            - paragraph [ref=e535]: 분기 1회(연 4회). 리스크 TOP 5 + 공정위 동향 + 체크리스트 + 표준문구 업데이트.
+            - generic [ref=e536]: ✅ 연 4회 자동 제공
+          - generic [ref=e538] [cursor=pointer]:
+            - generic [ref=e539]:
+              - img [ref=e541]
+              - generic [ref=e544]:
+                - paragraph [ref=e545]: 법률 문서 2,000종
+                - paragraph [ref=e546]: Document Templates Library
+            - paragraph [ref=e547]: 연 1회 업데이트. Word+PDF 포맷. 본사·가맹점·임직원 자체 활용 가능.
+            - generic [ref=e548]: ✅ Word + PDF
+          - generic [ref=e550] [cursor=pointer]:
+            - generic [ref=e551]:
+              - paragraph [ref=e552]: 핵심 차별점
+              - generic [ref=e553]:
+                - img [ref=e554]
+                - generic [ref=e557]: 사건 처리 → 사고 예방 중심
+              - generic [ref=e558]:
+                - img [ref=e559]
+                - generic [ref=e562]: 본사 + 가맹점 + 임직원 원스톱
+              - generic [ref=e563]:
+                - img [ref=e564]
+                - generic [ref=e567]: 공식 법률파트너 표기 제공
+              - generic [ref=e568]:
+                - img [ref=e569]
+                - generic [ref=e572]: 분기 리스크 브리핑으로 선제 대응
+            - paragraph [ref=e574]: "최소 계약: 1년 / 분기별 가맹점 수 기준 요금 리베이스"
+      - generic [ref=e577]:
+        - generic [ref=e578]:
+          - generic [ref=e579]:
+            - img [ref=e580]
+            - text: 무료로 시작하세요
+          - heading "가입만 해도 5가지 기능을 무료로" [level=2] [ref=e583]
+          - paragraph [ref=e584]: 결제 없이 시작하세요. 플랫폼의 가치를 직접 체험한 후 구독을 결정하실 수 있습니다.
+        - generic [ref=e585]:
+          - generic [ref=e586]:
+            - generic [ref=e587]:
+              - generic [ref=e588]: FREE
+              - generic [ref=e589]: 무료 회원
+            - generic [ref=e590]:
+              - generic [ref=e591]:
+                - img [ref=e593]
+                - generic [ref=e601]:
+                  - paragraph [ref=e602]: 법률 챗봇 질문
+                  - paragraph [ref=e603]: 월 3회 무료
+                - img [ref=e604]
+              - generic [ref=e606]:
+                - img [ref=e608]
+                - generic [ref=e610]:
+                  - paragraph [ref=e611]: 개인정보 기본 진단
+                  - paragraph [ref=e612]: 1회 무료 리포트
+                - img [ref=e613]
+              - generic [ref=e615]:
+                - img [ref=e617]
+                - generic [ref=e620]:
+                  - paragraph [ref=e621]: 법무 뉴스레터
+                  - paragraph [ref=e622]: 주 1회 발송
+                - img [ref=e623]
+              - generic [ref=e625]:
+                - img [ref=e627]
+                - generic [ref=e629]:
+                  - paragraph [ref=e630]: FAQ · 법률 가이드
+                  - paragraph [ref=e631]: 전체 열람
+                - img [ref=e632]
+              - generic [ref=e634]:
+                - img [ref=e636]
+                - generic [ref=e638]:
+                  - paragraph [ref=e639]: 대시보드 미리보기
+                  - paragraph [ref=e640]: 샘플 데이터
+                - img [ref=e641]
+          - generic [ref=e643]:
+            - generic [ref=e644]:
+              - generic [ref=e645]: PRO
+              - generic [ref=e646]: 유료 구독
+              - generic [ref=e647]: 월 33만원~
+            - generic [ref=e648]:
+              - img [ref=e649]
+              - generic [ref=e651]: 무료 기능 전체 포함
+            - generic [ref=e652]:
+              - generic [ref=e653]:
+                - img [ref=e655]
+                - generic [ref=e657]:
+                  - paragraph [ref=e658]: 변호사 직접 자문
+                  - paragraph [ref=e659]: 무제한
+                - img [ref=e660]
+              - generic [ref=e663]:
+                - img [ref=e665]
+                - generic [ref=e668]:
+                  - paragraph [ref=e669]: 계약서 검토
+                  - paragraph [ref=e670]: 무제한
+                - img [ref=e671]
+              - generic [ref=e674]:
+                - img [ref=e676]
+                - generic [ref=e678]:
+                  - paragraph [ref=e679]: 월간 법무 리포트
+                  - paragraph [ref=e680]: 맞춤 분석
+                - img [ref=e681]
+              - generic [ref=e684]:
+                - img [ref=e686]
+                - generic [ref=e691]:
+                  - paragraph [ref=e692]: 팀원 초대 & 관리
+                  - paragraph [ref=e693]: 무제한
+                - img [ref=e694]
+            - link "요금제 비교하기 →" [ref=e697] [cursor=pointer]:
+              - /url: /pricing
+              - button "요금제 비교하기 →" [ref=e698]
+        - generic [ref=e699]:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 7건
+                - generic: 진행 중 자문
+              - generic:
+                - generic: 3건
+                - generic: 이번 달 리포트
+              - generic:
+                - generic: ₩24,800,000
+                - generic: 누적 법무비용 절감
+              - generic:
+                - generic: 12점 (안전)
+                - generic: 리스크 점수
+            - generic:
+              - generic:
+                - paragraph: 최근 자문 내역
+              - generic:
+                - paragraph: 계약서 검토 현황
+              - generic:
+                - paragraph: 법무 비용 추이
+          - generic [ref=e700]:
+            - img [ref=e702]
+            - heading "구독 시 이 대시보드를" [level=3] [ref=e705]
+            - paragraph [ref=e706]: 귀사 실제 데이터로 사용합니다
+            - paragraph [ref=e707]: 실시간 법무 현황 · 비용 분석 · 리스크 추적
+            - link "🔓 무료 체험 시작하기" [ref=e708] [cursor=pointer]:
+              - /url: /signup
+              - button "🔓 무료 체험 시작하기" [ref=e709]:
+                - text: 🔓 무료 체험 시작하기
+                - img [ref=e710]
+      - generic [ref=e714]:
+        - generic [ref=e715]:
+          - heading "가맹점 수에 따라 요금이 결정됩니다" [level=2] [ref=e716]
+          - paragraph [ref=e717]: 프리미엄 연간자문 (HQ+Store+Employee) · 1년 약정 · VAT 별도
+        - generic [ref=e718]:
+          - generic [ref=e719]:
+            - paragraph [ref=e720]: Entry
+            - paragraph [ref=e721]: 33만원
+            - paragraph [ref=e722]: 가맹점 1~10개
+            - generic [ref=e723]:
+              - generic [ref=e724]:
+                - img [ref=e725]
+                - text: 본사 법률자문 (무제한)
+              - generic [ref=e728]:
+                - img [ref=e729]
+                - text: 가맹점 법률상담 (BACKCALL)
+              - generic [ref=e732]:
+                - img [ref=e733]
+                - text: 임직원 법률상담 (BACKCALL)
+          - generic [ref=e736]:
+            - generic [ref=e737]: 인기
+            - paragraph [ref=e738]: Growth
+            - paragraph [ref=e739]: 55만원
+            - paragraph [ref=e740]: 가맹점 11~50개
+            - generic [ref=e741]:
+              - generic [ref=e742]:
+                - img [ref=e743]
+                - text: 본사 법률자문 (무제한)
+              - generic [ref=e746]:
+                - img [ref=e747]
+                - text: 가맹점 법률상담 (BACKCALL)
+              - generic [ref=e750]:
+                - img [ref=e751]
+                - text: 임직원 법률상담 (BACKCALL)
+          - generic [ref=e754]:
+            - paragraph [ref=e755]: Scale
+            - paragraph [ref=e756]: 110만원
+            - paragraph [ref=e757]: 가맹점 51~100개
+            - generic [ref=e758]:
+              - generic [ref=e759]:
+                - img [ref=e760]
+                - text: 본사 법률자문 (무제한)
+              - generic [ref=e763]:
+                - img [ref=e764]
+                - text: 가맹점 법률상담 (BACKCALL)
+              - generic [ref=e767]:
+                - img [ref=e768]
+                - text: 임직원 법률상담 (BACKCALL)
+          - generic [ref=e771]:
+            - paragraph [ref=e772]: Enterprise
+            - paragraph [ref=e773]: 맞춤 견적
+            - paragraph [ref=e774]: 가맹점 100개+
+            - generic [ref=e775]:
+              - generic [ref=e776]:
+                - img [ref=e777]
+                - text: 본사 법률자문 (무제한)
+              - generic [ref=e780]:
+                - img [ref=e781]
+                - text: 가맹점 법률상담 (BACKCALL)
+              - generic [ref=e784]:
+                - img [ref=e785]
+                - text: 임직원 법률상담 (BACKCALL)
+        - generic [ref=e788]:
+          - generic [ref=e790] [cursor=pointer]:
+            - paragraph [ref=e791]: 💡 내 가맹점 수로 계산하기
+            - paragraph [ref=e792]: 슬라이더를 움직여 정확한 요금을 확인하세요
+            - generic [ref=e793]:
+              - generic [ref=e794]:
+                - generic [ref=e795]: 가맹점 수
+                - generic [ref=e796]: 30개
+              - slider [ref=e797]: "30"
+              - generic [ref=e798]:
+                - generic [ref=e799]: 1개
+                - generic [ref=e800]: 100개
+                - generic [ref=e801]: 200개
+            - generic [ref=e802]:
+              - generic [ref=e803]:
+                - generic [ref=e804]: 월 구독료
+                - generic [ref=e805]: 55만원
+              - generic [ref=e806]:
+                - generic [ref=e807]: 연간 구독료
+                - generic [ref=e808]: 660만원
+              - generic [ref=e809]:
+                - generic [ref=e810]: 매장당 단가
+                - generic [ref=e811]: 18,333원/개
+            - link "이 요금으로 상담 신청" [ref=e812]:
+              - /url: /login
+              - button "이 요금으로 상담 신청" [ref=e813]:
+                - img [ref=e814]
+                - text: 이 요금으로 상담 신청
+            - paragraph [ref=e816]: 최소 1년 약정 · VAT 별도 · 분기별 가맹점 수 기준 리베이스
+          - generic [ref=e817]:
+            - generic [ref=e818] [cursor=pointer]:
+              - paragraph [ref=e819]: 샘플 가격표
+              - table [ref=e820]:
+                - rowgroup [ref=e821]:
+                  - row "가맹점 수 월 구독료 매장당 단가" [ref=e822]:
+                    - columnheader "가맹점 수" [ref=e823]
+                    - columnheader "월 구독료" [ref=e824]
+                    - columnheader "매장당 단가" [ref=e825]
+                - rowgroup [ref=e826]:
+                  - row "1개 33만원 330,000원" [ref=e827]:
+                    - cell "1개" [ref=e828]
+                    - cell "33만원" [ref=e829]
+                    - cell "330,000원" [ref=e830]
+                  - row "10개 33만원 33,000원" [ref=e831]:
+                    - cell "10개" [ref=e832]
+                    - cell "33만원" [ref=e833]
+                    - cell "33,000원" [ref=e834]
+                  - row "30개 55만원 18,333원" [ref=e835]:
+                    - cell "30개" [ref=e836]
+                    - cell "55만원" [ref=e837]
+                    - cell "18,333원" [ref=e838]
+                  - row "50개 55만원 11,000원" [ref=e839]:
+                    - cell "50개" [ref=e840]
+                    - cell "55만원" [ref=e841]
+                    - cell "11,000원" [ref=e842]
+                  - row "100개 110만원 11,000원" [ref=e843]:
+                    - cell "100개" [ref=e844]
+                    - cell "110만원" [ref=e845]
+                    - cell "11,000원" [ref=e846]
+                  - row "150개 140만원 9,333원" [ref=e847]:
+                    - cell "150개" [ref=e848]
+                    - cell "140만원" [ref=e849]
+                    - cell "9,333원" [ref=e850]
+                  - row "200개 170만원 8,500원" [ref=e851]:
+                    - cell "200개" [ref=e852]
+                    - cell "170만원" [ref=e853]
+                    - cell "8,500원" [ref=e854]
+              - paragraph [ref=e856]: "✅ 산정식: P(n) = ₩300,000 + ₩8,500 × (n - 1) · 200개+ Enterprise 별도 협의"
+            - generic [ref=e857]:
+              - img [ref=e858]
+              - paragraph [ref=e862]: 200개 이상 대형 본사
+              - paragraph [ref=e863]: 전담 변호사팀 배정 · 맞춤 서비스 설계
+              - link "Enterprise 상담 →" [ref=e864] [cursor=pointer]:
+                - /url: /login
+                - button "Enterprise 상담 →" [ref=e865]
+        - generic [ref=e867] [cursor=pointer]:
+          - generic [ref=e868]:
+            - paragraph [ref=e869]: 💰 비용 비교
+            - heading "외부 로펌 이용 vs IBS 플랫폼" [level=3] [ref=e870]
+          - generic [ref=e871]:
+            - generic [ref=e872]:
+              - paragraph [ref=e873]: 🏛 외부 로펌 개별 이용 시
+              - generic [ref=e874]:
+                - generic [ref=e875]:
+                  - generic [ref=e876]: 법률 자문
+                  - generic [ref=e877]: 월 500만원
+                - generic [ref=e878]:
+                  - generic [ref=e879]: 계약서 검토
+                  - generic [ref=e880]: 건당 100만원
+                - generic [ref=e881]:
+                  - generic [ref=e882]: 개인정보 컨설팅
+                  - generic [ref=e883]: 300만원/회
+                - generic [ref=e884]:
+                  - generic [ref=e885]: 노무 자문
+                  - generic [ref=e886]: 월 200만원
+                - generic [ref=e887]:
+                  - generic [ref=e888]: 소송 관리
+                  - generic [ref=e889]: 착수금 별도
+              - generic [ref=e890]:
+                - text: 월 합계 (추정)
+                - paragraph [ref=e891]: ~900만원+
+            - generic [ref=e892]:
+              - paragraph [ref=e893]: ⚡ IBS 플랫폼 구독 시
+              - generic [ref=e894]:
+                - generic [ref=e895]:
+                  - generic [ref=e896]: 법률 자문
+                  - generic [ref=e897]: 무제한 포함
+                - generic [ref=e898]:
+                  - generic [ref=e899]: 가맹점 BACKCALL
+                  - generic [ref=e900]: 무제한 포함
+                - generic [ref=e901]:
+                  - generic [ref=e902]: 임직원 법률상담
+                  - generic [ref=e903]: 무제한 포함
+                - generic [ref=e904]:
+                  - generic [ref=e905]: 분기 리스크 브리핑
+                  - generic [ref=e906]: 연 4회 포함
+                - generic [ref=e907]:
+                  - generic [ref=e908]: 법률 문서 2,000종
+                  - generic [ref=e909]: 포함
+              - generic [ref=e910]:
+                - text: 월 구독료
+                - paragraph [ref=e911]: 30만원~
+          - generic [ref=e912]:
+            - paragraph [ref=e913]: 연간 절감 (추정)
+            - paragraph [ref=e914]: 최대 1억원+
+            - paragraph [ref=e915]: 쓰지 않는 것이 오히려 손해입니다
+        - generic [ref=e918] [cursor=pointer]:
+          - generic [ref=e919]:
+            - paragraph [ref=e920]: ✅ 전 구간 동일 — 5대 서비스 모두 포함
+            - generic [ref=e921]:
+              - generic [ref=e922]:
+                - img [ref=e923]
+                - text: 본사 법률자문 (무제한)
+              - generic [ref=e926]:
+                - img [ref=e927]
+                - text: 가맹점 법률상담 (BACKCALL)
+              - generic [ref=e930]:
+                - img [ref=e931]
+                - text: 임직원 법률상담 (BACKCALL)
+              - generic [ref=e934]:
+                - img [ref=e935]
+                - text: 분기 리스크 브리핑 (연 4회)
+              - generic [ref=e938]:
+                - img [ref=e939]
+                - text: 법률 문서 2,000종
+              - generic [ref=e942]:
+                - img [ref=e943]
+                - text: EAP 심리상담 (2026.04~)
+          - generic [ref=e946]:
+            - generic [ref=e947]: 가맹점 1개부터
+            - generic [ref=e948]: 월 30만원~
+        - generic [ref=e949]:
+          - heading "애드온 모듈" [level=3] [ref=e950]
+          - generic [ref=e951]:
+            - generic [ref=e952] [cursor=pointer]:
+              - generic [ref=e954]: 2026.04 오픈
+              - paragraph [ref=e955]: EAP 심리상담
+              - paragraph [ref=e956]: 이탈·분쟁 비용 절감
+              - paragraph [ref=e957]: 전문 상담기관 제휴. 익명 예약. 번아웃·갈등 완화 → 운영 안정성 강화.
+              - generic [ref=e958]: 💬 본사와 동일 산정식
+            - generic [ref=e959] [cursor=pointer]:
+              - generic [ref=e961]: PROJECT
+              - paragraph [ref=e962]: 전수 진단·개선
+              - paragraph [ref=e963]: Comprehensive Legal Reform
+              - paragraph [ref=e964]: 기존 문서 전수 점검 → 리스크 발굴 → 표준화 산출물. 법률 DNA 체질 개선.
+              - generic [ref=e965]: 💬 협의 산정
+            - generic [ref=e966] [cursor=pointer]:
+              - generic [ref=e968]: PROJECT
+              - paragraph [ref=e969]: 경영자문
+              - paragraph [ref=e970]: Management Advisory
+              - paragraph [ref=e971]: 재무/세무/투자/특허/법무. 투자 파트너 연계·소개. 동반성장 파트너십.
+              - generic [ref=e972]: 💬 협의 산정
+        - generic [ref=e973]:
+          - heading "추가 서비스 — 구독 시 최대 50% 할인" [level=3] [ref=e974]
+          - table [ref=e977] [cursor=pointer]:
+            - rowgroup [ref=e978]:
+              - row "서비스명 정가 구독 시 비고" [ref=e979]:
+                - columnheader "서비스명" [ref=e980]
+                - columnheader "정가" [ref=e981]
+                - columnheader "구독 시" [ref=e982]
+                - columnheader "비고" [ref=e983]
+            - rowgroup [ref=e984]:
+              - row "상표 출원·등록 49~50만원 27~28만원 50% 할인 (관납료 포함)" [ref=e985]:
+                - cell "상표 출원·등록" [ref=e986]
+                - cell "49~50만원" [ref=e987]
+                - cell "27~28만원" [ref=e988]
+                - cell "50% 할인 (관납료 포함)" [ref=e989]
+              - row "가맹계약서 최초 세팅 88만원 무상 제공 구독 포함" [ref=e990]:
+                - cell "가맹계약서 최초 세팅" [ref=e991]
+                - cell "88만원" [ref=e992]
+                - cell "무상 제공" [ref=e993]
+                - cell "구독 포함" [ref=e994]
+              - row "정보공개서 신규 등록 88만원 44만원 50% 할인" [ref=e995]:
+                - cell "정보공개서 신규 등록" [ref=e996]
+                - cell "88만원" [ref=e997]
+                - cell "44만원" [ref=e998]
+                - cell "50% 할인" [ref=e999]
+              - row "정보공개서 정기 변경 88만원 44만원 50% 할인" [ref=e1000]:
+                - cell "정보공개서 정기 변경" [ref=e1001]
+                - cell "88만원" [ref=e1002]
+                - cell "44만원" [ref=e1003]
+                - cell "50% 할인" [ref=e1004]
+              - row "해외 확장·M&A 협의 산정 협의 산정 프로젝트 단위" [ref=e1005]:
+                - cell "해외 확장·M&A" [ref=e1006]
+                - cell "협의 산정" [ref=e1007]
+                - cell "협의 산정" [ref=e1008]
+                - cell "프로젝트 단위" [ref=e1009]
+              - row "임직원 가맹사업법 교육 협의 산정 협의 산정 온·오프라인" [ref=e1010]:
+                - cell "임직원 가맹사업법 교육" [ref=e1011]
+                - cell "협의 산정" [ref=e1012]
+                - cell "협의 산정" [ref=e1013]
+                - cell "온·오프라인" [ref=e1014]
+        - generic [ref=e1016]:
+          - generic [ref=e1017]:
+            - img [ref=e1018]
+            - text: 언제든 취소 가능
+          - generic [ref=e1021]:
+            - img [ref=e1022]
+            - text: 30일 환불 보장
+          - generic [ref=e1025]:
+            - img [ref=e1026]
+            - text: 카드/계좌이체 가능
+          - generic [ref=e1029]:
+            - img [ref=e1030]
+            - text: VAT 별도
+      - generic [ref=e1035]:
+        - heading "이미 300개 본사가 선택했습니다" [level=2] [ref=e1037]
+        - generic [ref=e1038]:
+          - generic [ref=e1040] [cursor=pointer]:
+            - generic [ref=e1041]:
+              - img [ref=e1042]
+              - img [ref=e1044]
+              - img [ref=e1046]
+              - img [ref=e1048]
+              - img [ref=e1050]
+            - paragraph [ref=e1052]: "\"방침 수정 후 개인정보보호위 점검에서 이상 없음 확인. 대표이사 형사 리스크 제거\""
+            - generic [ref=e1053]:
+              - img [ref=e1054]
+              - generic [ref=e1058]: 커피전문점 본사 (280개 가맹점)
+          - generic [ref=e1060] [cursor=pointer]:
+            - generic [ref=e1061]:
+              - img [ref=e1062]
+              - img [ref=e1064]
+              - img [ref=e1066]
+              - img [ref=e1068]
+              - img [ref=e1070]
+            - paragraph [ref=e1072]: "\"가맹점 민원으로 시작했는데, 방침 정비 후 민원 건수 0건. 가맹점주 신뢰 회복\""
+            - generic [ref=e1073]:
+              - img [ref=e1074]
+              - generic [ref=e1078]: 치킨 프랜차이즈 본사 (420개 가맹점)
+          - generic [ref=e1080] [cursor=pointer]:
+            - generic [ref=e1081]:
+              - img [ref=e1082]
+              - img [ref=e1084]
+              - img [ref=e1086]
+              - img [ref=e1088]
+              - img [ref=e1090]
+            - paragraph [ref=e1092]: "\"자동 분석 리포트가 내부 법무팀보다 더 빠르고 정확. 월 구독으로 전환한 것 후회 없음\""
+            - generic [ref=e1093]:
+              - img [ref=e1094]
+              - generic [ref=e1098]: 뷰티 프랜차이즈 본사 (150개 가맹점)
+      - generic [ref=e1101]:
+        - paragraph [ref=e1102]: 언론 및 미디어 보도
+        - generic [ref=e1103]:
+          - generic [ref=e1104]: 조선일보
+          - generic [ref=e1105]: 한국경제신문
+          - generic [ref=e1106]: SBS Biz
+          - generic [ref=e1107]: 연합뉴스TV
+          - generic [ref=e1108]: 로이터즈
+          - generic [ref=e1109]: 공정거래위원회 자료집
+      - generic [ref=e1112]:
+        - generic [ref=e1113]:
+          - generic [ref=e1114]:
+            - img [ref=e1115]
+            - text: 실제 성과 사례
+          - heading "IBS가 자문한 기업들의 실제 성과" [level=2] [ref=e1118]
+          - paragraph [ref=e1119]: 법률 자문이 사업 성과로 직결되는 순간
+        - generic [ref=e1120]:
+          - generic [ref=e1122] [cursor=pointer]:
+            - generic [ref=e1123]: 🎉
+            - paragraph [ref=e1124]: 1,000억원 엑시트
+            - paragraph [ref=e1125]: 투자유치 중 M&A
+            - paragraph [ref=e1126]: 자문 12년차 직영 스토리지 프랜차이즈 본부. 우리의 프랜차이즈 계약 서류 정비 후 투자자 신뢰도 확보 성공, 1,000억원 M&A 엑시트 달성.
+            - generic [ref=e1127]: 2024년 10월 완료
+          - generic [ref=e1129] [cursor=pointer]:
+            - generic [ref=e1130]: 📊
+            - paragraph [ref=e1131]: 과태료 0원
+            - paragraph [ref=e1132]: 외식 프랜차이즈 280개점
+            - paragraph [ref=e1133]: 개인정보보호위원회 현장 점검에서 위반사항 적발 당해 과태료 2,400만원 위기. IBS 조속 수임 후 행정소송 고충 성공, 교정조치 마무리.
+            - generic [ref=e1134]: 과태료 감면 확정
+          - generic [ref=e1136] [cursor=pointer]:
+            - generic [ref=e1137]: ⚖️
+            - paragraph [ref=e1138]: 분쟁 전담 속결
+            - paragraph [ref=e1139]: 미용 프랜차이즈 150개점
+            - paragraph [ref=e1140]: 가맹점주 12명 집단 소송 위기. 개인정보 보호 의무 위반 주장 증거 무효화 성공, 본사 리스크를 차단하며 1년 이내 전원 합의 완료.
+            - generic [ref=e1141]: 분쟁 해결
+      - generic [ref=e1144]:
+        - generic [ref=e1145]:
+          - generic [ref=e1146]:
+            - img [ref=e1147]
+            - text: 검증된 플랫폼
+          - heading "12년간 검증된 신뢰와 전문성" [level=2] [ref=e1149]
+          - paragraph [ref=e1150]: 대한민국 최고 수준의 법률 인프라가 귀사의 성장을 보호합니다
+        - generic [ref=e1151]:
+          - generic [ref=e1152]:
+            - img [ref=e1153]
+            - generic [ref=e1156]: 15명
+            - generic [ref=e1157]: 전문 변호사 상주
+          - generic [ref=e1158]:
+            - img [ref=e1159]
+            - generic [ref=e1161]: ISMS
+            - generic [ref=e1162]: 정보보호 인증
+          - generic [ref=e1163]:
+            - img [ref=e1164]
+            - generic [ref=e1167]: 2회
+            - generic [ref=e1168]: 법무 혁신 수상
+          - generic [ref=e1169]:
+            - img [ref=e1170]
+            - generic [ref=e1175]: 99.2%
+            - generic [ref=e1176]: 고객 유지율
+          - generic [ref=e1177]:
+            - img [ref=e1178]
+            - generic [ref=e1180]: 4.8/5.0
+            - generic [ref=e1181]: 평균 만족도
+          - generic [ref=e1182]:
+            - img [ref=e1183]
+            - generic [ref=e1186]: 12년
+            - generic [ref=e1187]: 업력
+        - generic [ref=e1188]:
+          - paragraph [ref=e1189]: IBS를 신뢰하는 주요 기업 고객사
+          - generic [ref=e1190]:
+            - generic [ref=e1191]:
+              - img [ref=e1192]
+              - generic [ref=e1196]: 삼성웰스토리
+            - generic [ref=e1197]:
+              - img [ref=e1198]
+              - generic [ref=e1202]: CJ푸드빌
+            - generic [ref=e1203]:
+              - img [ref=e1204]
+              - generic [ref=e1208]: 교촌치킨
+            - generic [ref=e1209]:
+              - img [ref=e1210]
+              - generic [ref=e1214]: BBQ
+            - generic [ref=e1215]:
+              - img [ref=e1216]
+              - generic [ref=e1220]: 굽네치킨
+            - generic [ref=e1221]:
+              - img [ref=e1222]
+              - generic [ref=e1226]: 놀부NBG
+            - generic [ref=e1227]:
+              - img [ref=e1228]
+              - generic [ref=e1232]: 본죽
+            - generic [ref=e1233]:
+              - img [ref=e1234]
+              - generic [ref=e1238]: 이디야커피
+            - generic [ref=e1239]:
+              - img [ref=e1240]
+              - generic [ref=e1244]: 파리바게뜨
+            - generic [ref=e1245]:
+              - img [ref=e1246]
+              - generic [ref=e1250]: 배스킨라빈스
+            - generic [ref=e1251]:
+              - img [ref=e1252]
+              - generic [ref=e1256]: 할리스
+            - generic [ref=e1257]:
+              - img [ref=e1258]
+              - generic [ref=e1262]: 투썸플레이스
+            - generic [ref=e1263]:
+              - img [ref=e1264]
+              - generic [ref=e1268]: 메가커피
+            - generic [ref=e1269]:
+              - img [ref=e1270]
+              - generic [ref=e1274]: 설빙
+            - generic [ref=e1275]:
+              - img [ref=e1276]
+              - generic [ref=e1280]: 뚜레쥬르
+        - generic [ref=e1281]:
+          - generic [ref=e1282]:
+            - img [ref=e1283]
+            - generic [ref=e1286]: 대한변호사협회 등록
+          - generic [ref=e1287]:
+            - img [ref=e1288]
+            - generic [ref=e1291]: 개인정보보호위원회 자문사
+          - generic [ref=e1292]:
+            - img [ref=e1293]
+            - generic [ref=e1296]: 공정거래위원회 등록 법률사무소
+          - generic [ref=e1297]:
+            - img [ref=e1298]
+            - generic [ref=e1301]: AES-256 암호화 · AWS 서울 리전
+          - generic [ref=e1302]:
+            - img [ref=e1303]
+            - generic [ref=e1305]: ISMS 인증 데이터센터
+          - generic [ref=e1306]:
+            - img [ref=e1307]
+            - generic [ref=e1310]: 2024/2025 법무 혁신 서비스 대상
+      - generic [ref=e1313]:
+        - generic [ref=e1314]:
+          - generic [ref=e1315]:
+            - img [ref=e1316]
+            - text: 무료 제공 자료
+          - heading "프랜차이즈 본사라면 반드시 점검해야 할 5가지" [level=2] [ref=e1319]:
+            - text: 프랜차이즈 본사라면
+            - text: 반드시 점검해야 할 5가지
+          - paragraph [ref=e1320]: 정보공개서, 가맹계약서, 개인정보처리방침 등 법적 리스크를 피하기 위한 핵심 가이드북을 무료로 제공해 드립니다. 지금 바로 우리 회사의 상태를 진단해보세요.
+          - list [ref=e1321]:
+            - listitem [ref=e1322]:
+              - img [ref=e1323]
+              - text: 최신 법령이 반영된
+              - strong [ref=e1326]: 필수 체크리스트
+            - listitem [ref=e1327]:
+              - img [ref=e1328]
+              - text: 과태료를 피하는
+              - strong [ref=e1331]: 개인정보 관리 노하우
+            - listitem [ref=e1332]:
+              - img [ref=e1333]
+              - text: 가맹점과의
+              - strong [ref=e1336]: 분쟁 예방 가이드
+        - generic [ref=e1340]:
+          - generic [ref=e1341]:
+            - heading "핵심 법무 리스크 체크리스트." [level=3] [ref=e1342]
+            - paragraph [ref=e1343]: 단 5분 작성으로 우리 회사의 법률구멍을 진단할 수 있는 무료 가이드북을 다운로드하세요.
+          - generic [ref=e1344]:
+            - generic [ref=e1345]:
+              - generic [ref=e1346]:
+                - generic [ref=e1347]:
+                  - img [ref=e1348]
+                  - text: 회사명 (상호)
+                - textbox "(주)아이비에스" [ref=e1352]
+              - generic [ref=e1353]:
+                - generic [ref=e1354]:
+                  - img [ref=e1355]
+                  - text: 담당자명
+                - textbox "홍길동" [ref=e1358]
+              - generic [ref=e1359]:
+                - generic [ref=e1360]:
+                  - img [ref=e1361]
+                  - text: 이메일 주소
+                - textbox "name@company.com" [ref=e1364]
+              - generic [ref=e1365]:
+                - generic [ref=e1366]:
+                  - img [ref=e1367]
+                  - text: 연락처 (선택)
+                - textbox "010-0000-0000" [ref=e1369]
+            - generic [ref=e1370]:
+              - generic [ref=e1371]:
+                - img [ref=e1372]
+                - text: 주요 업종
+              - combobox [ref=e1375]:
+                - option "외식/프랜차이즈" [selected]
+                - option "IT/스타트업"
+                - option "도소매/유통"
+                - option "제조업"
+                - option "기타"
+            - button "무료 가이드북 이메일로 받기" [ref=e1376]:
+              - img [ref=e1377]
+              - text: 무료 가이드북 이메일로 받기
+            - paragraph [ref=e1380]: 가이드북 신청 시 마케팅 정보 수신에 자동으로 동의하게 됩니다.
+      - generic [ref=e1384]:
+        - generic [ref=e1385]:
+          - img [ref=e1386]
+          - text: 지금 바로 시작하세요
+        - heading "이 인프라를 쓰지 않는 것이 오히려 손해입니다" [level=2] [ref=e1389]:
+          - text: 이 인프라를 쓰지 않는 것이
+          - text: 오히려 손해입니다
+        - paragraph [ref=e1390]:
+          - text: 1,200+ 기업이 이미 선택한 통합 법무 인프라.
+          - text: 지금 무료 체험을 시작하고, 귀사의 법률·경영 리스크를 완전히 통제하세요.
+        - generic [ref=e1391]:
+          - link "02-598-8518 지금 전화" [ref=e1392] [cursor=pointer]:
+            - /url: tel:025988518
+            - button "02-598-8518 지금 전화" [ref=e1393]:
+              - img [ref=e1394]
+              - text: 02-598-8518 지금 전화
+          - link "무료 체험 시작하기" [ref=e1396] [cursor=pointer]:
+            - /url: /signup
+            - button "무료 체험 시작하기" [ref=e1397]:
+              - img [ref=e1398]
+              - text: 무료 체험 시작하기
+              - img [ref=e1401]
+      - generic [ref=e1405]:
+        - generic [ref=e1406]:
+          - heading "자주 묻는 질문" [level=2] [ref=e1407]
+          - paragraph [ref=e1408]: 도입 전 궁금한 것들을 미리 해소하세요
+        - generic [ref=e1409]:
+          - button "개인정보처리방침 검토는 정말 무료인가요?" [ref=e1412]:
+            - generic [ref=e1413]: 개인정보처리방침 검토는 정말 무료인가요?
+            - img [ref=e1414]
+          - button "계약하면 무엇이 달라지나요?" [ref=e1418]:
+            - generic [ref=e1419]: 계약하면 무엇이 달라지나요?
+            - img [ref=e1420]
+          - button "가맹점(지점)도 법률상담을 받을 수 있나요?" [ref=e1424]:
+            - generic [ref=e1425]: 가맹점(지점)도 법률상담을 받을 수 있나요?
+            - img [ref=e1426]
+          - button "과태료 위기 상황인데 지금 즉시 도움받을 수 있나요?" [ref=e1430]:
+            - generic [ref=e1431]: 과태료 위기 상황인데 지금 즉시 도움받을 수 있나요?
+            - img [ref=e1432]
+          - button "1,000억 엑시트 사례가 실제인가요?" [ref=e1436]:
+            - generic [ref=e1437]: 1,000억 엑시트 사례가 실제인가요?
+            - img [ref=e1438]
+          - button "최소 계약 기간은 어떻게 되나요?" [ref=e1442]:
+            - generic [ref=e1443]: 최소 계약 기간은 어떻게 되나요?
+            - img [ref=e1444]
+      - generic [ref=e1448]:
+        - generic [ref=e1449]:
+          - generic [ref=e1450]:
+            - generic [ref=e1451]:
+              - generic [ref=e1452]: IBS
+              - generic [ref=e1453]:
+                - paragraph [ref=e1454]: 법률사무소
+                - paragraph [ref=e1455]: IBS LAW FIRM
+            - paragraph [ref=e1456]:
+              - text: 한국 No.1 프랜차이즈 전문 로펌
+              - text: 설립 2013년 · 본점 서울 서초구
+            - generic [ref=e1457]:
+              - img [ref=e1459]
+              - img [ref=e1462]
+              - img [ref=e1466]
+          - generic [ref=e1469]:
+            - paragraph [ref=e1470]: 서비스
+            - paragraph [ref=e1471]:
+              - img [ref=e1472]
+              - text: 프랜차이즈 자문
+            - paragraph [ref=e1474]:
+              - img [ref=e1475]
+              - text: 가맹점 분쟁 해결
+            - paragraph [ref=e1477]:
+              - img [ref=e1478]
+              - text: 개인정보 컴플라이언스
+            - paragraph [ref=e1480]:
+              - img [ref=e1481]
+              - text: 소송·분쟁 해결
+            - paragraph [ref=e1483]:
+              - img [ref=e1484]
+              - text: 연간 법률 진단
+          - generic [ref=e1486]:
+            - paragraph [ref=e1487]: 연락정보
+            - generic [ref=e1489]: 02-598-8518
+            - generic [ref=e1491]: legal@ibs-law.co.kr
+            - generic [ref=e1493]: 서울시 서초구 서초대로 272, IBS빌딩
+            - generic [ref=e1495]: 평일 09:00‒18:00
+          - generic [ref=e1496]:
+            - paragraph [ref=e1497]: 신뢰 인증
+            - generic [ref=e1498]:
+              - img [ref=e1499]
+              - generic [ref=e1502]: 대한변호사협회 등록
+            - generic [ref=e1503]:
+              - img [ref=e1504]
+              - generic [ref=e1507]: 대한법조코리아 회원사
+            - generic [ref=e1508]:
+              - img [ref=e1509]
+              - generic [ref=e1512]: 개인정보보호위원회 자문사
+            - generic [ref=e1513]:
+              - img [ref=e1514]
+              - generic [ref=e1517]: 공정거래위원회 등록 법률사무소
+        - generic [ref=e1518]:
+          - paragraph [ref=e1519]: © 2026 IBS 법률사무소. All rights reserved. · 사업자등록번호 123-45-67890 · 대표변호사 유정훈
+          - generic [ref=e1520]:
+            - link "이용약관" [ref=e1521] [cursor=pointer]:
+              - /url: /legal/terms
+            - link "개인정보처리방침" [ref=e1522] [cursor=pointer]:
+              - /url: /terms/privacy
+            - link "광고성 정보 수신 거부" [ref=e1523] [cursor=pointer]:
+              - /url: /legal
+  - button "Open Next.js Dev Tools" [ref=e1529] [cursor=pointer]:
+    - img [ref=e1530]
+  - alert [ref=e1533]
+```

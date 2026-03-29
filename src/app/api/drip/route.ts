@@ -14,7 +14,13 @@ export async function POST(req: NextRequest) {
     const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
     
-    const { leadId, bizRegNo } = await req.json();
+    let body;
+    try {
+        body = await req.json();
+    } catch {
+        return NextResponse.json({ error: '잘못된 요청 형식입니다.' }, { status: 400 });
+    }
+    const { leadId, bizRegNo } = body;
     if (!leadId || !bizRegNo) return NextResponse.json({ error: 'leadId, bizRegNo 필수' }, { status: 400 });
 
     const lead = leadStore.getById(leadId);
@@ -65,7 +71,13 @@ export async function PUT(req: NextRequest) {
     const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    const { memberId, day } = await req.json();
+    let body;
+    try {
+        body = await req.json();
+    } catch {
+        return NextResponse.json({ error: '잘못된 요청 형식입니다.' }, { status: 400 });
+    }
+    const { memberId, day } = body;
     const member = dripStore.getById(memberId);
     if (!member) return NextResponse.json({ error: '멤버 없음' }, { status: 404 });
 
