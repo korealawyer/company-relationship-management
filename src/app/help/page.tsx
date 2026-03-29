@@ -101,7 +101,7 @@ export default function HelpPage() {
                     {[
                         { icon: <Book className="w-5 h-5" />, label: '이용 가이드', href: '/terms/service', color: '#2563eb' },
                         { icon: <CreditCard className="w-5 h-5" />, label: '결제 안내', href: '/billing', color: '#059669' },
-                        { icon: <Shield className="w-5 h-5" />, label: '보안 정책', href: '/legal/privacy', color: '#7c3aed' },
+                        { icon: <Shield className="w-5 h-5" />, label: '보안 정책', href: '/terms/privacy', color: '#7c3aed' },
                         { icon: <Phone className="w-5 h-5" />, label: '전화 문의', href: '#', color: '#c9a84c' },
                     ].map(link => (
                         <Link key={link.label} href={link.href}>

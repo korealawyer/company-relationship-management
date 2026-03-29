@@ -21,6 +21,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/client-portal',
+        destination: '/privacy-report',
+        permanent: true,
+      },
+      {
+        source: '/legal/privacy',
+        destination: '/terms/privacy',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

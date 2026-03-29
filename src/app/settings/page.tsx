@@ -268,7 +268,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="space-y-3">
-                            <Link href="/legal/privacy" className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-all"
+                            <Link href="/terms/privacy" className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-all"
                                 style={{ border: '1px solid #f0ede6' }}>
                                 <span className="text-sm" style={{ color: '#374151' }}>개인정보처리방침</span>
                                 <ArrowRight className="w-4 h-4" style={{ color: '#9ca3af' }} />

@@ -124,7 +124,7 @@ export default function LandingPage() {
             </p>
             <div className="flex gap-4">
               <Link href="/legal/terms" className="text-xs hover:underline text-muted-45">이용약관</Link>
-              <Link href="/legal/privacy" className="text-xs hover:underline text-muted-45">개인정보처리방침</Link>
+              <Link href="/terms/privacy" className="text-xs hover:underline text-muted-45">개인정보처리방침</Link>
               <Link href="/legal" className="text-xs hover:underline text-muted-45">광고성 정보 수신 거부</Link>
             </div>
           </div>

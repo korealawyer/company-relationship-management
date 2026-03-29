@@ -38,6 +38,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
     const [title, setTitle] = useState('');
     const [detail, setDetail] = useState('');
     const [privacyUrl, setPrivacyUrl] = useState('');
+    const [privacyPolicyText, setPrivacyPolicyText] = useState('');
 
     const [files, setFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -52,6 +53,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
             setTitle('');
             setDetail('');
             setPrivacyUrl('');
+            setPrivacyPolicyText('');
             setFiles([]);
             setSubmitted(false);
         }
@@ -78,7 +80,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
             ];
             const newLeads = leadStore.add([{
                 companyName: session?.companyName || '새로운 고객사',
-                domain: '', privacyUrl: privacyUrl,
+                domain: '', privacyUrl: privacyUrl, privacyPolicyText: privacyPolicyText,
                 contactName: session?.name || 'Client',
                 contactEmail: session?.email || 'client@example.com',
                 contactPhone: '', storeCount: 1,
@@ -224,6 +226,16 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                                                 placeholder="https://example.com/privacy"
                                                 value={privacyUrl} onChange={e => setPrivacyUrl(e.target.value)}
                                                 className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
+                                            />
+                                        </div>
+
+                                        {/* Privacy Policy Text */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1.5">개인정보처리방침 원문 <span className="text-gray-400 font-normal">(선택)</span></label>
+                                            <textarea
+                                                rows={5} placeholder="개인정보처리방침 전체 내용을 여기에 붙여넣기 할 수 있습니다."
+                                                value={privacyPolicyText} onChange={e => setPrivacyPolicyText(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400 resize-y"
                                             />
                                         </div>
 
