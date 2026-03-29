@@ -46,6 +46,7 @@ export interface Lead {
     companyName: string;
     domain: string;
     privacyUrl: string;
+    privacyPolicyText?: string;
     biz?: string;          // 사업자등록번호 (→ client-portal 맞춤 URL 파라미터)
     // 레거시 단일 담당자 (호환성 유지)
     contactName: string;

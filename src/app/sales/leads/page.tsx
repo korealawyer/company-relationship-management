@@ -328,6 +328,27 @@ export default function SalesLeadsPage() {
                                                     <p className="text-[10px] mt-1.5" style={{ color: 'rgba(240,244,255,0.4)' }}>수정 후 다른 곳을 클릭하면 자동 저장됩니다.</p>
                                                 </div>
 
+                                                {/* 개인정보처리방침 원문 입력 */}
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                                                        개인정보처리방침 원문
+                                                    </p>
+                                                    <textarea
+                                                        defaultValue={lead.privacyPolicyText || ''}
+                                                        placeholder="개인정보처리방침 전체 내용을 여기에 붙여넣기 하세요..."
+                                                        onBlur={(e) => {
+                                                            if (e.target.value !== (lead.privacyPolicyText || '')) {
+                                                                leadStore.update(lead.id, { privacyPolicyText: e.target.value });
+                                                                setLeads(leadStore.getAll());
+                                                            }
+                                                        }}
+                                                        rows={6}
+                                                        className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-y"
+                                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', minHeight: '100px' }}
+                                                    />
+                                                    <p className="text-[10px] mt-1.5" style={{ color: 'rgba(240,244,255,0.25)' }}>수정 후 다른 곳을 클릭하면 자동 저장됩니다.</p>
+                                                </div>
+
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(240,244,255,0.3)' }}>
                                                         활동 타임라인

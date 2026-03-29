@@ -132,6 +132,7 @@ export interface Company {
     bizType: string;
     domain: string;
     privacyUrl: string;
+    privacyPolicyText?: string;
     contactName: string;
     contactEmail: string;
     contactPhone: string;

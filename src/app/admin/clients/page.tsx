@@ -25,7 +25,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 export default function AdminClientsPage() {
-    const { companies } = useCompanies();
+    const { companies, updateCompany } = useCompanies();
     const clients = companies.filter(c => c.plan && c.plan !== 'none');
     const [search, setSearch] = useState('');
     const [filterPlan, setFilterPlan] = useState<string>('all');
@@ -201,8 +201,8 @@ export default function AdminClientsPage() {
                                                 <div className="grid md:grid-cols-3 gap-4 text-sm">
                                                     <div>
                                                         <p className="text-[10px] font-black uppercase tracking-widest mb-2"
-                                                            style={{ color: 'rgba(240,244,255,0.3)' }}>연락처</p>
-                                                        <div className="space-y-1.5">
+                                                            style={{ color: 'rgba(240,244,255,0.3)' }}>연락처 및 방침</p>
+                                                        <div className="space-y-3">
                                                             {c.phone && (
                                                                 <a href={`tel:${c.phone}`} className="flex items-center gap-2 text-xs"
                                                                     style={{ color: '#4ade80' }}>
@@ -213,6 +213,45 @@ export default function AdminClientsPage() {
                                                                 style={{ color: '#3b82f6' }}>
                                                                 <Mail className="w-3.5 h-3.5" /> {c.email}
                                                             </a>
+                                                            <div>
+                                                                <p className="text-[10px] font-black" style={{ color: 'rgba(240,244,255,0.3)', marginBottom: '4px' }}>개인정보처리방침 URL</p>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        defaultValue={c.privacyUrl || ''}
+                                                                        placeholder="https://example.com/privacy"
+                                                                        onBlur={(e) => {
+                                                                            if (e.target.value !== (c.privacyUrl || '')) {
+                                                                                updateCompany(c.id, { privacyUrl: e.target.value });
+                                                                            }
+                                                                        }}
+                                                                        className="flex-1 px-2.5 py-1.5 rounded-lg text-xs outline-none"
+                                                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }}
+                                                                    />
+                                                                    {c.privacyUrl && (
+                                                                        <a href={c.privacyUrl} target="_blank" rel="noreferrer" className="p-1.5 rounded-lg transition-all hover:scale-105"
+                                                                            style={{ background: 'rgba(255,255,255,0.08)', color: '#f0f4ff' }}>
+                                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-black" style={{ color: 'rgba(240,244,255,0.3)', marginBottom: '4px' }}>개인정보처리방침 원문</p>
+                                                                <textarea
+                                                                    defaultValue={c.privacyPolicyText || ''}
+                                                                    placeholder="개인정보처리방침 전체 내용을 여기에 붙여넣기 하세요..."
+                                                                    onBlur={(e) => {
+                                                                        if (e.target.value !== (c.privacyPolicyText || '')) {
+                                                                            updateCompany(c.id, { privacyPolicyText: e.target.value });
+                                                                        }
+                                                                    }}
+                                                                    rows={6}
+                                                                    className="w-full px-2.5 py-2 rounded-lg text-xs outline-none resize-y"
+                                                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', minHeight: '100px' }}
+                                                                />
+                                                                <p className="text-[9px] mt-1" style={{ color: 'rgba(240,244,255,0.25)' }}>수정 후 다른 곳을 클릭하면 자동 저장됩니다.</p>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div>

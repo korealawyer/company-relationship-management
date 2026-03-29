@@ -159,7 +159,7 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
     'name', 'domain', 'url', 'email', 'phone',
     'contact_name', 'contact_email', 'contact_phone',
     'biz_category', 'store_count', 'plan', 'status', 'risk_level',
-    'risk_score', 'issue_count', 'privacy_url', 'assigned_lawyer_id',
+    'risk_score', 'issue_count', 'privacy_url', 'privacy_policy_text', 'assigned_lawyer_id',
     'email_sent_at', 'lawyer_confirmed', 'lawyer_confirmed_at', 'source', 'biz_no', 'id',
     'created_at', 'updated_at',
     // 영업 프로세스
