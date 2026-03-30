@@ -263,31 +263,14 @@ export async function POST(req: NextRequest) {
       }
       console.log(`[email] ✅ 실 발송 완료 (Nodemailer) | from: ${FROM} | to: ${emails.map(e => e.to).join(', ')}`);
     } else {
-      // ─ Ethereal 테스트 모드 ─
-      console.log('Generating Ethereal test account...');
-      const testAccount = await nodemailer.createTestAccount();
-      const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-
+      // ─ Mock 모드 (콘솔 출력) ─
       for (const email of emails) {
-        const info = await testTransporter.sendMail({
-          from: FROM,
-          to: email.to,
-          subject: email.subject,
-          html: email.html,
-        });
-        previewUrl = nodemailer.getTestMessageUrl(info);
-        console.log('\n📧 === Ethereal 발송 완료 ===');
+        console.log('\n📧 === 이메일 발송 시뮬레이션 ===');
+        console.log(`From: ${FROM}`);
         console.log(`To: ${email.to}`);
-        console.log(`URL: ${previewUrl}`);
-        console.log('=============================\n');
+        console.log(`Subject: ${email.subject}`);
+        console.log('⚠️  실제 발송하려면 .env.local에 SMTP_HOST/USER/PASS 설정 필요');
+        console.log('=================================\n');
       }
     }
 
