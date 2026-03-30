@@ -33,27 +33,34 @@ export function MorningBriefingModal() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStartWork = async () => {
+  const handleStartWork = () => {
     setIsLoading(true);
-    try {
-      if (supabase) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // Attempt to record start time in DB
-          await supabase.from("attendance").insert({
-            user_id: user.id,
-          });
+    
+    const tryInsert = async () => {
+      try {
+        if (supabase) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from("attendance").insert({
+              user_id: user.id,
+            });
+          }
         }
+      } catch (error) {
+        console.error("Failed to record start_time:", error);
       }
-    } catch (error) {
-      console.error("Failed to record start_time:", error);
-    } finally {
-      // Always allow them to enter even if DB fails, to prevent hard blocking if offline
+    };
+
+    // Run in background
+    tryInsert();
+
+    // Optimistically close after a brief UX delay
+    setTimeout(() => {
       const today = new Date().toISOString().split("T")[0];
       localStorage.setItem(`morning_brief_shown_${today}`, "true");
       setShow(false);
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   if (!show) return null;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Company, CaseStatus, type AutoSettings, type AutoLog } from '@/lib/types';
 import { getSession } from '@/lib/auth';
-import { useCompanies, useAutoSettings } from '@/hooks/useDataLayer';
+import { useCompanies, useAutoSettings, useAutoLogs } from '@/hooks/useDataLayer';
 import { dataLayer } from '@/lib/dataLayer';
 
 export function useEmployeeCRM() {
@@ -14,6 +14,7 @@ export function useEmployeeCRM() {
 
     const { companies: dbCompanies, updateCompany, addCompany, importBulk } = useCompanies();
     const { settings: dbSettings, updateSettings } = useAutoSettings();
+    const { logs: dbLogs, mutate: mutateLogs } = useAutoLogs(); // Add useAutoLogs
 
     const [companies, setCompanies] = useState<Company[]>([]);
     const [search, setSearch] = useState('');
@@ -28,8 +29,8 @@ export function useEmployeeCRM() {
     const refresh = useCallback(() => {
         setCompanies(dbCompanies || []);
         setAutoSettings(dbSettings || null);
-        dataLayer.auto.getLogs().then(setAutoLogs).catch(() => {});
-    }, [dbCompanies, dbSettings]);
+        setAutoLogs(dbLogs || []);
+    }, [dbCompanies, dbSettings, dbLogs]);
 
     useEffect(() => { 
         refresh(); 
@@ -54,7 +55,9 @@ export function useEmployeeCRM() {
     };
 
     const clearLogs = () => {
+        // Just clear locally, real fix would be db deletion
         setAutoLogs([]);
+        mutateLogs([], false); 
     };
 
     return {
