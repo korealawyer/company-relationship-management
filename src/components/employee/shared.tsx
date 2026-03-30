@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState } from 'react';
-import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap, Save } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap, Save, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Company, CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS } from '@/lib/constants';
 import { useCompanies } from '@/hooks/useDataLayer';
@@ -57,35 +57,59 @@ export function ActionButton({
 }) {
     const s = c.status;
     const selectStyle = { background: T.card, border: `1px solid ${T.border}`, color: T.body, borderRadius: 6, padding: '2px 6px', fontSize: 12 };
-    const { updateCompany } = useCompanies();
+    const { updateCompany, mutate } = useCompanies();
+    const [analyzing, setAnalyzing] = useState(false);
 
-    if (s === 'pending') return (
-        <Button variant="premium" size="sm" onClick={() => run(c.id, async () => {
+    // 분석 실행 (run 래퍼 없이 독립 실행하여 경합 방지)
+    const triggerAnalysis = async () => {
+        if (analyzing) return;
+        setAnalyzing(true);
+        try {
             await updateCompany(c.id, { status: 'crawling' });
-            refresh();
-            try {
-                const res = await fetch('/api/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ companyId: c.id, url: c.privacyUrl, manualText: c.privacyPolicyText })
-                });
-                const data = await res.json();
-                if (!res.ok || !data.success) {
-                    alert(`분석 실패: ${data.error || '알 수 없는 오류'}`);
-                    await updateCompany(c.id, { status: 'pending' });
-                }
-            } catch (err: any) {
-                alert(`분석 중 에러 발생: ${err.message}`);
+            await mutate(); // SWR 캐시 즉시 갱신
+
+            const res = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: c.id, url: c.privacyUrl, manualText: c.privacyPolicyText })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\n개인정보처리방침 URL을 확인하거나,\n방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
                 await updateCompany(c.id, { status: 'pending' });
             }
-        })}>
-            <Zap className="w-3.5 h-3.5 mr-1" /> 법률 분석
+        } catch (err: any) {
+            alert(`분석 중 에러 발생: ${err.message}`);
+            await updateCompany(c.id, { status: 'pending' });
+        } finally {
+            setAnalyzing(false);
+            await mutate(); // 최종 상태 반영
+        }
+    };
+
+    if (s === 'pending') return (
+        <Button variant="premium" size="sm" onClick={triggerAnalysis} disabled={analyzing}>
+            <Zap className="w-3.5 h-3.5 mr-1" />
+            {analyzing ? '분석 요청 중...' : '법률 분석'}
         </Button>
     );
     if (s === 'crawling') return (
-        <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: '#d97706' }}>
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> 분석 중...
-        </span>
+        <div className="flex items-center gap-2">
+            <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: '#d97706' }}>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> 분석 중...
+            </span>
+            <button
+                onClick={async () => {
+                    await updateCompany(c.id, { status: 'pending' });
+                    await mutate();
+                }}
+                className="text-[10px] px-2 py-0.5 rounded font-bold"
+                style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca' }}
+                title="분석이 멈춘 경우 상태를 초기화합니다"
+            >
+                <RotateCcw className="w-3 h-3 inline mr-0.5" />초기화
+            </button>
+        </div>
     );
     if (s === 'analyzed') return (
         <>
@@ -147,14 +171,16 @@ export function ActionButton({
 }
 
 export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
-    const { updateCompany } = useCompanies();
+    const { updateCompany, mutate } = useCompanies();
     const { user } = useAuth();
     const [privacyUrl, setPrivacyUrl] = useState(c.privacyUrl || '');
     const [privacyText, setPrivacyText] = useState(c.privacyPolicyText || '');
     const [callNote, setCallNote] = useState(c.callNote || '');
     const [clientReplyNote, setClientReplyNote] = useState(c.clientReplyNote || '');
     const [saving, setSaving] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
 
+    // 정보 저장만 (분석 트리거 없음)
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -163,28 +189,46 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                 privacyPolicyText: privacyText,
                 callNote,
                 clientReplyNote,
-                status: 'crawling' // 분석 시작 상태로 변경
             });
-            refresh(); // UI 갱신 (회전하는 아이콘 표시)
+            await mutate();
+        } catch (e: any) {
+            alert(`저장 실패: ${e.message}`);
+        } finally {
+            setSaving(false);
+        }
+    };
 
-            // 실제 API 트리거
+    // 분석 트리거 (별도 버튼)
+    const handleAnalyze = async () => {
+        if (analyzing) return;
+        // 먼저 현재 폼 데이터 저장
+        setAnalyzing(true);
+        try {
+            await updateCompany(c.id, {
+                privacyUrl,
+                privacyPolicyText: privacyText,
+                callNote,
+                clientReplyNote,
+                status: 'crawling',
+            });
+            await mutate();
+
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ companyId: c.id, url: privacyUrl, manualText: privacyText })
             });
             const data = await res.json();
-            
             if (!res.ok || !data.success) {
-                alert(`에러 발생: ${data.error || '알 수 없는 오류'}\n수동으로 텍스트를 입력하거나 URL을 점검해 주세요.`);
-                await updateCompany(c.id, { status: 'pending' }); // 실패 시 상태 롤백
+                alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\nURL을 확인하거나 방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
+                await updateCompany(c.id, { status: 'pending' });
             }
         } catch (e: any) {
             alert(`분석 요청 실패: ${e.message}`);
             await updateCompany(c.id, { status: 'pending' });
         } finally {
-            refresh();
-            setSaving(false);
+            setAnalyzing(false);
+            await mutate();
         }
     };
 
@@ -227,7 +271,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                         {/* 우측 렌더링 영역: 개인정보 처리방침 */}
                         <div className="col-span-2 md:col-span-1 space-y-4 border-slate-200 md:border-l md:pl-6">
                             <div>
-                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5 block" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
+                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
                                 <input
                                     value={privacyUrl}
                                     onChange={e => setPrivacyUrl(e.target.value)}
@@ -236,7 +280,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5 block" style={{ color: T.sub }}>📝 방침 원문 텍스트 (전문)</label>
+                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5" style={{ color: T.sub }}>📝 방침 원문 텍스트 (전문)</label>
                                 <textarea
                                     value={privacyText}
                                     onChange={e => setPrivacyText(e.target.value)}
@@ -254,7 +298,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                     value={c.status}
                                     onChange={async (e) => {
                                         await updateCompany(c.id, { status: e.target.value as CaseStatus });
-                                        refresh();
+                                        await mutate();
                                     }}
                                     className="w-full text-xs px-3 py-2 rounded-lg border outline-none font-bold bg-white"
                                     style={{ color: '#dc2626', borderColor: '#fca5a5' }}
@@ -266,11 +310,12 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                             </div>
                         )}
 
-                        <div className="col-span-2 mt-1">
+                        <div className="col-span-2 mt-1 flex gap-3">
+                            {/* 1) 정보 저장 버튼 */}
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="w-full py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                                 style={{
                                     background: saving ? '#dcfce7' : '#eef2ff',
                                     color: saving ? '#16a34a' : '#4f46e5',
@@ -278,9 +323,33 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                     opacity: saving ? 0.8 : 1
                                 }}
                             >
-                                <Save className="w-4 h-4" /> {saving ? '저장됨' : '정보 저장 및 자동 분석 봇 트리거'}
+                                <Save className="w-4 h-4" /> {saving ? '저장 완료 ✓' : '정보 저장'}
+                            </button>
+                            {/* 2) AI 분석 트리거 버튼 */}
+                            <button
+                                onClick={handleAnalyze}
+                                disabled={analyzing || (!privacyUrl && !privacyText)}
+                                className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                style={{
+                                    background: analyzing ? '#fef3c7' : '#fffbeb',
+                                    color: analyzing ? '#d97706' : '#b8960a',
+                                    border: `1px solid ${analyzing ? '#fcd34d' : '#fde68a'}`,
+                                    opacity: (analyzing || (!privacyUrl && !privacyText)) ? 0.6 : 1,
+                                    cursor: (!privacyUrl && !privacyText) ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {analyzing
+                                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> AI 분석 진행 중...</>
+                                    : <><Zap className="w-4 h-4" /> AI 법률 분석 실행</>
+                                }
                             </button>
                         </div>
+                        {(!privacyUrl && !privacyText) && (
+                            <div className="col-span-2 flex items-center gap-2 text-[11px] px-3 py-2 rounded-lg" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                분석을 실행하려면 개인정보 처리방침 URL 또는 원문 텍스트를 먼저 입력해 주세요.
+                            </div>
+                        )}
                     </div>
                 </div>
             </td>

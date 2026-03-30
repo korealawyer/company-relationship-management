@@ -86,41 +86,50 @@ export async function POST(request: NextRequest) {
     if (manualText && manualText.trim().length > 50) {
         extractedText = manualText.trim();
     } else if (url) {
-        // 2. URL 문자열 기반 크롤링 우회
+        // 2. URL 문자열 기반 크롤링
         try {
             const fetchUrl = new URL(url);
             if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃 제한
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
 
-            const res = await fetch(fetchUrl.toString(), {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) width/Chrome AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                redirect: 'follow', // 리다이렉트 허용
-                signal: controller.signal
-            });
-            
-            if (res.ok) {
-                const html = await res.text();
-                // script, style 태그 내용과 함께 제거 (보수적 정규식)
+            let html = '';
+            try {
+                const res = await fetch(fetchUrl.toString(), {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    },
+                    redirect: 'follow',
+                    signal: controller.signal
+                });
+                
+                if (res.ok) {
+                    // res.text()도 tarpit 방어: AbortController가 이미 걸려있으므로
+                    // 10초 내에 body stream도 완료되어야 함
+                    html = await res.text();
+                } else {
+                    console.warn(`[Analyze API] HTTP Fetch failed: Status ${res.status}`);
+                }
+            } finally {
+                clearTimeout(timeoutId);
+            }
+
+            if (html) {
                 let cleanHtml = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
                 cleanHtml = cleanHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-                // 일반 HTML 태그 모두 제거
                 cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
-                // 연속된 문자열 트리밍
                 extractedText = cleanHtml.replace(/\s+/g, ' ').trim();
-            } else {
-                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res.status}`);
             }
-            
-            clearTimeout(timeoutId);
-        } catch (error) {
+        } catch (error: any) {
             console.error('[Analyze API] URL Fetch Error:', error);
+            const isTimeout = error.name === 'AbortError';
             return NextResponse.json(
-                { success: false, error: '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' },
-                { status: 422 }
+                { success: false, error: isTimeout 
+                    ? '웹사이트 응답이 없어 시간 초과되었습니다. 개인정보처리방침 텍스트를 직접 붙여넣어 주세요.'
+                    : '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' 
+                },
+                { status: isTimeout ? 504 : 422 }
             );
         }
     }
