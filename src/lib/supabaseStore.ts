@@ -331,6 +331,22 @@ export const supabaseCompanyStore = {
       }));
       await sb.from('company_contacts').upsert(contactRows);
     }
+
+    // 🔥 AI 분석 시 반환된 issues가 있으면 기존 이슈를 덮어쓰거나 추가 (기존 내역 초기화 후 새로 추가가 안정적임)
+    if (updates.issues) { // 이슈가 0개(빈 배열)일 때도 업데이트하기 위해 존재 검사만 수행
+      // 기존 슈 삭제 후 통째로 교체 (AI 재분석을 위해)
+      await sb.from('issues').delete().eq('company_id', id);
+      
+      if (updates.issues.length > 0) {
+        const issueRows = updates.issues.map(iss => {
+          const row = objToRow(iss as Record<string, any>);
+          if (!row.id) row.id = crypto.randomUUID();
+          row.company_id = id;
+          return row;
+        });
+        await sb.from('issues').insert(issueRows);
+      }
+    }
   },
 
   delete: async (id: string): Promise<void> => {
