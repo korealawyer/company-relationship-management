@@ -7,25 +7,28 @@ export const runtime = 'edge';
 // 데모 분석 결과 (폴백용)
 const DEMO_ISSUES = [
     {
-        id: 1, level: 'HIGH', title: '수집 항목 법정 기재 누락',
+        id: "1", level: 'HIGH', title: '수집 항목 법정 기재 누락',
         law: '개인정보 보호법 제30조 제1항 제1호',
-        problem: '수집하는 개인정보 항목이 처리방침에 명시되지 않아 과태료 부과 대상입니다.',
-        solution: '처리방침에 수집 항목(성명, 연락처, 이메일)을 명시하는 조항 추가 필요.',
-        fine: '최대 3,000만원',
+        originalText: '수집 및 이용 목적: 회원 가입 및 관리 등...',
+        riskDesc: '수집하는 별도 개인정보 항목이 처리방침에 명시되지 않아 과태료 부과 대상입니다. (예상 제재: 최대 3,000만원)',
+        customDraft: '처리방침에 수집 항목(성명, 연락처, 이메일)을 명시하는 조항 추가 필요.',
+        lawyerNote: '', reviewChecked: false, aiDraftGenerated: true
     },
     {
-        id: 2, level: 'HIGH', title: '제3자 제공 동의 절차 부재',
+        id: "2", level: 'HIGH', title: '제3자 제공 동의 절차 부재',
         law: '개인정보 보호법 제17조 제2항',
-        problem: '가맹점 데이터를 파트너사에 제공 시 별도 동의 절차가 없습니다.',
-        solution: '"제3자 제공 동의" 섹션 신설 및 파트너사 목록, 제공 목적, 보유 기간 명시.',
-        fine: '최대 5,000만원',
+        originalText: '파트너사 및 제휴업체에 광고 데이터 제공 가능',
+        riskDesc: '가맹점 데이터를 파트너사에 제공 시 별도 동의 절차가 없습니다. (예상 제재: 최대 5,000만원)',
+        customDraft: '"제3자 제공 동의" 섹션 신설 및 파트너사 목록, 제공 목적, 보유 기간 명시.',
+        lawyerNote: '', reviewChecked: false, aiDraftGenerated: true
     },
     {
-        id: 3, level: 'MEDIUM', title: '보유·이용 기간 불명확',
+        id: "3", level: 'MEDIUM', title: '보유·이용 기간 불명확',
         law: '개인정보 보호법 제30조 제1항 제3호',
-        problem: '"서비스 종료 시까지"라는 불명확한 표현 사용.',
-        solution: '"계약 종료 후 5년 (상법 제33조)" 등 구체적 법정 보유 기간 기재.',
-        fine: '시정 권고',
+        originalText: '보관 기간: 서비스 종료 시까지 혹은 회원 탈퇴 시까지',
+        riskDesc: '"서비스 종료 시까지"라는 불명확한 표현을 사용 중입니다. (예상 제재: 시정 권고)',
+        customDraft: '"계약 종료 후 5년 (상법 제33조)" 등 구체적 법정 보유 기간 기재.',
+        lawyerNote: '', reviewChecked: false, aiDraftGenerated: true
     },
 ];
 
@@ -173,13 +176,16 @@ ${extractedText.substring(0, 15000)}
   "riskLevel": "HIGH" | "MEDIUM" | "LOW",
   "issues": [
     {
-      "id": 1, 
+      "id": "1", 
       "level": "HIGH", 
       "title": "이슈 제목", 
       "law": "관련 법령", 
-      "problem": "구체적인 문제점 요약", 
-      "solution": "해결 방안 및 권고안", 
-      "fine": "예상 제재수위 (무상조치, 최대 OOO만원 등)"
+      "originalText": "법에 위배되거나 문제 소지가 있는 원문 중 일부 발췌 내용",
+      "riskDesc": "구체적인 문제점 요약 및 위반 시 예상 제재수위 (예: 최대 OOO만원 과태료 등)", 
+      "customDraft": "법률에 맞게 수정 및 개선된 권고 초안 조항", 
+      "lawyerNote": "",
+      "reviewChecked": false,
+      "aiDraftGenerated": true
     }
   ]
 }

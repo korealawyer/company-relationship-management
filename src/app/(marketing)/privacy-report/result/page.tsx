@@ -10,13 +10,13 @@ import { leadStore } from '@/lib/leadStore';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
 
 interface AnalysisIssue {
-    id: number;
+    id: string;
     level: 'HIGH' | 'MEDIUM' | 'LOW';
     title: string;
     law: string;
-    problem: string;
-    solution: string;
-    fine: string;
+    originalText?: string;
+    riskDesc?: string;
+    customDraft?: string;
 }
 
 interface AnalysisResult {
@@ -254,21 +254,23 @@ function ResultContent() {
                                                 <div className="p-4 rounded-xl space-y-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
                                                     <div className="flex gap-2 text-red-300">
                                                         <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                                        <span className="opacity-90 leading-relaxed font-bold">{issue.problem}</span>
+                                                        <span className="opacity-90 leading-relaxed font-bold">{issue.riskDesc || "리스크 설명이 없습니다."}</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="p-4 rounded-xl space-y-2" style={{ background: 'rgba(74,222,128,0.05)' }}>
                                                     <div className="flex gap-2 text-green-300">
                                                         <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                                        <span className="opacity-90 leading-relaxed font-bold">{issue.solution}</span>
+                                                        <span className="opacity-90 leading-relaxed font-bold">{issue.customDraft || "수정 권고안이 없습니다."}</span>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-2 mt-2 px-1">
-                                                    <span className="text-[10px] uppercase font-black tracking-widest" style={{ color: 'rgba(240,244,255,0.3)' }}>예상 손실액 (행정처분 등)</span>
-                                                    <span className="font-bold whitespace-nowrap" style={{ color: LVL_COLOR[issue.level] }}>{issue.fine}</span>
+                                                {issue.originalText && (
+                                                <div className="flex items-start gap-2 mt-2 px-1 opacity-60">
+                                                    <span className="text-[10px] uppercase font-black tracking-widest flex-shrink-0 pt-0.5" style={{ color: 'rgba(240,244,255,0.6)' }}>발췌 원문</span>
+                                                    <span className="text-xs font-mono">{issue.originalText}</span>
                                                 </div>
+                                                )}
                                             </div>
                                         </div>
                                     </motion.div>
