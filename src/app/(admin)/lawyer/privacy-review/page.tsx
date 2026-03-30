@@ -9,6 +9,8 @@ import {
     DEFAULT_SCENARIO_CATEGORIES, CLAUSE_SCENARIO_MAP,
     type ScenarioCategory, getScenarioCategories,
 } from '@/lib/prompts/privacy';
+import { supabaseCompanyStore } from '@/lib/supabaseStore';
+import type { Company, Issue } from '@/lib/mockStore';
 
 // ── 색상 ──────────────────────────────────────────────────
 const R: Record<string, { border: string; bg: string; tag: string; text: string; label: string }> = {
@@ -238,6 +240,7 @@ export default function PrivacyReviewPage({
 }: { searchParams: { leadId?: string; company?: string } }) {
     const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer']);
     const company = searchParams.company || '(주)샐러디';
+    const leadId = searchParams.leadId;
     const [tab, setTab] = useState<'first' | 'full'>('first');
     const [data, setData] = useState<Record<string, string>>({});
     const [generating, setGenerating] = useState(false);
@@ -251,22 +254,57 @@ export default function PrivacyReviewPage({
     const [docsList, setDocsList] = useState({ contract: false, rules: false, security: false, other: false });
     const [customReqMsg, setCustomReqMsg] = useState('');
     const [toastMsg, setToastMsg] = useState('');
+    const [clauses, setClauses] = useState<Clause[]>(CLAUSES);
+    const [fetching, setFetching] = useState(true);
     const t0 = useRef(Date.now());
 
-    useEffect(() => { setCategories(getScenarioCategories()); }, []);
+    useEffect(() => {
+        setCategories(getScenarioCategories());
+        
+        if (leadId) {
+            supabaseCompanyStore.getById(leadId).then((data: any) => {
+                if (data && data.issues && data.issues.length > 0) {
+                    const mapped = data.issues.map((iss: any, i: number) => {
+                        const anyIss = iss;
+                        return {
+                            num: `조항 ${i + 1}`,
+                            title: anyIss.title || anyIss.lawTitle || iss.law || '이슈',
+                            original: anyIss.originalText || anyIss.originalContent || '',
+                            riskSummary: anyIss.riskDesc || anyIss.riskSummary || '',
+                            level: (anyIss.level || anyIss.riskLevel || 'LOW') as any,
+                            lawRef: iss.law || anyIss.lawRef || '',
+                            lawText: anyIss.lawText || '',
+                            scenario: anyIss.scenario || '',
+                            penalty: anyIss.penalty || '',
+                            lawyerOpinion: anyIss.lawyerNote || anyIss.revisionOpinion || '',
+                            recommendation: anyIss.recommendation || iss.customDraft || '',
+                            aiFixed: anyIss.aiFixed || iss.customDraft || '',
+                            revisionOpinion: anyIss.revisionOpinion || '',
+                            legalBasis: Array.isArray(anyIss.legalBasis) ? anyIss.legalBasis : [anyIss.legalBasis || iss.law || ''],
+                        } as Clause;
+                    });
+                    setClauses(mapped);
+                }
+                setFetching(false);
+            });
+        } else {
+            setFetching(false);
+        }
+    }, [leadId]);
+
     useEffect(() => {
         const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0.current) / 1000)), 1000);
         return () => clearInterval(id);
     }, []);
 
-    if (loading || !authorized) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div></div>;
+    if (fetching || loading || !authorized) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div></div>;
 
     const upd = (k: string, v: string) => setData(p => ({ ...p, [k]: v }));
     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const ss = String(elapsed % 60).padStart(2, '0');
     const timerCol = elapsed > 60 ? '#dc2626' : elapsed > 40 ? '#d97706' : '#16a34a';
-    const highN = CLAUSES.filter(c => c.level === 'HIGH').length;
-    const medN = CLAUSES.filter(c => c.level === 'MEDIUM').length;
+    const highN = clauses.filter(c => c.level === 'HIGH').length;
+    const medN = clauses.filter(c => c.level === 'MEDIUM').length;
 
     // 전체수정완본 탭 클릭 시 AI 생성 시뮬레이션
     const handleFullTab = () => {
@@ -483,7 +521,7 @@ export default function PrivacyReviewPage({
                             />
                         </div>
                     </div>
-                    {CLAUSES.map((c, i) => {
+                    {clauses.map((c, i) => {
                     const col = R[c.level];
                     const hasIssue = c.level !== 'OK';
                     return (
@@ -532,7 +570,7 @@ export default function PrivacyReviewPage({
                 </div>
             ) : (
                 <>
-                    {CLAUSES.map((c, i) => {
+                    {clauses.map((c, i) => {
                         const col = R[c.level];
                         const hasIssue = c.level !== 'OK';
                         return (
