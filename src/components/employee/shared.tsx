@@ -77,6 +77,13 @@ export function ActionButton({
             if (!res.ok || !data.success) {
                 alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\n개인정보처리방침 URL을 확인하거나,\n방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
                 await updateCompany(c.id, { status: 'pending' });
+            } else {
+                await updateCompany(c.id, {
+                    status: 'analyzed',
+                    issues: data.issues || [],
+                    issueCount: data.issueCount || 0,
+                    riskLevel: data.riskLevel || 'MEDIUM'
+                });
             }
         } catch (err: any) {
             alert(`분석 중 에러 발생: ${err.message}`);
@@ -222,6 +229,13 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
             if (!res.ok || !data.success) {
                 alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\nURL을 확인하거나 방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
                 await updateCompany(c.id, { status: 'pending' });
+            } else {
+                await updateCompany(c.id, {
+                    status: 'analyzed',
+                    issues: data.issues || [],
+                    issueCount: data.issueCount || 0,
+                    riskLevel: data.riskLevel || 'MEDIUM'
+                });
             }
         } catch (e: any) {
             alert(`분석 요청 실패: ${e.message}`);
