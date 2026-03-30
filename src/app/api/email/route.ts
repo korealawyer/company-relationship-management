@@ -3,8 +3,7 @@ import { requireSessionFromCookie } from '@/lib/auth';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
-import { renderToStaticMarkup } from 'react-dom/server';
-import ContractEmailTemplate from '@/components/crm/ContractEmailTemplate';
+import { renderContractEmailTemplateHtml } from '@/lib/emailTemplates';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -60,6 +59,9 @@ interface EmailPayload {
 async function buildSalesEmail(leadId: string, lawyerNote: string) {
   const lead = await supabaseCompanyStore.getById(leadId);
   if (!lead) return null;
+  
+  const riskKr = lead.riskLevel === 'HIGH' ? '고위험' : lead.riskLevel === 'MEDIUM' ? '주의' : lead.riskLevel === 'LOW' ? '양호' : '-';
+
   return {
     to: process.env.SALES_EMAIL || FROM_EMAIL,
     subject: `[IBS 영업알림] ${lead.name || '미상기업'} 변호사 컨펌 완료 — 연락 가능`,
@@ -74,7 +76,7 @@ async function buildSalesEmail(leadId: string, lawyerNote: string) {
     <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">회사명</td><td style="padding:8px">${lead.name || '-'}</td></tr>
     <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">담당자</td><td style="padding:8px">${lead.contactName || '-'} (${lead.contactPhone || '-'})</td></tr>
     <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">이메일</td><td style="padding:8px">${lead.contactEmail || '-'}</td></tr>
-    <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">리스크</td><td style="padding:8px;color:${lead.riskLevel === '고위험' ? '#f87171' : '#fb923c'}">${lead.riskLevel || '-'} (${lead.riskScore || 0}점) — ${lead.issueCount || 0}건</td></tr>
+    <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">리스크</td><td style="padding:8px;color:${lead.riskLevel === 'HIGH' ? '#f87171' : '#fb923c'}">${riskKr} (${lead.riskScore || 0}점) — ${lead.issueCount || 0}건</td></tr>
     <tr><td style="padding:8px;background:#f8fafc;font-weight:bold">가맹점수</td><td style="padding:8px">${lead.storeCount || 0}개</td></tr>
   </table>
   ${lawyerNote ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:12px;margin:16px 0"><strong>변호사 메모:</strong><br/>${lawyerNote}</div>` : ''}
@@ -89,6 +91,8 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
   const lead = await supabaseCompanyStore.getById(leadId);
   if (!lead) return null;
   const issueText = `개인정보처리방침에서 ${lead.issueCount || 0}건의 위반 가능성이 발견되었습니다.`;
+  
+  const riskKr = lead.riskLevel === 'HIGH' ? '고위험' : lead.riskLevel === 'MEDIUM' ? '주의' : lead.riskLevel === 'LOW' ? '양호' : '알 수 없음';
   
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibslaw.co.kr';
   const params = new URLSearchParams();
@@ -113,7 +117,7 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
     개인정보처리방침을 검토한 결과를 전달드립니다.
   </p>
   <div style="background:#fef2f2;border-left:4px solid #f87171;padding:16px;margin:20px 0;border-radius:0 8px 8px 0">
-    <h4 style="color:#dc2626;margin:0 0 8px">🔴 ${lead.riskLevel || '알 수 없음'} — ${issueText}</h4>
+    <h4 style="color:#dc2626;margin:0 0 8px">🔴 ${riskKr} — ${issueText}</h4>
     <p style="color:#374151;margin:0">과징금 최대 <strong>3,000만원</strong>이 부과될 수 있는 항목이 포함되어 있습니다.</p>
   </div>
   <h4 style="color:#374151">주요 발견 사항</h4>
@@ -214,7 +218,7 @@ export async function POST(req: NextRequest) {
          return NextResponse.json({ error: 'Company data required for contract' }, { status: 400 });
       }
       const recipientEmail = body.to || 'dhk@ibslaw.co.kr';
-      const htmlContent = renderToStaticMarkup(ContractEmailTemplate({ company, plan: body.plan || 'standard' }));
+      const htmlContent = renderContractEmailTemplateHtml(company, body.plan || 'standard');
       emails.push({
         to: recipientEmail,
         subject: `[IBS 법률사무소] ${company.name} 기업 법률 자문 서비스 계약서 발송`,
@@ -259,14 +263,31 @@ export async function POST(req: NextRequest) {
       }
       console.log(`[email] ✅ 실 발송 완료 (Nodemailer) | from: ${FROM} | to: ${emails.map(e => e.to).join(', ')}`);
     } else {
-      // ─ Mock 모드 (콘솔 출력) ─
+      // ─ Ethereal 테스트 모드 ─
+      console.log('Generating Ethereal test account...');
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+
       for (const email of emails) {
-        console.log('\n📧 === 이메일 발송 시뮬레이션 ===');
-        console.log(`From: ${FROM}`);
+        const info = await testTransporter.sendMail({
+          from: FROM,
+          to: email.to,
+          subject: email.subject,
+          html: email.html,
+        });
+        previewUrl = nodemailer.getTestMessageUrl(info);
+        console.log('\n📧 === Ethereal 발송 완료 ===');
         console.log(`To: ${email.to}`);
-        console.log(`Subject: ${email.subject}`);
-        console.log('⚠️  실제 발송하려면 .env.local에 SMTP_HOST/USER/PASS 설정 필요');
-        console.log('=================================\n');
+        console.log(`URL: ${previewUrl}`);
+        console.log('=============================\n');
       }
     }
 
