@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, CheckCircle2, Mail, FileText, Star } from 'lucide-react';
+import { Phone, CheckCircle2, Mail, FileText, Star, Activity, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Company, CaseStatus, AutoSettings } from '@/lib/types';
 import { useCompanies } from '@/hooks/useDataLayer';
@@ -8,6 +8,22 @@ import { useAuth } from '@/lib/AuthContext';
 import { STATUS_LABEL } from '@/lib/constants';
 import { T, StatusBadge } from './shared';
 import { RiskBadge } from '@/components/crm/SlidePanel';
+import MemoTab from '@/components/sales/call/MemoTab';
+
+function EditableField({ value, onChange, placeholder = '-' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+    const [val, setVal] = useState(value);
+    useEffect(() => { setVal(value); }, [value]);
+    return (
+        <input 
+            value={val} 
+            onChange={e => setVal(e.target.value)}
+            onBlur={() => { if(val !== value) onChange(val); }}
+            placeholder={placeholder}
+            className="w-full bg-transparent border-b border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none transition-colors p-0 m-0"
+            style={{ color: 'inherit', fontWeight: 'inherit', fontSize: 'inherit' }}
+        />
+    );
+}
 
 interface PhoneViewProps {
     filtered: Company[];
@@ -74,12 +90,14 @@ export default function PhoneView({
                 <div className="space-y-4">
                     {/* 연락처 */}
                     <div className="rounded-xl p-4" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-                        <p className="text-xs font-black mb-2" style={{ color: '#b8960a' }}>📞 연락처</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div><span style={{ color: T.muted }}>담당자:</span> <strong style={{ color: T.body }}>{c.contactName || '-'}</strong></div>
-                            <div><span style={{ color: T.muted }}>전화:</span> <a href={`tel:${c.contactPhone || c.phone}`} className="font-bold underline" style={{ color: '#2563eb' }}>{c.contactPhone || c.phone}</a></div>
-                            <div><span style={{ color: T.muted }}>이메일:</span> <strong style={{ color: T.body }}>{c.contactEmail || c.email}</strong></div>
-                            <div><span style={{ color: T.muted }}>홈페이지:</span> <strong style={{ color: T.body }}>{c.domain || c.url}</strong></div>
+                        <p className="text-xs font-black mb-2 flex justify-between" style={{ color: '#b8960a' }}>
+                            <span>📞 연락처 (클릭하여 텍스트 수정)</span>
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="flex items-center gap-1.5"><span style={{ color: T.muted, width: 44 }}>담당자:</span> <strong style={{ color: T.body, flex: 1, minWidth:0 }}><EditableField value={c.contactName || ''} onChange={v => updateCompany(c.id, { contactName: v })} placeholder="이름 입력" /></strong></div>
+                            <div className="flex items-center gap-1.5"><span style={{ color: T.muted, width: 44 }}>전화:</span> <strong style={{ color: '#2563eb', flex: 1, minWidth:0 }}><EditableField value={c.contactPhone || c.phone || ''} onChange={v => updateCompany(c.id, { contactPhone: v })} placeholder="전화번호 입력" /></strong></div>
+                            <div className="flex items-center gap-1.5"><span style={{ color: T.muted, width: 44 }}>이메일:</span> <strong style={{ color: T.body, flex: 1, minWidth:0 }}><EditableField value={c.contactEmail || c.email || ''} onChange={v => updateCompany(c.id, { contactEmail: v })} placeholder="이메일 입력" /></strong></div>
+                            <div className="flex items-center gap-1.5"><span style={{ color: T.muted, width: 44 }}>웹:</span> <strong style={{ color: T.body, flex: 1, minWidth:0 }}><EditableField value={c.domain || c.url || ''} onChange={v => updateCompany(c.id, { domain: v })} placeholder="홈페이지 주소" /></strong></div>
                         </div>
                     </div>
 
@@ -89,26 +107,54 @@ export default function PhoneView({
                         <div className="space-y-1.5">
                             {(c.issues || []).slice(0, 4).map((iss, i) => (
                                 <div key={i} className="flex items-center gap-2 text-xs">
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap"
                                         style={{ background: iss.level === 'HIGH' ? '#fecaca' : '#fef3c7', color: iss.level === 'HIGH' ? '#dc2626' : '#d97706' }}>
-                                        {iss.level}
+                                        {iss.level === 'HIGH' ? '고위험' : iss.level === 'MEDIUM' ? '주의' : iss.level}
                                     </span>
-                                    <span style={{ color: T.body }}>{iss.title}</span>
+                                    <span style={{ color: T.body }} className="truncate">{iss.title}</span>
                                 </div>
                             ))}
+                            {(!c.issues || c.issues.length === 0) && (
+                                <span className="text-xs text-gray-400">발견된 주요 이슈가 없습니다.</span>
+                            )}
                         </div>
                     </div>
 
-                    {/* 통화 메모 */}
-                    <div>
-                        <p className="text-xs font-black mb-1.5" style={{ color: T.sub }}>📝 통화 메모</p>
-                        <textarea
-                            defaultValue={c.callNote}
-                            onBlur={(e) => { updateCompany(c.id, { callNote: e.target.value }); refresh(); }}
-                            rows={3} placeholder="통화 결과를 메모하세요..."
-                            className="w-full rounded-xl text-sm p-3"
-                            style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', resize: 'none' }} />
+                    {/* 통합 통화 메모 및 AI 분석 (MemoTab) */}
+                    <div className="rounded-xl p-4" style={{ background: '#f8fafc', border: `1px solid ${T.border}` }}>
+                        <p className="text-xs font-black mb-2 flex items-center gap-1.5" style={{ color: T.sub }}>
+                            <MessageSquare className="w-3.5 h-3.5" /> 통화 메모 & AI 분석 저장
+                        </p>
+                        <MemoTab co={c} onRefresh={refresh} setToast={showToast} />
                     </div>
+
+                    {/* 과거 이력 (타임라인 / 이전 메모) */}
+                    {((c.timeline && c.timeline.length > 0) || (c.memos && c.memos.length > 0)) && (
+                        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm mt-4">
+                            <p className="text-xs font-black mb-3 flex items-center gap-1.5" style={{ color: T.sub }}>
+                                <Activity className="w-3.5 h-3.5 text-blue-500" /> 🔄 최근 기록 (통화/메세지/메모 등)
+                            </p>
+                            <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
+                                {[...(c.timeline || []).map(t => ({...t, _k: 't'})), ...(c.memos || []).map(m => ({...m, _k: 'm'}))]
+                                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                    .slice(0, 8)
+                                    .map(env => (
+                                        <div key={env.id} className="text-xs pb-3 border-b last:border-0 border-slate-100">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="font-bold flex items-center gap-1 text-[10.5px]" style={{ color: env._k === 't' ? '#6366f1' : '#10b981' }}>
+                                                    {env._k === 't' ? <Activity className="w-3 h-3"/> : <MessageSquare className="w-3 h-3"/>}
+                                                    {env.author || '시스템'}
+                                                </span>
+                                                <span className="text-[10px]" style={{ color: '#94a3b8' }}>
+                                                    {new Date(env.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <p style={{ color: T.sub, lineHeight: 1.4 }} className="whitespace-pre-wrap">{env.content}</p>
+                                        </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* 어드민 상태 강제 변경 */}
                     {(user?.role === 'super_admin' || user?.role === 'admin') && (
@@ -153,8 +199,11 @@ export default function PhoneView({
                             updateCompany(c.id, { 
                                 salesConfirmed: true, 
                                 salesConfirmedBy: autoSettings.updatedBy || '영업팀',
-                                salesConfirmedAt: new Date().toISOString(),
-                                callNote: c.callNote || '전화 완료'
+                                salesConfirmedAt: new Date().toISOString()
+                            });
+                            // AI 분석을 아직 수행하지 않은 경우, 통화 완료 시 Timeline(히스토리) 노드를 강제로 하나 생성하여 남깁니다.
+                            updateCompany(c.id, {
+                                timeline: [...(c.timeline || []), { id: crypto.randomUUID(), createdAt: new Date().toISOString(), author: autoSettings.updatedBy || '영업팀', type: 'call', content: '통화 완료 (AI분석 미진행)' }] 
                             });
                             refresh();
                             const nextIdx = phoneIdx + 1;
