@@ -284,6 +284,8 @@ export default function PrivacyReviewPage({
                         } as Clause;
                     });
                     setClauses(mapped);
+                } else {
+                    setClauses([]);
                 }
                 setFetching(false);
             });
