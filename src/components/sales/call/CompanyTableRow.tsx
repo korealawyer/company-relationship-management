@@ -101,7 +101,7 @@ export default function CompanyTableRow({
                   <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}`} target="_blank" title="이메일 미리보기">
                       <button className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="이메일 미리보기"><Mail className="w-3.5 h-3.5" style={{color:'#2563eb'}}/></button>
                   </Link>
-                  <Link href={`/lawyer/privacy-review?company=${encodeURIComponent(c.name)}&preview=1`} target="_blank" title="1차 조문검토 미리보기">
+                  <Link href={`/lawyer/privacy-review?company=${encodeURIComponent(c.name)}&leadId=${c.id}&preview=1`} target="_blank" title="1차 조문검토 미리보기">
                       <button className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="1차 조문검토 미리보기"><Eye className="w-3.5 h-3.5" style={{color:'#7c3aed'}}/></button>
                   </Link>
                   <a href={`https://${c.name.replace(/[\(\)\uc8fc\s]/g,'').trim().toLowerCase()}.co.kr`} target="_blank" rel="noopener noreferrer" title="홈페이지">
