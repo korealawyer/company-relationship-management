@@ -103,7 +103,7 @@ export function renderContractEmailTemplateHtml(company: Company, plan: 'starter
 
             <!-- CTA 버튼 -->
             <div style="text-align: center; margin: 32px 0 16px;">
-                <a href="/checkout?plan=${plan}&company=${encodeURIComponent(company.name)}"
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://ibsbase.com'}/checkout?plan=${plan}&company=${encodeURIComponent(company.name)}"
                    style="display: inline-block; background: linear-gradient(135deg, #e8c87a, #c9a84c); color: #04091a; padding: 14px 40px; border-radius: 12px; font-weight: 900; font-size: 15px; text-decoration: none; box-shadow: 0 4px 16px rgba(201,168,76,0.3);">
                     ✍️ 전자서명 진행하기
                 </a>

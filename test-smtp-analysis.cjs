@@ -24,7 +24,7 @@ async function main() {
   </div>
   <p style="color:#374151;line-height:1.6">당사와 자문 계약을 체결해주셔서 감사합니다.<br/>위 수정완본 및 법률 검토의견서가 고객 대시보드 문서함에 등록되어 안내해 드립니다.</p>
   <div style="text-align:center;margin:28px 0">
-    <a href="https://ibslaw.co.kr/dashboard" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
+    <a href="https://ibsbase.com/dashboard" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
       고객 전용 대시보드 열기 →
     </a>
   </div>

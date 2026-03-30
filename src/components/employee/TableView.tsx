@@ -18,9 +18,16 @@ export default function TableView({ filtered, refresh }: TableViewProps) {
     const [assignLawyer, setAssignLawyer] = useState(LAWYERS[0]);
     const [loading, setLoading] = useState<string | null>(null);
 
-    const run = (key: string, fn: () => void) => {
+    const run = async (key: string, fn: () => Promise<void> | void) => {
         setLoading(key);
-        setTimeout(() => { fn(); setLoading(null); refresh(); }, 600);
+        try {
+            await fn();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(null);
+            refresh();
+        }
     };
 
     return (

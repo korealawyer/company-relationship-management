@@ -48,7 +48,7 @@ export function ActionButton({
     c, run, confirmingId, setConfirmingId, confirmRep, setConfirmRep,
     assigningId, setAssigningId, assignLawyer, setAssignLawyer, loading, refresh,
 }: {
-    c: Company; run: (k: string, fn: () => void) => void;
+    c: Company; run: (k: string, fn: () => Promise<void> | void) => void;
     confirmingId: string | null; setConfirmingId: (v: string | null) => void;
     confirmRep: string; setConfirmRep: (v: string) => void;
     assigningId: string | null; setAssigningId: (v: string | null) => void;
@@ -60,7 +60,25 @@ export function ActionButton({
     const { updateCompany } = useCompanies();
 
     if (s === 'pending') return (
-        <Button variant="premium" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { status: 'crawling' }))}>
+        <Button variant="premium" size="sm" onClick={() => run(c.id, async () => {
+            await updateCompany(c.id, { status: 'crawling' });
+            refresh();
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyId: c.id, url: c.privacyUrl, manualText: c.privacyPolicyText })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(`분석 실패: ${data.error || '알 수 없는 오류'}`);
+                    await updateCompany(c.id, { status: 'pending' });
+                }
+            } catch (err: any) {
+                alert(`분석 중 에러 발생: ${err.message}`);
+                await updateCompany(c.id, { status: 'pending' });
+            }
+        })}>
             <Zap className="w-3.5 h-3.5 mr-1" /> 법률 분석
         </Button>
     );
@@ -133,16 +151,41 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
     const { user } = useAuth();
     const [privacyUrl, setPrivacyUrl] = useState(c.privacyUrl || '');
     const [privacyText, setPrivacyText] = useState(c.privacyPolicyText || '');
+    const [callNote, setCallNote] = useState(c.callNote || '');
+    const [clientReplyNote, setClientReplyNote] = useState(c.clientReplyNote || '');
     const [saving, setSaving] = useState(false);
 
     const handleSave = async () => {
         setSaving(true);
-        await updateCompany(c.id, {
-            privacyUrl,
-            privacyPolicyText: privacyText,
-        });
-        refresh();
-        setTimeout(() => setSaving(false), 500);
+        try {
+            await updateCompany(c.id, {
+                privacyUrl,
+                privacyPolicyText: privacyText,
+                callNote,
+                clientReplyNote,
+                status: 'crawling' // 분석 시작 상태로 변경
+            });
+            refresh(); // UI 갱신 (회전하는 아이콘 표시)
+
+            // 실제 API 트리거
+            const res = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: c.id, url: privacyUrl, manualText: privacyText })
+            });
+            const data = await res.json();
+            
+            if (!res.ok || !data.success) {
+                alert(`에러 발생: ${data.error || '알 수 없는 오류'}\n수동으로 텍스트를 입력하거나 URL을 점검해 주세요.`);
+                await updateCompany(c.id, { status: 'pending' }); // 실패 시 상태 롤백
+            }
+        } catch (e: any) {
+            alert(`분석 요청 실패: ${e.message}`);
+            await updateCompany(c.id, { status: 'pending' });
+        } finally {
+            refresh();
+            setSaving(false);
+        }
     };
 
     const inputStyle = {
@@ -155,25 +198,53 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
         <tr>
             <td colSpan={11}>
                 <div className="px-6 py-4" style={{ background: '#f8fafc', borderTop: `1px solid ${T.border}` }}>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
-                            <input
-                                value={privacyUrl}
-                                onChange={e => setPrivacyUrl(e.target.value)}
-                                placeholder="https://example.com/privacy (없으면 비워두세요)"
-                                style={inputStyle}
-                            />
+                    <div className="grid grid-cols-2 gap-6">
+                        
+                        {/* 좌측 렌더링 영역: 기존 통화 기록 등 */}
+                        <div className="col-span-2 md:col-span-1 space-y-4">
+                            <div>
+                                <label className="text-xs font-bold mb-1.5 flex items-center gap-1.5 block" style={{ color: '#475569' }}>📞 통화 메모</label>
+                                <textarea
+                                    value={callNote}
+                                    onChange={e => setCallNote(e.target.value)}
+                                    rows={4}
+                                    placeholder="통화 내용 메모..."
+                                    style={taStyle}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold mb-1.5 flex items-center gap-1.5 block" style={{ color: '#475569' }}>📩 클라이언트 답장</label>
+                                <textarea
+                                    value={clientReplyNote}
+                                    onChange={e => setClientReplyNote(e.target.value)}
+                                    rows={4}
+                                    placeholder="클라이언트 답장 내용..."
+                                    style={taStyle}
+                                />
+                            </div>
                         </div>
-                        <div className="col-span-2">
-                            <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>📝 방침 원문 텍스트 (전문)</label>
-                            <textarea
-                                value={privacyText}
-                                onChange={e => setPrivacyText(e.target.value)}
-                                placeholder="방침 전문 텍스트를 붙여넣으세요..."
-                                rows={8}
-                                style={taStyle}
-                            />
+
+                        {/* 우측 렌더링 영역: 개인정보 처리방침 */}
+                        <div className="col-span-2 md:col-span-1 space-y-4 border-slate-200 md:border-l md:pl-6">
+                            <div>
+                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5 block" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
+                                <input
+                                    value={privacyUrl}
+                                    onChange={e => setPrivacyUrl(e.target.value)}
+                                    placeholder="https://example.com/privacy (없으면 비워두세요)"
+                                    style={inputStyle}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5 block" style={{ color: T.sub }}>📝 방침 원문 텍스트 (전문)</label>
+                                <textarea
+                                    value={privacyText}
+                                    onChange={e => setPrivacyText(e.target.value)}
+                                    placeholder="방침 전문 텍스트를 붙여넣으세요..."
+                                    rows={8}
+                                    style={taStyle}
+                                />
+                            </div>
                         </div>
 
                         {(user?.role === 'super_admin' || user?.role === 'admin') && (
