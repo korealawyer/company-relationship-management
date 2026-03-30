@@ -1,7 +1,7 @@
 # Notion 콘텐츠 폴더 (긴 파일명으로 빌드 실패 방지)
-franchise_notion_content/
+/franchise_notion_content/
 
 # 기타 불필요 폴더
-documents/
-_agents/
-company-relationship-management/
+/documents/
+/_agents/
+/company-relationship-management/
