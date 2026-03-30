@@ -3,7 +3,6 @@ import { requireSessionFromCookie } from '@/lib/auth';
 
 // [아키텍처 혁신]: 병목이 긴 크롤링/분석 API의 Vercel 타임아웃 방어 및 Edge 강제 탑재
 export const runtime = 'edge';
-export const maxDuration = 60;
 
 // 데모 분석 결과 (폴백용)
 const DEMO_ISSUES = [
@@ -92,7 +91,7 @@ export async function POST(request: NextRequest) {
             if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃 (Vercel 제한 방어)
 
             let html = '';
             try {
@@ -116,8 +115,13 @@ export async function POST(request: NextRequest) {
             }
 
             if (html) {
-                let cleanHtml = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-                cleanHtml = cleanHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+                // [Edge CPU 제한 방어] Vercel Edge는 정규식 처리에 50ms CPU 타임 제한이 있음.
+                // 150,000자(약 150KB)를 초과하는 대규모 HTML일 경우 앞부분만 잘라서 파싱 시작
+                let cleanHtml = html.length > 150000 ? html.slice(0, 150000) : html;
+                
+                // 가벼운 Non-greedy(.*?) 정규식으로 CPU 연산 최소화
+                cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+                cleanHtml = cleanHtml.replace(/<style[\s\S]*?<\/style>/gi, '');
                 cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
                 extractedText = cleanHtml.replace(/\s+/g, ' ').trim();
             }
@@ -180,7 +184,7 @@ ${extractedText.substring(0, 15000)}
 `;
 
         const aiController = new AbortController();
-        const aiTimeoutId = setTimeout(() => aiController.abort(), 20000); // 20초 타임아웃 지시
+        const aiTimeoutId = setTimeout(() => aiController.abort(), 15000); // 15초 타임아웃 (Vercel 30s Wall-Time 초과 방지)
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
