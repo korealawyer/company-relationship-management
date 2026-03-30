@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 
-// [아키텍처 혁신]: 병목이 긴 크롤링/분석 API의 Vercel 타임아웃 방어 및 Edge 강제 탑재
-export const runtime = 'edge';
+// Pro 요금제 활용: 최대 3분 허용 (기본 15초 제한 해제)
+export const maxDuration = 180; // 3분
+export const runtime = 'nodejs'; // Edge 대신 Node 환경으로 넉넉한 컴퓨팅 사용
 
 // 데모 분석 결과 (폴백용)
 const DEMO_ISSUES = [
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
             if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8초 타임아웃 (Vercel 제한 방어)
+            const timeoutId = setTimeout(() => controller.abort(), 25000); // Pro 요금제: 25초 크롤링 타임아웃
 
             let html = '';
             try {
@@ -107,8 +108,6 @@ export async function POST(request: NextRequest) {
                 });
                 
                 if (res.ok) {
-                    // res.text()도 tarpit 방어: AbortController가 이미 걸려있으므로
-                    // 10초 내에 body stream도 완료되어야 함
                     html = await res.text();
                 } else {
                     console.warn(`[Analyze API] HTTP Fetch failed: Status ${res.status}`);
@@ -118,7 +117,7 @@ export async function POST(request: NextRequest) {
             }
 
             if (html) {
-                // [Edge CPU 제한 방어] Vercel Edge는 정규식 처리에 50ms CPU 타임 제한이 있음.
+                // Node 런타임이므로 넉넉하게 파싱 시작
                 // 150,000자(약 150KB)를 초과하는 대규모 HTML일 경우 앞부분만 잘라서 파싱 시작
                 let cleanHtml = html.length > 150000 ? html.slice(0, 150000) : html;
                 
@@ -192,7 +191,7 @@ ${extractedText.substring(0, 15000)}
 `;
 
         const aiController = new AbortController();
-        const aiTimeoutId = setTimeout(() => aiController.abort(), 15000); // 15초 타임아웃 (Vercel 30s Wall-Time 초과 방지)
+        const aiTimeoutId = setTimeout(() => aiController.abort(), 90000); // Pro 요금제: 90초 AI 대기 타임아웃
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
