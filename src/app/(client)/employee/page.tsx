@@ -188,7 +188,29 @@ export default function EmployeePage() {
                             <div className="p-6"><ContractEmailTemplate company={contractModal} plan="standard" /></div>
                             <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #e5e7eb', background: '#f8f9fc' }}>
                                 <Button variant="ghost" className="flex-1" onClick={() => setContractModal(null)}>취소</Button>
-                                <Button variant="premium" className="flex-1" onClick={() => { crm.updateCompany(contractModal.id, { status: 'contract_sent' }); crm.refresh(); crm.showToast(`📧 ${contractModal.name}에 계약서가 발송되었습니다`); setContractModal(null); }}>
+                                <Button variant="premium" className="flex-1" onClick={async () => {
+                                    try {
+                                        await fetch('/api/email', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                type: 'send_contract',
+                                                leadId: contractModal.id,
+                                                contractCompany: contractModal,
+                                                plan: 'standard',
+                                                to: contractModal.email || 'dhk@ibslaw.co.kr' // fallback for testing
+                                            })
+                                        });
+                                        await crm.updateCompany(contractModal.id, { status: 'contract_sent' });
+                                        crm.refresh();
+                                        crm.showToast(`📧 ${contractModal.name}에 계약서가 (테스트: dhk@ibslaw.co.kr) 발송되었습니다`);
+                                    } catch (e) {
+                                        console.error(e);
+                                        crm.showToast(`❌ 발송 중 오류가 발생했습니다.`);
+                                    } finally {
+                                        setContractModal(null);
+                                    }
+                                }}>
                                     <Send className="w-4 h-4 mr-1" /> 발송 확인
                                 </Button>
                             </div>

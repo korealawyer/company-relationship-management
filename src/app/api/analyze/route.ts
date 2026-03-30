@@ -91,12 +91,17 @@ export async function POST(request: NextRequest) {
             const fetchUrl = new URL(url);
             if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
             
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃 제한
+
             const res = await fetch(fetchUrl.toString(), {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) width/Chrome AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 },
                 redirect: 'follow', // 리다이렉트 허용
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             
             if (res.ok) {
                 const html = await res.text();
@@ -119,9 +124,12 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // 3. 추출된 텍스트 확인 후, 부족하면 데모(폴백) 응답
+    // 3. 추출된 텍스트 확인 후, 부족하면 재조사 안내 에러 반환 (데모 모드 대체)
     if (!extractedText || extractedText.length < 50) {
-        return generateFallbackResponse(url);
+        return NextResponse.json(
+            { success: false, error: '해당 주소에서 텍스트를 파싱하지 못했습니다. (쇼핑몰 자체 봇 차단 또는 본문 부족) 정확한 처리방침 URL을 입력하거나, 전문을 직접 복사하여 재조사를 진행해 주세요.' },
+            { status: 422 }
+        );
     }
 
     // 4. OpenAI 실시간 분석 지시
@@ -132,12 +140,19 @@ export async function POST(request: NextRequest) {
             return generateFallbackResponse(url);
         }
 
-        const prompt = `주어진 [개인정보처리방침 원문]을 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 정확히 출력해 주세요.
+        const prompt = `주어진 [개인정보처리방침 원문] 텍스트를 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 분리해 주세요.
 
 [개인정보처리방침 원문]:
 ${extractedText.substring(0, 15000)}
 
-반드시 다음의 순수 JSON 구조만을 반환하세요. 앞뒤로 백틱(\`\`\`)이나 추가 설명을 포함하지 마세요.
+**중요 지시사항**:
+제공된 텍스트가 식당/쇼핑몰의 '일반 상품 홍보글', '메인 화면 소개', '안내 팝업' 등에 불과하며 실제 <개인정보처리방침> 내용이 현저히 불충분하다고 판단될 경우, 억지 분석을 멈추고 즉시 아래 JSON 구조를 반환하세요.
+{
+  "riskLevel": "UNKNOWN",
+  "error": "원문에서 개인정보처리방침 내용을 식별할 수 없습니다. (메인 페이지 등 잘못된 URL 수집) 정확한 방침 URL을 기입하거나 전문을 복사하여 재조사해 주세요."
+}
+
+정상적인 처리방침 내용일 경우, 다음의 순수 JSON 구조만을 반환하세요. 앞뒤로 백틱(\`\`\`)이나 추가 설명을 포함하지 마세요.
 {
   "riskLevel": "HIGH" | "MEDIUM" | "LOW",
   "issues": [
@@ -178,6 +193,13 @@ ${extractedText.substring(0, 15000)}
         // 마크다운 JSON 오류 방어 파싱
         const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsedResult = JSON.parse(cleanJson);
+
+        if (parsedResult.riskLevel === 'UNKNOWN' || parsedResult.error) {
+            return NextResponse.json({
+                success: false,
+                error: parsedResult.error || '개인정보처리방침 원문을 확인할 수 없습니다. 정확한 URL을 기입하거나 전문을 복사하여 재조사해 주세요.'
+            }, { status: 422 });
+        }
 
         return NextResponse.json({
             success: true,

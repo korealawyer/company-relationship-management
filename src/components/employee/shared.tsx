@@ -4,6 +4,7 @@ import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap, Save } 
 import { Company, CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS } from '@/lib/constants';
 import { useCompanies } from '@/hooks/useDataLayer';
+import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/Button';
 
 export const T = {
@@ -129,6 +130,7 @@ export function ActionButton({
 
 export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
     const { updateCompany } = useCompanies();
+    const { user } = useAuth();
     const [privacyUrl, setPrivacyUrl] = useState(c.privacyUrl || '');
     const [privacyText, setPrivacyText] = useState(c.privacyPolicyText || '');
     const [saving, setSaving] = useState(false);
@@ -173,6 +175,26 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                 style={taStyle}
                             />
                         </div>
+
+                        {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                            <div className="col-span-2 mt-2 p-3 rounded-lg border" style={{ background: '#fef2f2', borderColor: '#fca5a5' }}>
+                                <label className="text-xs font-black mb-1.5 block" style={{ color: '#dc2626' }}>🔧 상태 강제 변경 (Admin)</label>
+                                <select
+                                    value={c.status}
+                                    onChange={async (e) => {
+                                        await updateCompany(c.id, { status: e.target.value as CaseStatus });
+                                        refresh();
+                                    }}
+                                    className="w-full text-xs px-3 py-2 rounded-lg border outline-none font-bold bg-white"
+                                    style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                                >
+                                    {Object.entries(STATUS_LABEL).map(([val, label]) => (
+                                        <option key={val} value={val}>{label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div className="col-span-2 mt-1">
                             <button
                                 onClick={handleSave}

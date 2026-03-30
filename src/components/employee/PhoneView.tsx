@@ -4,6 +4,8 @@ import { Phone, CheckCircle2, Mail, FileText, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Company, CaseStatus, AutoSettings } from '@/lib/types';
 import { useCompanies } from '@/hooks/useDataLayer';
+import { useAuth } from '@/lib/AuthContext';
+import { STATUS_LABEL } from '@/lib/constants';
 import { T, StatusBadge } from './shared';
 import { RiskBadge } from '@/components/crm/SlidePanel';
 
@@ -22,6 +24,7 @@ export default function PhoneView({
     autoSettings, refresh, showToast, setContractModal
 }: PhoneViewProps) {
     const { updateCompany } = useCompanies();
+    const { user } = useAuth();
 
     if (filtered.length === 0) {
         return <div className="text-center py-12 text-sm" style={{ color: T.muted }}>표시할 기업이 없습니다.</div>;
@@ -106,6 +109,27 @@ export default function PhoneView({
                             className="w-full rounded-xl text-sm p-3"
                             style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', resize: 'none' }} />
                     </div>
+
+                    {/* 어드민 상태 강제 변경 */}
+                    {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                        <div className="rounded-xl p-4" style={{ background: '#fef2f2', border: '1px solid #fca5a5' }}>
+                            <p className="text-xs font-black mb-2" style={{ color: '#dc2626' }}>🔧 상태 강제 변경 (Admin)</p>
+                            <select
+                                value={c.status}
+                                onChange={(e) => {
+                                    updateCompany(c.id, { status: e.target.value as CaseStatus });
+                                    refresh();
+                                    showToast('슈퍼 관리자 권한으로 상태가 변경되었습니다.');
+                                }}
+                                className="w-full text-xs px-3 py-2 rounded-lg border outline-none font-bold bg-white"
+                                style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                            >
+                                {Object.entries(STATUS_LABEL).map(([val, label]) => (
+                                    <option key={val} value={val}>{label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Mail, FileText, CheckCircle2, ExternalLink } from 'lucide-react';
 import { Company, type CaseStatus } from '@/lib/types';
 import { useCompanies } from '@/hooks/useDataLayer';
+import { useAuth } from '@/lib/AuthContext';
+import { STATUS_LABEL } from '@/lib/constants';
 
 /* ── CRM 라이트 색상 (공유 상수 추출 전 임시 로컬 복사) ─────── */
 const C = {
@@ -27,6 +29,7 @@ export interface InfoTabProps {
 /* ── Component ───────────────────────────────────────────── */
 export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
     const { updateCompany } = useCompanies();
+    const { user } = useAuth();
     return (
         <div className="grid grid-cols-4 gap-3">
             {/* ── 기업 정보 ── */}
@@ -57,7 +60,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
             </div>
 
             {/* ── 이슈 목록 ── */}
-            <div className="space-y-2">
+            <div className="space-y-2 flex flex-col">
                 <p className="text-[11px] font-black" style={{ color: C.heading }}>
                     ⚠️ 이슈 ({co.issues?.length || 0}건)
                 </p>
@@ -87,6 +90,27 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                         <p className="text-[10px]" style={{ color: C.faint }}>이슈 없음</p>
                     )}
                 </div>
+
+                {/* ── 어드민: 상태값 강제 변경 ── */}
+                {(user?.role === 'super_admin' || user?.role === 'admin') && (
+                    <div className="mt-4 space-y-2">
+                        <p className="text-[11px] font-black" style={{ color: '#dc2626' }}>🔧 상태 강제 변경 (Admin)</p>
+                        <select
+                            value={co.status}
+                            onChange={(e) => {
+                                updateCompany(co.id, { status: e.target.value as CaseStatus });
+                                onRefresh();
+                                setToast('슈퍼 관리자 권한으로 상태가 변경되었습니다.');
+                            }}
+                            className="w-full text-[11px] px-2 py-1.5 rounded-lg border outline-none font-bold"
+                            style={{ background: '#fef2f2', borderColor: '#fca5a5', color: '#dc2626' }}
+                        >
+                            {Object.entries(STATUS_LABEL).map(([val, label]) => (
+                                <option key={val} value={val}>{label}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* ── 빠른 액션 ── */}
