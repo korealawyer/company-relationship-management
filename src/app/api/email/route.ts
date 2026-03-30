@@ -94,7 +94,7 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
   
   const riskKr = lead.riskLevel === 'HIGH' ? '고위험' : lead.riskLevel === 'MEDIUM' ? '주의' : lead.riskLevel === 'LOW' ? '양호' : '알 수 없음';
   
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibslaw.co.kr';
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibsbase.com';
   const params = new URLSearchParams();
   if (lead.biz) params.append('biz', lead.biz);
   if (repId) params.append('rep', repId);
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
   </div>
   <p style="color:#374151;line-height:1.6">당사와 자문 계약을 체결해주셔서 감사합니다.<br/>아래 수정완본 및 법률 검토의견서가 고객 대시보드 문서함에 등록되었습니다.</p>
   <div style="text-align:center;margin:28px 0">
-    <a href="https://ibslaw.co.kr/dashboard" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
+    <a href="https://ibsbase.com/dashboard" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
       HR 대시보드 열기 →
     </a>
   </div>

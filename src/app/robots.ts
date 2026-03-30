@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/', 
       disallow: ['/admin/', '/employee/', '/lawyer/', '/counselor/', '/litigation/', '/dashboard/', '/personal-litigation/'] 
     },
-    sitemap: 'https://ibslaw.co.kr/sitemap.xml',
+    sitemap: 'https://ibsbase.com/sitemap.xml',
   };
 }

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     openGraph: {
         title: "로그인 | IBS 법률사무소",
         description: "IBS 법률사무소 고객 포털 로그인",
-        url: "https://ibslaw.co.kr/login",
+        url: "https://ibsbase.com/login",
     },
 };
 

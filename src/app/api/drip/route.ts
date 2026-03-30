@@ -98,7 +98,7 @@ export async function PUT(req: NextRequest) {
     };
 
     const subject = fillTemplate(emailTemplate.subject, vars);
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ibslaw.co.kr';
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ibsbase.com';
     const html = buildDripEmailHtml(fillTemplate(emailTemplate.content, vars), {
         subject, ctaText: emailTemplate.ctaText,
         ctaUrl: `${baseUrl}${fillTemplate(emailTemplate.ctaUrl, vars)}`,
@@ -143,7 +143,7 @@ function buildWelcomeEmail(member: DripMember): string {
     <tr><td style="padding:10px;color:#94a3b8;font-size:13px">임시 비밀번호</td><td style="padding:10px;color:#c9a84c;font-size:18px;font-weight:bold;letter-spacing:2px">${member.tempPassword}</td></tr>
   </table>
   <div style="text-align:center;margin:24px 0">
-    <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://ibslaw.co.kr'}/client-login" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:900;display:inline-block;font-size:15px">
+    <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://ibsbase.com'}/client-login" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:900;display:inline-block;font-size:15px">
       지금 로그인하여 분석 결과 확인 →
     </a>
   </div>

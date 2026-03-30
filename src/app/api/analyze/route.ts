@@ -101,7 +101,6 @@ export async function POST(request: NextRequest) {
                 redirect: 'follow', // 리다이렉트 허용
                 signal: controller.signal
             });
-            clearTimeout(timeoutId);
             
             if (res.ok) {
                 const html = await res.text();
@@ -115,6 +114,8 @@ export async function POST(request: NextRequest) {
             } else {
                 console.warn(`[Analyze API] HTTP Fetch failed: Status ${res.status}`);
             }
+            
+            clearTimeout(timeoutId);
         } catch (error) {
             console.error('[Analyze API] URL Fetch Error:', error);
             return NextResponse.json(
@@ -169,6 +170,9 @@ ${extractedText.substring(0, 15000)}
 }
 `;
 
+        const aiController = new AbortController();
+        const aiTimeoutId = setTimeout(() => aiController.abort(), 20000); // 20초 타임아웃 지시
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -179,8 +183,10 @@ ${extractedText.substring(0, 15000)}
                 model: 'gpt-4o-mini',
                 temperature: 0.1,
                 messages: [{ role: 'user', content: prompt }]
-            })
+            }),
+            signal: aiController.signal
         });
+        clearTimeout(aiTimeoutId);
 
         if (!response.ok) {
             console.error('[Analyze API] OpenAI Failure:', await response.text());
@@ -213,8 +219,17 @@ ${extractedText.substring(0, 15000)}
             completedAt: new Date().toISOString(),
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[Analyze API] Unexpected Error during OpenAI call:', error);
-        return generateFallbackResponse(url);
+        if (error.name === 'AbortError') {
+            return NextResponse.json(
+                { success: false, error: 'AI 분석 서버의 응답이 지연되어 시간 초과로 중단되었습니다. 잠시 후 재조사해 주세요.' },
+                { status: 504 }
+            );
+        }
+        return NextResponse.json(
+            { success: false, error: 'AI 분석 중 예기치 않은 오류가 발생했습니다. 재조사를 진행해 주세요.' },
+            { status: 500 }
+        );
     }
 }
