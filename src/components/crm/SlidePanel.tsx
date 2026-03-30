@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-    X, User, Mail, Activity, MessageSquare, Phone,
+    X, User, Mail, Activity, MessageSquare, Phone, Shield,
     Copy, Save, CheckCircle2, CheckCheck, Send,
     PhoneCall, Calendar, Gavel, Edit3, ChevronRight, Plus,
 } from 'lucide-react';
@@ -271,17 +271,61 @@ function MemoTab({ company, onUpdate }: { company: Company; onUpdate: () => void
     );
 }
 
+// ── 개인정보방침 탭 ──
+function PrivacyTab({ company, onUpdate }: { company: Company; onUpdate: () => void }) {
+    const [privacyUrl, setPrivacyUrl] = useState(company.privacyUrl || '');
+    const [privacyText, setPrivacyText] = useState(company.privacyPolicyText || '');
+    const [saved, setSaved] = useState(false);
+    const { updateCompany } = useCompanies();
+
+    const handleSave = () => {
+        updateCompany(company.id, { privacyUrl, privacyPolicyText: privacyText });
+        onUpdate(); 
+        setSaved(true); 
+        setTimeout(() => setSaved(false), 2000);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: '#64748b' }}>개인정보처리방침 URL</label>
+                <input value={privacyUrl} onChange={e => setPrivacyUrl(e.target.value)}
+                    placeholder="https://example.com/privacy (없으면 비워두세요)"
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none transition-colors"
+                    style={{ background: '#f8fafc', borderColor: '#e2e8f0', color: '#1e293b', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)' }}
+                    onFocus={e => e.target.style.borderColor = '#c7d2fe'}
+                    onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+            </div>
+            <div>
+                <label className="text-xs font-bold mb-1 block" style={{ color: '#64748b' }}>방침 원문 텍스트 (옵션)</label>
+                <textarea value={privacyText} onChange={e => setPrivacyText(e.target.value)}
+                    placeholder="방침 전문 텍스트를 붙여넣으세요..." rows={9}
+                    className="w-full px-4 py-3 rounded-xl border text-sm resize-none outline-none transition-colors"
+                    style={{ background: '#f8fafc', borderColor: '#e2e8f0', color: '#1e293b', lineHeight: '1.7', fontFamily: 'inherit', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)' }}
+                    onFocus={e => e.target.style.borderColor = '#c7d2fe'}
+                    onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+            </div>
+            <button onClick={handleSave}
+                className="w-full py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+                style={{ background: saved ? '#dcfce7' : '#eef2ff', color: saved ? '#16a34a' : '#4f46e5', border: `1px solid ${saved ? '#86efac' : '#c7d2fe'}` }}>
+                {saved ? <><CheckCircle2 className="w-4 h-4" /> 저장됨</> : <><Save className="w-4 h-4" /> 저장 및 동기화</>}
+            </button>
+        </div>
+    );
+}
+
 // ── 패널 탭 정의 ──
 const PANEL_TABS = [
     { key: 'contact', label: '연락처', icon: <User className="w-3.5 h-3.5" /> },
     { key: 'script', label: '스크립트', icon: <Mail className="w-3.5 h-3.5" /> },
     { key: 'timeline', label: '진행', icon: <Activity className="w-3.5 h-3.5" /> },
     { key: 'memo', label: '메모', icon: <MessageSquare className="w-3.5 h-3.5" /> },
+    { key: 'privacy', label: '개인정보', icon: <Shield className="w-3.5 h-3.5" /> },
 ] as const;
 
 // ── 슬라이드 패널 메인 ──
 export default function SlidePanel({ company, onClose, onUpdate }: { company: Company; onClose: () => void; onUpdate: () => void }) {
-    const [tab, setTab] = useState<'contact' | 'script' | 'timeline' | 'memo'>('contact');
+    const [tab, setTab] = useState<'contact' | 'script' | 'timeline' | 'memo' | 'privacy'>('contact');
     const risk = RISK_META[company.riskLevel as keyof typeof RISK_META] ?? RISK_META[''];
 
     return (
@@ -341,6 +385,7 @@ export default function SlidePanel({ company, onClose, onUpdate }: { company: Co
                 {tab === 'script' && <ScriptTab company={company} onUpdate={onUpdate} />}
                 {tab === 'timeline' && <TimelineTab company={company} onUpdate={onUpdate} />}
                 {tab === 'memo' && <MemoTab company={company} onUpdate={onUpdate} />}
+                {tab === 'privacy' && <PrivacyTab company={company} onUpdate={onUpdate} />}
             </div>
         </motion.div>
     );
