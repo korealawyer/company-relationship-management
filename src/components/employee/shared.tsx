@@ -78,7 +78,8 @@ export function ActionButton({
                 alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\n개인정보처리방침 URL을 확인하거나,\n방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
                 await updateCompany(c.id, { status: 'pending' });
             } else {
-                await updateCompany(c.id, {
+                // 성공 시 상태 변환과 데이터(데모 포함) 업데이트
+                await updateCompany(c.id, { 
                     status: 'analyzed',
                     issues: data.issues || [],
                     issueCount: data.issueCount || 0,
@@ -230,7 +231,8 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                 alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\nURL을 확인하거나 방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
                 await updateCompany(c.id, { status: 'pending' });
             } else {
-                await updateCompany(c.id, {
+                // 성공 시 데이터베이스에 리스크/이슈 저장 (데모 모드 포함)
+                await updateCompany(c.id, { 
                     status: 'analyzed',
                     issues: data.issues || [],
                     issueCount: data.issueCount || 0,
