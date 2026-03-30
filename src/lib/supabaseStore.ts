@@ -339,7 +339,8 @@ export const supabaseCompanyStore = {
       
       if (updates.issues.length > 0) {
         const issueRows = updates.issues.map(iss => {
-          const row = objToRow(iss as Record<string, any>);
+          const { aiDraftGenerated, ...safeIss } = iss as Record<string, any>;
+          const row = objToRow(safeIss);
           if (!row.id) row.id = crypto.randomUUID();
           row.company_id = id;
           return row;
