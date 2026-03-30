@@ -4,7 +4,7 @@
 // IS_SUPABASE_CONFIGURED = true 일 때만 활성화
 // ================================================================
 
-import { getSupabase, getServiceSupabase } from './supabase';
+import { getBrowserSupabase as getSupabase, getServiceSupabase } from './supabase';
 import type {
   Company, Issue, CaseStatus, CompanyContact, CompanyMemo,
   CompanyTimelineEvent, LitigationCase, LitigationDeadline,
@@ -70,7 +70,7 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
     sb.from('issues').select('*'),
     sb.from('company_contacts').select('*'),
     sb.from('company_memos').select('*'),
-    sb.from('timelines').select('*').order('created_at', { ascending: false }),
+    sb.from('company_timeline').select('*').order('created_at', { ascending: false }),
   ]);
 
   const issueMap = groupBy(issuesRes.data, 'company_id');
@@ -125,7 +125,7 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
     sb.from('issues').select('*').eq('company_id', id),
     sb.from('company_contacts').select('*').eq('company_id', id),
     sb.from('company_memos').select('*').eq('company_id', id),
-    sb.from('timelines').select('*').eq('company_id', id).order('created_at', { ascending: false }),
+    sb.from('company_timeline').select('*').eq('company_id', id).order('created_at', { ascending: false }),
   ]);
 
   c.issues = (issuesRes.data || []).map(r => rowToObj<Issue>(r));
@@ -219,22 +219,118 @@ export const supabaseCompanyStore = {
       return;
     }
 
-    const { issues } = company as Record<string, any>;
-    if (Array.isArray(issues) && issues.length > 0) {
-      for (const iss of issues) {
+    // issues (from mockStore) is not defined here in the original code, but we'll leave it if it was there
+    if (company.issues && Array.isArray(company.issues) && company.issues.length > 0) {
+      for (const iss of company.issues) {
+        if (!iss.id) iss.id = crypto.randomUUID();
         await sb.from('issues').insert({ ...objToRow(iss as Record<string, any>), company_id: newCompany.id });
       }
     }
+  },
+
+  importBulk: async (companies: Partial<Company>[]): Promise<{ success: number; skipped: number }> => {
+    const sb = getSupabase();
+    if (!sb) return { success: 0, skipped: companies.length };
+
+    const rows = companies.map(company => {
+      if (!company.id) company.id = crypto.randomUUID();
+      return cleanCompanyRow(company, true);
+    });
+
+    let successCount = 0;
+    
+    // 500건씩 쪼개서 Bulk Insert
+    for (let i = 0; i < rows.length; i += 500) {
+      const chunk = rows.slice(i, i + 500);
+      const originalChunk = companies.slice(i, i + 500);
+
+      const { data, error } = await sb
+        .from('companies')
+        .upsert(chunk, { onConflict: 'biz_no', ignoreDuplicates: true })
+        .select('id, biz_no');
+        
+      if (error) {
+        console.error('Bulk import error mapping chunk:', error);
+      } else if (data && data.length > 0) {
+        successCount += data.length;
+
+        // Memo Bulk Insert
+        const memosToInsert: any[] = [];
+        data.forEach(inserted => {
+          // find original company
+          const original = originalChunk.find(c => c.biz === inserted.biz_no || (c.biz === '' && c.id === inserted.id));
+          if (original && original.memos && original.memos.length > 0) {
+            original.memos.forEach(m => {
+              memosToInsert.push({
+                id: m.id || crypto.randomUUID(),
+                company_id: inserted.id,
+                author: m.author || '시스템',
+                content: m.content,
+                created_at: m.createdAt || new Date().toISOString()
+              });
+            });
+          }
+        });
+
+        if (memosToInsert.length > 0) {
+          await sb.from('company_memos').insert(memosToInsert);
+        }
+      }
+    }
+
+    return { success: successCount, skipped: companies.length - successCount };
   },
 
   update: async (id: string, updates: Partial<Company>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
     
+    // 1) Update main companies table
     const row = cleanCompanyRow(updates, false);
-    row.updated_at = new Date().toISOString();
-    
-    await sb.from('companies').update(row).eq('id', id);
+    if (Object.keys(row).length > 0) {
+      row.updated_at = new Date().toISOString();
+      const { error } = await sb.from('companies').update(row).eq('id', id);
+      if (error) console.error('Failed to update company:', error);
+    }
+
+    // 2) Handle Nested Arrays (Memos, Timelines, Contacts)
+    // The UI passes down the full array whenever an item is added.
+    if (updates.memos && updates.memos.length > 0) {
+      const memoRows = updates.memos.map(m => ({
+        id: m.id || crypto.randomUUID(),
+        company_id: id,
+        author: m.author,
+        content: m.content,
+        created_at: m.createdAt || new Date().toISOString()
+      }));
+      await sb.from('company_memos').upsert(memoRows);
+    }
+
+    if (updates.timeline && updates.timeline.length > 0) {
+      const tlRows = updates.timeline.map(t => ({
+        id: t.id || crypto.randomUUID(),
+        company_id: id,
+        author: t.author,
+        type: t.type,
+        content: t.content,
+        created_at: t.createdAt || new Date().toISOString()
+      }));
+      await sb.from('company_timeline').upsert(tlRows);
+    }
+
+    if (updates.contacts && updates.contacts.length > 0) {
+      const contactRows = updates.contacts.map(c => ({
+        id: (!c.id || c.id === 'legacy') ? crypto.randomUUID() : c.id,
+        company_id: id,
+        name: c.name,
+        role: c.role || null,
+        department: c.department || null,
+        phone: c.phone || null,
+        email: c.email || null,
+        is_primary: c.isPrimary || false
+      }));
+      await sb.from('company_contacts').upsert(contactRows);
+    }
   },
 
   delete: async (id: string): Promise<void> => {
@@ -275,10 +371,12 @@ export const supabaseLitigationStore = {
   create: async (litCase: Partial<LitigationCase>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
+    if (!litCase.id) litCase.id = crypto.randomUUID();
     const { deadlines, ...flat } = litCase as Record<string, unknown>;
     await sb.from('litigation_cases').insert(objToRow(flat as Record<string, unknown>));
     if (Array.isArray(deadlines)) {
       for (const dl of deadlines) {
+        if (!(dl as any).id) (dl as any).id = crypto.randomUUID();
         await sb.from('litigation_deadlines').insert({ ...objToRow(dl as Record<string, unknown>), case_id: flat.id });
       }
     }
@@ -313,6 +411,7 @@ export const supabaseConsultStore = {
   create: async (consult: Partial<Consultation>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
+    if (!consult.id) consult.id = crypto.randomUUID();
     await sb.from('consultations').insert(objToRow(consult as Record<string, unknown>));
   },
 
@@ -339,6 +438,7 @@ export const supabasePersonalStore = {
   addClient: async (client: PersonalClient): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
+    if (!client.id) client.id = crypto.randomUUID();
     await sb.from('personal_clients').insert(objToRow(client as unknown as Record<string, unknown>));
   },
 
@@ -370,15 +470,18 @@ export const supabasePersonalStore = {
   create: async (lit: Partial<PersonalLitigation>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
+    if (!lit.id) lit.id = crypto.randomUUID();
     const { deadlines, documents, ...flat } = lit as Record<string, unknown>;
     await sb.from('personal_litigations').insert(objToRow(flat as Record<string, unknown>));
     if (Array.isArray(deadlines)) {
       for (const dl of deadlines) {
+        if (!(dl as any).id) (dl as any).id = crypto.randomUUID();
         await sb.from('personal_lit_deadlines').insert({ ...objToRow(dl as Record<string, unknown>), litigation_id: flat.id });
       }
     }
     if (Array.isArray(documents)) {
       for (const doc of documents) {
+        if (!(doc as any).id) (doc as any).id = crypto.randomUUID();
         await sb.from('personal_lit_documents').insert({ ...objToRow(doc as Record<string, unknown>), litigation_id: flat.id });
       }
     }

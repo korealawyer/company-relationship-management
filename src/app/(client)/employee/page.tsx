@@ -5,7 +5,6 @@ import { Plus, Search, TrendingUp, Bot, Phone, LayoutGrid, Ticket, Download, Upl
 import { Button } from '@/components/ui/Button';
 import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
 import { Company } from '@/lib/types';
-import SlidePanel from '@/components/crm/SlidePanel';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import SalesDashboard from '@/components/crm/SalesDashboard';
 import ContractEmailTemplate from '@/components/crm/ContractEmailTemplate';
@@ -23,7 +22,7 @@ import TableView from '@/components/employee/TableView';
 export default function EmployeePage() {
     const { loading: authLoading, authorized } = useRequireAuth(['super_admin', 'admin', 'sales']);
     const crm = useEmployeeCRM();
-    const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast, crm.addCompany);
+    const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast, crm.importBulk);
 
     const [showAutoPanel, setShowAutoPanel] = useState(false);
     const [showInvitePanel, setShowInvitePanel] = useState(false);
@@ -31,7 +30,6 @@ export default function EmployeePage() {
     const [showDashboard, setShowDashboard] = useState(false);
     
     const [phoneIdx, setPhoneIdx] = useState(0);
-    const [panelCompany, setPanelCompany] = useState<Company | null>(null);
     const [contractModal, setContractModal] = useState<Company | null>(null);
 
     if (authLoading || !authorized) return null;
@@ -89,15 +87,20 @@ export default function EmployeePage() {
                                 style={{ background: showInvitePanel ? '#fef3c7' : T.card, color: showInvitePanel ? '#92400e' : T.sub, border: `1px solid ${showInvitePanel ? '#fde68a' : T.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                 <Ticket className="w-3.5 h-3.5" /> 초대
                             </button>
+                            <button onClick={excel.handleTemplateDownload}
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                <Download className="w-3.5 h-3.5" /> 엑셀 양식
+                            </button>
                             <button onClick={excel.handleExcelDownload}
                                 className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                <Download className="w-3.5 h-3.5" /> Excel
+                                <Download className="w-3.5 h-3.5" /> 내보내기
                             </button>
                             <button onClick={() => excel.fileInputRef.current?.click()}
                                 className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                                <Upload className="w-3.5 h-3.5" /> 업로드
+                                <Upload className="w-3.5 h-3.5" /> 대량 업로드
                             </button>
                             <input ref={excel.fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={excel.handleExcelFile} />
                         </>
@@ -165,21 +168,16 @@ export default function EmployeePage() {
             {crm.viewMode === 'phone' ? (
                 <PhoneView filtered={filtered} phoneIdx={phoneIdx} setPhoneIdx={setPhoneIdx} autoSettings={crm.autoSettings!} refresh={crm.refresh} showToast={crm.showToast} setContractModal={setContractModal} />
             ) : crm.viewMode === 'kanban' ? (
-                <KanbanBoard companies={filtered} onCardClick={setPanelCompany} />
+                <KanbanBoard companies={filtered} onCardClick={(c) => { crm.setSearch(c.name); crm.setViewMode('table'); }} />
             ) : (
-                <TableView filtered={filtered} setPanelCompany={setPanelCompany} refresh={crm.refresh} />
+                <TableView filtered={filtered} refresh={crm.refresh} />
             )}
 
             {/* Modals & Overlays */}
             <AnimatePresence>
-                {excel.showExcelUpload && <ExcelUploadModal excelPreview={excel.excelPreview} excelUploading={excel.excelUploading} onClose={() => { excel.setShowExcelUpload(false); excel.setExcelPreview([]); }} onImport={excel.handleExcelImport} />}
+                {excel.showExcelUpload && <ExcelUploadModal excelData={excel.excelData} excelPreview={excel.excelPreview} excelUploading={excel.excelUploading} onClose={() => { excel.setShowExcelUpload(false); excel.setExcelPreview([]); excel.setExcelData([]); }} onImport={excel.handleExcelImport} />}
                 {showAdd && <AddCompanyModal onClose={() => setShowAdd(false)} refresh={crm.refresh} />}
-                {panelCompany && (
-                    <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={() => setPanelCompany(null)} />
-                        <SlidePanel company={panelCompany} onClose={() => setPanelCompany(null)} onUpdate={() => { crm.refresh(); const updated = crm.companies.find((c: Company) => c.id === panelCompany.id); if (updated) setPanelCompany(updated); }} />
-                    </>
-                )}
+
                 {contractModal && (
                     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setContractModal(null)}>
                         <motion.div initial={{ scale: 0.96, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 20 }} className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl" style={{ background: '#ffffff', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>

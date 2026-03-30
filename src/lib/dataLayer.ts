@@ -27,6 +27,7 @@ export interface CompanyDataSource {
   getById(id: string): Promise<Company | undefined>;
   update(id: string, patch: Partial<Company>): Promise<void>;
   create(company: Partial<Company>): Promise<void>;
+  importBulk(companies: Partial<Company>[]): Promise<{ success: number; skipped: number }>;
   delete(id: string): Promise<void>;
 }
 
@@ -70,6 +71,7 @@ const sbCompanies: CompanyDataSource = {
   getById: async (id) => (await supabaseCompanyStore.getById(id)) ?? undefined,
   update: supabaseCompanyStore.update,
   create: supabaseCompanyStore.create,
+  importBulk: supabaseCompanyStore.importBulk,
   delete: supabaseCompanyStore.delete,
 };
 

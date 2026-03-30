@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState } from 'react';
-import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap, Save } from 'lucide-react';
 import { Company, CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS } from '@/lib/constants';
 import { useCompanies } from '@/hooks/useDataLayer';
@@ -129,29 +129,65 @@ export function ActionButton({
 
 export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
     const { updateCompany } = useCompanies();
-    const [note, setNote] = useState(c.callNote || '');
-    const [reply, setReply] = useState(c.clientReplyNote || '');
-    const taStyle = { background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', borderRadius: 8, padding: '8px 12px', resize: 'none' as const, fontSize: 12, lineHeight: '1.6', width: '100%' };
+    const [privacyUrl, setPrivacyUrl] = useState(c.privacyUrl || '');
+    const [privacyText, setPrivacyText] = useState(c.privacyPolicyText || '');
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        await updateCompany(c.id, {
+            privacyUrl,
+            privacyPolicyText: privacyText,
+        });
+        refresh();
+        setTimeout(() => setSaving(false), 500);
+    };
+
+    const inputStyle = {
+        background: T.card, border: `1px solid ${T.border}`, color: T.body,
+        outline: 'none', borderRadius: 8, padding: '8px 12px', fontSize: 12, width: '100%'
+    };
+    const taStyle = { ...inputStyle, resize: 'none' as const, lineHeight: '1.6' };
 
     return (
         <tr>
-            <td colSpan={10}>
-                <div className="px-6 py-4 grid grid-cols-2 gap-6"
-                    style={{ background: '#f1f5f9', borderTop: `1px solid ${T.border}` }}>
-                    <div>
-                        <p className="text-xs font-bold mb-1.5" style={{ color: T.sub }}>📞 통화 메모</p>
-                        <textarea value={note} onChange={e => setNote(e.target.value)}
-                            onBlur={() => { updateCompany(c.id, { callNote: note }); refresh(); }}
-                            rows={2} placeholder="통화 내용 메모..." style={taStyle} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold mb-1.5" style={{ color: T.sub }}>
-                            📩 클라이언트 답장
-                            {c.clientReplied && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#fce7f3', color: '#be185d' }}>답장 수신</span>}
-                        </p>
-                        <textarea value={reply} onChange={e => setReply(e.target.value)}
-                            onBlur={() => { updateCompany(c.id, { clientReplyNote: reply }); refresh(); }}
-                            rows={2} placeholder="클라이언트 답장 내용..." style={taStyle} />
+            <td colSpan={11}>
+                <div className="px-6 py-4" style={{ background: '#f8fafc', borderTop: `1px solid ${T.border}` }}>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
+                            <input
+                                value={privacyUrl}
+                                onChange={e => setPrivacyUrl(e.target.value)}
+                                placeholder="https://example.com/privacy (없으면 비워두세요)"
+                                style={inputStyle}
+                            />
+                        </div>
+                        <div className="col-span-2">
+                            <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>📝 방침 원문 텍스트 (전문)</label>
+                            <textarea
+                                value={privacyText}
+                                onChange={e => setPrivacyText(e.target.value)}
+                                placeholder="방침 전문 텍스트를 붙여넣으세요..."
+                                rows={8}
+                                style={taStyle}
+                            />
+                        </div>
+                        <div className="col-span-2 mt-1">
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="w-full py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                style={{
+                                    background: saving ? '#dcfce7' : '#eef2ff',
+                                    color: saving ? '#16a34a' : '#4f46e5',
+                                    border: `1px solid ${saving ? '#86efac' : '#c7d2fe'}`,
+                                    opacity: saving ? 0.8 : 1
+                                }}
+                            >
+                                <Save className="w-4 h-4" /> {saving ? '저장됨' : '정보 저장 및 자동 분석 봇 트리거'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </td>

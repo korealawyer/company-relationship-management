@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { DocumentWidget } from '@/components/DocumentWidget';
 import type { Company } from '@/lib/types';
 import { useCompanies } from '@/hooks/useDataLayer';
+import { AdminCompanyEditModal } from '@/components/admin/AdminCompanyEditModal';
 
 const PLAN_META: Record<string, { label: string; color: string; bg: string }> = {
     premium:  { label: 'Premium',  color: '#c9a84c', bg: 'rgba(201,168,76,0.1)' },
@@ -25,19 +26,29 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 export default function AdminClientsPage() {
-    const { companies, updateCompany } = useCompanies();
-    const clients = companies.filter(c => c.plan && c.plan !== 'none');
+    const { companies, updateCompany, deleteCompany } = useCompanies();
     const [search, setSearch] = useState('');
-    const [filterPlan, setFilterPlan] = useState<string>('all');
+    const [filterPlan, setFilterPlan] = useState<string>('all_clients');
     const [sortBy, setSortBy] = useState<'name' | 'stores' | 'plan'>('name');
     const [sortAsc, setSortAsc] = useState(true);
     const [expandId, setExpandId] = useState<string | null>(null);
+    const [editingCompany, setEditingCompany] = useState<Company | null>(null);
 
-    const filtered = clients
+    const filtered = companies
         .filter(c => {
             const q = search.toLowerCase();
-            const matchSearch = c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
-            const matchPlan = filterPlan === 'all' || c.plan === filterPlan;
+            const matchSearch = (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q);
+            
+            let matchPlan = false;
+            if (filterPlan === 'all_users') {
+                matchPlan = true;
+            } else if (filterPlan === 'all_clients') {
+                matchPlan = !!c.plan && c.plan !== 'none';
+            } else if (filterPlan === 'none') {
+                matchPlan = !c.plan || c.plan === 'none';
+            } else {
+                matchPlan = c.plan === filterPlan;
+            }
             return matchSearch && matchPlan;
         })
         .sort((a, b) => {
@@ -56,52 +67,56 @@ export default function AdminClientsPage() {
     return (
         <div className="min-h-screen pb-16" style={{ background: '#04091a', color: '#f0f4ff' }}>
             {/* 헤더 */}
-            <div className="sticky top-0 z-40 px-6 py-4 space-y-3"
-                style={{ background: 'rgba(4,9,26,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
-                <div className="flex items-center gap-3">
-                    <h1 className="font-black text-lg flex items-center gap-2">
-                        <Building2 className="w-5 h-5" style={{ color: '#c9a84c' }} />
-                        구독 고객 목록
-                    </h1>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-                        style={{ background: 'rgba(201,168,76,0.1)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}>
-                        {filtered.length}개사
-                    </span>
-                </div>
-
-                {/* 검색 + 필터 */}
-                <div className="flex gap-3 flex-wrap">
-                    <div className="relative flex-1 min-w-48">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(240,244,255,0.3)' }} />
-                        <input value={search} onChange={e => setSearch(e.target.value)}
-                            placeholder="기업명, 이메일 검색..."
-                            className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }} />
+            <div className="sticky top-0 z-40 w-full py-4 border-b"
+                style={{ background: 'rgba(4,9,26,0.97)', borderColor: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
+                <div className="max-w-6xl mx-auto px-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                        <h1 className="font-black text-lg flex items-center gap-2">
+                            <Building2 className="w-5 h-5" style={{ color: '#c9a84c' }} />
+                            구독 고객 목록
+                        </h1>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+                            style={{ background: 'rgba(201,168,76,0.1)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}>
+                            {filtered.length}개사
+                        </span>
                     </div>
-                    <select value={filterPlan} onChange={e => setFilterPlan(e.target.value)}
-                        className="px-3 py-2 rounded-xl text-sm outline-none"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }}>
-                        <option value="all">전체 플랜</option>
-                        <option value="premium">Premium</option>
-                        <option value="standard">Standard</option>
-                        <option value="starter">Starter</option>
-                    </select>
-                </div>
 
-                {/* 정렬 헤더 */}
-                <div className="hidden md:grid grid-cols-12 text-[10px] font-black uppercase tracking-widest px-1"
-                    style={{ color: 'rgba(240,244,255,0.3)' }}>
-                    <button className="col-span-4 flex items-center gap-1 text-left" onClick={() => toggleSort('name')}>
-                        기업명 {sortBy === 'name' ? (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null}
-                    </button>
-                    <button className="col-span-2 flex items-center gap-1" onClick={() => toggleSort('plan')}>
-                        플랜 {sortBy === 'plan' ? (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null}
-                    </button>
-                    <button className="col-span-2 flex items-center gap-1" onClick={() => toggleSort('stores')}>
-                        매장수 {sortBy === 'stores' ? (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null}
-                    </button>
-                    <div className="col-span-2">담당 변호사</div>
-                    <div className="col-span-2">연락처</div>
+                    {/* 검색 + 필터 */}
+                    <div className="flex gap-3 flex-wrap">
+                        <div className="relative flex-1 min-w-48">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(240,244,255,0.3)' }} />
+                            <input value={search} onChange={e => setSearch(e.target.value)}
+                                placeholder="기업명, 이메일 검색..."
+                                className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }} />
+                        </div>
+                        <select value={filterPlan} onChange={e => setFilterPlan(e.target.value)}
+                            className="px-3 py-2 rounded-xl text-sm outline-none"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff' }}>
+                            <option value="all_clients">구독 고객 전체</option>
+                            <option value="all_users">전체 가입자(리드 포함)</option>
+                            <option value="none">단순 가입/미구독</option>
+                            <option value="premium">Premium 플랜</option>
+                            <option value="standard">Standard 플랜</option>
+                            <option value="starter">Starter 플랜</option>
+                        </select>
+                    </div>
+
+                    {/* 정렬 헤더 */}
+                    <div className="hidden md:grid grid-cols-12 gap-3 px-4 pt-2 text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: 'rgba(240,244,255,0.3)' }}>
+                        <button className="col-span-4 flex items-center gap-1 text-left" onClick={() => toggleSort('name')}>
+                            기업명 {sortBy === 'name' ? (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null}
+                        </button>
+                        <button className="col-span-2 flex items-center gap-1 text-left" onClick={() => toggleSort('plan')}>
+                            플랜 {sortBy === 'plan' ? (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null}
+                        </button>
+                        <button className="col-span-2 flex items-center gap-1 text-left" onClick={() => toggleSort('stores')}>
+                            매장수 {sortBy === 'stores' ? (sortAsc ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : null}
+                        </button>
+                        <div className="col-span-2 text-left">담당 변호사</div>
+                        <div className="col-span-2 text-left">상태</div>
+                    </div>
                 </div>
             </div>
 
@@ -264,8 +279,33 @@ export default function AdminClientsPage() {
                                                     </div>
                                                     <div>
                                                         <p className="text-[10px] font-black uppercase tracking-widest mb-2"
-                                                            style={{ color: 'rgba(240,244,255,0.3)' }}>빠른 실행</p>
+                                                            style={{ color: 'rgba(240,244,255,0.3)' }}>빠른 실행 / 관리</p>
                                                         <div className="flex flex-wrap gap-2">
+                                                            <button onClick={() => setEditingCompany(c)} className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-blue-500/20"
+                                                                style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
+                                                                마스터 수정
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    alert('해당 사용자의 가입 이메일로 비밀번호 재설정 링크(임시 비밀번호) 발송을 스케줄링했습니다.');
+                                                                }} 
+                                                                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-slate-500/20"
+                                                                style={{ background: 'rgba(148,163,184,0.1)', color: '#94a3b8' }}>
+                                                                PW 초기화
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    if(confirm(`정말 '${c.name}' 계정을 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+                                                                        deleteCompany(c.id);
+                                                                    }
+                                                                }} 
+                                                                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:bg-red-500/20"
+                                                                style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                                                                계정 삭제
+                                                            </button>
+                                                            
+                                                            <div className="w-full h-px my-1" style={{ background: 'rgba(255,255,255,0.05)' }} />
+
                                                             <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}`}>
                                                                 <button className="px-3 py-1.5 rounded-lg text-xs font-bold"
                                                                     style={{ background: 'rgba(201,168,76,0.1)', color: '#c9a84c' }}>
@@ -308,6 +348,14 @@ export default function AdminClientsPage() {
                     </div>
                 )}
             </div>
+
+            {/* 통합 정보 수정 모달 */}
+            <AdminCompanyEditModal 
+                isOpen={!!editingCompany}
+                company={editingCompany}
+                onClose={() => setEditingCompany(null)}
+                onSave={updateCompany}
+            />
         </div>
     );
 }

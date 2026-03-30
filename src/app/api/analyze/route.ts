@@ -5,7 +5,7 @@ import { requireSessionFromCookie } from '@/lib/auth';
 export const runtime = 'edge';
 export const maxDuration = 60;
 
-// 데모 분석 결과 (실제 배포 시: OpenAI API + Puppeteer로 URL 실제 분석)
+// 데모 분석 결과 (폴백용)
 const DEMO_ISSUES = [
     {
         id: 1, level: 'HIGH', title: '수집 항목 법정 기재 누락',
@@ -30,16 +30,28 @@ const DEMO_ISSUES = [
     },
 ];
 
-// URL 기반 최소 리스크 추정 (데모 수준)
+// URL 기반 최소 리스크 추정 (데모 수준 폴백)
 function estimateRiskLevel(url: string): 'HIGH' | 'MEDIUM' | 'LOW' {
     if (!url) return 'HIGH';
-    // HTTPS 미사용 시 HIGH
     if (!url.startsWith('https://')) return 'HIGH';
-    // 짧은 URL은 정책 페이지를 지정하지 않은 가능성
     if (url.length < 20) return 'MEDIUM';
-    // https로 시작하고 30자 이상이면 LOW가 가능
     if (url.length >= 30) return 'LOW';
-    return 'MEDIUM'; // 기본: 데모 모드에서는 MEDIUM
+    return 'MEDIUM';
+}
+
+function generateFallbackResponse(url?: string) {
+    const riskLevel = estimateRiskLevel(url ?? '');
+    return NextResponse.json({
+        success: true,
+        isDemoMode: true,
+        message: 'AI 분석 완료 (데모 모드 — 분석 실패 또는 API 키 누락)',
+        analysisId: `demo-${Date.now()}`,
+        analyzedUrl: url ?? null,
+        issueCount: DEMO_ISSUES.length,
+        issues: DEMO_ISSUES,
+        riskLevel,
+        completedAt: new Date().toISOString(),
+    });
 }
 
 export async function POST(request: NextRequest) {
@@ -48,7 +60,7 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
-    let body: { url?: string; companyId?: string };
+    let body: { url?: string; companyId?: string; manualText?: string };
     try {
         body = await request.json();
     } catch {
@@ -58,43 +70,129 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { url, companyId } = body;
+    const { url, companyId, manualText } = body;
 
     // ── 필수 파라미터 검증 ──
-    if (!url && !companyId) {
+    if (!url && !companyId && !manualText) {
         return NextResponse.json(
-            { success: false, error: 'url 또는 companyId 중 하나는 필수입니다.' },
+            { success: false, error: 'url, companyId, manualText 중 하나는 필수입니다.' },
             { status: 400 }
         );
     }
 
-    // ── URL 형식 기본 검증 ──
-    if (url) {
+    let extractedText = '';
+
+    // 1. 수동 텍스트 검증 (유효성 방어: 빈 문자열 방지 및 최소 50자 이상)
+    if (manualText && manualText.trim().length > 50) {
+        extractedText = manualText.trim();
+    } else if (url) {
+        // 2. URL 문자열 기반 크롤링 우회
         try {
-            new URL(url);
-        } catch {
+            const fetchUrl = new URL(url);
+            if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
+            
+            const res = await fetch(fetchUrl.toString(), {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) width/Chrome AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
+                redirect: 'follow', // 리다이렉트 허용
+            });
+            
+            if (res.ok) {
+                const html = await res.text();
+                // script, style 태그 내용과 함께 제거 (보수적 정규식)
+                let cleanHtml = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+                cleanHtml = cleanHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+                // 일반 HTML 태그 모두 제거
+                cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
+                // 연속된 문자열 트리밍
+                extractedText = cleanHtml.replace(/\s+/g, ' ').trim();
+            } else {
+                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res.status}`);
+            }
+        } catch (error) {
+            console.error('[Analyze API] URL Fetch Error:', error);
             return NextResponse.json(
-                { success: false, error: '유효한 URL 형식이 아닙니다. (예: https://example.com/privacy)' },
+                { success: false, error: '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' },
                 { status: 422 }
             );
         }
     }
 
-    // ── 분석 시뮬레이션 (실제 배포 시 OpenAI + Puppeteer로 교체) ──
-    // ⚠️ 데모 모드: 아래 결과는 URL을 실제로 분석하지 않음
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // 3. 추출된 텍스트 확인 후, 부족하면 데모(폴백) 응답
+    if (!extractedText || extractedText.length < 50) {
+        return generateFallbackResponse(url);
+    }
 
-    const riskLevel = estimateRiskLevel(url ?? '');
+    // 4. OpenAI 실시간 분석 지시
+    try {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            console.warn('[Analyze API] OPENAI_API_KEY is not set. Falling back to demo mode.');
+            return generateFallbackResponse(url);
+        }
 
-    return NextResponse.json({
-        success: true,
-        isDemoMode: true, // 클라이언트가 데모임을 인지할 수 있도록 플래그 명시
-        message: 'AI 분석 완료 (데모 모드 — 실제 URL 분석은 계약 후 제공)',
-        analysisId: `demo-${Date.now()}`,
-        analyzedUrl: url ?? null,
-        issueCount: DEMO_ISSUES.length,
-        issues: DEMO_ISSUES,
-        riskLevel,
-        completedAt: new Date().toISOString(),
-    });
+        const prompt = `주어진 [개인정보처리방침 원문]을 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 정확히 출력해 주세요.
+
+[개인정보처리방침 원문]:
+${extractedText.substring(0, 15000)}
+
+반드시 다음의 순수 JSON 구조만을 반환하세요. 앞뒤로 백틱(\`\`\`)이나 추가 설명을 포함하지 마세요.
+{
+  "riskLevel": "HIGH" | "MEDIUM" | "LOW",
+  "issues": [
+    {
+      "id": 1, 
+      "level": "HIGH", 
+      "title": "이슈 제목", 
+      "law": "관련 법령", 
+      "problem": "구체적인 문제점 요약", 
+      "solution": "해결 방안 및 권고안", 
+      "fine": "예상 제재수위 (무상조치, 최대 OOO만원 등)"
+    }
+  ]
+}
+`;
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                temperature: 0.1,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+
+        if (!response.ok) {
+            console.error('[Analyze API] OpenAI Failure:', await response.text());
+            return generateFallbackResponse(url);
+        }
+
+        const aiData = await response.json();
+        const content = aiData.choices?.[0]?.message?.content || '';
+        
+        // 마크다운 JSON 오류 방어 파싱
+        const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsedResult = JSON.parse(cleanJson);
+
+        return NextResponse.json({
+            success: true,
+            isDemoMode: false,
+            message: 'AI 리얼타임 분석 완료',
+            analysisId: `real-${Date.now()}`,
+            analyzedUrl: url ?? null,
+            issueCount: parsedResult.issues?.length || 0,
+            issues: parsedResult.issues || [],
+            riskLevel: parsedResult.riskLevel || 'MEDIUM',
+            completedAt: new Date().toISOString(),
+        });
+
+    } catch (error) {
+        console.error('[Analyze API] Unexpected Error during OpenAI call:', error);
+        return generateFallbackResponse(url);
+    }
 }

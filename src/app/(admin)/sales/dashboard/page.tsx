@@ -20,7 +20,7 @@ const PIPELINE_STAGES: { status: LeadStatus; label: string; color: string; bg: s
 ];
 
 const QUICK_LINKS = [
-    { href: '/sales/leads', icon: Users, label: '리드 목록', desc: '전체 리드 관리', color: '#818cf8' },
+    { href: '/employee', icon: Users, label: '리드 목록', desc: '전체 리드 관리', color: '#818cf8' },
     { href: '/sales/email-history', icon: Mail, label: '발송 이력', desc: '오픈율 & 추적', color: '#3b82f6' },
     { href: '/admin/email-preview', icon: Eye, label: '이메일 발송', desc: '새 이메일 작성', color: '#c9a84c' },
     { href: '/sales/pricing-calculator', icon: FileText, label: '견적 계산기', desc: '플랜 산정', color: '#4ade80' },
@@ -71,7 +71,7 @@ export default function SalesDashboardPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Link href="/sales/leads">
+                    <Link href="/employee">
                         <button className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm"
                             style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#04091a' }}>
                             <Plus className="w-4 h-4" /> 리드 관리
@@ -138,7 +138,7 @@ export default function SalesDashboardPage() {
                         <p className="text-xs" style={{ color: 'rgba(240,244,255,0.3)' }}>
                             funnel: 좌(초기) → 우(계약 완료)
                         </p>
-                        <Link href="/sales/leads">
+                        <Link href="/employee">
                             <button className="flex items-center gap-1 text-xs font-bold" style={{ color: '#c9a84c' }}>
                                 전체 보기 <ChevronRight className="w-3.5 h-3.5" />
                             </button>

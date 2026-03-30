@@ -49,7 +49,13 @@ export function useCompanies() {
     mutate();
   };
 
-  return { companies: data || [], isLoading, error, mutate, addCompany, updateCompany, deleteCompany };
+  const importBulk = async (companiesList: Partial<Company>[]) => {
+    const result = await dataLayer.companies.importBulk(companiesList);
+    mutate();
+    return result;
+  };
+
+  return { companies: data || [], isLoading, error, mutate, addCompany, updateCompany, deleteCompany, importBulk };
 }
 
 export function useLitigations() {

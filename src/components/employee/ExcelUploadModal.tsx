@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/Button';
 import { T } from './shared';
 
 interface ExcelUploadModalProps {
+    excelData: Record<string, string>[];
     excelPreview: Record<string, string>[];
     excelUploading: boolean;
     onClose: () => void;
     onImport: () => void;
 }
 
-export default function ExcelUploadModal({ excelPreview, excelUploading, onClose, onImport }: ExcelUploadModalProps) {
+export default function ExcelUploadModal({ excelData, excelPreview, excelUploading, onClose, onImport }: ExcelUploadModalProps) {
     return (
         <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
@@ -25,7 +26,7 @@ export default function ExcelUploadModal({ excelPreview, excelUploading, onClose
                             <Upload className="w-4 h-4" style={{ color: '#2563eb' }} />
                             Excel 업로드 미리보기
                         </h2>
-                        <p className="text-xs mt-0.5" style={{ color: T.muted }}>{excelPreview.length}건의 데이터가 파싱되었습니다</p>
+                        <p className="text-xs mt-0.5" style={{ color: T.muted }}>{excelData.length}건의 데이터가 파싱되었습니다</p>
                     </div>
                     <button onClick={onClose}
                         className="p-1.5 rounded-lg hover:bg-slate-100" style={{ color: T.muted }}>
@@ -55,8 +56,8 @@ export default function ExcelUploadModal({ excelPreview, excelUploading, onClose
                             </tbody>
                         </table>
                     )}
-                    {excelPreview.length > 20 && (
-                        <p className="text-center text-xs py-2" style={{ color: T.faint }}>... 외 {excelPreview.length - 20}건 더</p>
+                    {excelData.length > 20 && (
+                        <p className="text-center text-xs py-2" style={{ color: T.faint }}>... 외 {excelData.length - 20}건 더</p>
                     )}
                 </div>
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: `1px solid ${T.border}`, background: '#f8f9fc' }}>
@@ -72,7 +73,7 @@ export default function ExcelUploadModal({ excelPreview, excelUploading, onClose
                             {excelUploading ? (
                                 <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> 등록 중...</>
                             ) : (
-                                <><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {excelPreview.length}건 등록</>
+                                <><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {excelData.length}건 등록</>
                             )}
                         </Button>
                     </div>

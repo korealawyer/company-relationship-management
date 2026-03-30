@@ -7,11 +7,10 @@ import { T, StatusBadge, StepCell, ActionButton, ExpandedRow } from './shared';
 
 interface TableViewProps {
     filtered: Company[];
-    setPanelCompany: (c: Company) => void;
     refresh: () => void;
 }
 
-export default function TableView({ filtered, setPanelCompany, refresh }: TableViewProps) {
+export default function TableView({ filtered, refresh }: TableViewProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [confirmRep, setConfirmRep] = useState(SALES_REPS[0]);
@@ -52,7 +51,7 @@ export default function TableView({ filtered, setPanelCompany, refresh }: TableV
                                                     ? <ChevronUp className="w-3.5 h-3.5" style={{ color: T.muted }} />
                                                     : <ChevronDown className="w-3.5 h-3.5" style={{ color: T.muted }} />}
                                             </button>
-                                            <div className="cursor-pointer" onClick={() => setPanelCompany(c)}>
+                                            <div className="cursor-pointer" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>
                                                 <p className="font-bold text-xs hover:underline" style={{ color: T.body }}>{c.name}</p>
                                                 <p className="text-[10px] mt-0.5" style={{ color: T.muted }}>{c.bizType || c.biz}</p>
                                             </div>

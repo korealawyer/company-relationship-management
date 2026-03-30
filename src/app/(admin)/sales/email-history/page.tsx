@@ -89,7 +89,7 @@ export default function EmailHistoryPage() {
                 style={{ background: 'rgba(4,9,26,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/sales/leads">
+                        <Link href="/employee">
                             <button className="flex items-center gap-1 text-sm" style={{ color: 'rgba(240,244,255,0.4)' }}>
                                 <ArrowLeft className="w-4 h-4" /> 리드 목록
                             </button>
