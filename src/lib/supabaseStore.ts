@@ -92,7 +92,14 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
     c.phone = anyC.contactPhone || '';
 
     // 클라이언트 사이드 조인 (네트워크 요청 없음)
-    c.issues = (issueMap[c.id] || []).map(r => rowToObj<Issue>(r));
+    c.issues = (issueMap[c.id] || []).map(r => {
+      const obj = rowToObj<Record<string, any>>(r);
+      if (obj.lawRef) {
+        obj.law = obj.lawRef;
+        delete obj.lawRef;
+      }
+      return obj as unknown as Issue;
+    });
     c.contacts = (contactMap[c.id] || []).map(r => rowToObj<CompanyContact>(r));
     c.memos = (memoMap[c.id] || []).map(r => rowToObj<CompanyMemo>(r));
     c.timeline = (timelineMap[c.id] || []).map(r => rowToObj<CompanyTimelineEvent>(r));
@@ -128,7 +135,14 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
     sb.from('company_timeline').select('*').eq('company_id', id).order('created_at', { ascending: false }),
   ]);
 
-  c.issues = (issuesRes.data || []).map(r => rowToObj<Issue>(r));
+  c.issues = (issuesRes.data || []).map(r => {
+    const obj = rowToObj<Record<string, any>>(r);
+    if (obj.lawRef) {
+      obj.law = obj.lawRef;
+      delete obj.lawRef;
+    }
+    return obj as unknown as Issue;
+  });
   c.contacts = (contactsRes.data || []).map(r => rowToObj<CompanyContact>(r));
   c.memos = (memosRes.data || []).map(r => rowToObj<CompanyMemo>(r));
   c.timeline = (tlRes.data || []).map(r => rowToObj<CompanyTimelineEvent>(r));
@@ -339,8 +353,9 @@ export const supabaseCompanyStore = {
       
       if (updates.issues.length > 0) {
         const issueRows = updates.issues.map(iss => {
-          const { aiDraftGenerated, ...safeIss } = iss as Record<string, any>;
+          const { aiDraftGenerated, law, ...safeIss } = iss as Record<string, any>;
           const row = objToRow(safeIss);
+          if (law) row.law_ref = law;
           if (!row.id) row.id = crypto.randomUUID();
           row.company_id = id;
           return row;
