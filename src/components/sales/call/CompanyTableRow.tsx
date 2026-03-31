@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '@/lib/AuthContext';
 import { AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, Phone, Mail, Globe, MessageCircle, FileSignature, Eye } from 'lucide-react';
 import Link from 'next/link';
@@ -44,23 +45,67 @@ export default function CompanyTableRow({
   const isSel = selectedId === c.id;
   const isCall = activeCallId === c.id;
   const rc = riskColor(c.riskScore);
+  const { user } = useAuth();
+  const authorName = user?.name || '알 수 없음';
+
+  // 최신 메모: co.memos가 있으면 바로 사용, 없으면 API에서 로드
+  const [apiMemos, setApiMemos] = React.useState<{content: string; createdAt: string; author: string}[]>([]);
+  
+  React.useEffect(() => {
+      // co.memos가 RLS로 비어있을 수 있으므로 API에서도 로드
+      if (!c.memos || c.memos.length === 0) {
+          fetch(`/api/memos?companyId=${c.id}`)
+              .then(r => r.ok ? r.json() : { memos: [] })
+              .then(data => setApiMemos(data.memos || []))
+              .catch(() => {});
+      }
+  }, [c.id, c.memos]);
+
+  const latestMemo = React.useMemo(() => {
+      const allMemos = (c.memos && c.memos.length > 0) ? c.memos : apiMemos;
+      if (!allMemos || allMemos.length === 0) return null;
+      const sorted = [...allMemos].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const m = sorted[0];
+      const d = new Date(m.createdAt);
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      return {
+          content: m.content,
+          date: `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      };
+  }, [c.memos, apiMemos]);
 
   const [isEditingMemo, setIsEditingMemo] = React.useState(false);
-  const [memoValue, setMemoValue] = React.useState(c.callNote || '');
-
-  React.useEffect(() => {
-      setMemoValue(c.callNote || '');
-  }, [c.callNote]);
+  const [memoValue, setMemoValue] = React.useState('');
 
   const handleMemoSave = async () => {
       setIsEditingMemo(false);
-      if (memoValue !== (c.callNote || '')) {
-          setToast('메모 업데이트 중...');
+      if (memoValue.trim()) {
+          setToast('메모 저장 중...');
           try {
-              const { supabaseCompanyStore } = await import('@/lib/supabaseStore');
-              await supabaseCompanyStore.update(c.id, { callNote: memoValue });
-              setToast('메모가 실시간으로 저장되었습니다.');
-              onRefresh();
+              const res = await fetch('/api/memos', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      companyId: c.id,
+                      author: authorName,
+                      content: memoValue.trim(),
+                  }),
+              });
+              if (res.ok) {
+                  setToast('메모가 저장되었습니다.');
+                  setMemoValue('');
+                  // API에서 메모 다시 로드
+                  fetch(`/api/memos?companyId=${c.id}`)
+                      .then(r => r.ok ? r.json() : { memos: [] })
+                      .then(data => setApiMemos(data.memos || []))
+                      .catch(() => {});
+                  onRefresh();
+              } else {
+                  const err = await res.json();
+                  setToast(`메모 저장 실패: ${err.error}`);
+              }
           } catch (e) {
               setToast('메모 저장에 실패했습니다.');
           }
@@ -120,29 +165,44 @@ export default function CompanyTableRow({
           <td className="py-2.5 px-3">{c.issues && c.issues.length > 0 ? <span className="text-[10px] font-bold" style={{color:'#dc2626'}}>{c.issues.filter(ii=>ii.level==='HIGH').length}H/{c.issues.length}건</span> : <span className="text-[10px]" style={{color:C.faint}}>—</span>}</td>
           <td className="py-2.5 px-3" onClick={e => e.stopPropagation()}>
               {isEditingMemo ? (
-                  <textarea 
-                      autoFocus
-                      className="w-full text-[10px] p-1.5 border rounded-md resize-none shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
-                      style={{ borderColor: C.borderLight, color: C.body }}
-                      rows={2}
-                      value={memoValue}
-                      onChange={e => setMemoValue(e.target.value)}
-                      onBlur={handleMemoSave}
-                      onKeyDown={e => {
-                          if (e.key === 'Escape') {
-                              setIsEditingMemo(false);
-                              setMemoValue(c.callNote || '');
-                          }
-                      }}
-                  />
+                  <div className="flex flex-col gap-1">
+                      <textarea 
+                          autoFocus
+                          className="w-full text-[10px] p-1.5 border rounded-md resize-none shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                          style={{ borderColor: C.borderLight, color: C.body }}
+                          rows={2}
+                          value={memoValue}
+                          onChange={e => setMemoValue(e.target.value)}
+                          placeholder="새 메모 입력..."
+                          onKeyDown={e => {
+                              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                  e.preventDefault();
+                                  handleMemoSave();
+                              }
+                              if (e.key === 'Escape') {
+                                  setIsEditingMemo(false);
+                                  setMemoValue('');
+                              }
+                          }}
+                      />
+                      <div className="flex gap-1">
+                          <button onClick={handleMemoSave} className="text-[9px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold hover:bg-indigo-100 transition-colors">저장</button>
+                          <button onClick={() => { setIsEditingMemo(false); setMemoValue(''); }} className="text-[9px] px-2 py-0.5 rounded bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors">취소</button>
+                      </div>
+                  </div>
               ) : (
                   <div 
                       onClick={() => setIsEditingMemo(true)}
                       className="text-[10px] truncate cursor-pointer hover:bg-slate-50 p-1.5 rounded-md transition-colors border border-transparent hover:border-slate-200"
-                      style={{ color: memoValue ? C.body : C.faint }}
-                      title={memoValue ? "클릭하여 최근 메모 수정\n---\n" + memoValue : '클릭하여 메모 입력'}
+                      style={{ color: latestMemo ? C.body : C.faint }}
+                      title={latestMemo ? `최근 메모 (${latestMemo.date})\n---\n${latestMemo.content}${c.memos?.length > 1 ? `\n\n📝 총 ${c.memos.length}개 메모` : ''}` : '클릭하여 메모 입력'}
                   >
-                      {memoValue || <span className="italic">메모 없음</span>}
+                      {latestMemo ? (
+                          <div className="flex flex-col gap-0.5">
+                              <span className="text-[8px] font-bold" style={{ color: C.faint }}>{latestMemo.date}</span>
+                              <span className="truncate">{latestMemo.content}</span>
+                          </div>
+                      ) : <span className="italic">메모 없음</span>}
                   </div>
               )}
           </td>

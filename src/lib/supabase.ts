@@ -20,7 +20,12 @@ export function getSupabase(): SupabaseClient | null {
   if (_supabase) return _supabase;
   _supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+      }
+    }
   );
   return _supabase;
 }
@@ -29,7 +34,12 @@ export function getSupabase(): SupabaseClient | null {
 export const supabase = IS_SUPABASE_CONFIGURED
   ? createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+        }
+      }
     )
   : null;
 
@@ -41,7 +51,12 @@ export function getBrowserSupabase() {
   if (_browserClient) return _browserClient;
   _browserClient = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieOptions: {
+        maxAge: undefined,
+      }
+    }
   );
   return _browserClient;
 }

@@ -73,12 +73,7 @@ export default function ScriptTab({ co, setToast }: ScriptTabProps) {
 
     return (
         <div className="rounded-xl p-4 flex flex-col w-full h-full" style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}>
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <Volume2 className="w-3.5 h-3.5" style={{ color: C.accent }} />
-                    <span className="text-xs font-black" style={{ color: C.heading }}>통화 스크립트</span>
-                    <Badge status={co.status} />
-                </div>
+            <div className="flex items-center justify-end mb-2">
                 <button
                     onClick={copyScript}
                     className="text-[10px] px-3 py-1 rounded-lg font-bold"

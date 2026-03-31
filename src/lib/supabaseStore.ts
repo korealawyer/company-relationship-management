@@ -66,12 +66,17 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
   if (!rows) return [];
 
   // ── 배치 쿼리: 서브 테이블을 한 번씩만 조회 (N+1 → 5 고정) ──
-  const [issuesRes, contactsRes, memosRes, timelinesRes] = await Promise.all([
+  const [issuesRes, contactsRes, timelinesRes] = await Promise.all([
     sb.from('issues').select('*'),
     sb.from('company_contacts').select('*'),
-    sb.from('company_memos').select('*'),
     sb.from('company_timeline').select('*').order('created_at', { ascending: false }),
   ]);
+
+  // company_memos는 RLS 403 에러를 방지하기 위해 별도 처리
+  let memosRes: { data: any[] | null } = { data: null };
+  try {
+    memosRes = await sb.from('company_memos').select('*');
+  } catch { /* RLS 차단 시 무시 — /api/memos로 대체 */ }
 
   const issueMap = groupBy(issuesRes.data, 'company_id');
   const contactMap = groupBy(contactsRes.data, 'company_id');

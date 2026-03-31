@@ -106,7 +106,7 @@ export function getSession(): AuthUser | null {
     if (typeof window === 'undefined') return null;
     // 동기 호환성을 위해 localStorage 캐시 사용 (AuthContext가 관리)
     try {
-        const raw = localStorage.getItem(AUTH_KEY);
+        const raw = sessionStorage.getItem(AUTH_KEY);
         if (!raw) return null;
         return JSON.parse(raw) as AuthUser;
     } catch {
@@ -118,9 +118,9 @@ export function getSession(): AuthUser | null {
 export function _setSessionCache(user: AuthUser | null): void {
     if (typeof window === 'undefined') return;
     if (user) {
-        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+        sessionStorage.setItem(AUTH_KEY, JSON.stringify(user));
     } else {
-        localStorage.removeItem(AUTH_KEY);
+        sessionStorage.removeItem(AUTH_KEY);
     }
 }
 
