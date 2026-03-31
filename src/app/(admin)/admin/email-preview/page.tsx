@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Eye, Send, Edit3, RefreshCw, CheckCircle2, Mail, Smartphone, Monitor, User, Bell, BellOff, Clock, BarChart3, MousePointerClick, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { leadStore, calcSubscription } from '@/lib/leadStore';
 import { fillTemplate, DRIP_SEQUENCE } from '@/lib/dripStore';
 import { LeadScoringService, getOptimalSendTimes } from '@/lib/leadScoring';
@@ -125,10 +127,9 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
 </html>`;
 }
 
-const EmailPreviewPage = React.memo(function EmailPreviewPage({
-    searchParams,
-}: { searchParams: { leadId?: string } }) {
-    const leadId = searchParams.leadId || 'lead_001';
+const EmailPreviewContent = React.memo(function EmailPreviewContent() {
+    const searchParams = useSearchParams();
+    const leadId = searchParams?.get('leadId') || 'lead_001';
     const lead = useMemo(() => leadStore.getById(leadId), [leadId]);
     const sub = useMemo(() => calcSubscription(lead?.storeCount || 0), [lead?.storeCount]);
 
@@ -442,4 +443,10 @@ const EmailPreviewPage = React.memo(function EmailPreviewPage({
     );
 });
 
-export default EmailPreviewPage;
+export default function EmailPreviewPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen" style={{ background: '#04091a' }} />}>
+            <EmailPreviewContent />
+        </Suspense>
+    );
+}

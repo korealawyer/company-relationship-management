@@ -98,7 +98,7 @@ export default function CompanyTableRow({
           <td className="py-2.5 px-3">{c.issues && c.issues.length > 0 ? <span className="text-[10px] font-bold" style={{color:'#dc2626'}}>{c.issues.filter(ii=>ii.level==='HIGH').length}H/{c.issues.length}건</span> : <span className="text-[10px]" style={{color:C.faint}}>—</span>}</td>
           <td className="py-2.5 px-3" onClick={e=>e.stopPropagation()}>
               <div className="flex items-center gap-1">
-                  <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}`} target="_blank" title="이메일 미리보기">
+                  <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}&leadId=${c.id}`} target="_blank" title="이메일 미리보기">
                       <button className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="이메일 미리보기"><Mail className="w-3.5 h-3.5" style={{color:'#2563eb'}}/></button>
                   </Link>
                   <Link href={`/lawyer/privacy-review?company=${encodeURIComponent(c.name)}&leadId=${c.id}&preview=1`} target="_blank" title="1차 조문검토 미리보기">
