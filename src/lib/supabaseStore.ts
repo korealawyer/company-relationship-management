@@ -258,11 +258,45 @@ export const supabaseCompanyStore = {
       const chunk = rows.slice(i, i + 500);
       const originalChunk = companies.slice(i, i + 500);
 
+      // (1) 청크 내 중복 및 기존 DB 중복 검증 로직 추가 (UNIQUE 제약조건 부재 시 upsert 에러 방지)
+      const validBizNos = chunk.map(c => c.biz_no).filter(b => b && !b.startsWith('T'));
+      const existingBizSet = new Set<string>();
+
+      if (validBizNos.length > 0) {
+        const { data: existingRecords } = await sb
+            .from('companies')
+            .select('biz_no')
+            .in('biz_no', validBizNos);
+        
+        if (existingRecords) {
+          existingRecords.forEach(r => existingBizSet.add(r.biz_no));
+        }
+      }
+
+      const deduplicatedChunk = [];
+      const chunkBizSet = new Set<string>();
+
+      for (const c of chunk) {
+        // 이미 DB에 존재하는 사업자번호면 스킵
+        if (c.biz_no && !c.biz_no.startsWith('T') && existingBizSet.has(c.biz_no)) {
+          continue;
+        }
+        // 청크 내부에서 동일한 사업자번호가 여러개 있을 경우 첫번째만 넣음
+        if (c.biz_no && !c.biz_no.startsWith('T')) {
+           if (chunkBizSet.has(c.biz_no)) continue;
+           chunkBizSet.add(c.biz_no);
+        }
+        deduplicatedChunk.push(c);
+      }
+
+      if (deduplicatedChunk.length === 0) continue; // 전부 중복이면 다음 청크로
+
+      // (2) Insert 실행
       const { data, error } = await sb
         .from('companies')
-        .upsert(chunk, { onConflict: 'biz_no', ignoreDuplicates: true })
+        .insert(deduplicatedChunk)
         .select('id, biz_no');
-        
+
       if (error) {
         console.error('Bulk import error mapping chunk:', error);
       } else if (data && data.length > 0) {

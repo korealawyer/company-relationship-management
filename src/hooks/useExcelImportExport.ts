@@ -86,17 +86,20 @@ export function useExcelImportExport(
         const reader = new FileReader();
         reader.onload = (evt) => {
             try {
-                const wb = XLSX.read(evt.target?.result, { type: 'binary' });
+                const arrayBuffer = evt.target?.result as ArrayBuffer;
+                const data = new Uint8Array(arrayBuffer);
+                const wb = XLSX.read(data, { type: 'array' });
                 const ws = wb.Sheets[wb.SheetNames[0]];
                 const raw = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
                 setExcelData(raw);
                 setExcelPreview(raw.slice(0, 20)); // UI에는 20건만 표시
                 setShowExcelUpload(true);
-            } catch {
+            } catch (err) {
+                console.error('Excel parse error:', err);
                 showToast('❌ Excel 파일 파싱에 실패했습니다');
             }
         };
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
         e.target.value = '';
     };
 
@@ -149,12 +152,24 @@ export function useExcelImportExport(
         }
 
         try {
+            if (mappedList.length === 0) {
+                showToast('❌ 엑셀에서 읽어들일 수 있는 유효한 기업 데이터(기업명 필수)가 없습니다.');
+                setExcelUploading(false);
+                return;
+            }
+
             const result = await importBulk(mappedList);
             setImportSuccess(result.success);
             setImportSkipped(result.skipped);
-            showToast(`📤 신규 ${result.success}건 추가, 중복 ${result.skipped}건 스킵 완료 환료됨`);
+            
+            if (result.success === 0 && result.skipped > 0) {
+                showToast(`❌ 신규 등록 건이 없습니다. (형식 오류 또는 이미 등록된 사업자번호 ${result.skipped}건 스킵됨)`);
+            } else {
+                showToast(`📤 신규 ${result.success}건 추가, 중복/에러 ${result.skipped}건 스킵 완료됨`);
+            }
         } catch (err) {
-            showToast('❌ Excel 데이터 등록 중 오류가 발생했습니다');
+            console.error('Import Error:', err);
+            showToast('❌ Excel 데이터 등록 중 내부 오류가 발생했습니다');
         }
 
         setExcelUploading(false);
