@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { leadStore, calcSubscription } from '@/lib/leadStore';
+import { supabaseCompanyStore } from '@/lib/supabaseStore';
 import { fillTemplate, DRIP_SEQUENCE } from '@/lib/dripStore';
 import { LeadScoringService, getOptimalSendTimes } from '@/lib/leadScoring';
 
@@ -130,14 +131,26 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
 const EmailPreviewContent = React.memo(function EmailPreviewContent() {
     const searchParams = useSearchParams();
     const leadId = searchParams?.get('leadId') || 'lead_001';
-    const lead = useMemo(() => leadStore.getById(leadId), [leadId]);
+    const companyParam = searchParams?.get('company');
+
+    const [lead, setLead] = useState<any>(null);
+
+    useEffect(() => {
+        if (leadId) {
+            // Supabase에서 실시간 리드 정보 가져오기 (mock leadStore 대신)
+            supabaseCompanyStore.getById(leadId).then((data: any) => {
+                if (data) setLead(data);
+            });
+        }
+    }, [leadId]);
+
     const sub = useMemo(() => calcSubscription(lead?.storeCount || 0), [lead?.storeCount]);
 
     const vars: Record<string, string> = useMemo(() => ({
-        company: lead?.companyName || '(주)샘플회사',
+        company: lead?.companyName || lead?.name || companyParam || '(주)샘플회사',
         contactName: lead?.contactName || '담당자',
         leadId,
-        issueCount: String(lead?.issueCount || 0),
+        issueCount: String(lead?.issueCount || lead?.issues?.length || 0),
         riskLevel: lead?.riskLevel || 'HIGH',
         riskScore: String(lead?.riskScore || 0),
         storeCount: String(lead?.storeCount || 0),
@@ -233,16 +246,16 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
             <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3"
                 style={{ background: 'rgba(13,27,62,0.97)', borderBottom: '1px solid rgba(201,168,76,0.15)', height: 60 }}>
                 <div className="flex items-center gap-4">
-                    <Link href="/employee">
+                    <Link href="/lawyer">
                         <button className="flex items-center gap-1.5 text-sm" style={{ color: 'rgba(240,244,255,0.5)' }}>
                             <ArrowLeft className="w-4 h-4" /> 리드 목록
                         </button>
                     </Link>
                     <div className="h-4 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
                     <div>
-                        <span className="text-sm font-black" style={{ color: '#f0f4ff' }}>이메일 미리보기 — {lead?.companyName}</span>
+                        <span className="text-sm font-black" style={{ color: '#f0f4ff' }}>이메일 미리보기 — {vars.company}</span>
                         <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
-                            {lead?.riskLevel} {lead?.issueCount}건
+                            {lead?.riskLevel || 'HIGH'} {vars.issueCount}건
                         </span>
                     </div>
                 </div>
@@ -283,12 +296,12 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
                         <div className="space-y-2 text-sm">
                             <div className="flex items-center gap-2">
                                 <User className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(240,244,255,0.3)' }} />
-                                <span style={{ color: '#f0f4ff' }}>{lead?.contactName}</span>
-                                <span style={{ color: 'rgba(240,244,255,0.4)' }}>({lead?.contactEmail})</span>
+                                <span style={{ color: '#f0f4ff' }}>{vars.contactName}</span>
+                                <span style={{ color: 'rgba(240,244,255,0.4)' }}>({lead?.contactEmail || '이메일 미상'})</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Mail className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(240,244,255,0.3)' }} />
-                                <span style={{ color: 'rgba(240,244,255,0.6)' }}>{lead?.companyName}</span>
+                                <span style={{ color: 'rgba(240,244,255,0.6)' }}>{vars.company}</span>
                             </div>
                         </div>
                     </div>
