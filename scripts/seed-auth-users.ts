@@ -10,10 +10,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const dotenv = require('dotenv');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const path = require('path');
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
 // .env.local 로드
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -81,6 +79,18 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         name: '이대표',
         role: 'client_hr',
         companyName: '(주)스타트업',
+    },
+    {
+        email: 'finance@ibslaw.kr',
+        password: 'finance123',
+        name: '이회계',
+        role: 'finance',
+    },
+    {
+        email: 'personal2@client.com',
+        password: 'personal1234',
+        name: '박개인',
+        role: 'personal_client',
     },
 ];
 
@@ -157,6 +167,8 @@ async function seed() {
     console.log('  hr@client.com       / hr1234      → client_hr (놀부NBG)');
     console.log('  ceo@client.com      / ceo1234     → client_hr ((주)스타트업)');
     console.log('  personal@client.com / personal123 → personal_client (개인회원)');
+    console.log('  personal2@client.com/ personal1234→ personal_client (개인회원)');
+    console.log('  finance@ibslaw.kr   / finance123  → finance (회계팀)');
 }
 
 seed().catch(console.error);

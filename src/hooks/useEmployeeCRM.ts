@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Company, CaseStatus, type AutoSettings, type AutoLog } from '@/lib/types';
+import { Company, CaseStatus, type AutoSettings } from '@/lib/types';
 import { getSession } from '@/lib/auth';
 import { useCompanies, useAutoSettings, useAutoLogs } from '@/hooks/useDataLayer';
-import { dataLayer } from '@/lib/dataLayer';
 
 export function useEmployeeCRM() {
     const [role, setRole] = useState<string | null>(null);
@@ -12,28 +11,27 @@ export function useEmployeeCRM() {
     }, []);
     const isAdmin = role === 'admin' || role === 'super_admin';
 
-    const { companies: dbCompanies, updateCompany, addCompany, importBulk } = useCompanies();
-    const { settings: dbSettings, updateSettings } = useAutoSettings();
-    const { logs: dbLogs, mutate: mutateLogs } = useAutoLogs(); // Add useAutoLogs
+    const { companies: dbCompanies, updateCompany, addCompany, importBulk, mutate: mutateCompanies } = useCompanies();
+    const { settings: dbSettings, updateSettings, mutate: mutateSettings } = useAutoSettings();
+    const { logs: dbLogs, mutate: mutateLogs } = useAutoLogs(); 
 
-    const [companies, setCompanies] = useState<Company[]>([]);
+    const companies = dbCompanies || [];
+    const autoSettings = dbSettings || null;
+    const autoLogs = dbLogs || [];
+
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | CaseStatus>('all');
-    
-    const [autoSettings, setAutoSettings] = useState<AutoSettings | null>(null);
-    const [autoLogs, setAutoLogs] = useState<AutoLog[]>([]);
     
     const [viewMode, setViewMode] = useState<'table' | 'phone' | 'kanban'>('table');
     const [toast, setToast] = useState<string | null>(null);
 
     const refresh = useCallback(() => {
-        setCompanies(dbCompanies || []);
-        setAutoSettings(dbSettings || null);
-        setAutoLogs(dbLogs || []);
-    }, [dbCompanies, dbSettings, dbLogs]);
+        mutateCompanies();
+        mutateSettings();
+        mutateLogs();
+    }, [mutateCompanies, mutateSettings, mutateLogs]);
 
     useEffect(() => { 
-        refresh(); 
         const instantRefresh = () => refresh();
         window.addEventListener('new-crm-lead', instantRefresh);
         return () => {
@@ -56,7 +54,6 @@ export function useEmployeeCRM() {
 
     const clearLogs = () => {
         // Just clear locally, real fix would be db deletion
-        setAutoLogs([]);
         mutateLogs([], false); 
     };
 

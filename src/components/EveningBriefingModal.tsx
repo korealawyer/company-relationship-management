@@ -22,12 +22,25 @@ export function EveningBriefingModal({ isOpen, variant, onConfirm, onCancel }: E
       const fetchCallData = async () => {
         setIsLoading(true);
         try {
-          await new Promise(r => setTimeout(r, 600));
-          // Mock data
-          setActualCalls(Math.floor(Math.random() * 30));
+          const { supabase } = await import('@/lib/supabase');
+          
+          // Get start of today
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          
+          if (!supabase) return;
+          
+          const { count, error } = await supabase
+            .from('companies')
+            .select('*', { count: 'exact', head: true })
+            .gte('lastCallAt', startOfToday.toISOString());
+            
+          if (error) throw error;
+          
+          setActualCalls(count || 0);
         } catch (error) {
-          console.error(error);
-          setActualCalls(12);
+          console.error('Failed to fetch call stats:', error);
+          setActualCalls(0);
         } finally {
           setIsLoading(false);
         }

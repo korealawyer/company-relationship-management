@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic';
 import { Joyride, Step } from 'react-joyride';
 import { motion } from 'framer-motion';
 
+import { getBrowserSupabase } from '@/lib/supabase';
+
 const TOUR_STEPS: Step[] = [
     {
         target: 'body',
@@ -93,14 +95,37 @@ export function PortalTour() {
 
     useEffect(() => {
         setIsMounted(true);
-        const hasSeenTour = localStorage.getItem('hasSeenPortalTour');
-        if (!hasSeenTour) {
-            // Add a small delay for page rendering before starting
-            const timer = setTimeout(() => {
-                setRun(true);
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
+        
+        const initTour = async () => {
+            const supabase = getBrowserSupabase();
+            let hasSeen = false;
+
+            if (supabase) {
+                const { data: { user } } = await supabase.auth.getUser();
+                hasSeen = !!user?.user_metadata?.hasSeenPortalTour;
+            } else {
+                hasSeen = !!localStorage.getItem('hasSeenPortalTour');
+            }
+
+            if (!hasSeen) {
+                // Add a small delay for page rendering before starting
+                const timer = setTimeout(() => {
+                    setRun(true);
+                    
+                    // Mark as seen immediately
+                    if (supabase) {
+                        supabase.auth.updateUser({
+                            data: { hasSeenPortalTour: true }
+                        });
+                    }
+                    localStorage.setItem('hasSeenPortalTour', 'true');
+                }, 1000);
+                
+                return () => clearTimeout(timer);
+            }
+        };
+
+        initTour();
     }, []);
 
     if (!isMounted) return null;

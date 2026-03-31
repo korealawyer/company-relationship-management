@@ -16,9 +16,9 @@ import {
 } from '@/lib/permissions';
 
 const LEVEL_COLORS: Record<PermissionLevel, { bg: string; text: string; border: string; label: string }> = {
-  full: { bg: '#dcfce7', text: '#16a34a', border: '#86efac', label: '전체' },
-  own: { bg: '#fffbeb', text: '#d97706', border: '#fde68a', label: '담당건만' },
-  none: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5', label: '제한' },
+  full: { bg: '#ecfdf5', text: '#059669', border: '#a7f3d0', label: '전체' }, // emerald
+  own: { bg: '#fffbeb', text: '#d97706', border: '#fde68a', label: '담당건만' }, // amber
+  none: { bg: '#fef2f2', text: '#dc2626', border: '#fecaca', label: '제한' }, // red
 };
 
 export default function AdminPermissionsPage() {
@@ -77,76 +77,67 @@ export default function AdminPermissionsPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9fc' }}>
-      {/* 헤더 */}
-      <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Link href="/admin" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 14, fontWeight: 700, color: '#64748b', textDecoration: 'none' }}>
-                <ChevronLeft style={{ width: 16, height: 16 }} /> 관리자
-              </Link>
-              <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Shield style={{ width: 18, height: 18, color: '#2563eb' }} />
-                </div>
-                <div>
-                  <h1 style={{ fontSize: 18, fontWeight: 900, color: '#1e293b', margin: 0 }}>권한 관리</h1>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>직원별 기능 접근 권한을 설정합니다</p>
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
-                <RotateCcw style={{ width: 14, height: 14 }} /> 초기화
-              </button>
-              <button onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#ffffff', border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
-                <Save style={{ width: 14, height: 14 }} /> {saving ? '저장 중...' : '저장'}
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-16">
+      {/* 상단 헤더 */}
+      <div className="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 h-[60px] flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <Link href="/employee">
+            <button className="text-[13px] text-slate-500 hover:text-slate-800 transition-colors bg-transparent border-none cursor-pointer font-medium">← 돌아가기</button>
+          </Link>
+          <div className="w-px h-4 bg-slate-200" />
+          <span className="text-[15px] font-black text-slate-800 flex items-center gap-2">🛡️ 권한 관리</span>
+          <span className="text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 py-0.5 px-2 rounded-full">관리자 전용</span>
+        </div>
+        <div className="flex gap-2">
+            <button onClick={handleReset} className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg py-1.5 px-3.5 cursor-pointer text-[13px] font-semibold transition-colors">
+                <RotateCcw className="w-3.5 h-3.5" /> 초기화
+            </button>
+            <button onClick={handleSave} disabled={saving} className={`flex items-center gap-1.5 border-none rounded-lg py-1.5 px-4 cursor-pointer text-[13px] font-bold shadow-sm transition-all ${saving ? 'opacity-60 bg-amber-500' : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white'}`}>
+                <Save className="w-3.5 h-3.5" /> {saving ? '저장 중...' : '저장'}
+            </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
-        <div style={{ display: 'flex', gap: 20 }}>
+      <div className="max-w-[1200px] mx-auto py-8 px-6">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* 좌측: 직원 목록 */}
-          <div style={{ width: 260, flexShrink: 0 }}>
-            <div style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8f9fc' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Users style={{ width: 14, height: 14, color: '#64748b' }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>직원 목록</span>
-                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 99, background: '#eff6ff', color: '#2563eb', fontWeight: 700 }}>{users.length}명</span>
+          <div className="w-full md:w-[260px] shrink-0">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="text-[12px] font-bold text-slate-600">직원 목록</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-bold ml-auto">{users.length}명</span>
                 </div>
               </div>
+              <div className="divide-y divide-slate-100">
               {users.map(u => (
-                <div key={u.userId} onClick={() => setSelectedUserId(u.userId)} style={{ padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: selectedUserId === u.userId ? '#eff6ff' : 'transparent', borderLeft: selectedUserId === u.userId ? '3px solid #2563eb' : '3px solid transparent', transition: 'all 0.15s' }}>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', margin: 0 }}>{u.userName}</p>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 6, background: LEVEL_COLORS[u.role === 'partner' ? 'full' : u.role === 'associate' ? 'own' : 'none'].bg, color: LEVEL_COLORS[u.role === 'partner' ? 'full' : u.role === 'associate' ? 'own' : 'none'].text, fontWeight: 700 }}>
+                <div key={u.userId} onClick={() => setSelectedUserId(u.userId)} className={`px-4 py-3 cursor-pointer transition-all border-l-[3px] ${selectedUserId === u.userId ? 'bg-amber-50/30 border-l-amber-500' : 'bg-transparent border-l-transparent hover:bg-slate-50'}`}>
+                  <p className="text-[14px] font-black text-slate-800 m-0">{u.userName}</p>
+                  <div className="flex gap-1.5 mt-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-md font-bold" style={{ background: LEVEL_COLORS[u.role === 'partner' ? 'full' : u.role === 'associate' ? 'own' : 'none'].bg, color: LEVEL_COLORS[u.role === 'partner' ? 'full' : u.role === 'associate' ? 'own' : 'none'].text, border: `1px solid ${LEVEL_COLORS[u.role === 'partner' ? 'full' : u.role === 'associate' ? 'own' : 'none'].border}` }}>
                       {PRESET_LABELS[u.role as PresetRole] || u.role}
                     </span>
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           </div>
 
           {/* 우측: 권한 매트릭스 */}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="flex-1 min-w-0">
             {selectedUser ? (
-              <motion.div key={selectedUser.userId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              <motion.div key={selectedUser.userId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 {/* 사용자 헤더 */}
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 style={{ fontSize: 16, fontWeight: 900, color: '#1e293b', margin: 0 }}>{selectedUser.userName}</h2>
-                    <p style={{ fontSize: 12, color: '#94a3b8', margin: '4px 0 0' }}>11가지 권한을 개별 설정하거나 프리셋을 적용하세요</p>
+                    <h2 className="text-base font-black text-slate-800 m-0 leading-none">{selectedUser.userName}</h2>
+                    <p className="text-xs font-medium text-slate-500 m-0 mt-2">11가지 권한을 개별 설정하거나 프리셋을 적용하세요</p>
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <div className="flex gap-1.5 flex-wrap">
                     {(Object.keys(PRESET_LABELS) as PresetRole[]).map(p => (
-                      <button key={p} onClick={() => applyPreset(selectedUser.userId, p)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 8, fontWeight: 700, background: selectedUser.role === p ? '#1e293b' : '#f1f5f9', color: selectedUser.role === p ? '#ffffff' : '#64748b', border: `1px solid ${selectedUser.role === p ? '#1e293b' : '#e2e8f0'}`, cursor: 'pointer' }}>
+                      <button key={p} onClick={() => applyPreset(selectedUser.userId, p)} className={`text-[11px] px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all border ${selectedUser.role === p ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700'}`}>
                         {PRESET_LABELS[p]}
                       </button>
                     ))}
@@ -154,28 +145,28 @@ export default function AdminPermissionsPage() {
                 </div>
 
                 {/* 권한 항목 목록 */}
-                <div>
+                <div className="divide-y divide-slate-100">
                   {PERMISSION_KEYS.map((key, idx) => {
                     const level = selectedUser.permissions[key];
                     const lc = LEVEL_COLORS[level];
                     return (
-                      <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: idx < PERMISSION_KEYS.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: lc.bg }}>
-                            {level === 'full' ? <Unlock style={{ width: 14, height: 14, color: lc.text }} /> :
-                             level === 'own' ? <Eye style={{ width: 14, height: 14, color: lc.text }} /> :
-                             <Lock style={{ width: 14, height: 14, color: lc.text }} />}
+                      <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between p-4 sm:px-5 sm:py-3 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm shrink-0" style={{ background: lc.bg, borderColor: lc.border }}>
+                            {level === 'full' ? <Unlock className="w-4 h-4" style={{ color: lc.text }} /> :
+                             level === 'own' ? <Eye className="w-4 h-4" style={{ color: lc.text }} /> :
+                             <Lock className="w-4 h-4" style={{ color: lc.text }} />}
                           </div>
                           <div>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', margin: 0 }}>{idx + 1}. {PERMISSION_LABELS[key]}</p>
+                            <p className="text-[13px] font-black text-slate-800 m-0">{idx + 1}. {PERMISSION_LABELS[key]}</p>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 4 }}>
+                        <div className="flex gap-1.5 shrink-0">
                           {(['full', 'own', 'none'] as PermissionLevel[]).map(l => {
                             const c = LEVEL_COLORS[l];
                             const isActive = level === l;
                             return (
-                              <button key={l} onClick={() => handleLevelChange(selectedUser.userId, key, l)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, fontWeight: 700, background: isActive ? c.bg : 'transparent', color: isActive ? c.text : '#94a3b8', border: `1px solid ${isActive ? c.border : '#e2e8f0'}`, cursor: 'pointer', transition: 'all 0.15s' }}>
+                              <button key={l} onClick={() => handleLevelChange(selectedUser.userId, key, l)} className={`text-[11px] px-2.5 py-1.5 rounded-lg font-bold cursor-pointer transition-all border`} style={{ background: isActive ? c.bg : 'transparent', color: isActive ? c.text : '#94a3b8', borderColor: isActive ? c.border : '#e2e8f0', boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}>
                                 {c.label}
                               </button>
                             );
@@ -187,37 +178,37 @@ export default function AdminPermissionsPage() {
                 </div>
               </motion.div>
             ) : (
-              <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
-                <Users style={{ width: 48, height: 48, margin: '0 auto 16px', opacity: 0.3 }} />
-                <p style={{ fontSize: 14, fontWeight: 700 }}>직원을 선택하세요</p>
+              <div className="text-center p-16 text-slate-400 bg-white rounded-2xl border border-slate-200">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p className="text-[14px] font-bold">직원을 선택하세요</p>
               </div>
             )}
 
             {/* 일괄 매트릭스 뷰 (하단) */}
-            <div style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', marginTop: 20 }}>
-              <div style={{ padding: '12px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8f9fc' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>📊 전체 권한 매트릭스 (클릭하여 변경)</span>
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mt-6">
+              <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
+                <span className="text-[12px] font-bold text-slate-600">📊 전체 권한 매트릭스 (클릭하여 변경)</span>
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[11px]">
                   <thead>
-                    <tr style={{ background: '#f8f9fc' }}>
-                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#64748b', borderBottom: '1px solid #e2e8f0', position: 'sticky', left: 0, background: '#f8f9fc', minWidth: 120 }}>직원</th>
+                    <tr className="bg-slate-50">
+                      <th className="p-3 text-left font-bold text-slate-500 border-b border-slate-200 sticky left-0 z-10 min-w-[120px]" style={{ background: '#f8f9fc', WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)' }}>직원</th>
                       {PERMISSION_KEYS.map((key, i) => (
-                        <th key={key} style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 600, color: '#94a3b8', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap', minWidth: 60 }}>{i + 1}</th>
+                        <th key={key} className="p-2 text-center font-bold text-slate-400 border-b border-slate-200 whitespace-nowrap min-w-[60px]">{i + 1}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {users.map(u => (
-                      <tr key={u.userId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 12px', fontWeight: 700, color: '#1e293b', position: 'sticky', left: 0, background: '#ffffff', whiteSpace: 'nowrap' }}>{u.userName}</td>
+                      <tr key={u.userId} className={`transition-colors ${selectedUserId === u.userId ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
+                        <td className="p-3 font-bold text-slate-800 sticky left-0 whitespace-nowrap" style={{ background: selectedUserId === u.userId ? '#f8f9fc' : '#ffffff', WebkitBackdropFilter: 'blur(4px)', backdropFilter: 'blur(4px)' }}>{u.userName}</td>
                         {PERMISSION_KEYS.map(key => {
                           const l = u.permissions[key];
                           const c = LEVEL_COLORS[l];
                           return (
-                            <td key={key} onClick={() => cyclePerm(u.userId, key)} style={{ padding: '6px 4px', textAlign: 'center', cursor: 'pointer' }}>
-                              <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 6, fontWeight: 700, fontSize: 10, background: c.bg, color: c.text, border: `1px solid ${c.border}` }}>{c.label}</span>
+                            <td key={key} onClick={() => cyclePerm(u.userId, key)} className="p-1.5 text-center cursor-pointer">
+                              <span className="inline-block px-1.5 py-0.5 rounded-md font-bold text-[10px] border transition-all hover:opacity-80" style={{ background: c.bg, color: c.text, borderColor: c.border }}>{c.label}</span>
                             </td>
                           );
                         })}
@@ -226,9 +217,9 @@ export default function AdminPermissionsPage() {
                   </tbody>
                 </table>
               </div>
-              <div style={{ padding: '8px 20px', background: '#f8f9fc', borderTop: '1px solid #e2e8f0', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-4 flex-wrap">
                 {PERMISSION_KEYS.map((key, i) => (
-                  <span key={key} style={{ fontSize: 10, color: '#94a3b8' }}>{i + 1}={PERMISSION_LABELS[key]}</span>
+                  <span key={key} className="text-[10px] font-medium text-slate-500 whitespace-nowrap">{i + 1}. {PERMISSION_LABELS[key]}</span>
                 ))}
               </div>
             </div>
@@ -239,7 +230,7 @@ export default function AdminPermissionsPage() {
       {/* Toast */}
       <AnimatePresence>
         {toast && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', padding: '12px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: '#111827', color: '#f0f4ff', border: '1px solid rgba(201,168,76,0.3)', zIndex: 100, whiteSpace: 'nowrap' }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-[13px] font-bold bg-slate-800 text-white shadow-lg border border-slate-700 z-[200] whitespace-nowrap">
             {toast}
           </motion.div>
         )}

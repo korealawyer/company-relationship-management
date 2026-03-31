@@ -163,104 +163,57 @@ const MOCK_TRANSCRIPTS: Record<string, string[]> = {
 
 export const STTService = {
     /**
-     * 음성 Blob → 텍스트 변환 (Mock)
-     * 프로덕션: Google Cloud Speech-to-Text 또는 OpenAI Whisper API 연동
+     * 실제 API 연동: 브라우저 Blob을 /api/call-recordings로 전송
      */
     async transcribe(
-        _audioBlob: Blob,
+        audioBlob: Blob,
         durationSeconds: number,
-        callResult: string = 'connected'
-    ): Promise<{ transcript: string; segments: string[] }> {
-        // Mock: 1.5초 딜레이 (실제 STT 처리 시간 시뮬레이션)
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        companyId: string = 'intake-recording'
+    ): Promise<{ transcript: string; summary: string; audioUrl?: string }> {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'record.webm');
+        formData.append('company_id', companyId);
+        formData.append('duration_seconds', String(durationSeconds));
 
-        let segments: string[];
-        if (callResult === 'callback') {
-            segments = MOCK_TRANSCRIPTS.callback;
-        } else if (durationSeconds > 120) {
-            segments = MOCK_TRANSCRIPTS.positive;
-        } else {
-            segments = MOCK_TRANSCRIPTS.neutral;
+        const res = await fetch('/api/call-recordings', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!res.ok) {
+            throw new Error(`STT API Error: ${res.status}`);
         }
 
-        // 통화 시간에 맞춰 적절한 수의 문장 선택
-        const lineCount = Math.max(
-            2,
-            Math.min(segments.length, Math.ceil(durationSeconds / 20))
-        );
-        const selected = segments.slice(0, lineCount);
+        const data = await res.json();
+        if (!data.success) {
+            throw new Error(data.error || 'STT processing failed');
+        }
 
-        const transcript = selected
-            .map((line, i) => {
-                const min = Math.floor((i * durationSeconds) / lineCount / 60);
-                const sec = Math.floor(
-                    ((i * durationSeconds) / lineCount) % 60
-                );
-                const ts = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-                return `[${ts}] ${line}`;
-            })
-            .join('\n');
-
-        return { transcript, segments: selected };
+        return {
+            transcript: data.transcript,
+            summary: data.summary,
+            audioUrl: data.audioUrl,
+        };
     },
 
-    /** 녹취록 요약 (AIMemoService와 유사) */
+    /** 하위 호환성 유지용 빈 껍데기 */
     async summarize(
         transcript: string,
         company: Company
     ): Promise<string> {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        const lines = transcript.split('\n').filter((l) => l.trim());
-        const contactName = company.contactName || '담당자';
-
-        if (transcript.includes('미팅') || transcript.includes('상담')) {
-            return `${contactName}와 통화 완료. 미팅 일정 확정 (긍정적 반응). 상세 검토 의견서 발송 예정.`;
-        }
-        if (transcript.includes('검토') || transcript.includes('이메일')) {
-            return `${contactName}와 통화 완료. 보고서 이메일 발송 요청. 추후 회신 대기.`;
-        }
-        if (transcript.includes('다시 연락') || transcript.includes('콜백')) {
-            return `${contactName} 통화 불가 (회의 중). 콜백 예약 완료.`;
-        }
-        return `${contactName}와 ${lines.length}건 대화. 후속 조치 확인 필요.`;
+        return "AI 요약이 이미 생성되었습니다.";
     },
 
     /**
-     * 노션 AI 회의록 스타일 단계별 요약
-     * → ['🗣️ 상황', '⚖️ 법적 쟁점', '📋 다음 조치', '💰 수임료']
+     * 노션 AI 회의록 스타일 단계별 요약 (선택적)
      */
     async summarizeSteps(
         transcript: string,
         clientName: string,
         category: string = '법률'
     ): Promise<string[]> {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const lower = transcript.toLowerCase();
-        const firstLine = transcript.split('\n')[0]?.replace(/\[\d+:\d+\]\s?/, '').slice(0, 50) ?? '';
-
-        return [
-            `🗣️ **상황**: ${clientName}님이 ${category} 관련 법률 상담 요청. "${firstLine}..."`,
-            `⚖️ **법적 쟁점**: ${
-                lower.includes('손해') ? '손해배상 청구 가능성 있음' :
-                lower.includes('계약') ? '계약 위반 여부 검토 필요' :
-                lower.includes('개인정보') ? '개인정보보호법 위반 리스크 확인' :
-                lower.includes('가맹') ? '가맹사업법 적용 여부 검토' :
-                '법적 리스크 정밀 분석 필요'
-            }.`,
-            `📋 **다음 조치**: ${
-                transcript.includes('미팅') || transcript.includes('상담') ?
-                '대면 상담 일정 확정 및 의견서 발송 예정' :
-                '관련 자료 수집 후 서면 검토 진행'
-            }. 수임 여부 최종 결정 필요.`,
-            `💰 **수임료 기대**: ${
-                category.includes('형사') ? '500만~1,500만원 (사건 경중 반영)' :
-                category.includes('가사') ? '300만~800만원 (재산분할 규모 반영)' :
-                category.includes('민사') ? '사건 청구금액의 5~10% + 성공보수' :
-                '사건 내용 확인 후 산정 예정'
-            }.`,
-        ];
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return [`🗣️ **요약 완료**`];
     },
 };
 
@@ -323,7 +276,8 @@ export const CallRecordingStore = {
         recordingId: string,
         transcript: string,
         summary: string,
-        status: CallRecording['sttStatus'] = 'completed'
+        status: CallRecording['sttStatus'] = 'completed',
+        audioUrl?: string
     ): void {
         const all = this.getAll();
         const rec = all.find((r) => r.id === recordingId);
@@ -331,6 +285,7 @@ export const CallRecordingStore = {
             rec.transcript = transcript;
             rec.transcriptSummary = summary;
             rec.sttStatus = status;
+            if (audioUrl) rec.recordingUrl = audioUrl;
             rec.updatedAt = new Date().toISOString();
             this._save(all);
         }
@@ -370,13 +325,10 @@ export const CallRecordingStore = {
         store.update(recording.companyId, { timeline: updatedTimeline });
     },
 
-    /** CRM callNote에도 자동 반영 */
-    syncToCallNote(recordingId: string): void {
+    /** CRM callNote에도 자동 반영을 위한 텍스트 생성 */
+    generateCallNoteText(recordingId: string, currentNote: string = ''): string | null {
         const rec = this.getAll().find((r) => r.id === recordingId);
-        if (!rec || !rec.transcript) return;
-
-        const company = store.getById(rec.companyId);
-        if (!company) return;
+        if (!rec || !rec.transcript) return null;
 
         const dateStr = new Date(rec.createdAt).toLocaleString('ko-KR', {
             month: 'short',
@@ -386,20 +338,20 @@ export const CallRecordingStore = {
         });
 
         const newNote = [
-            company.callNote || '',
+            currentNote,
             '',
             `──── 🎙️ 자동 녹취 (${dateStr}, ${formatDuration(rec.durationSeconds)}) ────`,
             rec.transcript,
             '',
             rec.transcriptSummary
-                ? `📌 AI 요약: ${rec.transcriptSummary}`
+                ? `📌 AI 요약: \n${rec.transcriptSummary}`
                 : '',
         ]
-            .filter(Boolean)
+            .filter((line) => line !== undefined && line !== null)
             .join('\n')
             .trim();
 
-        store.update(rec.companyId, { callNote: newNote });
+        return newNote;
     },
 };
 

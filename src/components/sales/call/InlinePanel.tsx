@@ -153,28 +153,8 @@ export default function InlinePanel({
                             </>}
                         </div>
 
-                        {/* 오른쪽: 탭 + 통화 버튼 */}
+                        {/* 오른쪽: 통화 버튼 */}
                         <div className="flex items-center gap-2">
-                            {/* 탭 네비게이션 */}
-                            {([
-                                { k: 'script' as const, l: '📞 스크립트' },
-                                { k: 'info' as const, l: '📊 회사정보' },
-                                { k: 'memo' as const, l: '📝 메모' },
-                                { k: 'recordings' as const, l: `🎙️ 녹음 (${companyRecordings.length})` },
-                            ] as const).map(t => (
-                                <button key={t.k} onClick={() => setTab(t.k)}
-                                    className="px-2 py-1 rounded-lg text-[10px] font-bold"
-                                    style={{
-                                        background: tab === t.k ? '#eef2ff' : 'transparent',
-                                        color: tab === t.k ? '#4f46e5' : C.muted,
-                                        border: `1px solid ${tab === t.k ? '#c7d2fe' : 'transparent'}`,
-                                    }}>
-                                    {t.l}
-                                </button>
-                            ))}
-
-                            <div className="w-px h-5 mx-1" style={{ background: C.borderLight }} />
-
                             {/* 통화 시작 / 종료 */}
                             {!isOnCall ? (
                                 <button onClick={onStartCall}
@@ -203,20 +183,86 @@ export default function InlinePanel({
                         </div>
                     </div>
 
-                    {/* ── 탭 콘텐츠 ── */}
-                    <div className="px-5 py-3" style={{ maxHeight: 280, overflowY: 'auto' }}>
-                        {tab === 'script' && (
-                            <ScriptTab co={co} setToast={setToast} />
-                        )}
-                        {tab === 'info' && (
-                            <InfoTab co={co} onRefresh={onRefresh} setToast={setToast} />
-                        )}
-                        {tab === 'memo' && (
-                            <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
-                        )}
-                        {tab === 'recordings' && (
-                            <RecordingsTab companyRecordings={companyRecordings} />
-                        )}
+                    {/* ── 통합 콘텐츠 대시보드 ── */}
+                    <div className="px-5 py-4" style={{ maxHeight: 800, overflowY: 'auto', background: C.bg }}>
+                        <div className="grid grid-cols-[1fr_250px_minmax(400px,1.5fr)] gap-6 items-stretch">
+                            {/* 좌측: 스크립트 */}
+                            <div className="flex flex-col gap-4 h-full">
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📞 통화 스크립트</h3>
+                                    <ScriptTab co={co} setToast={setToast} />
+                                </div>
+                            </div>
+                            
+                            {/* 중앙 (원래 우측): 위험도, 이슈 & 액션 (임시 영역), 통화 녹음 */}
+                            <div className="flex flex-col gap-4 h-full">
+                                {/* 위험도 */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+                                    <p className="text-[10px] font-bold mb-1" style={{ color: C.heading }}>위험도</p>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
+                                            <div
+                                                className="h-full rounded-full"
+                                                style={{
+                                                    width: `${co.riskScore}%`,
+                                                    background: co.riskScore >= 70 ? '#dc2626' : co.riskScore >= 40 ? '#d97706' : '#059669'
+                                                }}
+                                            />
+                                        </div>
+                                        <span className="text-sm font-black" style={{ color: co.riskScore >= 70 ? '#dc2626' : co.riskScore >= 40 ? '#92400e' : '#065f46' }}>
+                                            {co.riskScore}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 주요 이슈 */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                                    <h3 className="text-[10px] font-bold text-red-600 mb-2">🚨 발생 이슈</h3>
+                                    {co.issues && co.issues.length > 0 ? (
+                                        <div className="grid grid-cols-[56px_1fr] gap-x-2 gap-y-2 items-start mt-1">
+                                            {co.issues.map((iss, j) => (
+                                                <React.Fragment key={j}>
+                                                    <div className="text-center pt-[1px]">
+                                                        <span
+                                                            className="inline-block text-[8px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap w-full"
+                                                            style={{
+                                                                background: iss.level === 'HIGH' ? '#fef2f2' : '#fffbeb',
+                                                                color: iss.level === 'HIGH' ? '#dc2626' : '#92400e',
+                                                            }}
+                                                        >
+                                                            {iss.level}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[11px] leading-relaxed" style={{ color: C.body }}>
+                                                        {iss.title}
+                                                    </span>
+                                                </React.Fragment>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-gray-500">발견된 이슈가 없습니다.</div>
+                                    )}
+                                </div>
+
+                                {/* 통화 녹음 내역 */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                                    <h3 className="text-[11px] font-bold text-gray-800 mb-3">🎙️ 통화 녹음 ({companyRecordings.length})</h3>
+                                    <RecordingsTab companyRecordings={companyRecordings} />
+                                </div>
+                            </div>
+                            
+                            {/* 우측 (원래 중앙): 상세정보 + 메모 */}
+                            <div className="flex flex-col gap-4 h-full">
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 shrink-0">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📊 스마트 기업 상세정보</h3>
+                                    <InfoTab co={co} onRefresh={onRefresh} setToast={setToast} />
+                                </div>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모 & AI 분석</h3>
+                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </td>

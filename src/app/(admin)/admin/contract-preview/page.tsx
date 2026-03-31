@@ -151,45 +151,40 @@ function ContractPreviewInner() {
     };
 
     return (
-        <div className="min-h-screen" style={{ background: '#04091a' }}>
+        <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
             {/* 상단 바 */}
-            <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3"
-                style={{ background: 'rgba(13,27,62,0.97)', borderBottom: '1px solid rgba(255,255,255,0.08)', height: 60, boxShadow: 'none' }}>
+            <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3 bg-white/90 backdrop-blur-md border-b border-slate-200">
                 <div className="flex items-center gap-4">
                     <Link href="/sales/call">
-                        <button className="flex items-center gap-1.5 text-sm font-medium" style={{ color: 'rgba(240,244,255,0.5)' }}>
+                        <button className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
                             <ArrowLeft className="w-4 h-4" /> 영업 전화
                         </button>
                     </Link>
-                    <div className="h-4 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                    <div className="h-4 w-px bg-slate-200" />
                     <div>
-                        <span className="text-sm font-black" style={{ color: '#f0f4ff' }}>📄 계약서 미리보기 — {companyName}</span>
-                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
-                            style={{ background: 'rgba(255,255,255,0.08)', color: '#f0f4ff' }}>
+                        <span className="text-sm font-bold text-slate-800">📄 계약서 미리보기 — {companyName}</span>
+                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200/50">
                             {storeCount}개 가맹점
                         </span>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* 뷰 토글 */}
-                    <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div className="flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50 p-0.5">
                         {(['desktop', 'mobile'] as const).map(m => (
                             <button key={m} onClick={() => setViewMode(m)}
-                                className="px-3 py-1.5 text-xs font-bold"
-                                style={{ background: viewMode === m ? 'rgba(201,168,76,0.15)' : 'transparent', color: viewMode === m ? '#c9a84c' : 'rgba(240,244,255,0.4)' }}>
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === m ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                                 {m === 'desktop' ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
                             </button>
                         ))}
                     </div>
                     {sent ? (
-                        <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold"
-                            style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac' }}>
+                        <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
                             <CheckCircle2 className="w-4 h-4" /> 발송 완료!
                         </div>
                     ) : (
                         <button onClick={handleSend} disabled={sending}
-                            className="flex items-center gap-2 px-5 py-2 rounded-lg font-black text-sm disabled:opacity-50"
-                            style={{ background: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#ffffff' }}>
+                            className="flex items-center gap-2 px-5 py-2 rounded-lg font-bold text-sm text-white shadow-sm disabled:opacity-50 transition-all bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700">
                             {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             계약서 발송
                         </button>
@@ -200,33 +195,32 @@ function ContractPreviewInner() {
             {/* 메인 레이아웃 */}
             <div className="flex pt-[60px] h-screen">
                 {/* 좌: 수신 정보 + 메모 */}
-                <div className="w-80 flex-shrink-0 overflow-y-auto p-5 space-y-4"
-                    style={{ borderRight: '1px solid rgba(255,255,255,0.08)', background: 'rgba(13,27,62,0.9)' }}>
+                <div className="w-80 flex-shrink-0 overflow-y-auto p-5 space-y-4 bg-white border-r border-slate-200 shadow-sm z-10">
 
                     {/* 수신 정보 */}
                     <div>
-                        <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: 'rgba(240,244,255,0.4)' }}>수신 정보</p>
-                        <div className="space-y-2.5">
-                            <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                <p className="text-[10px] font-bold mb-1" style={{ color: 'rgba(240,244,255,0.4)' }}>기업명</p>
-                                <p className="text-sm font-bold" style={{ color: '#f0f4ff' }}>{companyName}</p>
+                        <p className="text-[11px] font-bold uppercase tracking-wider mb-3 text-slate-400">수신 정보</p>
+                        <div className="space-y-2">
+                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <p className="text-[10px] font-bold mb-1 text-slate-500">기업명</p>
+                                <p className="text-sm font-bold text-slate-800">{companyName}</p>
                             </div>
-                            <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                <p className="text-[10px] font-bold mb-1" style={{ color: 'rgba(240,244,255,0.4)' }}>담당자</p>
-                                <p className="text-sm font-bold" style={{ color: '#f0f4ff' }}>{contactName}</p>
+                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <p className="text-[10px] font-bold mb-1 text-slate-500">담당자</p>
+                                <p className="text-sm font-bold text-slate-800">{contactName}</p>
                             </div>
-                            <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                <p className="text-[10px] font-bold mb-1" style={{ color: 'rgba(240,244,255,0.4)' }}>이메일</p>
-                                <p className="text-sm font-bold" style={{ color: '#f0f4ff' }}>{email}</p>
+                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <p className="text-[10px] font-bold mb-1 text-slate-500">이메일</p>
+                                <p className="text-sm font-bold text-slate-800">{email}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                    <div className="h-px bg-slate-100" />
 
                     {/* 계약 조건 요약 */}
                     <div>
-                        <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: 'rgba(240,244,255,0.4)' }}>계약 조건</p>
+                        <p className="text-[11px] font-bold uppercase tracking-wider mb-3 text-slate-400">계약 조건</p>
                         <div className="space-y-2">
                             {[
                                 { label: '자문 유형', value: '개인정보보호 컴플라이언스' },
@@ -235,36 +229,35 @@ function ContractPreviewInner() {
                                 { label: '가맹점 수', value: `${storeCount}개` },
                                 { label: '서명 방식', value: '전자서명 (카카오/PASS)' },
                             ].map(item => (
-                                <div key={item.label} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                                    <span className="text-xs font-medium" style={{ color: 'rgba(240,244,255,0.5)' }}>{item.label}</span>
-                                    <span className="text-xs font-bold" style={{ color: '#f0f4ff' }}>{item.value}</span>
+                                <div key={item.label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50">
+                                    <span className="text-xs font-medium text-slate-500">{item.label}</span>
+                                    <span className="text-xs font-bold text-slate-700">{item.value}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                    <div className="h-px bg-slate-100" />
 
                     {/* 메모 */}
                     <div>
-                        <label className="text-xs font-black uppercase tracking-wider mb-2 block" style={{ color: '#94a3b8' }}>
+                        <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block text-slate-500">
                             ✏️ 발송 메모 (선택)
                         </label>
                         <textarea value={note} onChange={e => setNote(e.target.value)} rows={4}
                             placeholder="계약서 발송 시 함께 전달할 메모..."
-                            className="w-full p-3 rounded-xl outline-none text-sm resize-none"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', lineHeight: 1.6 }} />
+                            className="w-full p-3 rounded-xl text-sm resize-none bg-slate-50 border border-slate-200 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all leading-relaxed" />
                     </div>
 
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                    <div className="h-px bg-slate-100" />
 
                     {/* 안내 */}
-                    <div className="p-3 rounded-xl" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <FileText className="w-3.5 h-3.5" style={{ color: '#2563eb' }} />
-                            <p className="text-xs font-bold" style={{ color: '#2563eb' }}>계약서 발송 안내</p>
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                            <FileText className="w-3.5 h-3.5 text-blue-600" />
+                            <p className="text-xs font-bold text-blue-700">계약서 발송 안내</p>
                         </div>
-                        <p className="text-[11px] leading-relaxed" style={{ color: '#475569' }}>
+                        <p className="text-[11px] leading-relaxed text-blue-600/80">
                             발송 시 고객에게 이메일로 계약서가 전달되며,
                             카카오/PASS 전자서명 링크가 포함됩니다.
                             서명 완료 시 자동 알림이 발송됩니다.
@@ -272,12 +265,12 @@ function ContractPreviewInner() {
                     </div>
 
                     {sent && (
-                        <div className="p-3 rounded-xl" style={{ background: '#f0fdf4', border: '1px solid #86efac' }}>
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#16a34a' }} />
-                                <p className="text-xs font-bold" style={{ color: '#16a34a' }}>발송 완료</p>
+                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <p className="text-xs font-bold text-emerald-700">발송 완료</p>
                             </div>
-                            <p className="text-[11px]" style={{ color: '#6b7280' }}>
+                            <p className="text-[11px] leading-relaxed text-emerald-600/80">
                                 {companyName} ({email})으로 계약서가 발송되었습니다.
                                 전자서명 상태를 자동으로 추적합니다.
                             </p>
@@ -286,18 +279,17 @@ function ContractPreviewInner() {
                 </div>
 
                 {/* 우: HTML 미리보기 */}
-                <div className="flex-1 overflow-y-auto p-6" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
                     <div className="mb-4 text-center">
-                        <span className="text-xs font-bold px-3 py-1.5 rounded-full"
-                            style={{ background: 'rgba(201,168,76,0.12)', color: '#c9a84c' }}>
+                        <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/50 shadow-sm">
                             📄 법률자문 계약서 미리보기
                         </span>
                     </div>
-                    <div className={`mx-auto ${viewMode === 'mobile' ? 'max-w-sm' : 'max-w-2xl'} rounded-2xl overflow-hidden shadow-2xl`}>
+                    <div className={`mx-auto ${viewMode === 'mobile' ? 'max-w-sm' : 'max-w-2xl'} rounded-2xl overflow-hidden shadow-xl ring-1 ring-slate-200 bg-white transition-all duration-300`}>
                         <iframe
                             srcDoc={htmlPreview}
                             className="w-full"
-                            style={{ height: viewMode === 'mobile' ? '800px' : '1100px', border: 'none', background: '#ffffff' }}
+                            style={{ height: viewMode === 'mobile' ? '800px' : '1100px', border: 'none' }}
                             title="계약서 미리보기"
                         />
                     </div>
@@ -309,7 +301,7 @@ function ContractPreviewInner() {
 
 export default function ContractPreviewPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: '#04091a' }}><p className="text-sm" style={{ color: '#94a3b8' }}>로딩 중...</p></div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><p className="text-sm text-slate-500 font-medium animate-pulse">로딩 중...</p></div>}>
             <ContractPreviewInner />
         </Suspense>
     );

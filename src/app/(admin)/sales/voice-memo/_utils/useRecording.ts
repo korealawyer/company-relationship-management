@@ -49,15 +49,23 @@ export function useRecording(
       contactName: selected.contactName || '', contactPhone: getPrimaryPhone(selected),
     });
     try {
-      const stt = await STTService.transcribe(rec.blob, rec.durationSeconds, callResult);
-      const summary = await STTService.summarize(stt.transcript, selected);
+      // API call
+      const stt = await STTService.transcribe(rec.blob, rec.durationSeconds, selected.id);
+      const summary = stt.summary;
       const transcript = quickMemo ? `[메모] ${quickMemo}\n\n${stt.transcript}` : stt.transcript;
-      CallRecordingStore.updateTranscript(saved.id, transcript, summary, 'completed');
-      CallRecordingStore.syncToCallNote(saved.id);
+      CallRecordingStore.updateTranscript(saved.id, transcript, summary, 'completed', stt.audioUrl);
+      
+      const newCallNote = CallRecordingStore.generateCallNoteText(saved.id, selected.callNote || '');
+      if (newCallNote) {
+         const { supabaseCompanyStore } = await import('@/lib/supabaseStore');
+         await supabaseCompanyStore.update(selected.id, { callNote: newCallNote });
+      }
+
       setSttStatus('completed');
-      setLastRecording({ ...saved, transcript, transcriptSummary: summary, sttStatus: 'completed' });
+      setLastRecording({ ...saved, transcript, transcriptSummary: summary, sttStatus: 'completed', recordingUrl: stt.audioUrl });
       setToast('✅ 변환 완료 — CRM에 동기화되었습니다');
-    } catch {
+    } catch (err) {
+      console.error(err);
       CallRecordingStore.updateTranscript(saved.id, '', '', 'failed');
       setSttStatus('failed'); setLastRecording({ ...saved, sttStatus: 'failed' });
       setToast('❌ 변환에 실패했습니다. 다시 시도해주세요.');

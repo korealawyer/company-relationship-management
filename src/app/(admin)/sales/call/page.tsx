@@ -23,8 +23,8 @@ export default function SalesCallPage() {
         selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh
     } = useCallPage();
 
-    const SortHeader = ({ label, k }: { label: string; k: typeof sortKey }) => (
-        <th className="text-left py-3 px-3 cursor-pointer select-none text-[11px] font-bold" style={{ color: sortKey === k ? C.accent : C.muted }} onClick={() => toggleSort(k)}>
+    const SortHeader = ({ label, k, w }: { label: string; k: typeof sortKey; w?: string }) => (
+        <th className={`text-left py-3 px-3 cursor-pointer select-none text-[11px] font-bold ${w || ''}`} style={{ color: sortKey === k ? C.accent : C.muted }} onClick={() => toggleSort(k)}>
             <span className="flex items-center gap-1">{label}{sortKey === k && <ArrowUpDown className="w-3 h-3" />}</span>
         </th>
     );
@@ -111,14 +111,19 @@ export default function SalesCallPage() {
                     <thead className="sticky top-0 z-10 bg-slate-50">
                         <tr className="border-b-2 border-slate-200">
                             <th className="w-8 py-3 px-3" />
-                            <SortHeader label="기업명" k="name" />
-                            <SortHeader label="상태" k="status" />
-                            <SortHeader label="위험도" k="risk" />
-                            {['담당자', '전화번호', '전환율', '이슈', '바로가기'].map(h => <th key={h} className="text-left text-[11px] font-bold py-3 px-3 text-slate-500">{h}</th>)}
+                            <SortHeader label="기업명" k="name" w="w-[140px] max-w-[140px]" />
+                            <SortHeader label="상태" k="status" w="w-[90px]" />
+                            <SortHeader label="위험도" k="risk" w="w-[80px]" />
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[70px]">담당자</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[120px]">전화번호</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[60px]">전환율</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[60px]">이슈</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 min-w-[200px]">최근 메모</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[160px]">바로가기</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.length === 0 && <tr><td colSpan={9} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
+                        {filtered.length === 0 && <tr><td colSpan={10} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
                         {filtered.map((c, i) => (
                             <CompanyTableRow key={c.id} c={c} index={i} selectedId={selectedId} activeCallId={activeCallId}
                                 kakaoStatuses={kakaoStatuses} callResult={callResult as any} timer={timer}

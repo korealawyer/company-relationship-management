@@ -272,13 +272,26 @@ export function useCallPage(): UseCallPageReturn {
                 });
 
                 try {
-                    const sttResult = await STTService.transcribe(recResult.blob, recResult.durationSeconds, result);
-                    const summary = await STTService.summarize(sttResult.transcript, selected);
-                    CallRecordingStore.updateTranscript(savedRec.id, sttResult.transcript, summary, 'completed');
-                    CallRecordingStore.syncToCallNote(savedRec.id);
+                    // Send to actual API server
+                    const sttResult = await STTService.transcribe(recResult.blob, recResult.durationSeconds, selected.id);
+                    
+                    CallRecordingStore.updateTranscript(
+                        savedRec.id, 
+                        sttResult.transcript, 
+                        sttResult.summary, 
+                        'completed',
+                        sttResult.audioUrl
+                    );
+                    
+                    const newCallNote = CallRecordingStore.generateCallNoteText(savedRec.id, selected.callNote || '');
+                    if (newCallNote) {
+                        await updateCompany(selected.id, { callNote: newCallNote });
+                    }
+                    
                     setSttStatus('completed');
                     setToast(`✅ 녹취록 자동 입력 완료 — ${selected.name}`);
-                } catch {
+                } catch (err: any) {
+                    console.error('STT API Error:', err);
                     CallRecordingStore.updateTranscript(savedRec.id, '', '', 'failed');
                     setSttStatus('failed');
                     setToast('⚠️ STT 변환 실패');

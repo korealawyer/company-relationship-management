@@ -72,106 +72,28 @@ export default function ScriptTab({ co, setToast }: ScriptTabProps) {
     };
 
     return (
-        <div className="grid grid-cols-3 gap-4">
-            {/* 왼쪽: 스크립트 본문 */}
-            <div
-                className="col-span-2 rounded-xl p-4"
-                style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}
-            >
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <Volume2 className="w-3.5 h-3.5" style={{ color: C.accent }} />
-                        <span className="text-xs font-black" style={{ color: C.heading }}>통화 스크립트</span>
-                        <Badge status={co.status} />
-                    </div>
-                    <button
-                        onClick={copyScript}
-                        className="text-[10px] px-3 py-1 rounded-lg font-bold"
-                        style={{
-                            background: copied ? '#ecfdf5' : '#f1f5f9',
-                            color: copied ? '#059669' : C.sub,
-                            border: `1px solid ${copied ? '#a7f3d0' : C.borderLight}`,
-                        }}
-                    >
-                        {copied ? '✅ 복사됨' : '📋 복사'}
-                    </button>
+        <div className="rounded-xl p-4 flex flex-col w-full h-full" style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}>
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <Volume2 className="w-3.5 h-3.5" style={{ color: C.accent }} />
+                    <span className="text-xs font-black" style={{ color: C.heading }}>통화 스크립트</span>
+                    <Badge status={co.status} />
                 </div>
-
-                <div className="text-[12px] leading-[1.9] whitespace-pre-line" style={{ color: C.body }}>
-                    {script}
-                </div>
-
-                {co.issues && co.issues.length > 0 && (
-                    <div className="mt-3 pt-2" style={{ borderTop: `1px solid ${C.borderLight}` }}>
-                        <p className="text-[10px] font-bold mb-1" style={{ color: '#dc2626' }}>
-                            ⚠️ 주요 이슈 ({co.issues.length}건)
-                        </p>
-                        {co.issues.slice(0, 4).map((iss, j) => (
-                            <div key={j} className="text-[11px] py-0.5 flex items-center gap-1.5" style={{ color: C.body }}>
-                                <span
-                                    className="text-[8px] px-1.5 rounded font-bold"
-                                    style={{
-                                        background: iss.level === 'HIGH' ? '#fef2f2' : '#fffbeb',
-                                        color: iss.level === 'HIGH' ? '#dc2626' : '#92400e',
-                                    }}
-                                >
-                                    {iss.level}
-                                </span>
-                                {iss.title}
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <button
+                    onClick={copyScript}
+                    className="text-[10px] px-3 py-1 rounded-lg font-bold"
+                    style={{
+                        background: copied ? '#ecfdf5' : '#f1f5f9',
+                        color: copied ? '#059669' : C.sub,
+                        border: `1px solid ${copied ? '#a7f3d0' : C.borderLight}`,
+                    }}
+                >
+                    {copied ? '✅ 복사됨' : '📋 복사'}
+                </button>
             </div>
 
-            {/* 오른쪽: 요약 정보 */}
-            <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                        { l: '담당자', v: co.contactName || '미등록' },
-                        { l: '전화', v: co.contactPhone || co.phone },
-                        { l: '이메일', v: co.contactEmail || co.email },
-                        { l: '매장수', v: `${co.storeCount}개` },
-                    ].map((i) => (
-                        <div
-                            key={i.l}
-                            className="px-2.5 py-2 rounded-lg"
-                            style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}
-                        >
-                            <div className="text-[8px] font-bold" style={{ color: C.faint }}>{i.l}</div>
-                            <div className="text-[10px] font-medium truncate" style={{ color: C.body }}>{i.v}</div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* 위험도 */}
-                <div
-                    className="rounded-xl p-3"
-                    style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}
-                >
-                    <p className="text-[10px] font-bold mb-1" style={{ color: C.heading }}>위험도</p>
-                    <div className="flex items-center gap-2">
-                        <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
-                            <div
-                                className="h-full rounded-full"
-                                style={{ width: `${co.riskScore}%`, background: rc.bar }}
-                            />
-                        </div>
-                        <span className="text-sm font-black" style={{ color: rc.text }}>{co.riskScore}</span>
-                    </div>
-                </div>
-
-                {/* 담당 변호사 */}
-                {co.assignedLawyer && (
-                    <div
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                        style={{ background: '#f3e8ff', border: '1px solid #e9d5ff' }}
-                    >
-                        <span className="text-[10px] font-bold" style={{ color: '#7c3aed' }}>
-                            ⚖️ {co.assignedLawyer}
-                        </span>
-                    </div>
-                )}
+            <div className="text-[12px] leading-[1.9] whitespace-pre-line flex-1" style={{ color: C.body }}>
+                {script}
             </div>
         </div>
     );

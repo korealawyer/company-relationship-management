@@ -257,44 +257,40 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
     }, [leadId, customMsg, subject]);
 
     return (
-        <div className="min-h-screen" style={{ background: '#04091a' }}>
+        <div className="min-h-screen bg-slate-50 text-slate-800">
             {/* 상단 바 */}
-            <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3"
-                style={{ background: 'rgba(13,27,62,0.97)', borderBottom: '1px solid rgba(201,168,76,0.15)', height: 60 }}>
+            <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-[60px] bg-white/90 border-b border-slate-200 backdrop-blur-md shadow-sm">
                 <div className="flex items-center gap-4">
-                    <Link href="/lawyer">
-                        <button className="flex items-center gap-1.5 text-sm" style={{ color: 'rgba(240,244,255,0.5)' }}>
+                    <Link href="/admin/clients">
+                        <button className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-amber-600 transition-colors">
                             <ArrowLeft className="w-4 h-4" /> 리드 목록
                         </button>
                     </Link>
-                    <div className="h-4 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                    <div>
-                        <span className="text-sm font-black" style={{ color: '#f0f4ff' }}>이메일 미리보기 — {vars.company}</span>
-                        <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                    <div className="h-4 w-px bg-slate-200" />
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-slate-800">이메일 미리보기 — {vars.company}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-md font-bold bg-red-50 text-red-600 border border-red-100">
                             {lead?.riskLevel || 'HIGH'} {vars.issueCount}건
                         </span>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* 뷰 토글 */}
-                    <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div className="flex rounded-lg overflow-hidden border border-slate-200 bg-white p-0.5 shadow-sm">
                         {(['desktop', 'mobile'] as const).map(m => (
                             <button key={m} onClick={() => setViewMode(m)}
-                                className="px-3 py-1.5 text-xs font-bold"
-                                style={{ background: viewMode === m ? 'rgba(201,168,76,0.15)' : 'transparent', color: viewMode === m ? '#c9a84c' : 'rgba(240,244,255,0.4)' }}>
+                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === m ? 'bg-amber-50 text-amber-700 shadow-sm' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>
                                 {m === 'desktop' ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
                             </button>
                         ))}
                     </div>
                     {sent ? (
-                        <div className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold"
-                            style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
+                        <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">
                             <CheckCircle2 className="w-4 h-4" /> 발송 완료!
                         </div>
                     ) : (
                         <button onClick={handleSend} disabled={sending}
-                            className="flex items-center gap-2 px-5 py-2 rounded-lg font-black text-sm disabled:opacity-50"
-                            style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#0a0e1a' }}>
+                            className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-sm text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors shadow-sm">
                             {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             발송 확정
                         </button>
@@ -305,28 +301,27 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
             {/* 메인 레이아웃 */}
             <div className="flex pt-[60px] h-screen">
                 {/* 좌: 편집 패널 */}
-                <div className="w-80 flex-shrink-0 overflow-y-auto p-5 space-y-4"
-                    style={{ borderRight: '1px solid rgba(255,255,255,0.06)', background: 'rgba(4,9,26,0.6)' }}>
+                <div className="w-80 flex-shrink-0 overflow-y-auto p-5 space-y-5 bg-white border-r border-slate-200">
                     <div>
-                        <p className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: 'rgba(240,244,255,0.3)' }}>수신 정보</p>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2">
-                                <User className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(240,244,255,0.3)' }} />
-                                <span style={{ color: '#f0f4ff' }}>{vars.contactName}</span>
-                                <span style={{ color: 'rgba(240,244,255,0.4)' }}>({lead?.contactEmail || '이메일 미상'})</span>
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 text-slate-400">수신 정보</p>
+                        <div className="space-y-2.5 text-sm">
+                            <div className="flex items-center gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                <User className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                                <span className="font-bold text-slate-700">{vars.contactName}</span>
+                                <span className="text-slate-400 text-xs">({lead?.contactEmail || '이메일 미상'})</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Mail className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgba(240,244,255,0.3)' }} />
-                                <span style={{ color: 'rgba(240,244,255,0.6)' }}>{vars.company}</span>
+                            <div className="flex items-center gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                <Mail className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                                <span className="font-bold text-slate-700">{vars.company}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-px bg-slate-100" />
 
                     {/* 제목 편집 */}
                     <div>
-                        <label className="text-xs font-black uppercase tracking-wider mb-2 block" style={{ color: 'rgba(240,244,255,0.3)' }}>
+                        <label className="text-[11px] font-bold uppercase tracking-widest mb-2 block text-slate-500">
                             이메일 제목
                         </label>
                         <textarea 
@@ -336,147 +331,127 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
                                 setIsSubjectEdited(true);
                             }} 
                             rows={3}
-                            className="w-full p-3 rounded-lg outline-none text-sm resize-none"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', lineHeight: 1.5 }} />
+                            className="w-full p-3 rounded-xl outline-none text-[13px] resize-none bg-white border border-slate-200 text-slate-800 shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-medium leading-relaxed" />
                     </div>
 
                     {/* 변호사 추가 메시지 */}
                     <div>
-                        <label className="text-xs font-black uppercase tracking-wider mb-2 block" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                            ✏️ 개인화 메시지 (선택)
+                        <label className="text-[11px] font-bold uppercase tracking-widest mb-2 block text-slate-500">
+                            개인화 메시지
                         </label>
                         <textarea value={customMsg} onChange={e => setCustomMsg(e.target.value)} rows={5}
-                            placeholder="담당자에게 전할 메시지를 입력하면 이메일 본문에 포함됩니다..."
-                            className="w-full p-3 rounded-lg outline-none text-sm resize-none"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', lineHeight: 1.6 }} />
+                            placeholder="의뢰인에게 전할 의견을 입력하세요..."
+                            className="w-full p-3 rounded-xl outline-none text-[13px] resize-none bg-white border border-slate-200 text-slate-800 shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-all font-medium leading-relaxed" />
+                        <p className="text-[10px] mt-1.5 font-medium text-amber-600 flex items-center gap-1">
+                            <Edit3 className="w-3 h-3" /> 이 메시지는 이메일 본문에 별도 블록으로 강조되어 들어갑니다.
+                        </p>
                     </div>
 
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-px bg-slate-100" />
 
-                    {/* 개인화 URL */}
-                    <div>
-                        <label className="text-xs font-black uppercase tracking-wider mb-2 block" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                            개인화 URL
-                        </label>
-                        <div className="p-3 rounded-lg text-xs break-all"
-                            style={{ background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.2)', color: '#c9a84c' }}>
-                            /landing?cid={leadId}
+                    {/* 드립 캠페인 및 개인화 링크 안내 */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100 text-center">
+                            <p className="text-[10px] font-bold text-indigo-500 mb-1">📅 자동 드립 캠페인</p>
+                            <p className="text-[9px] font-medium text-indigo-700">D+1,4,8,14일 미응답시<br/>자동 리마인드 발송</p>
                         </div>
-                        <p className="text-xs mt-1" style={{ color: 'rgba(240,244,255,0.3)' }}>클릭 시 해당 기업 분석 결과 랜딩 열림</p>
+                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-center">
+                            <p className="text-[10px] font-bold text-emerald-600 mb-1">🔗 고유 랜딩 발급됨</p>
+                            <p className="text-[9px] font-medium text-emerald-800">이메일 내 버튼에<br/>전용 트래킹 URL 적용</p>
+                        </div>
                     </div>
 
-                    {/* 드립 캠페인 안내 */}
-                    <div className="p-3 rounded-lg" style={{ background: 'rgba(129,140,248,0.08)', border: '1px solid rgba(129,140,248,0.2)' }}>
-                        <p className="text-xs font-black mb-1" style={{ color: '#818cf8' }}>📅 드립 캠페인 예약</p>
-                        <p className="text-xs" style={{ color: 'rgba(240,244,255,0.5)' }}>미결제 시 D+1·4·8·14·21·30일 법률자료 자동 발송</p>
-                    </div>
-
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-px bg-slate-100" />
 
                     {/* 최적 발송 시간 */}
                     <div>
-                        <p className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                            <Clock className="w-3.5 h-3.5" /> 최적 발송 시간
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-3 flex items-center gap-1.5 text-slate-400">
+                            <Clock className="w-3.5 h-3.5" /> 분석된 타겟 송신 시간
                         </p>
-                        <div className="space-y-1.5">
-                            {optimalTimes.map((t, i) => (
-                                <button key={i} onClick={() => setScheduledTime(`${t.day} ${t.hour}:00`)}
-                                    className="w-full p-2.5 rounded-lg text-left flex items-center justify-between transition-all"
-                                    style={{
-                                        background: scheduledTime === `${t.day} ${t.hour}:00` ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.03)',
-                                        border: scheduledTime === `${t.day} ${t.hour}:00` ? '1px solid rgba(74,222,128,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                                    }}>
-                                    <div>
-                                        <p className="text-xs font-bold" style={{ color: '#f0f4ff' }}>{t.day} {t.hour}:00</p>
-                                        <p className="text-[10px]" style={{ color: 'rgba(240,244,255,0.4)' }}>{t.reason}</p>
-                                    </div>
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
-                                        {t.openRate}
-                                    </span>
-                                </button>
-                            ))}
+                        <div className="space-y-2">
+                            {optimalTimes.map((t, i) => {
+                                const isSelected = scheduledTime === `${t.day} ${t.hour}:00`;
+                                return (
+                                    <button key={i} onClick={() => setScheduledTime(`${t.day} ${t.hour}:00`)}
+                                        className={`w-full p-3 rounded-xl text-left flex items-center justify-between transition-all border ${isSelected ? 'bg-amber-50 border-amber-200 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
+                                        <div>
+                                            <p className={`text-xs font-bold ${isSelected ? 'text-amber-700' : 'text-slate-700'}`}>{t.day} {t.hour}:00</p>
+                                            <p className="text-[10px] mt-0.5 text-slate-400 font-medium">{t.reason}</p>
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${isSelected ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            오픈율 {t.openRate}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                         {scheduledTime && (
-                            <p className="text-xs mt-2 flex items-center gap-1" style={{ color: '#4ade80' }}>
-                                <CheckCircle2 className="w-3 h-3" /> {scheduledTime} 예약 발송
+                            <p className="text-xs mt-3 flex items-center gap-1.5 text-amber-600 font-bold bg-amber-50 p-2 rounded-lg border border-amber-100">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> 해당 일시에 예약 발송됩니다.
                             </p>
                         )}
                     </div>
 
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
-
-                    {/* 푸시 알림 설정 */}
-                    <div>
-                        <button onClick={handlePushToggle}
-                            className="w-full p-3 rounded-lg flex items-center justify-between transition-all"
-                            style={{
-                                background: pushEnabled ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)',
-                                border: pushEnabled ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(255,255,255,0.06)',
-                            }}>
-                            <div className="flex items-center gap-2">
-                                {pushEnabled ? <Bell className="w-4 h-4" style={{ color: '#4ade80' }} /> : <BellOff className="w-4 h-4" style={{ color: 'rgba(240,244,255,0.3)' }} />}
-                                <div className="text-left">
-                                    <p className="text-xs font-bold" style={{ color: pushEnabled ? '#4ade80' : 'rgba(240,244,255,0.5)' }}>
-                                        {pushEnabled ? '실시간 알림 ON' : '실시간 알림 OFF'}
-                                    </p>
-                                    <p className="text-[10px]" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                                        이메일 열람 시 핸드폰 푸시 알림
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="w-8 h-4 rounded-full relative transition-all"
-                                style={{ background: pushEnabled ? '#4ade80' : 'rgba(255,255,255,0.15)' }}>
-                                <div className="w-3 h-3 rounded-full absolute top-0.5 transition-all"
-                                    style={{ background: '#fff', left: pushEnabled ? '17px' : '2px' }} />
-                            </div>
-                        </button>
-                    </div>
-
-                    <div className="h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
-
-                    {/* 실시간 추적 대시보드 */}
-                    <div>
-                        <p className="text-xs font-black uppercase tracking-wider mb-2 flex items-center gap-1" style={{ color: 'rgba(240,244,255,0.3)' }}>
-                            <BarChart3 className="w-3.5 h-3.5" /> 추적 현황
-                        </p>
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="p-2.5 rounded-lg text-center" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                                <Eye className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: '#3b82f6' }} />
-                                <p className="text-lg font-black" style={{ color: '#3b82f6' }}>{trackingData.opens}</p>
-                                <p className="text-[9px]" style={{ color: 'rgba(240,244,255,0.4)' }}>열람</p>
-                            </div>
-                            <div className="p-2.5 rounded-lg text-center" style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.2)' }}>
-                                <MousePointerClick className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: '#a855f7' }} />
-                                <p className="text-lg font-black" style={{ color: '#a855f7' }}>{trackingData.clicks}</p>
-                                <p className="text-[9px]" style={{ color: 'rgba(240,244,255,0.4)' }}>클릭</p>
-                            </div>
-                            <div className="p-2.5 rounded-lg text-center" style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
-                                <TrendingUp className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: '#4ade80' }} />
-                                <p className="text-lg font-black" style={{ color: '#4ade80' }}>{trackingData.score}</p>
-                                <p className="text-[9px]" style={{ color: 'rgba(240,244,255,0.4)' }}>스코어</p>
+                    {/* 실시간 알림 */}
+                    <button onClick={handlePushToggle}
+                        className={`w-full mt-4 p-3.5 rounded-xl flex items-center justify-between transition-all border ${pushEnabled ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
+                        <div className="flex items-center gap-2.5">
+                            {pushEnabled ? <Bell className="w-4 h-4 text-blue-600" /> : <BellOff className="w-4 h-4 text-slate-400" />}
+                            <div className="text-left">
+                                <p className={`text-[12px] font-bold ${pushEnabled ? 'text-blue-700' : 'text-slate-600'}`}>
+                                    {pushEnabled ? '오픈/클릭 실시간 알림 ON' : '푸시 알림 끄기'}
+                                </p>
                             </div>
                         </div>
-                        {trackingData.lastOpenAt && (
-                            <p className="text-[10px] mt-2" style={{ color: 'rgba(240,244,255,0.4)' }}>
-                                마지막 열람: {new Date(trackingData.lastOpenAt).toLocaleString('ko-KR')}
+                        <div className={`w-8 h-4.5 rounded-full relative transition-all ${pushEnabled ? 'bg-blue-500' : 'bg-slate-200'}`}>
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-all shadow-sm ${pushEnabled ? 'left-[16px]' : 'left-[2px]'}`} />
+                        </div>
+                    </button>
+                    
+                    {/* 데이터 요약표 */}
+                    <div className="mt-6 pt-4 border-t border-slate-100">
+                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                            <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-slate-500 flex items-center gap-1.5">
+                                <BarChart3 className="w-3 h-3" /> 최근 반응 지표
                             </p>
-                        )}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-medium mb-1">최근 오픈</p>
+                                    <p className="text-xs font-bold text-slate-700">{trackingData.lastOpenAt ? new Date(trackingData.lastOpenAt).toLocaleDateString() : '기록 없음'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-medium mb-1">관심도 점수</p>
+                                    <p className="text-xs font-bold text-blue-600">{trackingData.score} 점</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* 우: HTML 미리보기 */}
-                <div className="flex-1 overflow-y-auto p-6" style={{ background: '#e2e8f0' }}>
-                    <div className="mb-4 text-center">
-                        <span className="text-xs font-bold px-3 py-1.5 rounded-full"
-                            style={{ background: 'rgba(0,0,0,0.1)', color: '#64748b' }}>
-                            제목: {subject}
-                        </span>
+                <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-slate-100">
+                    <div className="mb-6 flex justify-center">
+                        <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">발송 제목</span>
+                            <span className="text-[13px] font-medium text-slate-800">{subject}</span>
+                        </div>
                     </div>
-                    <div className={`mx-auto ${viewMode === 'mobile' ? 'max-w-sm' : 'max-w-2xl'} rounded-2xl overflow-hidden shadow-2xl`}>
+                    <div className={`mx-auto ${viewMode === 'mobile' ? 'max-w-[400px]' : 'max-w-3xl'} overflow-hidden shadow-2xl rounded-tr-xl rounded-tl-xl border border-slate-200 bg-white transition-all`}>
+                        {/* Browser Window Chrome */}
+                        <div className="h-10 bg-slate-50 border-b border-slate-200 flex items-center px-4 gap-2">
+                            <div className="flex gap-1.5">
+                                <div className="w-3 h-3 rounded-full bg-slate-300" />
+                                <div className="w-3 h-3 rounded-full bg-slate-300" />
+                                <div className="w-3 h-3 rounded-full bg-slate-300" />
+                            </div>
+                            <div className="mx-auto px-4 py-1 bg-white border border-slate-200 rounded-md text-[10px] text-slate-400 w-1/2 text-center truncate">
+                                preview.ibs-law.co.kr
+                            </div>
+                        </div>
                         <iframe
                             srcDoc={htmlPreview}
-                            className="w-full"
-                            style={{ height: viewMode === 'mobile' ? '700px' : '900px', border: 'none' }}
+                            className="w-full bg-white"
+                            style={{ height: viewMode === 'mobile' ? '700px' : '800px', border: 'none' }}
                             title="이메일 미리보기"
                         />
                     </div>
@@ -488,7 +463,7 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
 
 export default function EmailPreviewPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen" style={{ background: '#04091a' }} />}>
+        <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
             <EmailPreviewContent />
         </Suspense>
     );

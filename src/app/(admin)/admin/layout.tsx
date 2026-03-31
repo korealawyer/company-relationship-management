@@ -24,24 +24,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (loading || !authorized) return null;
 
     return (
-        <div style={{ background: '#04091a', minHeight: '100vh' }}>
+        <div className="bg-slate-50 min-h-screen">
             {/* 상단 탭 네비게이션 바 */}
-            <div
-                className="sticky top-0 z-50 px-4"
-                style={{
-                    background: 'rgba(4,9,26,0.98)',
-                    borderBottom: '1px solid rgba(201,168,76,0.15)',
-                    backdropFilter: 'blur(16px)',
-                }}
-            >
+            <div className="sticky top-0 z-50 px-4 bg-white/90 border-b border-slate-200 backdrop-blur-md shadow-sm">
                 {/* 브랜드 + 탭 */}
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide max-w-7xl mx-auto">
                     {/* 로고 */}
-                    <div className="flex items-center gap-2 pr-4 mr-2 flex-shrink-0"
-                        style={{ borderRight: '1px solid rgba(255,255,255,0.08)' }}>
-                        <Shield className="w-4 h-4" style={{ color: '#c9a84c' }} />
-                        <span className="text-xs font-black tracking-widest uppercase"
-                            style={{ color: 'rgba(201,168,76,0.8)' }}>
+                    <div className="flex items-center gap-2 pr-4 mr-2 flex-shrink-0 border-r border-slate-200 py-3">
+                        <Shield className="w-5 h-5 text-amber-600" />
+                        <span className="text-xs font-black tracking-widest text-slate-800">
                             ADMIN
                         </span>
                     </div>
@@ -55,20 +46,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         return (
                             <Link key={href} href={href} className="flex-shrink-0">
                                 <div
-                                    className="flex items-center gap-1.5 px-3 py-3.5 text-xs font-bold transition-all relative"
-                                    style={{
-                                        color: isActive ? '#c9a84c' : 'rgba(240,244,255,0.45)',
-                                        cursor: 'pointer',
-                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-3.5 text-[13px] font-bold transition-all relative cursor-pointer
+                                        ${isActive ? 'text-amber-700' : 'text-slate-500 hover:text-slate-800'}`}
                                 >
-                                    <Icon className="w-3.5 h-3.5" />
+                                    <Icon className="w-4 h-4" />
                                     {label}
                                     {/* 활성 탭 언더라인 */}
                                     {isActive && (
-                                        <div
-                                            className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-                                            style={{ background: 'linear-gradient(90deg,#c9a84c,#e8c87a)' }}
-                                        />
+                                        <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-md bg-amber-500" />
                                     )}
                                 </div>
                             </Link>

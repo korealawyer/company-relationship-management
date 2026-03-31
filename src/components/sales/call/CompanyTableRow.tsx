@@ -45,6 +45,28 @@ export default function CompanyTableRow({
   const isCall = activeCallId === c.id;
   const rc = riskColor(c.riskScore);
 
+  const [isEditingMemo, setIsEditingMemo] = React.useState(false);
+  const [memoValue, setMemoValue] = React.useState(c.callNote || '');
+
+  React.useEffect(() => {
+      setMemoValue(c.callNote || '');
+  }, [c.callNote]);
+
+  const handleMemoSave = async () => {
+      setIsEditingMemo(false);
+      if (memoValue !== (c.callNote || '')) {
+          setToast('메모 업데이트 중...');
+          try {
+              const { supabaseCompanyStore } = await import('@/lib/supabaseStore');
+              await supabaseCompanyStore.update(c.id, { callNote: memoValue });
+              setToast('메모가 실시간으로 저장되었습니다.');
+              onRefresh();
+          } catch (e) {
+              setToast('메모 저장에 실패했습니다.');
+          }
+      }
+  };
+
   return (
     <React.Fragment>
       <tr onClick={() => onSelect(c.id)} className="cursor-pointer transition-all"
@@ -88,7 +110,7 @@ export default function CompanyTableRow({
           </td>
           <td className="py-2.5 px-3">{c.riskScore > 0 && <div className="flex items-center gap-1.5"><div className="w-14 h-2 rounded-full overflow-hidden" style={{background:'#e5e7eb'}}><div className="h-full rounded-full" style={{width:`${c.riskScore}%`,background:rc.bar}}/></div><span className="text-[10px] font-bold" style={{color:rc.text}}>{c.riskScore}</span></div>}</td>
           <td className="py-2.5 px-3"><span className="text-[11px]" style={{color:c.contactName?C.body:C.amber}}>{c.contactName||'미등록'}</span></td>
-          <td className="py-2.5 px-3" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[11px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub}} title="클릭하여 전화걸기"><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
+          <td className="py-2.5 px-3 whitespace-nowrap" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[11px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub}} title="클릭하여 전화걸기"><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
           <td className="py-2.5 px-3">{(() => {
               const p = ConversionPredictionService.predict(c);
               const colors = { HOT: { bg: '#fef2f2', c: '#dc2626', icon: '🔥' }, WARM: { bg: '#fffbeb', c: '#d97706', icon: '🌡️' }, COLD: { bg: '#f0f9ff', c: '#0284c7', icon: '❄️' } };
@@ -96,6 +118,34 @@ export default function CompanyTableRow({
               return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:cl.bg,color:cl.c}} title={p.factors.join(' · ')}>{cl.icon}{p.score}%</span>;
           })()}</td>
           <td className="py-2.5 px-3">{c.issues && c.issues.length > 0 ? <span className="text-[10px] font-bold" style={{color:'#dc2626'}}>{c.issues.filter(ii=>ii.level==='HIGH').length}H/{c.issues.length}건</span> : <span className="text-[10px]" style={{color:C.faint}}>—</span>}</td>
+          <td className="py-2.5 px-3" onClick={e => e.stopPropagation()}>
+              {isEditingMemo ? (
+                  <textarea 
+                      autoFocus
+                      className="w-full text-[10px] p-1.5 border rounded-md resize-none shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                      style={{ borderColor: C.borderLight, color: C.body }}
+                      rows={2}
+                      value={memoValue}
+                      onChange={e => setMemoValue(e.target.value)}
+                      onBlur={handleMemoSave}
+                      onKeyDown={e => {
+                          if (e.key === 'Escape') {
+                              setIsEditingMemo(false);
+                              setMemoValue(c.callNote || '');
+                          }
+                      }}
+                  />
+              ) : (
+                  <div 
+                      onClick={() => setIsEditingMemo(true)}
+                      className="text-[10px] truncate cursor-pointer hover:bg-slate-50 p-1.5 rounded-md transition-colors border border-transparent hover:border-slate-200"
+                      style={{ color: memoValue ? C.body : C.faint }}
+                      title={memoValue ? "클릭하여 최근 메모 수정\n---\n" + memoValue : '클릭하여 메모 입력'}
+                  >
+                      {memoValue || <span className="italic">메모 없음</span>}
+                  </div>
+              )}
+          </td>
           <td className="py-2.5 px-3" onClick={e=>e.stopPropagation()}>
               <div className="flex items-center gap-1">
                   <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}&leadId=${c.id}`} target="_blank" title="이메일 미리보기">
