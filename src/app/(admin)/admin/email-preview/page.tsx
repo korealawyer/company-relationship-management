@@ -59,7 +59,7 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
 
     ${customMsg ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:16px;margin-bottom:24px;border-radius:0 8px 8px 0">
       <p style="color:#92400e;font-size:13px;font-weight:bold;margin:0 0 4px">💼 담당 변호사 의견</p>
-      <p style="color:#374151;font-size:13px;margin:0;line-height:1.7">${customMsg}</p>
+      <p style="color:#374151;font-size:13px;margin:0;line-height:1.7">${customMsg.replace(/\n/g, '<br/>')}</p>
     </div>` : ''}
 
     <!-- 검토 결과 요약 -->
@@ -147,6 +147,7 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
     }), [lead, leadId, sub.monthly]);
 
     const [subject, setSubject] = useState(fillTemplate(BASE_SUBJECT, vars));
+    const [isSubjectEdited, setIsSubjectEdited] = useState(false);
     const [customMsg, setCustomMsg] = useState('');
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
     const [editTab, setEditTab] = useState<'subject' | 'message'>('subject');
@@ -159,6 +160,13 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
     const baseUrl = useMemo(() => typeof window !== 'undefined' ? window.location.origin : '', []);
     const htmlPreview = useMemo(() => buildHookEmailHtml(vars, customMsg, baseUrl), [vars, customMsg, baseUrl]);
     const optimalTimes = useMemo(() => getOptimalSendTimes(vars.bizType), [vars.bizType]);
+
+    // vars (특히 company Name 등)가 뒤늦게 로딩될 경우 제목 자동 업데이트 (사용자가 명시적으로 수정하기 전까지만)
+    useEffect(() => {
+        if (!isSubjectEdited && lead) {
+            setSubject(fillTemplate(BASE_SUBJECT, vars));
+        }
+    }, [vars, isSubjectEdited, lead]);
 
     // 추적 데이터 폴링
     useEffect(() => {
@@ -292,7 +300,13 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
                         <label className="text-xs font-black uppercase tracking-wider mb-2 block" style={{ color: 'rgba(240,244,255,0.3)' }}>
                             이메일 제목
                         </label>
-                        <textarea value={subject} onChange={e => setSubject(e.target.value)} rows={3}
+                        <textarea 
+                            value={subject} 
+                            onChange={e => {
+                                setSubject(e.target.value);
+                                setIsSubjectEdited(true);
+                            }} 
+                            rows={3}
                             className="w-full p-3 rounded-lg outline-none text-sm resize-none"
                             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f0f4ff', lineHeight: 1.5 }} />
                     </div>

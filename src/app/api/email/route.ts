@@ -38,6 +38,7 @@ interface EmailPayload {
   type: 'sales_notify' | 'company_hook' | 'clause_review_done' | 'full_revision_to_client' | 'send_contract';
   leadId: string;
   lawyerNote?: string;
+  customSubject?: string;
   repId?: string;        // 영업 담당자 ID (→ client-portal URL 파라미터)
   // send_contract
   to?: string;
@@ -87,7 +88,7 @@ async function buildSalesEmail(leadId: string, lawyerNote: string) {
   };
 }
 
-async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string) {
+async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string, customSubject?: string) {
   const lead = await supabaseCompanyStore.getById(leadId);
   if (!lead) return null;
   const issueText = `개인정보처리방침에서 ${lead.issueCount || 0}건의 위반 가능성이 발견되었습니다.`;
@@ -104,7 +105,7 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
 
   return {
     to: lead.contactEmail || FROM_EMAIL,
-    subject: `[IBS 법률] ${lead.name || '미상기업'} 개인정보처리방침 리스크 진단 결과`,
+    subject: customSubject || `[IBS 법률] ${lead.name || '미상기업'} 개인정보처리방침 리스크 진단 결과`,
     html: `
 <div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:600px;margin:0 auto;padding:24px">
   <div style="background:#0a0e1a;padding:20px;border-radius:12px;margin-bottom:24px">
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
       const e = await buildSalesEmail(leadId, lawyerNote);
       if (e) emails.push(e);
     } else if (type === 'company_hook') {
-      const e = await buildHookEmail(leadId, lawyerNote, body.repId);
+      const e = await buildHookEmail(leadId, lawyerNote, body.repId, body.customSubject);
       if (e) emails.push(e);
     } else if (type === 'clause_review_done') {
       const lead = await supabaseCompanyStore.getById(leadId);
