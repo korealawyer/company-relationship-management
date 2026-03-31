@@ -10,20 +10,7 @@ import { T, StatusBadge } from './shared';
 import { RiskBadge } from '@/components/crm/SlidePanel';
 import MemoTab from '@/components/sales/call/MemoTab';
 
-function EditableField({ value, onChange, placeholder = '-' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-    const [val, setVal] = useState(value);
-    useEffect(() => { setVal(value); }, [value]);
-    return (
-        <input 
-            value={val} 
-            onChange={e => setVal(e.target.value)}
-            onBlur={() => { if(val !== value) onChange(val); }}
-            placeholder={placeholder}
-            className="w-full bg-transparent border-b border-transparent hover:border-blue-300 focus:border-blue-500 focus:outline-none transition-colors p-0 m-0"
-            style={{ color: 'inherit', fontWeight: 'inherit', fontSize: 'inherit' }}
-        />
-    );
-}
+import EditableField from '@/components/crm/EditableField';
 
 interface PhoneViewProps {
     filtered: Company[];
@@ -41,6 +28,7 @@ export default function PhoneView({
 }: PhoneViewProps) {
     const { updateCompany } = useCompanies();
     const { user } = useAuth();
+    const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
     if (filtered.length === 0) {
         return <div className="text-center py-12 text-sm" style={{ color: T.muted }}>표시할 기업이 없습니다.</div>;
@@ -60,9 +48,19 @@ export default function PhoneView({
                 style={{ background: '#eff6ff', borderBottom: '1px solid #bfdbfe' }}>
                 <div className="flex items-center gap-3">
                     <Phone className="w-5 h-5" style={{ color: '#2563eb' }} />
-                    <div>
-                        <h2 className="font-black text-lg" style={{ color: T.heading }}>{c.name}</h2>
-                        <p className="text-xs" style={{ color: T.muted }}>{c.bizType || c.biz} · 가맹점 {c.storeCount}개</p>
+                    <div className="min-w-0">
+                        <h2 className="font-black text-lg flex" style={{ color: T.heading }}>
+                            {isAdmin ? <EditableField value={c.name} onChange={v => updateCompany(c.id, { name: v })} placeholder="기업명" /> : c.name}
+                        </h2>
+                        <div className="flex items-center gap-1.5 text-xs mt-1" style={{ color: T.muted }}>
+                            {isAdmin ? <EditableField value={c.bizType || ''} onChange={v => updateCompany(c.id, { bizType: v })} placeholder="업종" /> : c.bizType || ''}
+                            <span style={{ color: 'rgba(0,0,0,0.2)' }}>|</span>
+                            {isAdmin ? <EditableField value={c.biz || ''} onChange={v => updateCompany(c.id, { biz: v })} placeholder="사업자번호" /> : c.biz || ''}
+                            <span style={{ color: 'rgba(0,0,0,0.2)' }}>|</span>
+                            <span>가맹점</span>
+                            {isAdmin ? <EditableField value={String(c.storeCount || 0)} onChange={v => updateCompany(c.id, { storeCount: parseInt(v, 10) || 0 })} placeholder="매장수" /> : c.storeCount}
+                            <span>개</span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">

@@ -14,7 +14,11 @@ export default function EditableText({ value, onChange, style, minRows = 3, plac
     const [draft, setDraft] = useState(value);
     const ref = useRef<HTMLTextAreaElement>(null);
 
-    useEffect(() => { setDraft(value); }, [value]);
+    useEffect(() => { 
+        if (!editing) {
+            setDraft(value); 
+        }
+    }, [value, editing]);
     useEffect(() => { if (editing && ref.current) { ref.current.focus(); ref.current.style.height = 'auto'; ref.current.style.height = ref.current.scrollHeight + 'px'; } }, [editing]);
 
     if (editing) {

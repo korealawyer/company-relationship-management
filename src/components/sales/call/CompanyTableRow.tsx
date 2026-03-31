@@ -104,9 +104,22 @@ export default function CompanyTableRow({
                   <Link href={`/lawyer/privacy-review?company=${encodeURIComponent(c.name)}&leadId=${c.id}&preview=1`} target="_blank" title="1차 조문검토 미리보기">
                       <button className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="1차 조문검토 미리보기"><Eye className="w-3.5 h-3.5" style={{color:'#7c3aed'}}/></button>
                   </Link>
-                  <a href={`https://${c.name.replace(/[\(\)\uc8fc\s]/g,'').trim().toLowerCase()}.co.kr`} target="_blank" rel="noopener noreferrer" title="홈페이지">
-                      <button className="p-1.5 rounded-lg hover:bg-cyan-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="홈페이지"><Globe className="w-3.5 h-3.5" style={{color:'#0891b2'}}/></button>
-                  </a>
+                  {(() => {
+                      const link = c.domain || c.url;
+                      const finalLink = link ? (link.startsWith('http') ? link : `http://${link}`) : '#';
+                      return (
+                          <a href={finalLink} target={link ? "_blank" : "_self"} rel="noopener noreferrer" title="홈페이지"
+                              onClick={(e) => {
+                                  if (!link) {
+                                      e.preventDefault();
+                                      alert('등록된 홈페이지 주소가 없습니다.');
+                                  }
+                              }}
+                          >
+                              <button className="p-1.5 rounded-lg hover:bg-cyan-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="홈페이지"><Globe className="w-3.5 h-3.5" style={{color:'#0891b2'}}/></button>
+                          </a>
+                      );
+                  })()}
                   <button onClick={() => onOpenKakao(c)} className="p-1.5 rounded-lg hover:bg-yellow-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="카카오톡 발송">
                       <MessageCircle className="w-3.5 h-3.5" style={{color:'#FAE100',fill:'#FAE100',stroke:'#3C1E1E'}}/>
                   </button>
