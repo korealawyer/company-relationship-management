@@ -13,6 +13,7 @@ export default function AdminAIPromptsPage() {
     const [config, setConfig] = useState<PrivacyPromptConfig>(DEFAULT_PROMPT_CONFIG);
     const [categories, setCategories] = useState<ScenarioCategory[]>(DEFAULT_SCENARIO_CATEGORIES);
     const [saved, setSaved] = useState(false);
+    const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
     const [activeSection, setActiveSection] = useState<'model' | 'prompts' | 'scenarios' | 'flow'>('model');
 
     useEffect(() => {
@@ -43,7 +44,7 @@ export default function AdminAIPromptsPage() {
     const sections = [
         { id: 'model' as const, label: 'AI 모델 선택', icon: <Zap className="w-4 h-4" /> },
         { id: 'prompts' as const, label: '프롬프트 편집', icon: <MessageSquare className="w-4 h-4" /> },
-        { id: 'scenarios' as const, label: '시나리오 카테고리', icon: <FileText className="w-4 h-4" /> },
+        { id: 'scenarios' as const, label: '뉴스레터 카테고리', icon: <FileText className="w-4 h-4" /> },
         { id: 'flow' as const, label: '플로우 시각화', icon: <ArrowRight className="w-4 h-4" /> },
     ];
 
@@ -69,7 +70,7 @@ export default function AdminAIPromptsPage() {
                 </div>
             </div>
 
-            <div className="flex max-w-[1200px] mx-auto py-8 px-6 flex-col md:flex-row gap-6">
+            <div className="flex max-w-[1600px] mx-auto py-8 px-6 flex-col md:flex-row gap-6">
                 {/* 좌측 네비 */}
                 <div className="w-full md:w-[220px] shrink-0">
                     <div className="sticky top-[84px] space-y-1">
@@ -103,36 +104,141 @@ export default function AdminAIPromptsPage() {
 
                     {/* ── 프롬프트 편집 ── */}
                     {activeSection === 'prompts' && (
-                        <div className="flex flex-col gap-5">
-                            {[
-                                { key: 'firstReviewPrompt' as const, label: '📋 1차 조문검토 프롬프트', desc: '이슈 분석 + 검토의견 + 시나리오 생성용' },
-                                { key: 'fullRevisionPrompt' as const, label: '📄 전체수정완본 프롬프트', desc: '수정본 + 변호사 의견 + 수정근거 생성용' },
-                            ].map(p => (
-                                <div key={p.key} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                                    <h3 className="text-[14px] font-black text-slate-800 mb-1">{p.label}</h3>
-                                    <p className="text-xs text-slate-500 mb-4 font-medium">{p.desc}</p>
-                                    <textarea
-                                        value={config[p.key]}
-                                        onChange={e => setConfig(prev => ({ ...prev, [p.key]: e.target.value }))}
-                                        rows={12}
-                                        className="w-full resize-y font-mono text-xs leading-relaxed text-slate-700 p-4 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all box-border"
-                                    />
-                                    <div className="flex justify-between mt-3">
-                                        <span className="text-[11px] font-semibold text-slate-400 font-mono tracking-wide">{config[p.key].length.toLocaleString()} bytes</span>
-                                        <button onClick={() => setConfig(prev => ({ ...prev, [p.key]: DEFAULT_PROMPT_CONFIG[p.key] }))}
-                                            className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 bg-transparent border-none cursor-pointer hover:underline transition-all">
-                                            기본값 복원
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-slate-200">
+                                <h2 className="text-base font-black text-slate-800 mb-1">💬 프롬프트 편집</h2>
+                                <p className="text-xs text-slate-500 font-medium">각 프롬프트의 구체적인 사용처와 적용 화면을 확인하고 내용을 수정하세요.</p>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50/80 border-b border-slate-200">
+                                            <th className="p-4 text-xs font-bold text-slate-600 w-[20%]">프롬프트 명</th>
+                                            <th className="p-4 text-xs font-bold text-slate-600 w-[25%]">사용처</th>
+                                            <th className="p-4 text-xs font-bold text-slate-600 w-[35%]">역할 요약</th>
+                                            <th className="p-4 text-xs font-bold text-slate-600 w-[20%] text-right w-[120px]">프롬프트 내용</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {[
+                                            { 
+                                                key: 'firstReviewPrompt' as const, 
+                                                label: '📋 1차 조문검토 프롬프트', 
+                                                usage: '기업 상세 > [조문 분석] 탭', 
+                                                desc: '이슈 분석, 검토의견, 시나리오, 예상 제재 내역을 생성할 때 사용됩니다.' 
+                                            },
+                                            { 
+                                                key: 'fullRevisionPrompt' as const, 
+                                                label: '📄 전체수정완본 프롬프트', 
+                                                usage: '기업 상세 > [전체수정완본] 탭', 
+                                                desc: '고객에게 전달될 수정본, 변호사 의견, 법적 근거를 생성할 때 사용됩니다.' 
+                                            },
+                                            { 
+                                                key: 'chatSystemPrompt' as const, 
+                                                label: '💬 챗봇 시스템 룰', 
+                                                usage: '챗봇 위젯', 
+                                                desc: '챗봇의 기본 페르소나와 초기 지침을 설정합니다.' 
+                                            },
+                                            { 
+                                                key: 'chatFullPrompt' as const, 
+                                                label: '🗣️ 챗봇 대화 프롬프트', 
+                                                usage: '챗봇 대화 생성', 
+                                                desc: '챗봇이 답변을 생성할 때 컨텍스트와 함께 주입되는 상세 행동 규칙입니다.' 
+                                            },
+                                            { 
+                                                key: 'analyzePrompt' as const, 
+                                                label: '🔍 방침 전문 분석 프롬프트', 
+                                                usage: '방침 분석 기능 (전역)', 
+                                                desc: '개인정보처리방침 텍스트에서 법률 위반 및 위험 요소를 JSON 형태로 추출합니다.' 
+                                            },
+                                            { 
+                                                key: 'lawyerTonePrompt' as const, 
+                                                label: '⚖️ 변호사 톤 변경', 
+                                                usage: 'AI 어시스턴트 초안', 
+                                                desc: 'CRM에서 고객사 질문에 대해 법률 전문성을 갖춘 친절한 답변 초안을 생성합니다.' 
+                                            },
+                                            { 
+                                                key: 'formFieldMappingPrompt' as const, 
+                                                label: '📝 서식 필드 매핑 프롬프트', 
+                                                usage: '/api/forms/map-fields', 
+                                                desc: '의뢰인의 자연어 입력에서 법률 서식 템플릿 필드를 자동으로 추출·매핑합니다.' 
+                                            },
+                                            { 
+                                                key: 'callRecordingSummaryPrompt' as const, 
+                                                label: '📞 통화 녹음 요약 프롬프트', 
+                                                usage: '/api/call-recordings', 
+                                                desc: '영업 통화 STT 텍스트에서 주요 내용, 니즈, 다음 액션을 자동 요약합니다.' 
+                                            },
+                                        ].map(p => (
+                                            <React.Fragment key={p.key}>
+                                                <tr 
+                                                    onClick={() => setExpandedPrompt(expandedPrompt === p.key ? null : p.key)}
+                                                    className={`cursor-pointer transition-colors ${expandedPrompt === p.key ? 'bg-amber-50/40' : 'hover:bg-slate-50/60'}`}
+                                                >
+                                                    <td className="p-4 align-middle">
+                                                        <div className="font-black text-[13px] text-slate-800">
+                                                            {p.label}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 align-middle">
+                                                        <div className="text-[12px] text-slate-600 font-medium flex items-center gap-1.5">
+                                                            <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                                            {p.usage}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 align-middle">
+                                                        <div className="text-[12px] text-slate-600 flex items-start gap-1.5 leading-snug">
+                                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                                                            {p.desc}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 align-middle text-right">
+                                                        <div className="flex items-center justify-end gap-3">
+                                                            <div className="text-[11px] text-slate-400 font-mono bg-slate-100 px-2 py-1 rounded border border-slate-200/50 hidden sm:block">
+                                                                {(config[p.key] || '').length.toLocaleString()} bytes
+                                                            </div>
+                                                            <div className={`p-1 rounded-full transition-colors ${expandedPrompt === p.key ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                                <ChevronDown className={`w-4 h-4 transition-transform ${expandedPrompt === p.key ? 'rotate-180' : ''}`} />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {expandedPrompt === p.key && (
+                                                    <tr className="bg-slate-50/30 border-t border-slate-100/50">
+                                                        <td colSpan={4} className="p-5">
+                                                            <div className="flex items-center justify-between mb-3 px-1">
+                                                                <span className="text-[13px] font-black text-slate-800 flex items-center gap-1.5">
+                                                                    <MessageSquare className="w-4 h-4 text-amber-500" /> 프롬프트 수정
+                                                                </span>
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); setConfig(prev => ({ ...prev, [p.key]: DEFAULT_PROMPT_CONFIG[p.key] }))}}
+                                                                    className="text-[11px] font-bold text-slate-600 hover:text-amber-700 flex items-center gap-1 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer shadow-sm"
+                                                                >
+                                                                    <RotateCcw className="w-3 h-3" /> 기본값 복원
+                                                                </button>
+                                                            </div>
+                                                            <textarea
+                                                                value={config[p.key] || ''}
+                                                                onChange={e => setConfig(prev => ({ ...prev, [p.key]: e.target.value }))}
+                                                                onClick={e => e.stopPropagation()}
+                                                                rows={14}
+                                                                className="w-full resize-y font-mono text-[12px] leading-[1.6] text-slate-700 p-5 rounded-xl bg-white border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all box-border shadow-inner"
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
                     {/* ── 시나리오 카테고리 관리 ── */}
                     {activeSection === 'scenarios' && (
                         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                            <h2 className="text-base font-black text-slate-800 mb-1">📊 시나리오 카테고리 관리</h2>
+                            <h2 className="text-base font-black text-slate-800 mb-1">📊 뉴스레터 카테고리 관리</h2>
                             <p className="text-xs text-slate-500 mb-6 font-medium">조문 검토 시 포함할 시나리오 유형을 관리하세요</p>
                             <div className="flex flex-col gap-3">
                                 {categories.map(cat => (
@@ -173,7 +279,7 @@ export default function AdminAIPromptsPage() {
                             {[
                                 { step: '1', label: '조문 클릭', desc: '변호사가 특정 조문을 선택', color: '#3b82f6', sub: '사전 생성 (페이지 로드 시)' },
                                 { step: '2', label: '1차 조문검토 생성', desc: `AI 모델: ${config.model}`, color: '#a855f7', sub: '프롬프트: 1차 조문검토용' },
-                                { step: '3', label: '이슈 분석 표시', desc: '검토의견 + 시나리오 + 예상 제재', color: '#f59e0b', sub: `시나리오 카테고리: ${categories.filter(c => c.enabled).length}종 활성` },
+                                { step: '3', label: '이슈 분석 표시', desc: '검토의견 + 시나리오 + 예상 제재', color: '#f59e0b', sub: `뉴스레터 카테고리: ${categories.filter(c => c.enabled).length}종 활성` },
                                 { step: '4', label: '변호사 편집', desc: '클릭→편집으로 내용 수정', color: '#10b981', sub: '수정된 내용 → 프라이버시 리포트 반영' },
                                 { step: '5', label: '전체수정완본 탭 클릭', desc: 'AI 의견서 생성 시작', color: '#d97706', sub: '프롬프트: 전체수정완본용' },
                                 { step: '6', label: '의견서 완료', desc: '레터헤드 + 서명란 포함 공식 문서', color: '#ec4899', sub: '고객 즉시 공유 가능' },

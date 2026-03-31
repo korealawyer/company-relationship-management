@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
-    let body: { url?: string; companyId?: string; manualText?: string };
+    let body: { url?: string; companyId?: string; manualText?: string; systemPrompt?: string; };
     try {
         body = await request.json();
     } catch {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { url, companyId, manualText } = body;
+    const { url, companyId, manualText, systemPrompt } = body;
 
     // ── 필수 파라미터 검증 ──
     if (!url && !companyId && !manualText) {
@@ -158,10 +158,10 @@ export async function POST(request: NextRequest) {
             return generateFallbackResponse(url);
         }
 
-        const prompt = `주어진 [개인정보처리방침 원문] 텍스트를 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 분리해 주세요.
+        const defaultPrompt = `주어진 [개인정보처리방침 원문] 텍스트를 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 분리해 주세요.
 
 [개인정보처리방침 원문]:
-${extractedText.substring(0, 15000)}
+{{extractedText}}
 
 **중요 지시사항**:
 제공된 텍스트가 식당/쇼핑몰의 '일반 상품 홍보글', '메인 화면 소개', '안내 팝업' 등에 불과하며 실제 <개인정보처리방침> 내용이 현저히 불충분하다고 판단될 경우, 억지 분석을 멈추고 즉시 아래 JSON 구조를 반환하세요.
@@ -187,8 +187,21 @@ ${extractedText.substring(0, 15000)}
       "aiDraftGenerated": true
     }
   ]
-}
-`;
+}`;
+
+        // systemPrompt가 제공되었다면 그것을 사용, 아니면 기본값 사용
+        const targetPrompt = systemPrompt || defaultPrompt;
+        
+        // 텍스트는 토큰 제약을 고려해 15000자까지만 자름
+        const truncatedText = extractedText.substring(0, 15000);
+        
+        let prompt = '';
+        if (targetPrompt.includes('{{extractedText}}')) {
+            prompt = targetPrompt.replace('{{extractedText}}', truncatedText);
+        } else {
+            prompt = targetPrompt + `\n\n[개인정보처리방침 원문]:\n${truncatedText}`;
+        }
+
 
         const aiController = new AbortController();
         const aiTimeoutId = setTimeout(() => aiController.abort(), 90000); // Pro 요금제: 90초 AI 대기 타임아웃

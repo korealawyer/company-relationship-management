@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Bot, User, Loader2, Scale, Brain, Briefcase, ArrowRight } from 'lucide-react';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 
@@ -30,7 +31,11 @@ export default function ChatPage() {
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ messages: [], consultType: type }),
+                body: JSON.stringify({ 
+                    messages: [], 
+                    consultType: type,
+                    systemPrompt: getPromptConfig().chatFullPrompt 
+                }),
             });
             const data = await res.json();
             setMessages([{ role: 'assistant', content: data.message }]);
@@ -49,7 +54,11 @@ export default function ChatPage() {
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ messages: newMsgs, consultType }),
+                body: JSON.stringify({ 
+                    messages: newMsgs, 
+                    consultType,
+                    systemPrompt: getPromptConfig().chatFullPrompt 
+                }),
             });
             const data = await res.json();
             setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);

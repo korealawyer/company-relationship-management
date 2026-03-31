@@ -92,6 +92,12 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         name: '박개인',
         role: 'personal_client',
     },
+    {
+        email: 'litigation@ibslaw.kr',
+        password: 'litigation123',
+        name: '최송무',
+        role: 'litigation',
+    },
 ];
 
 async function seed() {
@@ -169,6 +175,7 @@ async function seed() {
     console.log('  personal@client.com / personal123 → personal_client (개인회원)');
     console.log('  personal2@client.com/ personal1234→ personal_client (개인회원)');
     console.log('  finance@ibslaw.kr   / finance123  → finance (회계팀)');
+    console.log('  litigation@ibslaw.kr/ litigation123→ litigation (송무팀)');
 }
 
 seed().catch(console.error);

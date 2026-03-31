@@ -32,6 +32,7 @@ export default function AdminPage() {
     const monthlyRevenue = subscribed.length * 3_500_000;
 
     const ADMIN_QUICK = [
+        { href: '/admin/users', icon: Users, label: '계정 관리', desc: '전체 계정 수정/삭제', color: '#dc2626' },
         { href: '/admin/clients', icon: Building2, label: '고객 목록', desc: '전체 구독 기업 관리', color: '#c9a84c' },
         { href: '/admin/email-preview', icon: Mail, label: '이메일 발송', desc: '개인화 이메일 작성', color: '#3b82f6' },
         { href: '/admin/contract-preview', icon: CheckCircle2, label: '계약서 발송', desc: '전자계약 발송', color: '#4ade80' },
@@ -96,7 +97,7 @@ export default function AdminPage() {
                         <Activity className="w-5 h-5 text-amber-600" />
                         빠른 메뉴
                     </h2>
-                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
                         {ADMIN_QUICK.map(({ href, icon: Icon, label, desc, color }) => (
                             <Link key={href} href={href}>
                                 <div className="group p-4 rounded-xl cursor-pointer transition-all hover:bg-slate-50 border border-slate-100 hover:border-slate-300 text-center h-full flex flex-col items-center justify-center">

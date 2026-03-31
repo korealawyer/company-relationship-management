@@ -1,6 +1,9 @@
 import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { IBS_FULL_CHAT_PROMPT, IBS_SYSTEM_PROMPT } from '@/lib/prompts/chat';
+
+// Edge Runtime에서는 localStorage 접근 불가하므로,
+// 클라이언트가 systemPrompt를 보내지 않았을 때 사용할 최소 폴백 프롬프트
+const FALLBACK_SYSTEM_PROMPT = '당신은 IBS 법률사무소의 AI 법무 어시스턴트입니다. 프랜차이즈 관련 법률 상담을 전문으로 합니다. 한국어로 답변하고, 전문적이면서도 친근한 말투를 사용하세요.';
 
 // [아키텍처 혁신]: Vercel Edge Runtime 강제 적용 및 타임아웃 최대 연장
 // 무거운 AI 프롬프트 생성 시 기본 10초 타임아웃에 걸리는 문제를 방어합니다.
@@ -42,10 +45,10 @@ export async function POST(req: NextRequest) {
   if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
 
     try {
-        const { messages, consultType = 'general', isPublic = false } = await req.json();
+        const { messages, consultType = 'general', isPublic = false, systemPrompt: clientSystemPrompt } = await req.json();
 
-        // 컨텍스트에 맞는 system prompt 선택
-        const systemPrompt = isPublic ? IBS_SYSTEM_PROMPT : IBS_FULL_CHAT_PROMPT;
+        // 클라이언트가 getPromptConfig()로 보낸 systemPrompt 우선, 없으면 최소 폴백
+        const systemPrompt = clientSystemPrompt || FALLBACK_SYSTEM_PROMPT;
 
         let aiResponse: string;
 

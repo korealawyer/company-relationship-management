@@ -6,6 +6,7 @@ import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS } from '@/lib/constant
 import { useCompanies } from '@/hooks/useDataLayer';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 export const T = {
     heading: '#0f172a',
@@ -68,10 +69,17 @@ export function ActionButton({
             await updateCompany(c.id, { status: 'crawling' });
             await mutate(); // SWR 캐시 즉시 갱신
 
+            const promptConfig = getPromptConfig();
+            
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ companyId: c.id, url: c.privacyUrl, manualText: c.privacyPolicyText })
+                body: JSON.stringify({ 
+                    companyId: c.id, 
+                    url: c.privacyUrl, 
+                    manualText: c.privacyPolicyText,
+                    systemPrompt: promptConfig.analyzePrompt
+                })
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
@@ -221,10 +229,17 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
             });
             await mutate();
 
+            const promptConfig = getPromptConfig();
+
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ companyId: c.id, url: privacyUrl, manualText: privacyText })
+                body: JSON.stringify({ 
+                    companyId: c.id, 
+                    url: privacyUrl, 
+                    manualText: privacyText,
+                    systemPrompt: promptConfig.analyzePrompt
+                })
             });
             const data = await res.json();
             if (!res.ok || !data.success) {

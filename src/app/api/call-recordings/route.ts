@@ -78,21 +78,25 @@ export async function POST(request: NextRequest) {
       transcript = '(음성 인식 실패 - 내용을 확인할 수 없습니다)';
     }
 
+    const summaryPrompt = formData.get('systemPrompt') as string || '';
+
     // 3. OpenAI GPT-4o-mini 요약
     let summary = '';
     try {
+      const defaultSummaryPrompt = `당신은 법무법인 B2B 영업 통화 기록을 분석하는 최고 수준의 AI 어시스턴트입니다.
+제공된 통화 스크립트를 바탕으로 다음을 작성해주세요:
+- [주요 내용]: 통화의 주 목적과 주요 논의 사항 (2~3문장 이내)
+- [니즈 및 페인포인트]: 고객이 겪고 있는 문제나 필요로 하는 사항
+- [다음 액션 아이템]: 영업 담당자가 취해야 할 명확한 다음 단계 (Next step)
+
+Markdown 형식을 사용하여 짧고 직관적으로 작성해주세요.`;
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: `당신은 법무법인 B2B 영업 통화 기록을 분석하는 최고 수준의 AI 어시스턴트입니다.
-제공된 통화 스크립트를 바탕으로 다음을 작성해주세요:
-- [주요 내용]: 통화의 주 목적과 주요 논의 사항 (2~3문장 이내)
-- [니즈 및 페인포인트]: 고객이 겪고 있는 문제나 필요로 하는 사항
-- [다음 액션 アイ템]: 영업 담당자가 취해야 할 명확한 다음 단계 (Next step)
-
-마크다운(Markdown) 형식을 사용하여 짧고 직관적으로 작성해주세요.`
+            content: summaryPrompt || defaultSummaryPrompt
           },
           {
             role: "user",

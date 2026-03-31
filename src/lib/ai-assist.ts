@@ -5,6 +5,7 @@
  * 변호사의 말투로 고객 질문에 대한 초안을 자동 생성합니다.
  * 변호사에게는 AI 사용 사실이 노출되지 않습니다.
  */
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 export type AIModel = 'gpt-4o' | 'gemini-2.5-pro' | 'claude-sonnet-4';
 
@@ -66,23 +67,8 @@ export function setApiKey(model: AIModel, key: string): void {
     localStorage.setItem(`${AI_KEY_PREFIX}${model}`, key);
 }
 
-// 변호사 말투 프롬프트 시스템
-const LAWYER_TONE_SYSTEM = `
-당신은 IBS 법률사무소의 프랜차이즈 전문 변호사입니다.
-고객사(프랜차이즈 본사) HR 담당자의 법률 질문에 답변을 작성합니다.
-
-[말투 규칙]
-- 존댓말 사용, 전문적이면서 친근한 톤
-- "~입니다", "~하시기 바랍니다" 형태
-- 핵심 법조문을 반드시 인용 (가맹사업법, 개인정보보호법, 근로기준법 등)
-- 실질적 조치 방안을 구체적으로 제시
-- 2-3 문단, 200-300자 내외로 간결하게
-
-[답변 구조]
-1. 질문 요약 및 관련 법령
-2. 법적 분석 및 판단
-3. 권장 조치사항
-`;
+// 변호사 말투 프롬프트 시스템 (중앙 설정에 의해 대체됨 - 참조용으로 비워둠)
+// 이제 callOpenAI() 내부에서 getPromptConfig().lawyerTonePrompt 를 호출하여 사용합니다.
 
 // Mock AI 응답 생성 (실제로는 API 호출)
 const MOCK_RESPONSES: Record<string, string> = {
@@ -142,7 +128,8 @@ export interface AIAssistResponse {
 }
 
 async function callOpenAI(apiKey: string, req: AIAssistRequest): Promise<AIAssistResponse> {
-    const prompt = `${LAWYER_TONE_SYSTEM}
+    const promptConfig = getPromptConfig();
+    const prompt = `${promptConfig.lawyerTonePrompt}
     
 [요청 정보]
 기업명: ${req.companyName}

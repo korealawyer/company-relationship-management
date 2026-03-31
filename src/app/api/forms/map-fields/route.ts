@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
 
   try {
-    const { userInput, caseContext, formId } = await request.json();
+    const { userInput, caseContext, formId, systemPrompt: clientPrompt } = await request.json();
 
     if (!userInput) {
       return NextResponse.json({ error: '의뢰인 입력(자연어)이 필요합니다.' }, { status: 400 });
@@ -25,18 +25,26 @@ export async function POST(request: Request) {
       { field_key: 'incident_summary', field_label: '사건 경위 요약', type: 'long_text' }
     ];
 
-    // 2. GPT-4o 프롬프트 구성
-    const systemPrompt = `
+    // 2. GPT-4o 프롬프트 구성 (중앙 설정 우선, 없으면 기본값)
+    const defaultPrompt = `
 당신은 대한민국 최고 수준의 법률 AI 어시스턴트입니다.
 의뢰인의 자연어 입력과 이미 알고 있는 사건 정보(caseContext)를 분석하여, 다음 JSON 스키마에 맞게 빈칸 데이터를 추출하세요.
 절대 다른 말은 하지 말고 순수 JSON만 반환하세요.
 
 [필요한 데이터 (template_fields)]
-${JSON.stringify(mockTemplateFields, null, 2)}
+{{templateFields}}
 
 [사건 기본 정보 (CRM)]
-${JSON.stringify(caseContext || {}, null, 2)}
+{{caseContext}}
     `;
+
+    let targetPrompt = clientPrompt || defaultPrompt;
+    // 플레이스홀더 치환
+    targetPrompt = targetPrompt
+      .replace('{{templateFields}}', JSON.stringify(mockTemplateFields, null, 2))
+      .replace('{{caseContext}}', JSON.stringify(caseContext || {}, null, 2));
+
+    const systemPrompt = targetPrompt;
 
     // 3. (모의) OpenAI API 호출
     // const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

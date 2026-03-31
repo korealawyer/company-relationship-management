@@ -104,10 +104,18 @@ export const CLAUSE_SCENARIO_MAP: Record<string, string[]> = {
 };
 
 // ── AI 프롬프트 템플릿 ────────────────────────────────────────
+import { IBS_SYSTEM_PROMPT, IBS_FULL_CHAT_PROMPT } from './chat';
+
 export interface PrivacyPromptConfig {
     model: string;
     firstReviewPrompt: string;
     fullRevisionPrompt: string;
+    chatSystemPrompt: string;
+    chatFullPrompt: string;
+    analyzePrompt: string;
+    lawyerTonePrompt: string;
+    formFieldMappingPrompt: string;
+    callRecordingSummaryPrompt: string;
 }
 
 export const DEFAULT_PROMPT_CONFIG: PrivacyPromptConfig = {
@@ -167,6 +175,73 @@ JSON 배열로 출력하세요.`,
 - 법률 전문가 톤: 정확하고 권위있는 문체
 - 고객이 읽었을 때 "이 변호사가 꼼꼼하게 검토했구나"라고 느낄 수 있도록
 - 불필요한 수식어 배제, 핵심 법적 쟁점에 집중`,
+
+    chatSystemPrompt: IBS_SYSTEM_PROMPT,
+    chatFullPrompt: IBS_FULL_CHAT_PROMPT,
+    
+    analyzePrompt: `주어진 [개인정보처리방침 원문] 텍스트를 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 분리해 주세요.
+
+[개인정보처리방침 원문]:
+{{extractedText}}
+
+**중요 지시사항**:
+제공된 텍스트가 식당/쇼핑몰의 '일반 상품 홍보글', '메인 화면 소개', '안내 팝업' 등에 불과하며 실제 <개인정보처리방침> 내용이 현저히 불충분하다고 판단될 경우, 억지 분석을 멈추고 즉시 아래 JSON 구조를 반환하세요.
+{
+  "riskLevel": "UNKNOWN",
+  "error": "원문에서 개인정보처리방침 내용을 식별할 수 없습니다. (메인 페이지 등 잘못된 URL 수집) 정확한 방침 URL을 기입하거나 전문을 복사하여 재조사해 주세요."
+}
+
+정상적인 처리방침 내용일 경우, 다음의 순수 JSON 구조만을 반환하세요. 앞뒤로 백틱(\`\`\`)이나 추가 설명을 포함하지 마세요.
+{
+  "riskLevel": "HIGH" | "MEDIUM" | "LOW",
+  "issues": [
+    {
+      "id": "1", 
+      "level": "HIGH", 
+      "title": "이슈 제목", 
+      "law": "관련 법령", 
+      "originalText": "법에 위배되거나 문제 소지가 있는 원문 중 일부 발췌 내용",
+      "riskDesc": "구체적인 문제점 요약 및 위반 시 예상 제재수위 (예: 최대 OOO만원 과태료 등)", 
+      "customDraft": "법률에 맞게 수정 및 개선된 권고 초안 조항", 
+      "lawyerNote": "",
+      "reviewChecked": false,
+      "aiDraftGenerated": true
+    }
+  ]
+}`,
+
+    lawyerTonePrompt: `당신은 IBS 법률사무소의 프랜차이즈 전문 변호사입니다.
+고객사(프랜차이즈 본사) HR 담당자의 법률 질문에 답변을 작성합니다.
+
+[말투 규칙]
+- 존댓말 사용, 전문적이면서 친근한 톤
+- "~입니다", "~하시기 바랍니다" 형태
+- 핵심 법조문을 반드시 인용 (가맹사업법, 개인정보보호법, 근로기준법 등)
+- 실질적 조치 방안을 구체적으로 제시
+- 2-3 문단, 200-300자 내외로 간결하게
+
+[답변 구조]
+1. 질문 요약 및 관련 법령
+2. 법적 분석 및 판단
+3. 권장 조치사항`,
+
+    formFieldMappingPrompt: `당신은 대한민국 최고 수준의 법률 AI 어시스턴트입니다.
+의뢰인의 자연어 입력과 이미 알고 있는 사건 정보(caseContext)를 분석하여, 다음 JSON 스키마에 맞게 빈칸 데이터를 추출하세요.
+절대 다른 말은 하지 말고 순수 JSON만 반환하세요.
+
+[필요한 데이터 (template_fields)]
+{{templateFields}}
+
+[사건 기본 정보 (CRM)]
+{{caseContext}}`,
+
+    callRecordingSummaryPrompt: `당신은 법무법인 B2B 영업 통화 기록을 분석하는 최고 수준의 AI 어시스턴트입니다.
+제공된 통화 스크립트를 바탕으로 다음을 작성해주세요:
+- [주요 내용]: 통화의 주 목적과 주요 논의 사항 (2~3문장 이내)
+- [니즈 및 페인포인트]: 고객이 겪고 있는 문제나 필요로 하는 사항
+- [다음 액션 아이템]: 영업 담당자가 취해야 할 명확한 다음 단계 (Next step)
+
+Markdown 형식을 사용하여 짧고 직관적으로 작성해주세요.`,
 };
 
 // ── localStorage 기반 설정 저장/로드 ───────────────────────────

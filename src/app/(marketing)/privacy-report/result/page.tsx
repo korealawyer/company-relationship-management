@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { leadStore } from '@/lib/leadStore';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 interface AnalysisIssue {
     id: string;
@@ -80,13 +81,16 @@ function ResultContent() {
             }
 
             try {
+                const promptConfig = getPromptConfig();
+
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         url: payloadUrl,
                         companyId: payloadCompanyId,
-                        manualText: payloadManualText
+                        manualText: payloadManualText,
+                        systemPrompt: promptConfig.analyzePrompt
                     })
                 });
 

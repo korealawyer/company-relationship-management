@@ -8,6 +8,7 @@ import {
     STEP_PROGRESS, isValidContact, extractUrl, getKeywordResponse,
 } from './chatbot.constants';
 import { faqs, faqAnswers } from './chatbot.data';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 // ── CRM 저장 (API 우선, store 폴백) ──────────────────────────
 async function saveLead(question: string, contact: string, customerName: string, preferredTime?: string) {
@@ -288,6 +289,7 @@ export function useChatbot() {
                     messages: [{ role: 'user', content: question }],
                     consultType: 'legal',
                     isPublic: true,
+                    systemPrompt: getPromptConfig().chatSystemPrompt,
                 }),
             });
             const data = await res.json();
