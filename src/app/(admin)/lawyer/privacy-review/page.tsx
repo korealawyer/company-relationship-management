@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CheckCircle2, Clock, ArrowLeft, Scale, FileText, Loader2, Download, Lock, FilePlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import EditableText from '@/components/crm/EditableText';
 import { useRequireAuth } from '@/lib/AuthContext';
 import {
@@ -235,12 +237,23 @@ function FullRevisionRow({ c, data, onChange }: {
 }
 
 // ── 메인 ──────────────────────────────────────────────────
-export default function PrivacyReviewPage({
-    searchParams,
-}: { searchParams: { leadId?: string; company?: string } }) {
+export default function PrivacyReviewPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+            </div>
+        }>
+            <PrivacyReviewContent />
+        </Suspense>
+    );
+}
+
+function PrivacyReviewContent() {
+    const searchParams = useSearchParams();
     const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer']);
-    const company = searchParams.company || '(주)샐러디';
-    const leadId = searchParams.leadId;
+    const company = searchParams?.get('company') || '(주)샐러디';
+    const leadId = searchParams?.get('leadId') || undefined;
     const [tab, setTab] = useState<'first' | 'full'>('first');
     const [data, setData] = useState<Record<string, string>>({});
     const [generating, setGenerating] = useState(false);
@@ -349,7 +362,7 @@ export default function PrivacyReviewPage({
                 method: 'POST', headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
                     type: 'full_revision_to_client',
-                    leadId: searchParams.leadId || 'lead_001',
+                    leadId: leadId || 'lead_001',
                     company,
                     revisionData: data,
                     documentTitle: `${company} 개인정보처리방침 수정완본`,
