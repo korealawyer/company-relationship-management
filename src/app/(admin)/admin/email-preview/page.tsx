@@ -16,7 +16,7 @@ const BASE_SUBJECT = '[IBS 법률] {company}님의 개인정보처리방침 — 
 const BASE_PREHEADER = '개인정보보호법 위반 {issueCount}건 발견. 지금 확인하세요.';
 
 function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, baseUrl: string = ''): string {
-    const lawyerName = vars.lawyerName || '김정래';
+    const lawyerName = vars.lawyerName || '';
     const trackOpen = `${baseUrl}/api/track?lid=${vars.leadId}&type=open`;
     const reportUrl = `${baseUrl}/privacy-report?company=${encodeURIComponent(vars.company)}`;
     const trackClick = `${baseUrl}/api/track?lid=${vars.leadId}&type=click&url=${encodeURIComponent(reportUrl)}`;
@@ -42,10 +42,17 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
   <div style="background:#fff;padding:32px 32px 28px">
     <p style="color:#1e293b;font-size:15px;font-weight:bold;margin:0 0 20px">${vars.contactName} 담당자님께</p>
 
+    ${lawyerName ? `
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 16px">
       안녕하세요.<br/>
       <strong>IBS 법률사무소</strong> 개인정보보호 전문 <strong>${lawyerName} 변호사</strong>입니다.
     </p>
+    ` : `
+    <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 16px">
+      안녕하세요.<br/>
+      <strong>IBS 법률사무소</strong> 개인정보보호 컴플라이언스 팀입니다.
+    </p>
+    `}
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 16px">
       저희 법률사무소에서는 프랜차이즈 기업의 개인정보보호 컴플라이언스 강화를 위해,
@@ -98,12 +105,20 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
       <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 4px">감사합니다.</p>
       <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 16px">귀사의 안전한 개인정보 관리를 위해 최선을 다하겠습니다.</p>
       <div style="display:flex;align-items:flex-start;gap:16px">
+        ${lawyerName ? `
         <div>
           <p style="color:#1e293b;font-size:15px;font-weight:900;margin:0 0 4px">${lawyerName} 변호사</p>
           <p style="color:#64748b;font-size:12px;margin:0 0 2px">IBS 법률사무소 · 개인정보보호 전문</p>
           <p style="color:#64748b;font-size:12px;margin:0 0 2px">대한변호사협회 등록 · 개인정보관리사(CPPG)</p>
           <p style="color:#64748b;font-size:12px;margin:0">직통 02-1234-5678 | lawyer@ibs-law.co.kr</p>
         </div>
+        ` : `
+        <div>
+          <p style="color:#1e293b;font-size:15px;font-weight:900;margin:0 0 4px">IBS 법률사무소 개인정보보호 팀</p>
+          <p style="color:#64748b;font-size:12px;margin:0 0 2px">프랜차이즈 전문 법률 서비스</p>
+          <p style="color:#64748b;font-size:12px;margin:0">02-1234-5678 | ibs@ibs-law.co.kr</p>
+        </div>
+        `}
       </div>
     </div>
   </div>
@@ -149,6 +164,7 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
     const vars: Record<string, string> = useMemo(() => ({
         company: lead?.companyName || lead?.name || companyParam || '(주)샘플회사',
         contactName: lead?.contactName || '담당자',
+        lawyerName: lead?.lawyerName || lead?.assigned_lawyer_id || '',
         leadId,
         issueCount: String(lead?.issueCount || lead?.issues?.length || 0),
         riskLevel: lead?.riskLevel || 'HIGH',
