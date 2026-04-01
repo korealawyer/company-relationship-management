@@ -91,6 +91,7 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
     // DB schema -> frontend model mapping
     c.biz = anyC.bizNo || '';
     c.bizType = anyC.bizCategory || '';
+    c.franchiseType = anyC.franchiseType || '';
     c.assignedLawyer = anyC.assignedLawyerId || '';
     c.url = anyC.domain || '';
     c.email = anyC.contactEmail || '';
@@ -127,6 +128,7 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
 
   c.biz = anyC.bizNo || '';
   c.bizType = anyC.bizCategory || '';
+  c.franchiseType = anyC.franchiseType || '';
   c.assignedLawyer = anyC.assignedLawyerId || '';
   c.url = anyC.domain || '';
   c.email = anyC.contactEmail || '';
@@ -156,7 +158,7 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
 }
 
 function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = false): Record<string, any> {
-  const { issues, contacts, memos, timeline, biz, bizType, assignedLawyer, id, ...flat } = companyData as Record<string, any>;
+  const { issues, contacts, memos, timeline, biz, bizType, franchiseType, assignedLawyer, id, ...flat } = companyData as Record<string, any>;
   const rawRow = objToRow(flat);
   
   if (id !== undefined) rawRow.id = id;
@@ -164,6 +166,7 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
     rawRow.biz_no = biz || `T${Math.floor(Math.random() * 10000000000).toString().padStart(10, '0')}`;
   }
   if (bizType !== undefined) rawRow.biz_category = bizType || null;
+  if (franchiseType !== undefined) rawRow.franchise_type = franchiseType || null;
   if (assignedLawyer !== undefined) {
     rawRow.assigned_lawyer_id = (typeof assignedLawyer === 'string' && assignedLawyer.length === 36) ? assignedLawyer : null;
   }
@@ -177,7 +180,7 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
     // 기존 컬럼
     'name', 'domain', 'url', 'email', 'phone',
     'contact_name', 'contact_email', 'contact_phone',
-    'biz_category', 'store_count', 'plan', 'status', 'risk_level',
+    'biz_category', 'franchise_type', 'store_count', 'plan', 'status', 'risk_level',
     'risk_score', 'issue_count', 'privacy_url', 'privacy_policy_text', 'assigned_lawyer_id',
     'email_sent_at', 'lawyer_confirmed', 'lawyer_confirmed_at', 'source', 'biz_no', 'id',
     'created_at', 'updated_at',

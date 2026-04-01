@@ -90,12 +90,16 @@ export function ActionButton({
                 await updateCompany(c.id, { status: 'pending' });
             } else {
                 // 성공 시 상태 변환과 데이터(데모 포함) 업데이트
-                await updateCompany(c.id, { 
+                const payload: any = { 
                     status: 'analyzed',
                     issues: data.issues || [],
                     issueCount: data.issueCount || 0,
                     riskLevel: data.riskLevel || 'MEDIUM'
-                });
+                };
+                if (data.rawText) {
+                    payload.privacyPolicyText = data.rawText;
+                }
+                await updateCompany(c.id, payload);
             }
         } catch (err: any) {
             alert(`분석 중 에러 발생: ${err.message}`);
@@ -250,12 +254,17 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                 await updateCompany(c.id, { status: 'pending' });
             } else {
                 // 성공 시 데이터베이스에 리스크/이슈 저장 (데모 모드 포함)
-                await updateCompany(c.id, { 
+                const payload: any = { 
                     status: 'analyzed',
                     issues: data.issues || [],
                     issueCount: data.issueCount || 0,
                     riskLevel: data.riskLevel || 'MEDIUM'
-                });
+                };
+                if (data.rawText) {
+                    payload.privacyPolicyText = data.rawText;
+                    setPrivacyText(data.rawText); // 화면 즉시 업데이트
+                }
+                await updateCompany(c.id, payload);
             }
         } catch (e: any) {
             alert(`분석 요청 실패: ${e.message}`);

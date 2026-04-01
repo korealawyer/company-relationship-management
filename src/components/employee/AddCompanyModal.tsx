@@ -31,7 +31,8 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                 <div className="space-y-3">
                     {[
                         { k: 'name', l: '기업명 *', ph: '(주)교촌에프앤비' },
-                        { k: 'bizType', l: '업종 분류', type: 'select', options: [{label: '선택 안함', value: ''}, {label: '프랜차이즈', value: '프랜차이즈'}, {label: '그외', value: '그외'}] },
+                        { k: 'franchiseType', l: '구분 (프랜차이즈/그외) *', type: 'select', options: [{label: '선택 안함', value: ''}, {label: '프랜차이즈', value: '프랜차이즈'}, {label: '그외', value: '그외'}] },
+                        { k: 'bizType', l: '업종 (예: 식음료, IT)', ph: '식음료' },
                         { k: 'biz', l: '사업자번호', ph: '123-45-67890' },
                         { k: 'url', l: '홈페이지 URL', ph: 'https://kyochon.com' },
                         { k: 'email', l: '이메일 *', ph: 'legal@kyochon.com' },
@@ -64,12 +65,12 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                 <div className="flex gap-2 mt-5">
                     <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
                     <Button variant="premium" className="flex-1" onClick={() => {
-                        if (!addForm.name || !addForm.email || !addForm.bizType) {
-                            alert('기업명, 이메일, 업종 분류는 필수 항목입니다.');
+                        if (!addForm.name || !addForm.email || !addForm.franchiseType) {
+                            alert('기업명, 이메일, 구분(프랜차이즈/그외)은 필수 항목입니다.');
                             return;
                         }
-                        if (addForm.bizType !== '프랜차이즈' && addForm.bizType !== '그외') {
-                            alert('업종 분류(프랜차이즈/그외)를 정확히 선택해주세요.');
+                        if (addForm.franchiseType !== '프랜차이즈' && addForm.franchiseType !== '그외') {
+                            alert('구분(프랜차이즈/그외)을 정확히 선택해주세요.');
                             return;
                         }
                         addCompany({
@@ -84,7 +85,9 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                             loginCount: 0, callNote: '', plan: 'none',
                             autoMode: true, aiDraftReady: false, source: 'manual' as const,
                             riskScore: 0, riskLevel: '', issueCount: 0,
-                            bizType: addForm.bizType || '', domain: addForm.url || '', privacyUrl: '',
+                            bizType: addForm.bizType || '', 
+                            franchiseType: addForm.franchiseType as '프랜차이즈' | '그외',
+                            domain: addForm.url || '', privacyUrl: '',
                             contactName: addForm.contactName || '', contactEmail: addForm.email || '',
                             contactPhone: addForm.contactPhone || addForm.phone || '',
                             contacts: [], memos: [], timeline: [],

@@ -53,6 +53,7 @@ function generateFallbackResponse(url?: string) {
         issueCount: DEMO_ISSUES.length,
         issues: DEMO_ISSUES,
         riskLevel,
+        rawText: '',
         completedAt: new Date().toISOString(),
     });
 }
@@ -279,6 +280,7 @@ export async function POST(request: NextRequest) {
                 id: crypto.randomUUID()
             })),
             riskLevel: parsedResult.riskLevel || 'MEDIUM',
+            rawText: extractedText,
             completedAt: new Date().toISOString(),
         });
 

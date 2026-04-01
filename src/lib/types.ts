@@ -150,6 +150,7 @@ export interface Company {
     riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' | '';
     issueCount: number;
     bizType: string;
+    franchiseType?: '프랜차이즈' | '그외' | string;
     domain: string;
     privacyUrl: string;
     privacyPolicyText?: string;

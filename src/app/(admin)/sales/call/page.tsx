@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
@@ -26,6 +26,34 @@ export default function SalesCallPage() {
         filtered, statusCounts, selected, calledCount, highRiskCount, todayStats, newsItems,
         selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh
     } = useCallPage(user?.name || '');
+
+    const [colFilters, setColFilters] = useState({
+        name: '', status: '', risk: '', contactName: '', salesRep: '', phone: '', memo: ''
+    });
+
+    const finalFiltered = filtered.filter(c => {
+        if (colFilters.name && !c.name.toLowerCase().includes(colFilters.name.toLowerCase())) return false;
+        const statusMap: Record<string, string> = { 
+            'analyzed': '분석완료', 'lawyer_confirmed': '변호사컨펌', 'emailed': '이메일발송', 
+            'client_replied': '답장수신', 'client_viewed': '리포트열람', 
+            'contract_sent': '계약서발송', 'contract_signed': '서명완료' 
+        };
+        const cStatusKo = statusMap[c.status] || c.status;
+        if (colFilters.status && !cStatusKo.includes(colFilters.status) && !c.status.toLowerCase().includes(colFilters.status.toLowerCase())) return false;
+        if (colFilters.risk && c.riskScore.toString() !== colFilters.risk && !c.riskScore.toString().includes(colFilters.risk)) return false;
+        if (colFilters.contactName && (!c.contactName || !c.contactName.toLowerCase().includes(colFilters.contactName.toLowerCase()))) return false;
+        if (colFilters.salesRep && (!c.lastCalledBy || !c.lastCalledBy.toLowerCase().includes(colFilters.salesRep.toLowerCase()))) return false;
+        if (colFilters.phone && !((c.contactPhone || '') + (c.phone || '')).includes(colFilters.phone)) return false;
+        if (colFilters.memo) {
+            const memoStr = [c.callNote, ...(c.memos || []).map(m => m.content)].join(' ').toLowerCase();
+            if (!memoStr.includes(colFilters.memo.toLowerCase())) return false;
+        }
+        return true;
+    });
+
+    const handleColFilterChange = (k: keyof typeof colFilters, v: string) => {
+        setColFilters(prev => ({ ...prev, [k]: v }));
+    };
 
     const SortHeader = ({ label, k, w }: { label: string; k: typeof sortKey; w?: string }) => (
         <th className={`text-left py-3 px-3 cursor-pointer select-none text-[11px] font-bold ${w || ''}`} style={{ color: sortKey === k ? C.accent : C.muted }} onClick={() => toggleSort(k)}>
@@ -133,10 +161,23 @@ export default function SalesCallPage() {
                             <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 min-w-[200px]">최근 메모</th>
                             <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[160px]">바로가기</th>
                         </tr>
+                        <tr className="border-b border-slate-200 bg-slate-50">
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.name} onChange={e => handleColFilterChange('name', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.status} onChange={e => handleColFilterChange('status', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.risk} onChange={e => handleColFilterChange('risk', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.contactName} onChange={e => handleColFilterChange('contactName', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.salesRep} onChange={e => handleColFilterChange('salesRep', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.phone} onChange={e => handleColFilterChange('phone', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"></th>
+                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.memo} onChange={e => handleColFilterChange('memo', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
+                            <th className="py-1.5 px-2"></th>
+                        </tr>
                     </thead>
                     <tbody>
-                        {filtered.length === 0 && <tr><td colSpan={10} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
-                        {filtered.map((c, i) => (
+                        {finalFiltered.length === 0 && <tr><td colSpan={10} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
+                        {finalFiltered.map((c, i) => (
                             <CompanyTableRow key={c.id} c={c} index={i} selectedId={selectedId} activeCallId={activeCallId}
                                 lockInfo={getLockInfo(c.id)} myUserId={user?.id}
                                 kakaoStatuses={kakaoStatuses} callResult={callResult as any} timer={timer}
