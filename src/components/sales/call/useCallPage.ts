@@ -31,7 +31,7 @@ export interface UseCallPageReturn {
     activeCallId: string | null;
     statusFilter: CaseStatus | 'all' | 'my_calls_today';
     setStatusFilter: (v: CaseStatus | 'all' | 'my_calls_today') => void;
-    sortKey: 'risk' | 'name' | 'status';
+    sortKey: 'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType';
     sortAsc: boolean;
     showNews: boolean;
     setShowNews: (v: boolean) => void;
@@ -75,7 +75,7 @@ export interface UseCallPageReturn {
     endCall: () => Promise<void>;
     handleCallResult: (r: 'connected' | 'no_answer' | 'callback') => void;
     confirmCallback: () => void;
-    toggleSort: (k: 'risk' | 'name' | 'status') => void;
+    toggleSort: (k: 'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType') => void;
     refresh: () => void;
 }
 
@@ -90,7 +90,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
     const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | ''>('');
     const [activeCallId, setActiveCallId] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all' | 'my_calls_today'>('all');
-    const [sortKey, setSortKey] = useState<'risk' | 'name' | 'status'>('risk');
+    const [sortKey, setSortKey] = useState<'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType'>('risk');
     const [sortAsc, setSortAsc] = useState(false);
     const [showNews, setShowNews] = useState(false);
     const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
@@ -206,7 +206,18 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         let d = 0;
         if (sortKey === 'risk') d = (b.riskScore || 0) - (a.riskScore || 0);
         else if (sortKey === 'name') d = a.name.localeCompare(b.name);
-        else d = CALLABLE.indexOf(a.status) - CALLABLE.indexOf(b.status);
+        else if (sortKey === 'franchiseType') d = (a.franchiseType?.trim() || '').localeCompare(b.franchiseType?.trim() || '');
+        else if (sortKey === 'status') d = CALLABLE.indexOf(a.status) - CALLABLE.indexOf(b.status);
+        else if (sortKey === 'contactName') d = (a.contactName || '').localeCompare(b.contactName || '');
+        else if (sortKey === 'salesRep') d = (a.lastCalledBy || '').localeCompare(b.lastCalledBy || '');
+        else if (sortKey === 'phone') d = ((a.contactPhone || a.phone || '')).localeCompare(b.contactPhone || b.phone || '');
+        else if (sortKey === 'conversion') d = ConversionPredictionService.predict(b).score - ConversionPredictionService.predict(a).score;
+        else if (sortKey === 'issue') d = (b.issues?.length || 0) - (a.issues?.length || 0);
+        else if (sortKey === 'memo') {
+            const tA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+            const tB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+            d = tB - tA;
+        }
         return sortAsc ? -d : d;
     });
 

@@ -128,21 +128,26 @@ export default function CompanyTableRow({
           }}
           onMouseEnter={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.rowHover; }}
           onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.surface; }}>
-          <td className="py-2.5 px-3 text-[10px] font-mono" style={{color:C.faint}}>{index + 1}</td>
+          <td className="py-2.5 px-3 text-[12px] font-mono" style={{color:C.faint}}>{index + 1}</td>
           <td className="py-2.5 px-3">
               <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[12px] font-bold" style={{color:C.heading}}>{c.name}</span>
-                  {isLockedByMe && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold" style={{background:'#d1fae5',color:'#065f46',border:'1px solid #a7f3d0'}}>📞 내가 통화중</span>}
-                  {isLockedByOther && lockInfo && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold" style={{background:'#fee2e2',color:'#991b1b',border:'1px solid #fecaca'}}>🔴 {lockInfo.userName} 통화중 ({remainingMin}분 남음)</span>}
+                  <span className="text-[14px] font-bold" style={{color:C.heading}}>{c.name}</span>
+                  {isLockedByMe && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold" style={{background:'#d1fae5',color:'#065f46',border:'1px solid #a7f3d0'}}>📞 내가 통화중</span>}
+                  {isLockedByOther && lockInfo && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold" style={{background:'#fee2e2',color:'#991b1b',border:'1px solid #fecaca'}}>🔴 {lockInfo.userName} 통화중 ({remainingMin}분 남음)</span>}
                   {isSel ? <ChevronUp className="w-3 h-3 flex-shrink-0" style={{color:C.accent}}/> : <ChevronDown className="w-3 h-3 flex-shrink-0" style={{color:C.faint}}/>}
               </div>
+          </td>
+          <td className="py-2.5 px-3">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${c.franchiseType?.trim() === '프랜차이즈' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                  {c.franchiseType?.trim() || '그외'}
+              </span>
           </td>
           <td className="py-2.5 px-3">
                   <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1 flex-wrap">
                           <Badge status={c.status}/>
                           {c.lastCallResult && c.lastCallAt && new Date(c.lastCallAt).toDateString() === new Date().toDateString() && (
-                              <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" 
+                              <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" 
                                     style={{
                                         background: c.lastCallResult === 'connected' ? '#ecfdf5' : c.lastCallResult === 'no_answer' ? '#fef2f2' : '#fffbeb',
                                         color: c.lastCallResult === 'connected' ? '#059669' : c.lastCallResult === 'no_answer' ? '#dc2626' : '#d97706',
@@ -151,49 +156,49 @@ export default function CompanyTableRow({
                                   {c.lastCallResult === 'connected' ? '✅연결됨' : c.lastCallResult === 'no_answer' ? '📵부재중' : '🔄콜백'}
                               </span>
                           )}
-                          {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="카카오 알림톡 발송 완료">💬</span>}
+                          {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="카카오 알림톡 발송 완료">💬</span>}
                           {(() => {
                               const sig = AutoSignatureService.getStatus(c.id);
                           if (!sig) return null;
-                          return sig.status === 'watching' ? <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold animate-pulse cursor-default" style={{background:'#fef3c7',color:'#92400e',border:'1px solid #fde68a'}} title="계약서 발송됨 → 고객 전자서명 대기 중 (자동 감지)">✍️대기</span> : <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#d1fae5',color:'#065f46',border:'1px solid #a7f3d0'}} title="고객이 전자서명 완료! → 구독 자동 전환 진행">✅서명</span>;
+                          return sig.status === 'watching' ? <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold animate-pulse cursor-default" style={{background:'#fef3c7',color:'#92400e',border:'1px solid #fde68a'}} title="계약서 발송됨 → 고객 전자서명 대기 중 (자동 감지)">✍️대기</span> : <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" style={{background:'#d1fae5',color:'#065f46',border:'1px solid #a7f3d0'}} title="고객이 전자서명 완료! → 구독 자동 전환 진행">✅서명</span>;
                       })()}
                       {(() => {
                           const et = EmailTrackingService.getAll().find(e=>e.companyId===c.id);
                           if (!et) return null;
-                          return et.openedAt ? <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#ede9fe',color:'#5b21b6',border:'1px solid #c4b5fd'}} title="고객이 이메일을 열어봤습니다! 지금 전화하면 효과적">👁️열람</span> : <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#dbeafe',color:'#1d4ed8',border:'1px solid #bfdbfe'}} title="이메일 열람 여부 자동 추적 중 (SendGrid 연동)">📧추적중</span>;
+                          return et.openedAt ? <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" style={{background:'#ede9fe',color:'#5b21b6',border:'1px solid #c4b5fd'}} title="고객이 이메일을 열어봤습니다! 지금 전화하면 효과적">👁️열람</span> : <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" style={{background:'#dbeafe',color:'#1d4ed8',border:'1px solid #bfdbfe'}} title="이메일 열람 여부 자동 추적 중 (SendGrid 연동)">📧추적중</span>;
                       })()}
                   </div>
                   {c.emailSentAt && (() => {
                       const step = FollowUpService.getCurrentStep(c);
                       const next = FollowUpService.getNextStep(c);
                       if (step === 0 && !next) return null;
-                      return <div className="flex items-center gap-1 cursor-default" title={`자동 팔로업 이메일: ${step}/3단계 완료${next ? ` · 다음 D+${next.dayOffset} 자동 발송 예정` : ' · 전체 완료'}`}>{[1, 2, 3].map(s=><div key={s} className="w-3 h-1.5 rounded-full" style={{background:s<=step?'#4f46e5':'#e2e8f0'}}/>)}<span className="text-[8px] font-bold" style={{color:step>=3?'#059669':'#4f46e5'}}>{step>=3?'완료':`D+${next?.dayOffset||'?'}`}</span></div>;
+                      return <div className="flex items-center gap-1 cursor-default" title={`자동 팔로업 이메일: ${step}/3단계 완료${next ? ` · 다음 D+${next.dayOffset} 자동 발송 예정` : ' · 전체 완료'}`}>{[1, 2, 3].map(s=><div key={s} className="w-3 h-1.5 rounded-full" style={{background:s<=step?'#4f46e5':'#e2e8f0'}}/>)}<span className="text-[10px] font-bold" style={{color:step>=3?'#059669':'#4f46e5'}}>{step>=3?'완료':`D+${next?.dayOffset||'?'}`}</span></div>;
                   })()}
               </div>
           </td>
-          <td className="py-2.5 px-3">{c.riskScore > 0 && <div className="flex items-center gap-1.5"><div className="w-14 h-2 rounded-full overflow-hidden" style={{background:'#e5e7eb'}}><div className="h-full rounded-full" style={{width:`${c.riskScore}%`,background:rc.bar}}/></div><span className="text-[10px] font-bold" style={{color:rc.text}}>{c.riskScore}</span></div>}</td>
-          <td className="py-2.5 px-3"><span className="text-[11px]" style={{color:c.contactName?C.body:C.amber}}>{c.contactName||'미등록'}</span></td>
+          <td className="py-2.5 px-3">{c.riskScore > 0 && <div className="flex items-center gap-1.5"><div className="w-14 h-2 rounded-full overflow-hidden" style={{background:'#e5e7eb'}}><div className="h-full rounded-full" style={{width:`${c.riskScore}%`,background:rc.bar}}/></div><span className="text-[12px] font-bold" style={{color:rc.text}}>{c.riskScore}</span></div>}</td>
+          <td className="py-2.5 px-3"><span className="text-[13px]" style={{color:c.contactName?C.body:C.amber}}>{c.contactName||'미등록'}</span></td>
           <td className="py-2.5 px-3">
               {c.lastCalledBy ? (
-                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded-md">{c.lastCalledBy}</span>
+                  <span className="text-[13px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded-md">{c.lastCalledBy}</span>
               ) : (
-                  <span className="text-[11px]" style={{color:C.faint}}>—</span>
+                  <span className="text-[13px]" style={{color:C.faint}}>—</span>
               )}
           </td>
-          <td className="py-2.5 px-3 whitespace-nowrap" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[11px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub, opacity: isLockedByOther ? 0.5 : 1}} title={isLockedByOther ? "다른 담당자가 통화중입니다" : "클릭하여 전화걸기"} onClick={(e) => { if(isLockedByOther && lockInfo) { e.preventDefault(); alert(`현재 ${lockInfo.userName}님이 통화중입니다 (${remainingMin}분 남음)`); } }}><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
+          <td className="py-2.5 px-3 whitespace-nowrap" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[13px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub, opacity: isLockedByOther ? 0.5 : 1}} title={isLockedByOther ? "다른 담당자가 통화중입니다" : "클릭하여 전화걸기"} onClick={(e) => { if(isLockedByOther && lockInfo) { e.preventDefault(); alert(`현재 ${lockInfo.userName}님이 통화중입니다 (${remainingMin}분 남음)`); } }}><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
           <td className="py-2.5 px-3">{(() => {
               const p = ConversionPredictionService.predict(c);
               const colors = { HOT: { bg: '#fef2f2', c: '#dc2626', icon: '🔥' }, WARM: { bg: '#fffbeb', c: '#d97706', icon: '🌡️' }, COLD: { bg: '#f0f9ff', c: '#0284c7', icon: '❄️' } };
               const cl = colors[p.level];
-              return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{background:cl.bg,color:cl.c}} title={p.factors.join(' · ')}>{cl.icon}{p.score}%</span>;
+              return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-bold" style={{background:cl.bg,color:cl.c}} title={p.factors.join(' · ')}>{cl.icon}{p.score}%</span>;
           })()}</td>
-          <td className="py-2.5 px-3">{c.issues && c.issues.length > 0 ? <span className="text-[10px] font-bold" style={{color:'#dc2626'}}>{c.issues.filter(ii=>ii.level==='HIGH').length}H/{c.issues.length}건</span> : <span className="text-[10px]" style={{color:C.faint}}>—</span>}</td>
+          <td className="py-2.5 px-3">{c.issues && c.issues.length > 0 ? <span className="text-[12px] font-bold" style={{color:'#dc2626'}}>{c.issues.filter(ii=>ii.level==='HIGH').length}H/{c.issues.length}건</span> : <span className="text-[12px]" style={{color:C.faint}}>—</span>}</td>
           <td className="py-2.5 px-3" onClick={e => e.stopPropagation()}>
               {isEditingMemo ? (
                   <div className="flex flex-col gap-1">
                       <textarea 
                           autoFocus
-                          className="w-full text-[10px] p-1.5 border rounded-md resize-none shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                          className="w-full text-[12px] p-1.5 border rounded-md resize-none shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
                           style={{ borderColor: C.borderLight, color: C.body }}
                           rows={2}
                           value={memoValue}
@@ -211,20 +216,20 @@ export default function CompanyTableRow({
                           }}
                       />
                       <div className="flex gap-1">
-                          <button onClick={handleMemoSave} className="text-[9px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold hover:bg-indigo-100 transition-colors">저장</button>
-                          <button onClick={() => { setIsEditingMemo(false); setMemoValue(''); }} className="text-[9px] px-2 py-0.5 rounded bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors">취소</button>
+                          <button onClick={handleMemoSave} className="text-[11px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold hover:bg-indigo-100 transition-colors">저장</button>
+                          <button onClick={() => { setIsEditingMemo(false); setMemoValue(''); }} className="text-[11px] px-2 py-0.5 rounded bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors">취소</button>
                       </div>
                   </div>
               ) : (
                   <div 
                       onClick={() => setIsEditingMemo(true)}
-                      className="text-[10px] truncate cursor-pointer hover:bg-slate-50 p-1.5 rounded-md transition-colors border border-transparent hover:border-slate-200"
+                      className="text-[12px] truncate cursor-pointer hover:bg-slate-50 p-1.5 rounded-md transition-colors border border-transparent hover:border-slate-200"
                       style={{ color: latestMemo ? C.body : C.faint }}
                       title={latestMemo ? `최근 메모 (${latestMemo.date})\n---\n${latestMemo.content}${c.memos?.length > 1 ? `\n\n📝 총 ${c.memos.length}개 메모` : ''}` : '클릭하여 메모 입력'}
                   >
                       {latestMemo ? (
                           <div className="flex flex-col gap-0.5">
-                              <span className="text-[8px] font-bold" style={{ color: C.faint }}>{latestMemo.date}</span>
+                              <span className="text-[10px] font-bold" style={{ color: C.faint }}>{latestMemo.date}</span>
                               <span className="truncate">{latestMemo.content}</span>
                           </div>
                       ) : <span className="italic">메모 없음</span>}

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers } from 'lucide-react';
+import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers, ChevronUp, ChevronDown } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
 import { useAuth } from '@/lib/AuthContext';
 import { useCallLocks } from '@/hooks/useCallLocks';
@@ -27,37 +27,23 @@ export default function SalesCallPage() {
         selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh
     } = useCallPage(user?.name || '');
 
-    const [colFilters, setColFilters] = useState({
-        name: '', status: '', risk: '', contactName: '', salesRep: '', phone: '', memo: ''
-    });
-
-    const finalFiltered = filtered.filter(c => {
-        if (colFilters.name && !c.name.toLowerCase().includes(colFilters.name.toLowerCase())) return false;
-        const statusMap: Record<string, string> = { 
-            'analyzed': '분석완료', 'lawyer_confirmed': '변호사컨펌', 'emailed': '이메일발송', 
-            'client_replied': '답장수신', 'client_viewed': '리포트열람', 
-            'contract_sent': '계약서발송', 'contract_signed': '서명완료' 
-        };
-        const cStatusKo = statusMap[c.status] || c.status;
-        if (colFilters.status && !cStatusKo.includes(colFilters.status) && !c.status.toLowerCase().includes(colFilters.status.toLowerCase())) return false;
-        if (colFilters.risk && c.riskScore.toString() !== colFilters.risk && !c.riskScore.toString().includes(colFilters.risk)) return false;
-        if (colFilters.contactName && (!c.contactName || !c.contactName.toLowerCase().includes(colFilters.contactName.toLowerCase()))) return false;
-        if (colFilters.salesRep && (!c.lastCalledBy || !c.lastCalledBy.toLowerCase().includes(colFilters.salesRep.toLowerCase()))) return false;
-        if (colFilters.phone && !((c.contactPhone || '') + (c.phone || '')).includes(colFilters.phone)) return false;
-        if (colFilters.memo) {
-            const memoStr = [c.callNote, ...(c.memos || []).map(m => m.content)].join(' ').toLowerCase();
-            if (!memoStr.includes(colFilters.memo.toLowerCase())) return false;
-        }
-        return true;
-    });
-
-    const handleColFilterChange = (k: keyof typeof colFilters, v: string) => {
-        setColFilters(prev => ({ ...prev, [k]: v }));
-    };
-
-    const SortHeader = ({ label, k, w }: { label: string; k: typeof sortKey; w?: string }) => (
-        <th className={`text-left py-3 px-3 cursor-pointer select-none text-[11px] font-bold ${w || ''}`} style={{ color: sortKey === k ? C.accent : C.muted }} onClick={() => toggleSort(k)}>
-            <span className="flex items-center gap-1">{label}{sortKey === k && <ArrowUpDown className="w-3 h-3" />}</span>
+    const SortHeader = ({ label, k, w }: { label: string; k?: typeof sortKey; w?: string }) => (
+        <th 
+            className={`text-left py-3 px-3 align-middle transition-colors ${k ? 'cursor-pointer hover:bg-slate-50' : ''} ${w || ''}`}
+            onClick={() => k && toggleSort(k)}
+        >
+            <div className={`flex items-center gap-1.5 select-none text-[14px] font-bold ${k && sortKey === k ? 'text-indigo-700' : 'text-slate-600'}`}>
+                {label}
+                {k && (
+                    <span className="flex flex-col">
+                        {sortKey === k ? (
+                            sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
+                        ) : (
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-300" />
+                        )}
+                    </span>
+                )}
+            </div>
         </th>
     );
 
@@ -83,7 +69,7 @@ export default function SalesCallPage() {
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-600"><Phone className="w-4 h-4 text-white" /></div>
                             <div>
                                 <h1 className="text-lg font-black text-slate-900">전화 영업 센터</h1>
-                                <p className="text-[11px] text-slate-500">{filtered.length}개 기업</p>
+                                <p className="text-[13px] text-slate-500">{filtered.length}개 기업</p>
                             </div>
                         </div>
                         <div className="flex gap-2 items-center overflow-x-auto pb-1">
@@ -108,28 +94,28 @@ export default function SalesCallPage() {
                               { l: '전환율', v: companies.length > 0 ? `${Math.round(calledCount / companies.length * 100)}%` : '0%', c: '#0891b2', b: '#ecfeff' }].map(k => (
                                 <div key={k.l} className="rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: k.b }}>
                                     <span className="text-base font-black" style={{ color: k.c }}>{k.v}</span>
-                                    {k.sub && <span className="text-[10px] font-bold" style={{ color: k.c, opacity: 0.8 }}>{k.sub}</span>}
-                                    <span className="text-[10px] font-medium text-slate-600">{k.l}</span>
+                                    {k.sub && <span className="text-[12px] font-bold" style={{ color: k.c, opacity: 0.8 }}>{k.sub}</span>}
+                                    <span className="text-[12px] font-medium text-slate-600">{k.l}</span>
                                 </div>
                             ))}
                         </div>
                         <div className="flex gap-2 items-center">
                             {autoSettings && <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 border border-green-200 cursor-default">
-                                <span className="text-[9px] font-bold text-green-700">🤖</span>
-                                <span className="text-[9px] px-1 py-0.5 rounded font-bold bg-blue-100 text-blue-700">자동배정</span>
-                                {autoSettings.autoSendEmail ? <span className="text-[9px] px-1 py-0.5 rounded font-bold bg-amber-100 text-amber-800">자동이메일</span> : <span className="text-[9px] font-bold text-gray-500">수동이메일</span>}
+                                <span className="text-[11px] font-bold text-green-700">🤖</span>
+                                <span className="text-[11px] px-1 py-0.5 rounded font-bold bg-blue-100 text-blue-700">자동배정</span>
+                                {autoSettings.autoSendEmail ? <span className="text-[11px] px-1 py-0.5 rounded font-bold bg-amber-100 text-amber-800">자동이메일</span> : <span className="text-[11px] font-bold text-gray-500">수동이메일</span>}
                             </div>}
-                            {riskAlerts.length > 0 && <button onClick={() => selectCompany(riskAlerts[0].companyId)} className="flex gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold animate-pulse bg-red-50 text-red-600 border border-red-200">🚨 고위험 {riskAlerts.length}건</button>}
-                            {callQueue.length > 0 && <div className="flex gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200">📋 콜백 {callQueue.length}건</div>}
-                            <button onClick={() => setShowNews(!showNews)} className={`flex gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${showNews ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>📰 뉴스 {newsItems.length}건</button>
+                            {riskAlerts.length > 0 && <button onClick={() => selectCompany(riskAlerts[0].companyId)} className="flex gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-bold animate-pulse bg-red-50 text-red-600 border border-red-200">🚨 고위험 {riskAlerts.length}건</button>}
+                            {callQueue.length > 0 && <div className="flex gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200">📋 콜백 {callQueue.length}건</div>}
+                            <button onClick={() => setShowNews(!showNews)} className={`flex gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-bold border ${showNews ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>📰 뉴스 {newsItems.length}건</button>
                         </div>
                     </div>
 
                     <AnimatePresence>{showNews && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-2">
                         <div className="grid grid-cols-3 gap-2">{newsItems.map(n => (
                             <div key={n.id} className="rounded-lg p-2.5 bg-slate-50 border border-slate-200">
-                                <div className="flex gap-1.5 mb-1"><span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${n.urgency === 'high' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-800'}`}>{n.urgency === 'high' ? '🔴' : '🟡'}</span><span className="text-[9px] text-slate-400">{n.source}</span></div>
-                                <p className="text-[10px] font-bold text-slate-900 leading-tight">{n.title}</p>
+                                <div className="flex gap-1.5 mb-1"><span className={`text-[11px] px-1.5 py-0.5 rounded font-bold ${n.urgency === 'high' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-800'}`}>{n.urgency === 'high' ? '🔴' : '🟡'}</span><span className="text-[11px] text-slate-400">{n.source}</span></div>
+                                <p className="text-[12px] font-bold text-slate-900 leading-tight">{n.title}</p>
                             </div>
                         ))}</div>
                     </motion.div>}</AnimatePresence>
@@ -139,45 +125,33 @@ export default function SalesCallPage() {
                             const cnt = f.key === 'my_calls_today' ? todayStats.total : (statusCounts[f.key] || 0); 
                             const a = statusFilter === f.key; 
                             if (f.key !== 'all' && f.key !== 'my_calls_today' && cnt === 0) return null;
-                            return <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`px-2 py-1 rounded-md text-[10px] font-bold border ${a ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-transparent text-slate-500 border-transparent'}`}>{f.icon} {f.label} {cnt > 0 && <span className="ml-0.5 opacity-60">{cnt}</span>}</button>;
+                            return <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`px-2 py-1 rounded-md text-[12px] font-bold border ${a ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-transparent text-slate-500 border-transparent'}`}>{f.icon} {f.label} {cnt > 0 && <span className="ml-0.5 opacity-60">{cnt}</span>}</button>;
                         })}
                     </div>
                 </div>
             </div>
 
             <div className="flex-1 overflow-auto">
-                <table className="w-full min-w-[1000px]">
-                    <thead className="sticky top-0 z-10 bg-slate-50">
-                        <tr className="border-b-2 border-slate-200">
-                            <th className="w-8 py-3 px-3" />
-                            <SortHeader label="기업명" k="name" w="w-[140px] max-w-[140px]" />
-                            <SortHeader label="상태" k="status" w="w-[90px]" />
-                            <SortHeader label="위험도" k="risk" w="w-[80px]" />
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[70px]">업체담당</th>
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[70px]">영업자</th>
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[120px]">전화번호</th>
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[60px]">전환율</th>
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[60px]">이슈</th>
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 min-w-[200px]">최근 메모</th>
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[160px]">바로가기</th>
-                        </tr>
-                        <tr className="border-b border-slate-200 bg-slate-50">
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.name} onChange={e => handleColFilterChange('name', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.status} onChange={e => handleColFilterChange('status', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.risk} onChange={e => handleColFilterChange('risk', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.contactName} onChange={e => handleColFilterChange('contactName', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.salesRep} onChange={e => handleColFilterChange('salesRep', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.phone} onChange={e => handleColFilterChange('phone', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"></th>
-                            <th className="py-1.5 px-2 border-r border-slate-200/50"><input value={colFilters.memo} onChange={e => handleColFilterChange('memo', e.target.value)} className="w-full px-1.5 py-1 text-[10px] border border-slate-200 rounded outline-none focus:border-indigo-400 bg-white" placeholder="필터..." /></th>
-                            <th className="py-1.5 px-2"></th>
+                <table className="w-full min-w-[1250px]">
+                    <thead className="sticky top-0 z-10 bg-white shadow-sm ring-1 ring-slate-200">
+                        <tr>
+                            <th className="w-8 py-3 px-3 align-middle bg-slate-50" />
+                            <SortHeader label="기업명" k="name" w="min-w-[110px] max-w-[130px] bg-slate-50 outline outline-1 outline-slate-200" />
+                            <SortHeader label="구분" k="franchiseType" w="min-w-[80px] max-w-[90px] bg-slate-50 border-x border-slate-200/60" />
+                            <SortHeader label="상태" k="status" w="min-w-[100px] max-w-[120px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="위험도" k="risk" w="min-w-[80px] max-w-[100px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="업체담당" k="contactName" w="min-w-[55px] max-w-[65px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="영업자" k="salesRep" w="min-w-[80px] max-w-[90px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="전화번호" k="phone" w="min-w-[130px] max-w-[150px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="전환율" k="conversion" w="min-w-[80px] max-w-[90px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="이슈" k="issue" w="min-w-[70px] max-w-[80px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="최근 메모" k="memo" w="w-[200px] min-w-[200px] bg-slate-50 border-r border-slate-200/60" />
+                            <th className="text-left text-[14px] font-bold py-3 px-3 align-middle text-slate-600 min-w-[160px] max-w-[160px] bg-slate-50 outline outline-1 outline-slate-200">바로가기</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {finalFiltered.length === 0 && <tr><td colSpan={10} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
-                        {finalFiltered.map((c, i) => (
+                        {filtered.length === 0 && <tr><td colSpan={12} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
+                        {filtered.map((c, i) => (
                             <CompanyTableRow key={c.id} c={c} index={i} selectedId={selectedId} activeCallId={activeCallId}
                                 lockInfo={getLockInfo(c.id)} myUserId={user?.id}
                                 kakaoStatuses={kakaoStatuses} callResult={callResult as any} timer={timer}

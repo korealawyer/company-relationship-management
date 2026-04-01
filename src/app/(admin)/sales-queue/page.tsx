@@ -3,22 +3,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
-import { claimCompany, releaseCompany, getLockStatus, getRemainingMinutes } from '@/lib/callQueueService';
-import { useTimer } from '@/lib/callPageUtils';
+import { claimCompany, releaseCompany, getRemainingMinutes } from '@/lib/callQueueService';
+import { useTimer, CALLABLE } from '@/lib/callPageUtils';
 import type { Company, Issue } from '@/lib/types';
 import type { CallLock } from '@/lib/types';
+import { useCallLocks } from '@/hooks/useCallLocks';
 import styles from './sales-queue.module.css';
 
 const GOAL_CALLS = 30;
 
 export default function SalesQueuePage() {
     const { user } = useAuth();
+    const { locks } = useCallLocks(); // Get real-time locks
     const [companies, setCompanies] = useState<Company[]>([]);
-    const [locks, setLocks] = useState<CallLock[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCall, setActiveCall] = useState<Company | null>(null);
     const [queueOpen, setQueueOpen] = useState(true);
     const [memoText, setMemoText] = useState("");
+    const [toastMsg, setToastMsg] = useState(""); // Toast Message
+    
+    // Wrap-up state
+    const [callState, setCallState] = useState<'calling' | 'wrapup'>('calling');
+    const [selectedResult, setSelectedResult] = useState<'연결됨'|'부재중'|'콜백' | null>(null);
     
     // Stats for today
     const [stats, setStats] = useState({ connected: 0, missed: 0, callback: 0 });
@@ -27,10 +33,8 @@ export default function SalesQueuePage() {
 
     const loadData = useCallback(async () => {
         try {
-            const [comps, lks] = await Promise.all([
-                supabaseCompanyStore.getAll(),
-                getLockStatus().catch(() => [])
-            ]);
+            const rawComps = await supabaseCompanyStore.getAll();
+            const comps = rawComps.filter(c => CALLABLE.includes(c.status));
             
             // Calc stats for today
             const todayStr = new Date().toISOString().split('T')[0];
@@ -44,22 +48,26 @@ export default function SalesQueuePage() {
             });
             setStats({ connected: c, missed: m, callback: cb });
             
-            // Sort by riskScore DESC
-            const sorted = comps.sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0));
+            // Sort by not called today first, then riskScore DESC
+            const uncalled = comps.filter(comp => {
+                const calledToday = comp.lastCallAt && comp.lastCallAt.startsWith(todayStr);
+                return !calledToday;
+            });
+            
+            const sorted = uncalled.sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0));
             setCompanies(sorted);
-            setLocks(lks);
         } catch (e) {
             console.error('Failed to load queue data', e);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user?.name]);
 
     useEffect(() => {
         loadData();
-        const int = setInterval(loadData, 30000); // 30s auto refresh
+        const int = setInterval(loadData, 30000); // 30s auto refresh back to normal
         return () => clearInterval(int);
-    }, [loadData, user?.name]);
+    }, [loadData]);
 
     const handleNextCall = async (retryCount = 0) => {
         if (!user) {
@@ -71,23 +79,13 @@ export default function SalesQueuePage() {
             return;
         }
         
-        let currentLocks: CallLock[] = [];
-        try {
-            currentLocks = await getLockStatus();
-            setLocks(currentLocks);
-        } catch(e) {}
-        
-        const lockedIds = new Set(currentLocks.map(l => l.companyId));
-        
-        // Find best candidate: 
-        // 1. Not completed today (no lastCallResult from today)
-        // 2. Not locked by someone else
+        const lockedIds = new Set(locks.map(l => l.companyId));
         const todayStr = new Date().toISOString().split('T')[0];
         
+        // 1. Find best candidate locally
         const candidate = companies.find(c => {
             const calledToday = c.lastCallAt && c.lastCallAt.startsWith(todayStr);
-            const isCompleted = calledToday && c.lastCallResult && c.lastCallResult !== 'no_answer';
-            return !isCompleted && !lockedIds.has(c.id);
+            return !calledToday && !lockedIds.has(c.id);
         });
         
         if (!candidate) {
@@ -95,10 +93,25 @@ export default function SalesQueuePage() {
             return;
         }
 
+        // 2. Verify candidate with server to prevent double-calling freshly completed calls
+        try {
+            const freshCandidate = await supabaseCompanyStore.getById(candidate.id);
+            if (freshCandidate && freshCandidate.lastCallAt && freshCandidate.lastCallAt.startsWith(todayStr)) {
+                // Someone else just finished calling this company!
+                setCompanies(prev => prev.filter(c => c.id !== freshCandidate.id));
+                return handleNextCall(retryCount + 1);
+            }
+        } catch (e) {
+            console.error('Candidate verification failed', e);
+        }
+
         try {
             const res = await claimCompany(candidate.id, user.id, user.name || '영업팀');
             if (res.success) {
                 setActiveCall(candidate);
+                setCallState('calling');
+                setSelectedResult(null);
+                setMemoText("");
                 reset(); // Reset timer
                 start(); // Start timer
             } else {
@@ -111,9 +124,14 @@ export default function SalesQueuePage() {
         }
     };
     
-    const handleResult = async (result: '연결됨'|'부재중'|'콜백') => {
-        if (!activeCall || !user) return;
+    const handleResult = (result: '연결됨'|'부재중'|'콜백') => {
         pause(); // Stop timer
+        setSelectedResult(result);
+        setCallState('wrapup');
+    };
+
+    const finishCall = async () => {
+        if (!activeCall || !user || !selectedResult) return;
         
         try {
             // Un-claim
@@ -121,8 +139,8 @@ export default function SalesQueuePage() {
             
             // Save call result mapping
             let callRes: 'connected'|'no_answer'|'callback' = 'connected';
-            if (result === '부재중') callRes = 'no_answer';
-            else if (result === '콜백') callRes = 'callback';
+            if (selectedResult === '부재중') callRes = 'no_answer';
+            else if (selectedResult === '콜백') callRes = 'callback';
             
             const payload: Partial<Company> = {
                 lastCallResult: callRes,
@@ -130,6 +148,13 @@ export default function SalesQueuePage() {
                 lastCalledBy: user.name,
                 callAttempts: (activeCall.callAttempts || 0) + 1,
             };
+
+            // 자동 콜백 24시간 처리
+            if (callRes === 'no_answer' || callRes === 'callback') {
+                const tomorrow = new Date();
+                tomorrow.setHours(tomorrow.getHours() + 24);
+                payload.callbackScheduledAt = tomorrow.toISOString();
+            }
 
             // Also append a memo if needed, optional
             if (memoText.trim()) {
@@ -147,7 +172,17 @@ export default function SalesQueuePage() {
                     createdAt: new Date().toISOString(),
                     author: user.name,
                     type: 'call' as const,
-                    content: `[결과: ${result}] ${memoText.trim()}`
+                    content: `[결과: ${selectedResult}] ${memoText.trim()}`
+                };
+                payload.timeline = [newTimeEvent, ...(activeCall.timeline || [])];
+            } else {
+                // 메모가 없어도 타임라인 로그는 남김
+                const newTimeEvent = {
+                    id: Math.random().toString(36).substring(7),
+                    createdAt: new Date().toISOString(),
+                    author: user.name,
+                    type: 'call' as const,
+                    content: `[결과: ${selectedResult}] 통화 완료`
                 };
                 payload.timeline = [newTimeEvent, ...(activeCall.timeline || [])];
             }
@@ -155,14 +190,16 @@ export default function SalesQueuePage() {
             await supabaseCompanyStore.update(activeCall.id, payload);
             
             setActiveCall(null);
+            setCallState('calling');
+            setSelectedResult(null);
             setMemoText("");
             reset();
             
+            setToastMsg('결과가 저장되었습니다.');
+            setTimeout(() => setToastMsg(''), 3000);
+            
             // Auto reload to update queue
             await loadData();
-            
-            // Optionally auto start next call after brief delay or manual trigger
-            // alert('저장되었습니다.');
         } catch (e) {
             console.error(e);
             alert('결과 저장 중 오류가 발생했습니다.');
@@ -194,6 +231,7 @@ export default function SalesQueuePage() {
 
     return (
         <div className={styles.container}>
+            {toastMsg && <div className={styles.toastMsg}>{toastMsg}</div>}
             {/* Top Dashboard */}
             <div className={styles.headerCard}>
                 <h2 className={styles.greeting}>안녕하세요, {user?.name || '영업담당자'}님 👋</h2>
@@ -269,15 +307,32 @@ export default function SalesQueuePage() {
                     </div>
                     
                     <div className={styles.resultBtns}>
-                        <button className={`${styles.resultBtn} ${styles.connected}`} onClick={() => handleResult('연결됨')}>
-                            ✅ 연결됨 / 상담완료
-                        </button>
-                        <button className={`${styles.resultBtn} ${styles.missed}`} onClick={() => handleResult('부재중')}>
-                            📵 부재중 / 통화불가
-                        </button>
-                        <button className={`${styles.resultBtn} ${styles.callback}`} onClick={() => handleResult('콜백')}>
-                            🔄 콜백 필요 / 거절
-                        </button>
+                        {callState === 'calling' ? (
+                            <>
+                                <button className={`${styles.resultBtn} ${styles.connected}`} onClick={() => handleResult('연결됨')}>
+                                    ✅ 연결됨 / 상담완료
+                                </button>
+                                <button className={`${styles.resultBtn} ${styles.missed}`} onClick={() => handleResult('부재중')}>
+                                    📵 부재중 / 통화불가
+                                </button>
+                                <button className={`${styles.resultBtn} ${styles.callback}`} onClick={() => handleResult('콜백')}>
+                                    🔄 콜백 필요 / 거절
+                                </button>
+                            </>
+                        ) : (
+                            <div className={styles.wrapupSection}>
+                                <div className={styles.wrapupMsg}>
+                                    현재 [<strong>{selectedResult}</strong>] 상태로 정리 중입니다. 
+                                    {(selectedResult === '부재중' || selectedResult === '콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
+                                </div>
+                                <button className={styles.saveWrapupBtn} onClick={finishCall}>
+                                    💾 저장 및 다음 대기열
+                                </button>
+                                <button className={styles.cancelWrapupBtn} onClick={() => { setCallState('calling'); setSelectedResult(null); start(); }}>
+                                    ← 취소 (타이머 재시작)
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

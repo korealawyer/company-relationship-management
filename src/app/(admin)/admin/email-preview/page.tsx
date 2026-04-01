@@ -29,7 +29,7 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
   <!-- 헤더 -->
   <div style="background:#04091a;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center">
     <p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">⚖️ IBS 법률사무소</p>
-    <p style="color:#94a3b8;font-size:13px;margin:6px 0 0">프랜차이즈 전문 법률 서비스 · 45,000개사 자문 실적</p>
+    <p style="color:#94a3b8;font-size:13px;margin:6px 0 0">기업 비즈니스의 압도적 기준 · 45,000개사 자문 실적</p>
   </div>
 
   <!-- 리스크 요약 배너 -->
@@ -55,8 +55,8 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
     `}
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 16px">
-      저희 법률사무소에서는 프랜차이즈 기업의 개인정보보호 컴플라이언스 강화를 위해,
-      주요 기업의 개인정보처리방침에 대한 법률 검토를 실시하고 있습니다.
+      저희 법률사무소에서는 선도적인 기업들의 리스크 선제 대응과 컴플라이언스 강화를 위해,
+      주요 기업의 개인정보처리방침에 대한 심층 법률 검토를 지원하고 있습니다.
     </p>
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 20px">
@@ -65,10 +65,10 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
       아래와 같이 안내드립니다.
     </p>
 
-    ${customMsg ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:16px;margin-bottom:24px;border-radius:0 8px 8px 0">
-      <p style="color:#92400e;font-size:13px;font-weight:bold;margin:0 0 4px">💼 담당 변호사 의견</p>
-      <p style="color:#374151;font-size:13px;margin:0;line-height:1.7">${customMsg.replace(/\n/g, '<br/>')}</p>
-    </div>` : ''}
+    <!-- 종합 검토의견 -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:24px">
+      <p style="color:#374151;font-size:13px;margin:0;line-height:1.7">${vars.summaryOpinion.replace(/\n/g, '<br/>')}</p>
+    </div>
 
     <!-- 검토 결과 요약 -->
     <p style="color:#1e293b;font-size:13px;font-weight:bold;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0">📋 주요 검토 결과 요약</p>
@@ -86,6 +86,11 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
         <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b">보유기간 일부 누락</td><td style="padding:10px;text-align:center"><span style="background:#fffbeb;color:#d97706;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">주의</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b">개인정보보호법 제21조</td></tr>
       </tbody>
     </table>
+
+    <!-- 담당 변호사 의견 (제목 제거됨) -->
+    ${customMsg ? `<div style="background:#fef9ec;border-left:4px solid #c9a84c;padding:16px;margin-bottom:24px;border-radius:0 8px 8px 0">
+      <p style="color:#374151;font-size:13px;margin:0;line-height:1.7">${customMsg.replace(/\n/g, '<br/>')}</p>
+    </div>` : ''}
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 20px">
       상세 검토 결과를 별도로 준비해두었으니, 아래 버튼을 통해 확인해주시기 바랍니다.<br/>
@@ -110,13 +115,12 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
           <p style="color:#1e293b;font-size:15px;font-weight:900;margin:0 0 4px">${lawyerName} 변호사</p>
           <p style="color:#64748b;font-size:12px;margin:0 0 2px">IBS 법률사무소 · 개인정보보호 전문</p>
           <p style="color:#64748b;font-size:12px;margin:0 0 2px">대한변호사협회 등록 · 개인정보관리사(CPPG)</p>
-          <p style="color:#64748b;font-size:12px;margin:0">직통 02-1234-5678 | lawyer@ibs-law.co.kr</p>
+          <p style="color:#64748b;font-size:12px;margin:0">직통 02-598-8518 | info@ibslaw.co.kr</p>
         </div>
         ` : `
         <div>
           <p style="color:#1e293b;font-size:15px;font-weight:900;margin:0 0 4px">IBS 법률사무소 개인정보보호 팀</p>
-          <p style="color:#64748b;font-size:12px;margin:0 0 2px">프랜차이즈 전문 법률 서비스</p>
-          <p style="color:#64748b;font-size:12px;margin:0">02-1234-5678 | ibs@ibs-law.co.kr</p>
+          <p style="color:#64748b;font-size:12px;margin:0">02-598-8518 | info@ibslaw.co.kr</p>
         </div>
         `}
       </div>
@@ -132,8 +136,8 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
 
   <!-- 풋터 -->
   <div style="background:#04091a;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center">
-    <p style="color:#64748b;font-size:11px;margin:0 0 4px">IBS 법률사무소 | 서울특별시 강남구 테헤란로 123, 14층</p>
-    <p style="color:#475569;font-size:11px;margin:0">대표번호 02-1234-5678 | ibs@ibs-law.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
+    <p style="color:#64748b;font-size:11px;margin:0 0 4px">IBS 법률사무소 | 서울 서초구 서초대로 270</p>
+    <p style="color:#475569;font-size:11px;margin:0">대표번호 02-598-8518 | info@ibslaw.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
   </div>
 
   <!-- 트래킹 픽셀 (이메일 열람 추적) -->
@@ -161,19 +165,25 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
 
     const sub = useMemo(() => calcSubscription(lead?.storeCount || 0), [lead?.storeCount]);
 
-    const vars: Record<string, string> = useMemo(() => ({
-        company: lead?.companyName || lead?.name || companyParam || '(주)샘플회사',
-        contactName: lead?.contactName || '담당자',
-        lawyerName: lead?.lawyerName || lead?.assigned_lawyer_id || '',
-        leadId,
-        issueCount: String(lead?.issueCount || lead?.issues?.length || 0),
-        riskLevel: lead?.riskLevel || 'HIGH',
-        riskScore: String(lead?.riskScore || 0),
-        storeCount: String(lead?.storeCount || 0),
-        bizType: lead?.bizType || '',
-        monthlyFee: sub.monthly.toLocaleString(),
-        unsubscribeToken: typeof window !== 'undefined' ? btoa(`unsub_${leadId}`) : `unsub_${leadId}`,
-    }), [lead, leadId, sub.monthly]);
+    const vars: Record<string, string> = useMemo(() => {
+        const totalCount = lead?.issues?.length || lead?.issueCount || 5;
+        const highCount = lead?.issues?.filter((iss: any) => iss.level === 'HIGH' || iss.riskLevel === 'HIGH')?.length || 2;
+        
+        return {
+            company: lead?.companyName || lead?.name || companyParam || '(주)샘플회사',
+            contactName: lead?.contactName || '담당자',
+            lawyerName: lead?.lawyerName || lead?.assigned_lawyer_id || '',
+            leadId,
+            issueCount: String(totalCount),
+            riskLevel: lead?.riskLevel || 'HIGH',
+            riskScore: String(lead?.riskScore || 0),
+            storeCount: String(lead?.storeCount || 0),
+            bizType: lead?.bizType || '',
+            monthlyFee: sub.monthly.toLocaleString(),
+            unsubscribeToken: typeof window !== 'undefined' ? btoa(`unsub_${leadId}`) : `unsub_${leadId}`,
+            summaryOpinion: lead?.summary_opinion || lead?.summaryOpinion || `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${totalCount}건이 확인되었습니다. 특히 개인정보 수집 항목의 과다수집(제16조 위반), 제3자 제공 현황 미명시(제17조 위반) 등 고위험 사항 ${highCount}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 쿠팡 55억원, 인터파크 44억원 등 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`
+        };
+    }, [lead, leadId, companyParam, sub.monthly]);
 
     const [subject, setSubject] = useState(fillTemplate(BASE_SUBJECT, vars));
     const [isSubjectEdited, setIsSubjectEdited] = useState(false);

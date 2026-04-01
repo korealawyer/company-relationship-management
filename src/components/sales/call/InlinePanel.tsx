@@ -124,7 +124,7 @@ export default function InlinePanel({
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
         >
-            <td colSpan={11} className="p-0">
+            <td colSpan={12} className="p-0">
                 <div style={{
                     background: isOnCall ? '#f0fdf4' : '#f8fafc',
                     borderTop: `2px solid ${isOnCall ? '#059669' : '#4f46e5'}`,
