@@ -67,6 +67,22 @@ export interface Issue {
 }
 
 // ── 리드 통합 타입 ───────────────────────────────────────────────
+
+export interface CallLock {
+    id?: string;
+    companyId: string;
+    userId: string;
+    userName: string;
+    lockedAt: string;
+    lockedUntil: string;
+}
+
+export interface CallClaimResult {
+    success: boolean;
+    lockedBy?: string;
+    lockedUntil?: string;
+}
+
 export interface CompanyContact {
     id: string;
     name: string;
@@ -105,6 +121,10 @@ export interface Company {
     storeCount: number;
     status: CaseStatus;
     assignedLawyer: string;
+    assignedSalesId?: string;
+    assignedSalesName?: string;
+    assignedAt?: string;
+    salesQueueIndex?: number;
     issues: Issue[];
     salesConfirmed: boolean;
     salesConfirmedAt: string;
@@ -430,3 +450,34 @@ export interface AppNotification {
     action_label?: string;
     created_at: string;
 }
+
+// ── 재무 및 회계 시스템 (Finance) ──────────────────────────────
+export interface FinancePayment {
+    id: string;
+    client_id: string | null;
+    case_id: string | null;
+    amount: number;
+    description: string;
+    status: 'PAID' | 'PENDING' | 'OVERDUE' | 'CANCELLED';
+    due_date: string | null;
+    paid_date: string | null;
+    payment_method: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface FinanceExpense {
+    id: string;
+    amount: number;
+    category: 'OFFICE' | 'TRAVEL' | 'SOFTWARE' | 'MARKETING' | string;
+    description: string;
+    payment_method: string | null;
+    incurred_date: string;
+    receipt_url: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+// ── 영업팀 콜 락 시스템 (Sales Call Locks) ────────────────────────
+// (Merged with earlier definition at the top)
+

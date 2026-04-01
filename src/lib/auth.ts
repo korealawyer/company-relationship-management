@@ -76,7 +76,7 @@ export const ROLE_HOME: Record<RoleType, string> = {
     litigation: '/litigation',
     general: '/admin',
     hr: '/admin',
-    finance: '/admin',
+    finance: '/finance',
     counselor: '/counselor',
     client_hr: '/dashboard',
     personal_client: '/personal-litigation',

@@ -98,6 +98,18 @@ const SEED_ACCOUNTS: SeedAccount[] = [
         name: '최송무',
         role: 'litigation',
     },
+    {
+        email: 'whgksmf@ibslaw.kr',
+        password: '1qazxsw@',
+        name: '조하늘',
+        role: 'sales',
+    },
+    {
+        email: 'rlaghdtlr@ibslaw.kr',
+        password: '1qazxsw@',
+        name: '김홍식 변호사',
+        role: 'lawyer',
+    },
 ];
 
 async function seed() {
@@ -176,6 +188,8 @@ async function seed() {
     console.log('  personal2@client.com/ personal1234→ personal_client (개인회원)');
     console.log('  finance@ibslaw.kr   / finance123  → finance (회계팀)');
     console.log('  litigation@ibslaw.kr/ litigation123→ litigation (송무팀)');
+    console.log('  whgksmf@ibslaw.kr   / 1qazxsw@    → sales (영업팀 - 조하늘)');
+    console.log('  rlaghdtlr@ibslaw.kr / 1qazxsw@    → lawyer (김홍식 변호사)');
 }
 
 seed().catch(console.error);

@@ -10,6 +10,7 @@ import "./globals.css";
 
 import FloatingChatbot from '@/components/layout/FloatingChatbot';
 import RealtimeNotification from '@/components/layout/RealtimeNotification';
+import MainLayoutWrapper from '@/components/layout/MainLayoutWrapper';
 
 const notoSansKR = Noto_Sans_KR({
   weight: ["400", "500", "600", "700", "800", "900"],
@@ -97,12 +98,9 @@ export default function RootLayout({
       <body className="antialiased min-h-screen flex flex-col">
         <AuthProvider>
           <ZeroTrustBriefingProvider>
-            <Navbar />
-            <main className="flex-1 pt-20">
+            <MainLayoutWrapper>
               {children}
-            </main>
-            {/* <FloatingChatbot /> */}  {/* TODO: 챗봇 준비 완료 후 주석 해제 */}
-            <RealtimeNotification />
+            </MainLayoutWrapper>
           </ZeroTrustBriefingProvider>
         </AuthProvider>
         <Analytics />

@@ -36,12 +36,12 @@ export function LawyerStatsOverview({ assignedCasesLength, urgentCount, reviewed
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: bg }}>
                             <Icon className="w-4 h-4" style={{ color }} />
                         </div>
-                        {React.useMemo(() => value > 0 && (
+                        {value > 0 && (
                             <div className="w-7 h-7 rounded-full flex items-center justify-center"
                                 style={{ background: bg, border: `1.5px solid ${color}` }}>
                                 <span className="text-[10px] font-black" style={{ color }}>{value}</span>
                             </div>
-                        ), [value, bg, color])}
+                        )}
                     </div>
                     <div className="text-2xl sm:text-3xl font-black leading-none mb-1" style={{ color }}>
                         {value}

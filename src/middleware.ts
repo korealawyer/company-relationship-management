@@ -24,6 +24,7 @@ const PROTECTED_PATHS = [
     '/chat',
     '/personal-litigation',
     '/consultation-history',
+    '/finance',
     // /privacy-report 는 공개 접근 허용 (비로그인 진단 페이지)
 ];
 
@@ -35,7 +36,7 @@ function isPathAllowed(pathname: string, role: string): boolean {
         sales:      ['/employee', '/cases', '/contracts'],
         lawyer:     ['/lawyer', '/cases', '/documents'],
         litigation: ['/litigation', '/cases'],
-        finance:    ['/billing', '/admin'],
+        finance:    ['/finance', '/billing', '/admin'],
         hr:         ['/admin'],
         counselor:  ['/counselor', '/eap'],
         general:    ['/admin'],
@@ -116,7 +117,8 @@ export async function middleware(request: NextRequest) {
         const mockRole = request.cookies.get('ibs_role')?.value || 'client_hr';
         if (!isPathAllowed(pathname, mockRole)) {
             const homeUrl = request.nextUrl.clone();
-            homeUrl.pathname = ['super_admin', 'admin', 'hr', 'finance', 'general'].includes(mockRole) ? '/admin' : 
+            homeUrl.pathname = ['super_admin', 'admin', 'hr', 'general'].includes(mockRole) ? '/admin' : 
+                          mockRole === 'finance' ? '/finance' : 
                           mockRole === 'sales' ? '/employee' : 
                           mockRole === 'lawyer' ? '/lawyer' : 
                           mockRole === 'litigation' ? '/litigation' : 
@@ -142,7 +144,8 @@ export async function middleware(request: NextRequest) {
     if (!isPathAllowed(pathname, role)) {
         // 권한이 없으면 역할별 홈으로 강제 이동
         const homeUrl = request.nextUrl.clone();
-        homeUrl.pathname = ['super_admin', 'admin', 'hr', 'finance', 'general'].includes(role) ? '/admin' : 
+        homeUrl.pathname = ['super_admin', 'admin', 'hr', 'general'].includes(role) ? '/admin' : 
+                          role === 'finance' ? '/finance' : 
                           role === 'sales' ? '/employee' : 
                           role === 'lawyer' ? '/lawyer' : 
                           role === 'litigation' ? '/litigation' : 

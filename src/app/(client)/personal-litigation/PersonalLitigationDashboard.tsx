@@ -429,7 +429,7 @@ export default function PersonalLitigationPage({ isEmbedded = false }: { isEmbed
     const toggleSelect = (id: string) => { setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
 
     return (
-        <div className={isEmbedded ? "pb-16" : "min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8"} style={{ background: isEmbedded ? 'transparent' : '#f8f9fc' }}>
+        <div className={isEmbedded ? "pb-16 p-4 md:p-6" : "min-h-screen pt-20 pb-16 px-4 sm:px-6 lg:px-8"} style={{ background: isEmbedded ? 'transparent' : '#f8f9fc' }}>
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="mb-5 flex items-center justify-between flex-wrap gap-3">

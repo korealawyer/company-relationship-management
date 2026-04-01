@@ -3,6 +3,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
+import { useAuth } from '@/lib/AuthContext';
+import { useCallLocks } from '@/hooks/useCallLocks';
 import { C, CALLABLE } from '@/lib/callPageUtils';
 import { CaseStatus, Company } from '@/lib/types';
 import Link from 'next/link';
@@ -13,6 +15,8 @@ import ContractPreviewModal from '@/components/lawyer/ContractPreviewModal';
 import CompanyTableRow from '@/components/sales/call/CompanyTableRow';
 
 export default function SalesCallPage() {
+    const { user } = useAuth();
+    const { locks: callLocks, getLockInfo } = useCallLocks(); // @/hooks/useCallLocks 에 구현된 훅이라고 가정
     const {
         companies, search, setSearch, selectedId, toast, setToast, callResult, activeCallId,
         statusFilter, setStatusFilter, sortKey, sortAsc, showNews, setShowNews, riskAlerts, callQueue,
@@ -126,6 +130,7 @@ export default function SalesCallPage() {
                         {filtered.length === 0 && <tr><td colSpan={10} className="text-center py-16 text-sm text-slate-500"><Phone className="w-6 h-6 mx-auto mb-2 opacity-30" />통화 대상이 없습니다</td></tr>}
                         {filtered.map((c, i) => (
                             <CompanyTableRow key={c.id} c={c} index={i} selectedId={selectedId} activeCallId={activeCallId}
+                                lockInfo={getLockInfo(c.id)} myUserId={user?.id}
                                 kakaoStatuses={kakaoStatuses} callResult={callResult as any} timer={timer}
                                 isRecording={isRecording} sttStatus={sttStatus} waveformData={waveformData}
                                 onSelect={selectCompany} onStartCall={startCall} onEndCall={endCall}

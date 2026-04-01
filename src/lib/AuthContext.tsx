@@ -46,7 +46,7 @@ export const ROLE_REDIRECT: Record<RoleType, string> = {
     counselor: '/counselor',
     hr: '/admin',
     general: '/admin',
-    finance: '/admin',
+    finance: '/finance',
     personal_client: '/personal-litigation',
 };
 

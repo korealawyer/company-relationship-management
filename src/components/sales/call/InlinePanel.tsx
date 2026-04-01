@@ -91,7 +91,7 @@ export default function InlinePanel({
 
                     {/* ── 통합 콘텐츠 대시보드 ── */}
                     <div className="px-5 py-4" style={{ maxHeight: 800, overflowY: 'auto', background: C.bg }}>
-                        <div className="grid grid-cols-[320px_320px_1fr] gap-6 items-stretch">
+                        <div className="grid grid-cols-3 gap-6 items-stretch">
                             {/* Col 1: 스크립트 */}
                             <div className="flex flex-col gap-4 h-full">
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">

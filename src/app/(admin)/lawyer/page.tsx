@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { ArrowRight, Search, FileText, AlertTriangle, FolderOpen, ChevronRight } from 'lucide-react';
+import { ArrowRight, Search, FileText, AlertTriangle, FolderOpen, ChevronRight, Scale, MessageSquare, Users, UserCheck, Gavel, User as UserIcon, TrendingDown, Send, Building, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { type Company } from '@/lib/types';
 import { NotificationStore, PendingClientStore } from '@/lib/store';
@@ -15,6 +15,7 @@ import BillingTracker from '@/components/lawyer/BillingTracker';
 import ReviewDocList from '@/components/lawyer/ReviewDocList';
 import LitigationDashboard from '@/app/(client)/litigation/page';
 import PersonalLitigationDashboard from '@/app/(client)/personal-litigation/page';
+import UnifiedLitigationTab from './components/UnifiedLitigationTab';
 import AttendanceTab from '@/components/AttendanceTab';
 import PendingClientsPanel from '@/components/lawyer/PendingClientsPanel';
 import SmsTab from '@/components/lawyer/SmsTab';
@@ -22,19 +23,20 @@ import MeetingRoomTab from '@/components/lawyer/MeetingRoomTab';
 import PermissionDenied from '@/components/common/PermissionDenied';
 import { hasPermission, getCurrentUserId } from '@/lib/permissions';
 
-// Refactored components
-import { LawyerSidebar, LawyerMobileTabbar, LawyerTabId, LAWYER_TABS } from './components/LawyerSidebar';
 import { LawyerStatsOverview } from './components/LawyerStatsOverview';
 import { LawyerFabMenu } from './components/LawyerFabMenu';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import { MenuOption } from '@/components/layout/DashboardSidebar';
+
+import { usePersonalLitigations } from '@/hooks/useDataLayer';
 
 const RecordingWidget = lazy(() => import('@/components/RecordingWidget'));
 
 export default function LawyerPage() {
     const { loading, authorized } = useRequireAuth(['lawyer']);
-    const [tab, setTab] = useState<LawyerTabId>('overview');
+    const [tab, setTab] = useState<string>('overview');
     const [search, setSearch] = useState('');
     const [cases, setCases] = useState<Company[]>([]);
-    const [showSearch, setShowSearch] = useState(false);
     const [selectedDocCompanyId, setSelectedDocCompanyId] = useState<string | null>(null);
     const [showRecWidget, setShowRecWidget] = useState(false);
     const [recWidgetMode, setRecWidgetMode] = useState<'new_client' | 'intake_url'>('new_client');
@@ -43,6 +45,14 @@ export default function LawyerPage() {
 
     const userId = getCurrentUserId();
     const { companies } = useCompanies();
+    const { personalLitigations } = usePersonalLitigations();
+    
+    const personalLits = React.useMemo(() => personalLitigations.filter((l: any) => l.status !== 'closed'), [personalLitigations]);
+    const personalUrgentCount = React.useMemo(() => {
+        const today = new Date();
+        const sevenDaysLater = new Date(today.getTime() + 7 * 86400000);
+        return personalLits.flatMap(l => l.deadlines).filter(d => !d.completed && new Date(d.dueDate) <= sevenDaysLater).length;
+    }, [personalLits]);
 
     useEffect(() => {
         setCases(companies || []);
@@ -71,203 +81,155 @@ export default function LawyerPage() {
     const reviewedCount = cases.filter(c => c.lawyerConfirmed).length;
     const unreviewedCount = cases.reduce((s, c) => s + c.issues.filter(i => !i.reviewChecked).length, 0);
 
-    return (
-        <div className="min-h-screen" style={{ background: '#f8f9fc' }}>
-            {/* ── 데스크탑 전용 좌측 사이드바 (확장형) ── */}
-            <LawyerSidebar 
-                tab={tab} 
-                setTab={setTab} 
-                assignedCasesLength={assignedCases.length} 
-                urgentCount={urgentCount} 
-                pendingCount={pendingCount} 
-            />
+    const menus: MenuOption[] = [
+        { id: 'overview', label: '대시보드', icon: Scale, badge: assignedCases.length, alert: urgentCount > 0 },
+        { id: 'consult', label: '상담 검토', icon: MessageSquare },
+        { id: 'pending', label: '대기중(예비고객)', icon: Users, badge: pendingCount, alert: pendingCount > 0 },
+        { id: 'consultMgmt', label: '내 상담관리', icon: UserCheck },
+        { id: 'litigation', label: '송무사건 관리', icon: Gavel },
+        { id: 'billing', label: '청구/미수', icon: TrendingDown },
+        { id: 'sms', label: '문자 발송', icon: Send },
+        { id: 'meetingRoom', label: '회의실', icon: Building },
+        { id: 'contracts', label: '계약서', icon: FileText },
+        { id: 'documents', label: '문서함', icon: FolderOpen },
+        { id: 'attendance', label: '근태/행선지', icon: CalendarDays },
+    ];
 
-            {/* ── 메인 콘텐츠 (sm: 좌측 사이드바 여백) ── */}
-            <div className="sm:pl-48 pt-14 sm:pt-20 flex flex-col" style={{ minHeight: '100vh' }}>
-                {/* 헤더 */}
-                <div className="px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0"
-                    style={{ borderBottom: '1px solid #e5e7eb', background: '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <h1 className="font-black text-base sm:text-lg truncate" style={{ color: '#1e293b' }}>
-                                {LAWYER_TABS.find(t => t.id === tab)?.label}
-                            </h1>
-                            <p className="text-xs mt-0.5 font-medium hidden sm:block" style={{ color: '#64748b' }}>IBS 법률사무소 · 변호사 포털</p>
-                        </div>
-                        {tab === 'overview' && (
-                            <div className="flex items-center gap-2">
-                                {/* 모바일: 검색 토글 버튼 */}
-                                <button
-                                    onClick={() => setShowSearch(p => !p)}
-                                    className="sm:hidden w-9 h-9 rounded-xl flex items-center justify-center"
-                                    style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#64748b' }}
-                                >
-                                    <Search className="w-4 h-4" />
-                                </button>
-                                {/* 데스크탑: 항상 표시 */}
-                                <input value={search} onChange={e => setSearch(e.target.value)}
-                                    placeholder="고객사·사업자번호 검색..." className="hidden sm:block px-4 py-2 rounded-xl outline-none text-sm w-44 lg:w-56"
-                                    style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
+    const renderContent = () => {
+        switch (tab) {
+            case 'consult':
+                return <ConsultQueue />;
+            case 'pending':
+                return <PendingClientsPanel onConfirm={() => setPendingCount(PendingClientStore.count())} />;
+            case 'consultMgmt':
+                return <ConsultManage />;
+            case 'billing':
+                return <BillingTracker />;
+            case 'overview':
+                return (
+                    <div className="flex flex-col gap-6 -mt-2">
+                        <LawyerStatsOverview 
+                            assignedCasesLength={assignedCases.length}
+                            urgentCount={urgentCount}
+                            reviewedCount={reviewedCount}
+                            unreviewedCount={unreviewedCount}
+                        />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-6 rounded-full bg-violet-500" />
+                                    <h2 className="text-lg font-black text-slate-800">
+                                        검토 대기 문서
+                                    </h2>
+                                </div>
+                                {urgentCount > 0 && (
+                                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black animate-pulse bg-red-500 text-white shadow-sm shadow-red-500/20">
+                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                        긴급 {urgentCount}건
+                                    </span>
+                                )}
+                                <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-500">
+                                    전체 {assignedCases.length}건
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <div className="relative flex-1 sm:w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input 
+                                        value={search} 
+                                        onChange={e => setSearch(e.target.value)}
+                                        placeholder="고객사·사업자번호 검색..." 
+                                        className="w-full pl-9 pr-4 py-2 rounded-xl text-sm border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all bg-white shadow-sm"
+                                    />
+                                </div>
                                 <Link href="/lawyer/privacy-review"
-                                    className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap"
-                                    style={{ background: 'linear-gradient(135deg,#60a5fa,#2563eb)', color: '#ffffff' }}>
-                                    검토 <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    className="hidden sm:flex items-center gap-1.5 text-sm font-bold transition-colors text-slate-400 hover:text-violet-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:border-violet-200 shadow-sm"
+                                >
+                                    전체 검토 시작 <ArrowRight className="w-4 h-4" />
                                 </Link>
                             </div>
-                        )}
+                        </div>
+                        <ReviewDocList cases={filtered} />
                     </div>
-                    {/* 모바일 검색바 (토글) */}
-                    {tab === 'overview' && showSearch && (
-                        <div className="sm:hidden mt-2">
-                            <input value={search} onChange={e => setSearch(e.target.value)}
-                                placeholder="고객사·사업자번호 검색..." className="w-full px-4 py-2 rounded-xl outline-none text-sm"
-                                style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }}
-                                autoFocus />
+                );
+            case 'contracts':
+                return (
+                    <div className="flex items-center justify-center flex-col h-full py-20 text-center">
+                        <FileText className="w-16 h-16 mx-auto mb-6 text-violet-500" style={{ opacity: 0.4 }} />
+                        <p className="text-lg font-bold mb-4 text-slate-500">계약서 검토 대기</p>
+                        <Link href="/legal/review">
+                            <button className="flex items-center gap-2 mx-auto px-6 py-3 rounded-xl font-bold text-base bg-violet-50 text-violet-600 border border-violet-200 hover:bg-violet-100 transition-colors shadow-sm">
+                                계약서 검토 페이지로 <ArrowRight className="w-5 h-5" />
+                            </button>
+                        </Link>
+                    </div>
+                );
+            case 'documents':
+                return (
+                    <div className="h-full flex flex-col sm:flex-row gap-6 pb-6">
+                        <div className="w-full sm:w-80 flex-shrink-0 bg-white border border-slate-200/60 rounded-2xl overflow-hidden flex flex-col h-[300px] sm:h-[calc(100vh-12rem)] shadow-sm">
+                            <div className="p-4 bg-slate-50/50 border-b border-slate-200/60">
+                                <h3 className="text-sm font-bold text-slate-700 font-sans">관리 중인 기업</h3>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {cases.map(c => (
+                                    <div 
+                                        key={c.id} 
+                                        onClick={() => setSelectedDocCompanyId(c.id)}
+                                        className={`p-4 border-b border-slate-100 flex items-center justify-between cursor-pointer transition-colors ${selectedDocCompanyId === c.id ? 'bg-violet-50 border-l-4 border-l-violet-500' : 'hover:bg-slate-50'}`}
+                                    >
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-800">{c.name}</h4>
+                                            <p className="text-xs mt-1 text-slate-500">{c.biz}</p>
+                                        </div>
+                                        <ChevronRight className={`w-4 h-4 ${selectedDocCompanyId === c.id ? 'text-violet-500' : 'text-slate-300'}`} />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    )}
-                </div>
+                        <div className="flex-1 h-full min-h-[500px]">
+                            {selectedDocCompanyId ? (
+                                <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm h-full overflow-hidden">
+                                    <DocumentWidget companyId={selectedDocCompanyId} currentUserRole="lawyer" />
+                                </div>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center bg-white border border-slate-200/60 rounded-2xl shadow-sm text-slate-400">
+                                    <FolderOpen className="w-16 h-16 mb-4 opacity-20" />
+                                    <p className="text-base font-medium">기업을 선택하면 문서함이 표시됩니다.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            case 'litigation':
+                return <UnifiedLitigationTab />;
+            case 'attendance':
+                return <AttendanceTab />;
+            case 'sms':
+                return hasPermission(userId, 'sms_send') ? <SmsTab /> : <PermissionDenied label="SMS 발송" />;
+            case 'meetingRoom':
+                return hasPermission(userId, 'meeting_room') ? <MeetingRoomTab /> : <PermissionDenied label="회의실" />;
+            default:
+                return (
+                    <div className="flex items-center justify-center h-64 text-slate-400 font-medium">
+                        개발 중인 메뉴입니다.
+                    </div>
+                );
+        }
+    };
 
-                {/* 콘텐츠 */}
-                <div className="flex-1 overflow-hidden">
-                    {tab === 'consult' ? (
-                        <div className="h-full" style={{ height: 'calc(100vh - 8rem)' }}>
-                            <ConsultQueue />
-                        </div>
-                    ) : tab === 'pending' ? (
-                        <div className="h-full">
-                            <PendingClientsPanel onConfirm={() => setPendingCount(PendingClientStore.count())} />
-                        </div>
-                    ) : tab === 'consultMgmt' ? (
-                        <div className="h-full" style={{ height: 'calc(100vh - 8rem)' }}>
-                            <ConsultManage />
-                        </div>
-                    ) : tab === 'billing' ? (
-                        <div className="h-full" style={{ height: 'calc(100vh - 8rem)' }}>
-                            <BillingTracker />
-                        </div>
-                    ) : (
-                        <div className="h-full overflow-y-auto p-4 sm:p-6">
-                            {tab === 'overview' && (
-                                <>
-                                    <LawyerStatsOverview 
-                                        assignedCasesLength={assignedCases.length}
-                                        urgentCount={urgentCount}
-                                        reviewedCount={reviewedCount}
-                                        unreviewedCount={unreviewedCount}
-                                    />
-                                    {/* 검토 대기 문서 섹션 헤더 */}
-                                    <div className="mb-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1 h-5 rounded-full" style={{ background: '#1e293b' }} />
-                                                <h2 className="text-sm font-black" style={{ color: '#1e293b' }}>
-                                                    검토 대기 문서
-                                                </h2>
-                                            </div>
-                                            {urgentCount > 0 && (
-                                                <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black animate-pulse"
-                                                    style={{ background: '#dc2626', color: '#ffffff' }}>
-                                                    <AlertTriangle className="w-3 h-3" />
-                                                    긴급 {urgentCount}건
-                                                </span>
-                                            )}
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                                style={{ background: '#f1f5f9', color: '#64748b' }}>
-                                                전체 {assignedCases.length}건
-                                            </span>
-                                        </div>
-                                        <Link href="/lawyer/privacy-review"
-                                            className="hidden sm:flex items-center gap-1.5 text-xs font-bold transition-colors"
-                                            style={{ color: '#94a3b8' }}>
-                                            전체 검토 시작 <ArrowRight className="w-3.5 h-3.5" />
-                                        </Link>
-                                    </div>
-                                    <ReviewDocList cases={filtered} />
-                                </>
-                            )}
-                            {tab === 'contracts' && (
-                                <div className="text-center py-16">
-                                    <FileText className="w-12 h-12 mx-auto mb-4" style={{ color: '#3b82f6', opacity: 0.4 }} />
-                                    <p className="font-bold mb-2" style={{ color: '#64748b' }}>계약서 검토 대기</p>
-                                    <Link href="/legal/review">
-                                        <button className="flex items-center gap-2 mx-auto px-5 py-2.5 rounded-xl font-bold text-sm"
-                                            style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
-                                            계약서 검토 페이지로 <ArrowRight className="w-4 h-4" />
-                                        </button>
-                                    </Link>
-                                </div>
-                            )}
-                            
-                            {tab === 'documents' && (
-                                <div className="h-full flex flex-col sm:flex-row gap-4">
-                                    {/* Company List Sidebar */}
-                                    <div className="w-full sm:w-64 flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col h-[200px] sm:h-full">
-                                        <div className="p-3 bg-gray-50 border-b border-gray-200">
-                                            <h3 className="text-sm font-bold text-gray-700">관리 중인 기업</h3>
-                                        </div>
-                                        <div className="flex-1 overflow-y-auto">
-                                            {cases.map(c => (
-                                                <div 
-                                                    key={c.id} 
-                                                    onClick={() => setSelectedDocCompanyId(c.id)}
-                                                    className={`p-3 border-b flex items-center justify-between cursor-pointer transition-colors ${selectedDocCompanyId === c.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-gray-50'}`}
-                                                >
-                                                    <div>
-                                                        <h4 className="text-xs font-bold text-gray-800">{c.name}</h4>
-                                                        <p className="text-[10px] text-gray-500">{c.biz}</p>
-                                                    </div>
-                                                    <ChevronRight className="w-3 h-3 text-gray-400" />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Document Widget Area */}
-                                    <div className="flex-1 h-full min-h-[400px]">
-                                        {selectedDocCompanyId ? (
-                                            <DocumentWidget companyId={selectedDocCompanyId} currentUserRole="lawyer" />
-                                        ) : (
-                                            <div className="h-full flex flex-col items-center justify-center bg-white border border-gray-200 rounded-xl text-gray-400">
-                                                <FolderOpen className="w-12 h-12 mb-3 opacity-20" />
-                                                <p className="text-sm">기업을 선택하면 문서함이 표시됩니다.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    {tab === 'litigation' && (
-                        <div className="flex-1 p-0 sm:p-2 lg:p-4">
-                            <LitigationDashboard />
-                        </div>
-                    )}
-                    {tab === 'personalLit' && (
-                        <div className="flex-1 p-0 sm:p-2 lg:p-4">
-                            <PersonalLitigationDashboard />
-                        </div>
-                    )}
-                    {tab === 'attendance' && (
-                        <div className="flex-1 p-0 sm:p-2 lg:p-4">
-                            <AttendanceTab />
-                        </div>
-                    )}
-                    {tab === 'sms' && (
-                        hasPermission(userId, 'sms_send') ? (
-                            <div className="flex-1 p-0">
-                                <SmsTab />
-                            </div>
-                        ) : <PermissionDenied label="SMS 발송" />
-                    )}
-                    {tab === 'meetingRoom' && (
-                        hasPermission(userId, 'meeting_room') ? (
-                            <div className="flex-1 p-0">
-                                <MeetingRoomTab />
-                            </div>
-                        ) : <PermissionDenied label="회의실" />
-                    )}
-                </div>
-            </div>
+    return (
+        <DashboardLayout
+            role="lawyer"
+            menus={menus}
+            activeTab={tab}
+            onTabChange={setTab}
+            userName="김수현 변호사"
+            userEmail="soohyun.kim@ibs.law"
+            companyName="IBS 법률사무소"
+        >
+            {renderContent()}
 
             {/* ── 🎙️ 녹음 FAB ── */}
             <LawyerFabMenu 
@@ -289,15 +251,6 @@ export default function LawyerPage() {
                     )}
                 </AnimatePresence>
             </Suspense>
-
-            {/* ── 모바일 전용 하단 탭바 ── */}
-            <LawyerMobileTabbar
-                tab={tab}
-                setTab={setTab}
-                assignedCasesLength={assignedCases.length}
-                urgentCount={urgentCount}
-                pendingCount={pendingCount}
-            />
-        </div>
+        </DashboardLayout>
     );
 }

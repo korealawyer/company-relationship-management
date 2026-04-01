@@ -18,6 +18,8 @@ import { CallRecordingStore } from '@/lib/callRecordingService';
 
 interface CompanyTableRowProps {
   c: Company;
+  lockInfo?: { userId: string; userName: string; lockedUntil: string } | null;
+  myUserId?: string;
   index: number;
   selectedId: string | null;
   activeCallId: string | null;
@@ -38,12 +40,15 @@ interface CompanyTableRowProps {
 }
 
 export default function CompanyTableRow({
-  c, index, selectedId, activeCallId, kakaoStatuses, callResult, timer, 
+  c, lockInfo, myUserId, index, selectedId, activeCallId, kakaoStatuses, callResult, timer, 
   isRecording, sttStatus, waveformData, onSelect, onStartCall, onEndCall, 
   onCallResult, onRefresh, setToast, onOpenKakao, onOpenContract
 }: CompanyTableRowProps) {
   const isSel = selectedId === c.id;
   const isCall = activeCallId === c.id;
+  const isLockedByMe = lockInfo?.userId === myUserId;
+  const isLockedByOther = !!(lockInfo && lockInfo.userId !== myUserId);
+  const remainingMin = lockInfo ? Math.max(0, Math.round((new Date(lockInfo.lockedUntil).getTime() - Date.now()) / 60000)) : 0;
   const rc = riskColor(c.riskScore);
   const { user } = useAuth();
   const authorName = user?.name || '알 수 없음';
@@ -116,17 +121,20 @@ export default function CompanyTableRow({
     <React.Fragment>
       <tr onClick={() => onSelect(c.id)} className="cursor-pointer transition-all"
           style={{
-            background: isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
+            background: isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
             borderBottom: `1px solid ${C.borderLight}`,
-            borderLeft: isCall ? '3px solid #059669' : isSel ? '3px solid #4f46e5' : '3px solid transparent'
+            borderLeft: isLockedByMe ? '3px solid #10b981' : isLockedByOther ? '3px solid #ef4444' : isCall ? '3px solid #059669' : isSel ? '3px solid #4f46e5' : '3px solid transparent',
+            opacity: isLockedByOther ? 0.7 : 1
           }}
-          onMouseEnter={e => { if (!isSel && !isCall) (e.currentTarget as HTMLElement).style.background = C.rowHover; }}
-          onMouseLeave={e => { if (!isSel && !isCall) (e.currentTarget as HTMLElement).style.background = C.surface; }}>
+          onMouseEnter={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.rowHover; }}
+          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.surface; }}>
           <td className="py-2.5 px-3 text-[10px] font-mono" style={{color:C.faint}}>{index + 1}</td>
           <td className="py-2.5 px-3">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[12px] font-bold" style={{color:C.heading}}>{c.name}</span>
-                  {isSel ? <ChevronUp className="w-3 h-3" style={{color:C.accent}}/> : <ChevronDown className="w-3 h-3" style={{color:C.faint}}/>}
+                  {isLockedByMe && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold" style={{background:'#d1fae5',color:'#065f46',border:'1px solid #a7f3d0'}}>📞 내가 통화중</span>}
+                  {isLockedByOther && lockInfo && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold" style={{background:'#fee2e2',color:'#991b1b',border:'1px solid #fecaca'}}>🔴 {lockInfo.userName} 통화중 ({remainingMin}분 남음)</span>}
+                  {isSel ? <ChevronUp className="w-3 h-3 flex-shrink-0" style={{color:C.accent}}/> : <ChevronDown className="w-3 h-3 flex-shrink-0" style={{color:C.faint}}/>}
               </div>
           </td>
           <td className="py-2.5 px-3">
@@ -155,7 +163,7 @@ export default function CompanyTableRow({
           </td>
           <td className="py-2.5 px-3">{c.riskScore > 0 && <div className="flex items-center gap-1.5"><div className="w-14 h-2 rounded-full overflow-hidden" style={{background:'#e5e7eb'}}><div className="h-full rounded-full" style={{width:`${c.riskScore}%`,background:rc.bar}}/></div><span className="text-[10px] font-bold" style={{color:rc.text}}>{c.riskScore}</span></div>}</td>
           <td className="py-2.5 px-3"><span className="text-[11px]" style={{color:c.contactName?C.body:C.amber}}>{c.contactName||'미등록'}</span></td>
-          <td className="py-2.5 px-3 whitespace-nowrap" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[11px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub}} title="클릭하여 전화걸기"><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
+          <td className="py-2.5 px-3 whitespace-nowrap" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[11px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub, opacity: isLockedByOther ? 0.5 : 1}} title={isLockedByOther ? "다른 담당자가 통화중입니다" : "클릭하여 전화걸기"} onClick={(e) => { if(isLockedByOther && lockInfo) { e.preventDefault(); alert(`현재 ${lockInfo.userName}님이 통화중입니다 (${remainingMin}분 남음)`); } }}><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
           <td className="py-2.5 px-3">{(() => {
               const p = ConversionPredictionService.predict(c);
               const colors = { HOT: { bg: '#fef2f2', c: '#dc2626', icon: '🔥' }, WARM: { bg: '#fffbeb', c: '#d97706', icon: '🌡️' }, COLD: { bg: '#f0f9ff', c: '#0284c7', icon: '❄️' } };
