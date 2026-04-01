@@ -18,7 +18,7 @@ const BASE_PREHEADER = '개인정보보호법 위반 {issueCount}건 발견. 지
 function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, baseUrl: string = ''): string {
     const lawyerName = vars.lawyerName || '';
     const trackOpen = `${baseUrl}/api/track?lid=${vars.leadId}&type=open`;
-    const reportUrl = `${baseUrl}/privacy-report?company=${encodeURIComponent(vars.company)}`;
+    const reportUrl = `${baseUrl}/login?claim=${vars.leadId}&from=/privacy-report`;
     const trackClick = `${baseUrl}/api/track?lid=${vars.leadId}&type=click&url=${encodeURIComponent(reportUrl)}`;
     const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${vars.unsubscribeToken}`;
     return `<!DOCTYPE html>
@@ -65,25 +65,22 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
       아래와 같이 안내드립니다.
     </p>
 
-    <!-- 종합 검토의견 -->
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:24px">
-      <p style="color:#374151;font-size:13px;margin:0;line-height:1.7">${vars.summaryOpinion.replace(/\n/g, '<br/>')}</p>
-    </div>
+
 
     <!-- 검토 결과 요약 -->
     <p style="color:#1e293b;font-size:13px;font-weight:bold;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0">📋 주요 검토 결과 요약</p>
     <table style="width:100%;border-collapse:collapse;margin:0 0 24px">
       <thead>
         <tr style="background:#f8fafc">
-          <th style="padding:10px 12px;text-align:left;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0">검토 항목</th>
-          <th style="padding:10px 12px;text-align:center;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0">위험도</th>
-          <th style="padding:10px 12px;text-align:left;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0">관련 법조문</th>
+          <th style="padding:10px 12px;text-align:left;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0;word-break:keep-all">검토 항목</th>
+          <th style="padding:10px 12px;text-align:center;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0;white-space:nowrap">위험도</th>
+          <th style="padding:10px 12px;text-align:left;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0;word-break:keep-all">관련 법조문</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9">수집항목 과다수집</td><td style="padding:10px;text-align:center"><span style="background:#fef2f2;color:#dc2626;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">고위험</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b">개인정보보호법 제16조</td></tr>
-        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9">제3자 제공 미명시</td><td style="padding:10px;text-align:center"><span style="background:#fef2f2;color:#dc2626;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">고위험</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b">개인정보보호법 제17조</td></tr>
-        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b">보유기간 일부 누락</td><td style="padding:10px;text-align:center"><span style="background:#fffbeb;color:#d97706;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">주의</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b">개인정보보호법 제21조</td></tr>
+        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">수집항목 과다수집</td><td style="padding:10px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">고위험</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b;word-break:keep-all">개인정보보호법 제16조</td></tr>
+        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">제3자 제공 미명시</td><td style="padding:10px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">고위험</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b;word-break:keep-all">개인정보보호법 제17조</td></tr>
+        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;word-break:keep-all">보유기간 일부 누락</td><td style="padding:10px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fffbeb;color:#d97706;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">주의</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b;word-break:keep-all">개인정보보호법 제21조</td></tr>
       </tbody>
     </table>
 

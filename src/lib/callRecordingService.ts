@@ -268,6 +268,11 @@ export const CallRecordingStore = {
         // 타임라인에도 기록
         this.addToTimeline(entry);
 
+        // --- STT가 즉시 완료상태(수동 기록 등)라면 바로 메모이력(DB)에 추가 ---
+        if (entry.sttStatus === 'completed' && typeof window !== 'undefined') {
+            this._syncToMemo(entry);
+        }
+
         return entry;
     },
 
@@ -288,7 +293,33 @@ export const CallRecordingStore = {
             if (audioUrl) rec.recordingUrl = audioUrl;
             rec.updatedAt = new Date().toISOString();
             this._save(all);
+
+            // --- STT가 완료되면 메모이력(DB)에 추가 ---
+            if (status === 'completed' && typeof window !== 'undefined') {
+                this._syncToMemo(rec);
+            }
         }
+    },
+
+    /** 통화 이력을 메모이력 기반으로도 저장 */
+    _syncToMemo(entry: CallRecording): void {
+        let contentStr = '';
+        if (entry.transcriptSummary === '수동 통화 기록') {
+            contentStr = `📞 [수동 통화 기록] 상태 변경: ${entry.callResult === 'connected' ? '연결됨' : entry.callResult === 'no_answer' ? '부재중' : '콜백요청'}`;
+        } else {
+            contentStr = `📞 [통화 결과] ${entry.callResult === 'connected' ? '연결됨' : entry.callResult === 'no_answer' ? '부재중' : '콜백요청'}\n\n[AI 요약]\n${entry.transcriptSummary || '내용 없음'}\n\n[전문]\n${entry.transcript || '내용 없음'}`;
+        }
+
+        fetch('/api/memos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                companyId: entry.companyId,
+                content: contentStr,
+                authorName: entry.salesUserName || '시스템',
+                isPinned: false
+            })
+        }).catch(e => console.error('Failed to sync call record to memos:', e));
     },
 
     /** 기업별 녹음 내역 조회 */

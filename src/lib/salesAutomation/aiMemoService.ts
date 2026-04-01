@@ -1,4 +1,5 @@
-import { Company } from '../store';
+import { Company, CompanyMemo } from '../types';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 export interface AIMemoResult {
     summary: string;
@@ -9,58 +10,77 @@ export interface AIMemoResult {
 }
 
 export const AIMemoService = {
-    async analyze(company: Company, memo: string): Promise<AIMemoResult> {
-        // Mock AI 분석 (실제 환경에서는 API 호출)
-        await new Promise(resolve => setTimeout(resolve, 1200));
-
-        const lowerMemo = memo.toLowerCase();
-        const hasPositive = ['긍정', '관심', '좋', '검토', '계약', '가능', '동의', '확인'].some(w => memo.includes(w));
-        const hasNegative = ['거절', '불필요', '나중', '다음', '보류', '관심없'].some(w => memo.includes(w));
-        const hasCallback = ['콜백', '연락', '다시', '시간'].some(w => memo.includes(w));
-        const hasMeeting = ['미팅', '방문', '만남', '상담'].some(w => memo.includes(w));
-
-        let nextAction: string;
-        let nextActionType: AIMemoResult['nextActionType'];
-        let confidence: number;
-
-        if (hasPositive && !hasNegative) {
-            if (hasMeeting) {
-                nextAction = '미팅 일정 잡기 — 고객 관심도 높음';
-                nextActionType = 'schedule_meeting';
-                confidence = 85;
-            } else if (['client_replied', 'client_viewed'].includes(company.status)) {
-                nextAction = '계약서 발송 추천 — 전환 가능성 높음';
-                nextActionType = 'send_contract';
-                confidence = 80;
-            } else {
-                nextAction = '팔로업 이메일 발송 — 관심 유지';
-                nextActionType = 'send_email';
-                confidence = 70;
-            }
-        } else if (hasCallback) {
-            nextAction = '콜백 예약 — 고객 요청';
-            nextActionType = 'follow_up_call';
-            confidence = 75;
-        } else if (hasNegative) {
-            nextAction = '7일 후 재연락 — 시간 확보';
-            nextActionType = 'follow_up_call';
-            confidence = 40;
-        } else {
-            nextAction = '팔로업 이메일 발송 — 추가 정보 제공';
-            nextActionType = 'send_email';
-            confidence = 55;
+    async analyze(company: Company, memos: CompanyMemo[]): Promise<AIMemoResult> {
+        if (!memos || memos.length === 0) {
+            return {
+                summary: '아직 기록된 메모나 통화 내역이 없습니다.',
+                keyPoints: [],
+                nextAction: '첫 연락 시도 및 정보 파악',
+                nextActionType: 'send_email',
+                confidence: 50
+            };
         }
 
-        // 핵심 키포인트 추출 (mock)
-        const sentences = memo.split(/[.!?\n]+/).filter(s => s.trim().length > 3);
-        const keyPoints = sentences.length > 0
-            ? sentences.slice(0, 3).map(s => s.trim())
-            : ['통화 내용 기록됨'];
+        try {
+            const promptConfig = getPromptConfig();
+            const systemPrompt = promptConfig.callRecordingSummaryPrompt;
+            const model = promptConfig.promptModels?.callRecordingSummaryPrompt || promptConfig.model || 'gpt-4o';
+            
+            // 브라우저 localStorage에서 관리자가 설정한 API 키 가져오기 (ai-assist 로직 재사용)
+            let apiKey = '';
+            try {
+                // localStorage 직접 접근하여 키 가져오기
+                if (typeof window !== 'undefined') {
+                    apiKey = localStorage.getItem(`ibs_ai_key_${model}`) || '';
+                }
+            } catch (e) {
+                console.error('Failed to get API key from localStorage', e);
+            }
 
-        const summary = sentences.length > 0
-            ? `${company.contactName || '담당자'}와 통화 완료. ${keyPoints[0]}.`
-            : `${company.name} 통화 완료 — 상세 내용 기록됨`;
+            const res = await fetch('/api/sales/analyze-memo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemPrompt,
+                    model,
+                    apiKey, // 서버에 키 전달
+                    companyData: { status: company.status, name: company.name },
+                    memos: memos.map(m => ({
+                        author: m.author,
+                        content: m.content,
+                        created_at: m.createdAt
+                    }))
+                })
+            });
 
-        return { summary, keyPoints, nextAction, nextActionType, confidence };
+            if (!res.ok) {
+                console.error('[AIMemoService] HTTP error from server:', res.status);
+                throw new Error(`HTTP error ${res.status}`);
+            }
+
+            const data = await res.json();
+            
+            if (data.success && data.result) {
+                // Return explicitly parsed to expected format
+                return {
+                    summary: data.result.summary || '요약 정보 없음',
+                    keyPoints: Array.isArray(data.result.keyPoints) ? data.result.keyPoints : [],
+                    nextAction: data.result.nextAction || '추가 정보 필요',
+                    nextActionType: data.result.nextActionType || 'follow_up_call',
+                    confidence: typeof data.result.confidence === 'number' ? data.result.confidence : 50
+                };
+            } else {
+                throw new Error(data.error || 'Unknown AI error structure');
+            }
+        } catch (error) {
+            console.error('[AIMemoService] Failed AI LLM integration. Returned generic fallback.', error);
+            return {
+                summary: 'AI 분석 서버 통신 또는 처리 중 오류가 발생했습니다. (자세한 내용은 콘솔 확인)',
+                keyPoints: ['분석 서버 실패'],
+                nextAction: '직접 확인 후 팔로업 진행',
+                nextActionType: 'follow_up_call',
+                confidence: 50
+            };
+        }
     },
 };

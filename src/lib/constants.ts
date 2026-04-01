@@ -7,7 +7,7 @@ import type { CaseStatus, LitigationStatus } from './types';
 // ── 케이스 상태 레이블/색상 ─────────────────────────────────────
 export const STATUS_LABEL: Record<CaseStatus, string> = {
     pending: '등록됨', crawling: '분석중', analyzed: '분석완료',
-    assigned: '변호사배정', reviewing: '검토중', lawyer_confirmed: '변호사컨펌',
+    assigned: '변호사 배정', reviewing: '변호사 검토중', lawyer_confirmed: '변호사 컨펌',
     emailed: '발송완료', client_replied: '답장수신',
     client_viewed: '리포트열람', contract_sent: '계약서발송',
     contract_signed: '계약서명', subscribed: '구독 중',
@@ -18,8 +18,8 @@ export const STATUS_LABEL: Record<CaseStatus, string> = {
 export const STATUS_COLOR: Record<CaseStatus, string> = {
     pending: 'rgba(148,163,184,0.15)', crawling: 'rgba(251,191,36,0.15)',
     analyzed: 'rgba(59,130,246,0.15)',
-    assigned: 'rgba(249,115,22,0.15)', reviewing: 'rgba(249,115,22,0.2)',
-    lawyer_confirmed: 'rgba(20,184,166,0.15)', emailed: 'rgba(34,197,94,0.15)',
+    assigned: 'rgba(234,88,12,0.15)', reviewing: 'rgba(217,119,6,0.15)',
+    lawyer_confirmed: 'rgba(13,148,136,0.15)', emailed: 'rgba(34,197,94,0.15)',
     client_replied: 'rgba(236,72,153,0.15)', client_viewed: 'rgba(129,140,248,0.15)',
     contract_sent: 'rgba(251,191,36,0.2)', contract_signed: 'rgba(74,222,128,0.2)',
     subscribed: 'rgba(201,168,76,0.2)',
@@ -29,8 +29,8 @@ export const STATUS_COLOR: Record<CaseStatus, string> = {
 
 export const STATUS_TEXT: Record<CaseStatus, string> = {
     pending: '#94a3b8', crawling: '#fbbf24', analyzed: '#60a5fa',
-    assigned: '#fb923c', reviewing: '#fdba74',
-    lawyer_confirmed: '#2dd4bf', emailed: '#4ade80', client_replied: '#f472b6',
+    assigned: '#ea580c', reviewing: '#b45309',
+    lawyer_confirmed: '#0f766e', emailed: '#4ade80', client_replied: '#f472b6',
     client_viewed: '#818cf8', contract_sent: '#fbbf24',
     contract_signed: '#4ade80', subscribed: '#c9a84c',
     cold_email: '#94a3b8', guide_download: '#3b82f6',

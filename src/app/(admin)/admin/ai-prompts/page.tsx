@@ -210,12 +210,32 @@ export default function AdminAIPromptsPage() {
                                                                 <span className="text-[13px] font-black text-slate-800 flex items-center gap-1.5">
                                                                     <MessageSquare className="w-4 h-4 text-amber-500" /> 프롬프트 수정
                                                                 </span>
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); setConfig(prev => ({ ...prev, [p.key]: DEFAULT_PROMPT_CONFIG[p.key] }))}}
-                                                                    className="text-[11px] font-bold text-slate-600 hover:text-amber-700 flex items-center gap-1 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer shadow-sm"
-                                                                >
-                                                                    <RotateCcw className="w-3 h-3" /> 기본값 복원
-                                                                </button>
+                                                                <div className="flex items-center gap-3">
+                                                                    <select
+                                                                        value={config.promptModels?.[p.key] || 'default'}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value;
+                                                                            setConfig(prev => {
+                                                                                const newModels = { ...(prev.promptModels || {}) };
+                                                                                if (val === 'default') delete newModels[p.key];
+                                                                                else newModels[p.key] = val;
+                                                                                return { ...prev, promptModels: newModels };
+                                                                            });
+                                                                        }}
+                                                                        className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                                                                    >
+                                                                        <option value="default">기본 모델 ({config.model})</option>
+                                                                        {AI_MODEL_OPTIONS.map(m => (
+                                                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); setConfig(prev => ({ ...prev, [p.key]: DEFAULT_PROMPT_CONFIG[p.key] }))}}
+                                                                        className="text-[11px] font-bold text-slate-600 hover:text-amber-700 flex items-center gap-1 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 rounded-lg px-3 py-1.5 transition-colors cursor-pointer shadow-sm"
+                                                                    >
+                                                                        <RotateCcw className="w-3 h-3" /> 기본값 복원
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                             <textarea
                                                                 value={config[p.key] || ''}

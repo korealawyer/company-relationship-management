@@ -11,7 +11,6 @@ import { type CallRecording } from '@/lib/callRecordingService';
 import ScriptTab from './ScriptTab';
 import InfoTab from './InfoTab';
 import MemoTab from './MemoTab';
-import RecordingsTab from './RecordingsTab';
 import { useAuth } from '@/lib/AuthContext';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
 
@@ -102,12 +101,46 @@ export default function InlinePanel({
                 setToast('❌ 기록 저장 실패');
                 setLocalResult(null); // 실패 시 원복
             });
+
+            // --- 통화 내역(RecordingsTab)에도 수동 이력 추가 ---
+            import('@/lib/callRecordingService').then(({ CallRecordingStore }) => {
+                CallRecordingStore.save({
+                    companyId: co.id,
+                    companyName: co.name,
+                    salesUserName: manualCaller,
+                    fileSizeBytes: 0,
+                    durationSeconds: 0,
+                    transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : '콜백요청'}`,
+                    transcriptSummary: '수동 통화 기록',
+                    callResult: res,
+                    sttStatus: 'completed',
+                    sttProvider: 'mock',
+                    contactName: co.contactName || '',
+                    contactPhone: co.contactPhone || co.phone,
+                });
+            });
             
             setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : '콜백'}`);
             onRefresh(); // 부모 컴포넌트에 즉시 리렌더링 트리거
         } catch(e) {
             setToast('❌ 기록 처리 오류');
             setLocalResult(null);
+        }
+    };
+
+    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback', nextAction?: 'review' | 'memo') => {
+        // 1. 콜 이력 로깅
+        if (isOnCall) {
+            onCallResult(res);
+        } else {
+            handleManualLog(res);
+        }
+        
+        // 2. 후속 액션 진행 
+        if (nextAction === 'memo') {
+            setTab('memo');
+        } else if (nextAction === 'review') {
+            setToast('✅ 변호사 검토 요청이 접수되었습니다. (API 연동 준비중)');
         }
     };
 
@@ -135,91 +168,7 @@ export default function InlinePanel({
                     {/* ── 통합 콘텐츠 대시보드 ── */}
                     <div className="px-5 py-4" style={{ maxHeight: 800, overflowY: 'auto', background: C.bg }}>
                         <div className="grid grid-cols-3 gap-6 items-stretch">
-                            {/* Col 1: 스크립트 */}
-                            <div className="flex flex-col gap-4 h-full">
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
-                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📞 통화 스크립트</h3>
-                                    <ScriptTab co={co} setToast={setToast} />
-                                </div>
-
-                                {/* 통화 녹음 내역 및 수동 기록 */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col shrink-0 min-h-[150px]">
-                                    <div className="flex flex-col gap-3 mb-3 border-b border-gray-100 pb-3">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 제어 ({companyRecordings.length})</h3>
-                                            <div className="flex items-center gap-2">
-                                                {!isOnCall ? (
-                                                    <button onClick={onStartCall}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black hover:scale-105 transition-transform"
-                                                        style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                                                        <Phone className="w-3 h-3" />통화 시작
-                                                    </button>
-                                                ) : <>
-                                                    <button onClick={timer.running ? timer.pause : timer.resume}
-                                                        className="p-1.5 rounded-lg"
-                                                        style={{ background: '#f8f9fc', border: `1px solid ${C.borderLight}` }}>
-                                                        {timer.running
-                                                            ? <Pause className="w-3 h-3" style={{ color: C.sub }} />
-                                                            : <Play className="w-3 h-3" style={{ color: '#059669' }} />}
-                                                    </button>
-                                                    <button onClick={onEndCall}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black animate-pulse"
-                                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
-                                                        <PhoneOff className="w-3 h-3" />녹음 종료
-                                                    </button>
-                                                </>}
-                                            </div>
-                                        </div>
-
-                                        {/* 연락 기록(수동/자동 겸용) */}
-                                        <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-slate-500">담당자:</span>
-                                                <input 
-                                                    value={manualCaller} 
-                                                    onChange={e => setManualCaller(e.target.value)}
-                                                    className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 w-[80px] bg-white text-slate-700 outline-none focus:border-indigo-400"
-                                                />
-                                            </div>
-                                            <div className="flex gap-1.5">
-                                                <button 
-                                                    onClick={() => isOnCall ? onCallResult('connected') : handleManualLog('connected')}
-                                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all border
-                                                        ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
-                                                >
-                                                    ✅ 연결됨
-                                                </button>
-                                                <button 
-                                                    onClick={() => isOnCall ? onCallResult('no_answer') : handleManualLog('no_answer')}
-                                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all border
-                                                        ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_answer' ? 'bg-rose-600 text-white border-rose-700 shadow-sm' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}
-                                                >
-                                                    📵 부재중
-                                                </button>
-                                                <button 
-                                                    onClick={() => isOnCall ? onCallResult('callback') : handleManualLog('callback')}
-                                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all border
-                                                        ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
-                                                >
-                                                    🔄 콜백요청
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <RecordingsTab companyRecordings={companyRecordings} />
-                                </div>
-                            </div>
-
-                            
-                            {/* Col 2: 메모 & AI 분석 */}
-                            <div className="flex flex-col gap-4 h-full">
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
-                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모 & AI 분석</h3>
-                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
-                                </div>
-                            </div>
-
-                            {/* Col 3: 스마트 기업 상세정보, 위험도, 주요 이슈, 통화 녹음 */}
+                            {/* Col 1: 스마트 기업 상세정보, 위험도, 주요 이슈 */}
                             <div className="flex flex-col gap-4 h-full">
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 shrink-0">
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📊 스마트 기업 상세정보</h3>
@@ -271,9 +220,113 @@ export default function InlinePanel({
                                         <div className="text-xs text-gray-500">발견된 이슈가 없습니다.</div>
                                     )}
                                 </div>
+                            </div>
 
+                            {/* Col 2: 메모 & AI 분석 */}
+                            <div className="flex flex-col gap-4 h-full">
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모&요약</h3>
+                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
                                 </div>
                             </div>
+
+                            {/* Col 3: 스크립트 & 통화 제어 */}
+                            <div className="flex flex-col gap-4 h-full">
+
+                                {/* 통화 제어 내역 및 수동 기록 */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col shrink-0 min-h-[150px]">
+                                    <div className="flex flex-col gap-3 mb-3 border-b border-gray-100 pb-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 제어 ({companyRecordings.length})</h3>
+                                            <div className="flex items-center gap-2">
+                                                {!isOnCall ? (
+                                                    <button onClick={onStartCall}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black hover:scale-105 transition-transform"
+                                                        style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                                                        <Phone className="w-3 h-3" />통화 시작
+                                                    </button>
+                                                ) : <>
+                                                    <button onClick={timer.running ? timer.pause : timer.resume}
+                                                        className="p-1.5 rounded-lg"
+                                                        style={{ background: '#f8f9fc', border: `1px solid ${C.borderLight}` }}>
+                                                        {timer.running
+                                                            ? <Pause className="w-3 h-3" style={{ color: C.sub }} />
+                                                            : <Play className="w-3 h-3" style={{ color: '#059669' }} />}
+                                                    </button>
+                                                    <button onClick={onEndCall}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black animate-pulse"
+                                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+                                                        <PhoneOff className="w-3 h-3" />녹음 종료
+                                                    </button>
+                                                </>}
+                                            </div>
+                                        </div>
+
+                                        {/* 연락 기록(수동/자동 겸용) */}
+                                        <div className="flex flex-col bg-slate-50 p-2 rounded-lg border border-slate-100 gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-slate-500">담당자:</span>
+                                                <input 
+                                                    value={manualCaller} 
+                                                    onChange={e => setManualCaller(e.target.value)}
+                                                    className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 w-[80px] bg-white text-slate-700 outline-none focus:border-indigo-400"
+                                                />
+                                            </div>
+                                            
+                                            {/* 5버튼 레이아웃 */}
+                                            <div className="flex flex-col gap-1.5 mt-1">
+                                                <div className="flex gap-1.5">
+                                                    <button 
+                                                        onClick={() => handleResultAction('connected')}
+                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                    >
+                                                        ✅ 연결
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResultAction('connected', 'review')}
+                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                    >
+                                                        📄 연결(검토)
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResultAction('connected', 'memo')}
+                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                    >
+                                                        📝 연결(메모)
+                                                    </button>
+                                                </div>
+                                                <div className="flex gap-1.5">
+                                                    <button 
+                                                        onClick={() => handleResultAction('no_answer', 'memo')}
+                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_answer' ? 'bg-rose-600 text-white border-rose-700 shadow-sm' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}
+                                                    >
+                                                        📵 부재(메모)
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResultAction('callback', 'memo')}
+                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
+                                                    >
+                                                        🔄 콜백(메모)
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📞 통화 스크립트</h3>
+                                    <ScriptTab co={co} setToast={setToast} />
+                                </div>
+                            </div>
+
+
+                                                        </div>
                         </div>
                     </div>
             </td>

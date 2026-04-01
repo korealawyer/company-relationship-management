@@ -14,7 +14,7 @@ export const C = {
 };
 
 export const CALLABLE: CaseStatus[] = [
-    'analyzed','lawyer_confirmed','emailed',
+    'analyzed','reviewing','lawyer_confirmed','emailed',
     'client_replied','client_viewed','contract_sent','contract_signed',
 ];
 

@@ -3,7 +3,8 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, LogOut, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
+import { clearSession } from '@/lib/auth';
+import { useZeroTrust } from '@/components/ZeroTrustBriefingProvider';
 export interface MenuOption {
   id: string;
   label: string;
@@ -36,6 +37,7 @@ export default function DashboardSidebar({
   userEmail,
 }: DashboardSidebarProps) {
   const router = useRouter();
+  const { initiateLogout } = useZeroTrust();
 
   // Determine active color theme based on role
   const getActiveStyles = () => {
@@ -49,10 +51,10 @@ export default function DashboardSidebar({
 
   const handleLogout = async () => {
     try {
-      // Clear sessions (local and session storage)
-      sessionStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('supabase.auth.token');
-      router.push('/login');
+      initiateLogout(async () => {
+        await clearSession();
+        router.push('/login');
+      });
     } catch (e) {
       console.error(e);
       window.location.href = '/login';
@@ -86,27 +88,7 @@ export default function DashboardSidebar({
         </button>
       </div>
 
-      {/* User Profile Summary (Search in closed state) */}
-      <div className={`py-4 border-b border-slate-800 shrink-0 ${isOpen ? 'px-4' : 'px-0 flex justify-center'}`}>
-        {isOpen ? (
-          <div className="flex items-center gap-3 bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
-            <div className="w-9 h-9 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 text-indigo-200">
-              {userName.substring(0, 1)}
-            </div>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-medium text-slate-200 truncate">{userName} ({role.toUpperCase()})</span>
-              <span className="text-xs text-slate-500 truncate">{userEmail}</span>
-            </div>
-          </div>
-        ) : (
-          <button 
-            className="w-10 h-10 flex items-center justify-center hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200"
-            title="Search (⌘K)"
-          >
-             <Search size={20} />
-          </button>
-        )}
-      </div>
+
 
       {/* Navigation List */}
       <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">

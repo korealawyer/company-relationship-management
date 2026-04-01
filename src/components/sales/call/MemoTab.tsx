@@ -56,8 +56,39 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
     useEffect(() => {
         setNote('');
         setAiResult(null);
+        prevMemosLength.current = -1;
         loadMemos();
     }, [co.id, loadMemos]);
+
+    const prevMemosLength = useRef(-1);
+
+    // 자동 AI 분석: 메모 목록이 로드되거나 변경될 때마다 전체 히스토리를 기반으로 AI 요약 수행
+    useEffect(() => {
+        if (memos.length > 0 && memos.length !== prevMemosLength.current) {
+            prevMemosLength.current = memos.length;
+            
+            const runAutoAI = async () => {
+                setAiLoading(true);
+                try {
+                    const r = await AIMemoService.analyze(co, memos);
+                    setAiResult(r);
+                    
+                    const { supabaseCompanyStore } = await import('@/lib/supabaseStore');
+                    await supabaseCompanyStore.update(co.id, {
+                        aiMemoSummary: r.summary,
+                        aiNextAction: r.nextAction,
+                        aiNextActionType: r.nextActionType,
+                    });
+                } catch (e) {
+                    console.error('Auto AI Analysis failed:', e);
+                } finally {
+                    setAiLoading(false);
+                }
+            };
+            
+            runAutoAI();
+        }
+    }, [memos, co]);
 
     const saveMemo = async () => {
         if (!note.trim() || saving) return;
@@ -74,7 +105,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
             });
             if (res.ok) {
                 setNote('');
-                setToast('💾 메모 저장');
+                setToast('💾 메모 저장 (AI 분석 업데이트 중...)');
                 await loadMemos();
                 onRefresh();
             } else {
@@ -85,56 +116,6 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
             setToast('⚠️ 저장 실패');
         } finally {
             setSaving(false);
-        }
-    };
-
-    const saveWithAI = async () => {
-        if (!note.trim() || saving) return;
-        // 먼저 메모 저장
-        setSaving(true);
-        try {
-            const res = await fetch('/api/memos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    companyId: co.id,
-                    author: authorName,
-                    content: note.trim(),
-                }),
-            });
-            if (!res.ok) {
-                setToast('⚠️ 저장 실패');
-                setSaving(false);
-                return;
-            }
-        } catch {
-            setToast('⚠️ 저장 실패');
-            setSaving(false);
-            return;
-        }
-
-        setAiLoading(true);
-        try {
-            const r = await AIMemoService.analyze(co, note);
-            setAiResult(r);
-            // AI 결과는 companies 테이블에 저장 (RLS 문제 없음)
-            const { useCompanies } = await import('@/hooks/useDataLayer');
-            // Direct Supabase update for AI fields (companies table has RLS)
-            const { supabaseCompanyStore } = await import('@/lib/supabaseStore');
-            await supabaseCompanyStore.update(co.id, {
-                aiMemoSummary: r.summary,
-                aiNextAction: r.nextAction,
-                aiNextActionType: r.nextActionType,
-            });
-            setToast('🤖 AI 분석 완료');
-        } catch {
-            setToast('⚠️ AI 분석 실패');
-        } finally {
-            setAiLoading(false);
-            setSaving(false);
-            setNote('');
-            await loadMemos();
-            onRefresh();
         }
     };
 
@@ -157,13 +138,20 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
         <div className="flex flex-col gap-4">
             {/* ── AI 분석 결과 패널 (1행) ── */}
             <div className="space-y-3">
-                {aiResult && (
+                {aiLoading ? (
+                    <div
+                        className="rounded-xl p-6 text-center flex flex-col items-center justify-center"
+                        style={{ background: '#faf5ff', border: '1px solid #e9d5ff' }}
+                    >
+                        <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" style={{ color: '#7c3aed' }} />
+                        <p className="text-xs font-bold" style={{ color: '#7c3aed' }}>AI 요약 진행 중...</p>
+                    </div>
+                ) : aiResult ? (
                     <div className="rounded-xl p-4" style={{ background: '#faf5ff', border: '1px solid #e9d5ff' }}>
                         <div className="flex items-center gap-2 mb-2">
                             <Sparkles className="w-4 h-4" style={{ color: '#7c3aed' }} />
-                            <span className="text-xs font-black" style={{ color: C.heading }}>AI 분석 결과</span>
                             <span
-                                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                className="text-[9px] px-1.5 py-0.5 rounded-full border border-purple-200"
                                 style={{ background: '#f3e8ff', color: '#7c3aed' }}
                             >
                                 신뢰도 {aiResult.confidence}%
@@ -189,26 +177,27 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                             </span>
                         </div>
                     </div>
-                )}
-
-                {!aiResult && (
+                ) : memos.length === 0 ? (
                     <div
-                        className="rounded-xl p-6 text-center"
-                        style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}
+                        className="rounded-xl p-6 flex items-center justify-center text-center"
+                        style={{ background: C.surface, border: `1px solid ${C.borderLight}`, minHeight: '96px' }}
                     >
-                        <BrainCircuit className="w-8 h-8 mx-auto mb-2" style={{ color: C.faint }} />
-                        <p className="text-xs font-bold" style={{ color: '#64748b' }}>메모 작성 후 AI 분석</p>
-                        <p className="text-[10px] mt-1" style={{ color: C.faint }}>통화 내용 요약 + 다음 액션 추천</p>
+                        <BrainCircuit className="w-8 h-8" style={{ color: C.faint }} />
                     </div>
-                )}
-
-                {co.aiMemoSummary && !aiResult && (
+                ) : co.aiMemoSummary ? (
                     <div
                         className="rounded-xl p-3"
                         style={{ background: '#f0fdf4', border: '1px solid #a7f3d0' }}
                     >
                         <p className="text-[10px] font-bold mb-1" style={{ color: '#059669' }}>📌 이전 AI 분석</p>
                         <p className="text-[10px]" style={{ color: C.body }}>{co.aiMemoSummary}</p>
+                    </div>
+                ) : (
+                    <div
+                        className="rounded-xl p-6 flex items-center justify-center text-center"
+                        style={{ background: C.surface, border: `1px solid ${C.borderLight}`, minHeight: '96px' }}
+                    >
+                        <BrainCircuit className="w-8 h-8" style={{ color: C.faint }} />
                     </div>
                 )}
             </div>
@@ -245,25 +234,17 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                             opacity: (note.trim() && !saving) ? 1 : 0.5,
                         }}
                     >
-                        <Send className="w-3.5 h-3.5" />{saving ? '저장중...' : '저장'}
+                        <Send className="w-3.5 h-3.5" />{saving ? '저장중...' : '메모 저장'}
                     </button>
-                    <button
-                        onClick={saveWithAI}
-                        disabled={aiLoading || !note.trim() || saving}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity"
-                        style={{
-                            background: '#f3e8ff', color: '#7c3aed', border: '1px solid #d8b4fe',
-                            opacity: (aiLoading || !note.trim() || saving) ? 0.5 : 1,
-                        }}
-                    >
-                        {aiLoading
-                            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            : <BrainCircuit className="w-3.5 h-3.5" />}
-                        {aiLoading ? '분석중...' : 'AI 분석 저장'}
-                    </button>
+                    {aiLoading && (
+                        <div className="flex items-center justify-center px-4 rounded-xl text-xs font-bold" 
+                            style={{ background: '#f3e8ff', color: '#7c3aed', border: '1px solid #d8b4fe' }}>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> 분석중...
+                        </div>
+                    )}
                 </div>
-                <p className="text-[9px] text-right" style={{ color: C.faint }}>
-                    Ctrl+Enter로 빠른 저장
+                <p className="text-[9px] text-right mt-1" style={{ color: C.faint }}>
+                    Ctrl+Enter로 자동 저장 및 요약 진행
                 </p>
             </div>
 
@@ -299,13 +280,15 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                                             {formatDateTime(memo.createdAt)}
                                         </span>
                                     </div>
-                                    <button
-                                        onClick={() => deleteMemo(memo.id)}
-                                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
-                                        title="메모 삭제"
-                                    >
-                                        <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
-                                    </button>
+                                    {user?.role !== 'sales' && (
+                                        <button
+                                            onClick={() => deleteMemo(memo.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
+                                            title="메모 삭제"
+                                        >
+                                            <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
+                                        </button>
+                                    )}
                                 </div>
                                 <p className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: C.body }}>
                                     {memo.content}

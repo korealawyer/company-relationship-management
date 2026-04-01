@@ -4,15 +4,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2 } from 'lucide-react';
-import { meetingRoomStore, type MeetingRoom, type MeetingReservation } from '@/lib/store';
 import { getCurrentUserId } from '@/lib/permissions';
 
-const TIME_SLOTS = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
-const ROOM_COLORS = ['#3b82f6', '#8b5cf6', '#10b981'];
+interface MeetingRoom { id: string; name: string; capacity: number; floor: string; }
+interface MeetingReservation { id: string; roomId: string; userId: string; userName: string; date: string; startTime: string; endTime: string; purpose: string; }
+
+const DEFAULT_ROOMS: MeetingRoom[] = [
+    { id: 'r1', name: '본관(대회의실)', capacity: 10, floor: '본관' },
+    { id: 'r2', name: '본관(소회의실)', capacity: 4, floor: '본관' },
+    { id: 'r3', name: '신관(3층)', capacity: 8, floor: '신관 3층' },
+    { id: 'r4', name: '신관(4층-대회의실)', capacity: 5, floor: '신관 4층' },
+    { id: 'r5', name: '신관(4층-소회의실)', capacity: 4, floor: '신관 4층' },
+];
+
+let memoryReservations: MeetingReservation[] = [];
+
+const TIME_SLOTS = [
+    '07:00','08:00','09:00','10:00','11:00','12:00',
+    '13:00','14:00','15:00','16:00','17:00','18:00',
+    '19:00','20:00','21:00','22:00','23:00'
+];
+const ROOM_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
 
 export default function MeetingRoomTab() {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
-    const [rooms] = useState<MeetingRoom[]>(meetingRoomStore.getRooms());
+    const [rooms] = useState<MeetingRoom[]>(DEFAULT_ROOMS);
     const [reservations, setReservations] = useState<MeetingReservation[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [modalData, setModalData] = useState({ roomId: '', startTime: '09:00', endTime: '10:00', purpose: '' });
@@ -20,7 +36,7 @@ export default function MeetingRoomTab() {
     const currentUserId = getCurrentUserId();
 
     const refreshData = useCallback(() => {
-        setReservations(meetingRoomStore.getReservations(selectedDate));
+        setReservations(memoryReservations.filter(r => r.date === selectedDate));
     }, [selectedDate]);
 
     useEffect(() => { refreshData(); }, [refreshData]);
@@ -33,12 +49,27 @@ export default function MeetingRoomTab() {
 
     const handleReserve = () => {
         if (!modalData.roomId || !modalData.purpose.trim()) return;
-        if (meetingRoomStore.hasConflict(modalData.roomId, selectedDate, modalData.startTime, modalData.endTime)) {
+        const hasConflict = memoryReservations.some(r => 
+            r.roomId === modalData.roomId && 
+            r.date === selectedDate && 
+            r.startTime < modalData.endTime && 
+            r.endTime > modalData.startTime
+        );
+        if (hasConflict) {
             setToast('❌ 해당 시간에 이미 예약이 있습니다');
             setTimeout(() => setToast(''), 2500);
             return;
         }
-        meetingRoomStore.addReservation({ roomId: modalData.roomId, userId: currentUserId, userName: '김수현 변호사', date: selectedDate, startTime: modalData.startTime, endTime: modalData.endTime, purpose: modalData.purpose });
+        memoryReservations.push({
+            id: Date.now().toString(),
+            roomId: modalData.roomId,
+            userId: currentUserId,
+            userName: '김수현 변호사',
+            date: selectedDate,
+            startTime: modalData.startTime,
+            endTime: modalData.endTime,
+            purpose: modalData.purpose
+        });
         refreshData();
         setShowModal(false);
         setToast('✅ 예약이 완료되었습니다');
@@ -46,7 +77,7 @@ export default function MeetingRoomTab() {
     };
 
     const handleDelete = (id: string) => {
-        meetingRoomStore.deleteReservation(id);
+        memoryReservations = memoryReservations.filter(r => r.id !== id);
         refreshData();
         setToast('🗑️ 예약이 취소되었습니다');
         setTimeout(() => setToast(''), 2500);
@@ -79,9 +110,9 @@ export default function MeetingRoomTab() {
                     <span className="text-xs font-bold" style={{ color: '#64748b' }}>🏢 시간대별 예약 현황 ({selectedDate})</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                    <div style={{ minWidth: 700, padding: '12px 16px' }}>
+                    <div style={{ minWidth: 1200, padding: '12px 16px' }}>
                         {/* 시간 헤더 */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '120px repeat(9, 1fr)', gap: 2, marginBottom: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '170px repeat(17, 1fr)', gap: 2, marginBottom: 8 }}>
                             <div />
                             {TIME_SLOTS.map(t => (
                                 <div key={t} className="text-center text-[10px] font-bold" style={{ color: '#94a3b8' }}>{t}</div>
@@ -89,11 +120,11 @@ export default function MeetingRoomTab() {
                         </div>
                         {/* 각 회의실별 행 */}
                         {rooms.map((room, ri) => (
-                            <div key={room.id} style={{ display: 'grid', gridTemplateColumns: '120px repeat(9, 1fr)', gap: 2, marginBottom: 6 }}>
+                            <div key={room.id} style={{ display: 'grid', gridTemplateColumns: '170px repeat(17, 1fr)', gap: 2, marginBottom: 6 }}>
                                 <div className="flex items-center gap-1.5 pr-2">
-                                    <div style={{ width: 8, height: 8, borderRadius: 2, background: ROOM_COLORS[ri] }} />
-                                    <span className="text-xs font-bold truncate" style={{ color: '#1e293b' }}>{room.name}</span>
-                                    <span className="text-[9px]" style={{ color: '#94a3b8' }}>({room.capacity}명)</span>
+                                    <div style={{ minWidth: 8, height: 8, borderRadius: 2, background: ROOM_COLORS[ri] }} />
+                                    <span className="text-xs font-bold whitespace-nowrap" style={{ color: '#1e293b' }}>{room.name}</span>
+                                    <span className="text-[10px] whitespace-nowrap" style={{ color: '#94a3b8' }}>({room.capacity}명)</span>
                                 </div>
                                 {TIME_SLOTS.map(time => {
                                     const rsvp = reservations.find(r => r.roomId === room.id && r.startTime <= time && r.endTime > time);
@@ -179,7 +210,6 @@ export default function MeetingRoomTab() {
                                         <select value={modalData.endTime} onChange={e => setModalData(p => ({ ...p, endTime: e.target.value }))}
                                             className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }}>
                                             {TIME_SLOTS.map(t => { const h = (parseInt(t.split(':')[0]) + 1).toString().padStart(2, '0'); return <option key={h} value={`${h}:00`}>{h}:00</option>; })}
-                                            <option value="18:00">18:00</option>
                                         </select>
                                     </div>
                                 </div>

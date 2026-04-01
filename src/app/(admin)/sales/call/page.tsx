@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers, ChevronUp, ChevronDown } from 'lucide-react';
+import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers, ChevronUp, ChevronDown, BookOpen } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
 import { useAuth } from '@/lib/AuthContext';
 import { useCallLocks } from '@/hooks/useCallLocks';
@@ -13,9 +13,11 @@ import CallbackModal from '@/components/sales/call/CallbackModal';
 import KakaoModal from '@/components/sales/call/KakaoModal';
 import ContractPreviewModal from '@/components/lawyer/ContractPreviewModal';
 import CompanyTableRow from '@/components/sales/call/CompanyTableRow';
+import SalesCallTour from '@/components/sales/call/SalesCallTour';
 
 export default function SalesCallPage() {
     const { user } = useAuth();
+    const [runTour, setRunTour] = useState(false);
     const { locks: callLocks, getLockInfo } = useCallLocks(); // @/hooks/useCallLocks 에 구현된 훅이라고 가정
     const {
         companies, search, setSearch, selectedId, toast, setToast, callResult, activeCallId,
@@ -49,7 +51,7 @@ export default function SalesCallPage() {
 
     const FILTERS: { key: CaseStatus | 'all' | 'my_calls_today'; label: string; icon: string }[] = [
         { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, { key: 'analyzed', label: '분석완료', icon: '🔍' },
-        { key: 'lawyer_confirmed', label: '변호사컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일발송', icon: '📧' },
+        { key: 'reviewing', label: '변호사검토', icon: '📋' }, { key: 'lawyer_confirmed', label: '변호사 컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일 발송', icon: '📧' },
         { key: 'client_replied', label: '답장수신', icon: '💬' }, { key: 'client_viewed', label: '리포트열람', icon: '👁️' },
         { key: 'contract_sent', label: '계약서발송', icon: '📄' }, { key: 'contract_signed', label: '서명완료', icon: '✍️' },
     ];
@@ -72,7 +74,7 @@ export default function SalesCallPage() {
                                 <p className="text-[13px] text-slate-500">{filtered.length}개 기업</p>
                             </div>
                         </div>
-                        <div className="flex gap-2 items-center overflow-x-auto pb-1">
+                        <div id="tour-nav" className="flex gap-2 items-center overflow-x-auto pb-1">
                             <div className="relative flex-shrink-0">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="기업·담당자 검색..."
@@ -83,10 +85,13 @@ export default function SalesCallPage() {
                             <Link href="/sales/call"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-50 border border-indigo-200 text-indigo-600"><Headphones className="w-3.5 h-3.5 hidden sm:block" /> 전화 영업</button></Link>
                             <Link href="/sales/voice-memo"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600"><Mic className="w-3.5 h-3.5 hidden sm:block" /> 음성 메모</button></Link>
                             <Link href="/sales/pricing-calculator"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600"><Calculator className="w-3.5 h-3.5 hidden sm:block" /> 견적 계산기</button></Link>
+                            <button onClick={() => setRunTour(true)} className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors">
+                                <BookOpen className="w-3.5 h-3.5 hidden sm:block" /> 영업용 설명서
+                            </button>
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 mb-2">
+                    <div id="tour-stats" className="flex items-center gap-3 mb-2">
                         <div className="flex gap-2 flex-1">
                             {[{ l: '대기', v: companies.length - calledCount, c: '#4f46e5', b: '#eef2ff' }, 
                               { l: '오늘영업', v: todayStats.total, c: '#059669', b: '#ecfdf5', sub: `✅${todayStats.connected} 📵${todayStats.no_answer} 🔄${todayStats.callback}` }, 
@@ -120,7 +125,7 @@ export default function SalesCallPage() {
                         ))}</div>
                     </motion.div>}</AnimatePresence>
                     
-                    <div className="flex gap-1 flex-wrap">
+                    <div id="tour-filters" className="flex gap-1 flex-wrap">
                         {FILTERS.map(f => {
                             const cnt = f.key === 'my_calls_today' ? todayStats.total : (statusCounts[f.key] || 0); 
                             const a = statusFilter === f.key; 
@@ -131,7 +136,7 @@ export default function SalesCallPage() {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div id="tour-table" className="flex-1 overflow-auto">
                 <table className="w-full min-w-[1250px]">
                     <thead className="sticky top-0 z-10 bg-white shadow-sm ring-1 ring-slate-200">
                         <tr>
@@ -170,6 +175,7 @@ export default function SalesCallPage() {
                 setKakaoSending={setKakaoSending} setKakaoTarget={setKakaoTarget} setToast={setToast} />
             {contractPreviewTarget && <ContractPreviewModal company={contractPreviewTarget} setContractPreviewTarget={setContractPreviewTarget}
                 onRefresh={refresh} setToast={setToast} />}
+            <SalesCallTour run={runTour} onClose={() => setRunTour(false)} />
         </div>
     );
 }

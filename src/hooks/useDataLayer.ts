@@ -138,6 +138,11 @@ export function useAutoSettings() {
   );
 
   const updateSettings = async (patch: Partial<AutoSettings>) => {
+    // 낙관적 업데이트: 서버 응답 전 즉시 UI 반영
+    mutate(
+      (prev) => (prev ? { ...prev, ...patch } : undefined) as AutoSettings,
+      false 
+    );
     await dataLayer.auto.saveSettings(patch);
     mutate();
   };

@@ -5,58 +5,6 @@ import { requireSessionFromCookie } from '@/lib/auth';
 export const maxDuration = 180; // 3분
 export const runtime = 'nodejs'; // Edge 대신 Node 환경으로 넉넉한 컴퓨팅 사용
 
-// 데모 분석 결과 (폴백용)
-const DEMO_ISSUES = [
-    {
-        id: crypto.randomUUID(), level: 'HIGH', title: '수집 항목 법정 기재 누락',
-        law: '개인정보 보호법 제30조 제1항 제1호',
-        originalText: '수집 및 이용 목적: 회원 가입 및 관리 등...',
-        riskDesc: '수집하는 별도 개인정보 항목이 처리방침에 명시되지 않아 과태료 부과 대상입니다. (예상 제재: 최대 3,000만원)',
-        customDraft: '처리방침에 수집 항목(성명, 연락처, 이메일)을 명시하는 조항 추가 필요.',
-        lawyerNote: '', reviewChecked: false, aiDraftGenerated: true
-    },
-    {
-        id: crypto.randomUUID(), level: 'HIGH', title: '제3자 제공 동의 절차 부재',
-        law: '개인정보 보호법 제17조 제2항',
-        originalText: '파트너사 및 제휴업체에 광고 데이터 제공 가능',
-        riskDesc: '가맹점 데이터를 파트너사에 제공 시 별도 동의 절차가 없습니다. (예상 제재: 최대 5,000만원)',
-        customDraft: '"제3자 제공 동의" 섹션 신설 및 파트너사 목록, 제공 목적, 보유 기간 명시.',
-        lawyerNote: '', reviewChecked: false, aiDraftGenerated: true
-    },
-    {
-        id: crypto.randomUUID(), level: 'MEDIUM', title: '보유·이용 기간 불명확',
-        law: '개인정보 보호법 제30조 제1항 제3호',
-        originalText: '보관 기간: 서비스 종료 시까지 혹은 회원 탈퇴 시까지',
-        riskDesc: '"서비스 종료 시까지"라는 불명확한 표현을 사용 중입니다. (예상 제재: 시정 권고)',
-        customDraft: '"계약 종료 후 5년 (상법 제33조)" 등 구체적 법정 보유 기간 기재.',
-        lawyerNote: '', reviewChecked: false, aiDraftGenerated: true
-    },
-];
-
-// URL 기반 최소 리스크 추정 (데모 수준 폴백)
-function estimateRiskLevel(url: string): 'HIGH' | 'MEDIUM' | 'LOW' {
-    if (!url) return 'HIGH';
-    if (!url.startsWith('https://')) return 'HIGH';
-    if (url.length < 20) return 'MEDIUM';
-    if (url.length >= 30) return 'LOW';
-    return 'MEDIUM';
-}
-
-function generateFallbackResponse(url?: string) {
-    const riskLevel = estimateRiskLevel(url ?? '');
-    return NextResponse.json({
-        success: true,
-        isDemoMode: true,
-        message: 'AI 분석 완료 (데모 모드 — 분석 실패 또는 API 키 누락)',
-        analysisId: `demo-${Date.now()}`,
-        analyzedUrl: url ?? null,
-        issueCount: DEMO_ISSUES.length,
-        issues: DEMO_ISSUES,
-        riskLevel,
-        rawText: '',
-        completedAt: new Date().toISOString(),
-    });
-}
 
 export async function POST(request: NextRequest) {
     // 인증 검증
@@ -64,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
-    let body: { url?: string; companyId?: string; manualText?: string; systemPrompt?: string; };
+    let body: { url?: string; companyId?: string; manualText?: string; systemPrompt?: string; model?: string; };
     try {
         body = await request.json();
     } catch {
@@ -74,7 +22,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { url, companyId, manualText, systemPrompt } = body;
+    const { url, companyId, manualText, systemPrompt, model } = body;
 
     // ── 필수 파라미터 검증 ──
     if (!url && !companyId && !manualText) {
@@ -167,22 +115,24 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // 3. 추출된 텍스트 확인 후, 부족하면 데모 모드 대체 반환 (Vercel IP 차단 우회)
+    // 3. 추출된 텍스트 확인 후, 부족하면 에러 반환 (수동 입력 유도)
     if (!extractedText || extractedText.length < 50) {
-        console.warn('[Analyze API] 봇 차단 또는 텍스트 부족으로 데모 결과 반환 (Vercel 타임아웃 방어)');
-        const fallback = await generateFallbackResponse(url);
-        // 클라이언트단이 데모 모드임을 인지하도록 안내
-        const data = await fallback.json();
-        data.message = 'AI 분석 완료 (봇 차단 우회를 위한 데모 모드 결과)';
-        return NextResponse.json(data);
+        console.warn('[Analyze API] 크롤링 실패 또는 추출된 텍스트 불충분');
+        return NextResponse.json(
+            { success: false, error: '웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },
+            { status: 422 }
+        );
     }
 
     // 4. OpenAI 실시간 분석 지시
     try {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            console.warn('[Analyze API] OPENAI_API_KEY is not set. Falling back to demo mode.');
-            return generateFallbackResponse(url);
+            console.error('[Analyze API] OPENAI_API_KEY is not set.');
+            return NextResponse.json(
+                { success: false, error: 'OpenAI API 키가 설정되지 않았습니다. 관리자에게 문의하세요.' },
+                { status: 500 }
+            );
         }
 
         const defaultPrompt = `주어진 [개인정보처리방침 원문] 텍스트를 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 분리해 주세요.
@@ -240,7 +190,7 @@ export async function POST(request: NextRequest) {
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: 'gpt-4o-mini',
+                model: model || 'gpt-4o-mini',
                 temperature: 0.1,
                 messages: [{ role: 'user', content: prompt }]
             }),
@@ -250,7 +200,10 @@ export async function POST(request: NextRequest) {
 
         if (!response.ok) {
             console.error('[Analyze API] OpenAI Failure:', await response.text());
-            return generateFallbackResponse(url);
+            return NextResponse.json(
+                { success: false, error: 'AI 모델(OpenAI) 호출에 실패했습니다. 잠시 후 전문 텍스트를 직접 입력하여 다시 시도하거나 관리자에게 문의하세요.' },
+                { status: 502 }
+            );
         }
 
         const aiData = await response.json();
@@ -261,11 +214,11 @@ export async function POST(request: NextRequest) {
         const parsedResult = JSON.parse(cleanJson);
 
         if (parsedResult.riskLevel === 'UNKNOWN' || parsedResult.error) {
-            console.warn('[Analyze API] OpenAI가 원문을 식별할 수 없음. 봇 차단 우회로 데모 결과 반환');
-            const fallback = await generateFallbackResponse(url);
-            const data = await fallback.json();
-            data.message = 'AI 분석 완료 (방침 식별 불가에 따른 데모 모드 결과)';
-            return NextResponse.json(data);
+            console.warn('[Analyze API] OpenAI가 원문을 식별할 수 없음.');
+            return NextResponse.json(
+                { success: false, error: parsedResult.error || '원문에서 개인정보처리방침 내용을 식별할 수 없습니다. 빈약한 페이지가 수집되었을 수 있으니, 전문 텍스트를 수동으로 복사·붙여넣기 후 다시 시도해 주세요.' },
+                { status: 422 }
+            );
         }
 
         return NextResponse.json({

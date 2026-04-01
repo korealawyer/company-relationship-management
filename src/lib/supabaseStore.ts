@@ -628,7 +628,9 @@ export const supabaseAutoStore = {
     if (!sb) return;
     const row = objToRow(settings as Record<string, unknown>);
     row.updated_at = new Date().toISOString();
-    await sb.from('auto_settings').update(row).eq('id', 'default');
+    row.id = 'default';
+    const { error } = await sb.from('auto_settings').upsert(row);
+    if (error) console.error("saveSettings error:", error);
   },
 
   getLogs: async (): Promise<AutoLog[]> => {

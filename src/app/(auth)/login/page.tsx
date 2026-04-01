@@ -53,10 +53,55 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const from = searchParams.get('from') || '';
+    const claimId = searchParams.get('claim');
     const { login: authLogin, loginWithBizNo: authLoginBiz, loginWithPersonalEmail: authLoginPersonal } = useAuth();
 
     const [mode, setMode] = useState<LoginMode>('client');
     const [showStaffTab, setShowStaffTab] = useState(false);
+
+    // Claim login state
+    const [claimPw, setClaimPw] = useState('');
+    const [claimPwConfirm, setClaimPwConfirm] = useState('');
+    const [showClaimPw, setShowClaimPw] = useState(false);
+    const [claimError, setClaimError] = useState('');
+    const [claimLoading, setClaimLoading] = useState(false);
+    const [agreePrivacy, setAgreePrivacy] = useState(false);
+    const [agreeMarketing, setAgreeMarketing] = useState(false);
+    const [modalContent, setModalContent] = useState<'privacy' | 'marketing' | null>(null);
+
+    const handleClaimLogin = async () => {
+        if (!claimPw || claimPw !== claimPwConfirm) { setClaimError('비밀번호가 일치하지 않거나 비어있습니다.'); return; }
+        if (claimPw.length < 6) { setClaimError('비밀번호는 최소 6자 이상이어야 합니다.'); return; }
+        if (!agreePrivacy) { setClaimError('필수 개인정보 수집 및 이용에 동의해주세요.'); return; }
+        setClaimLoading(true); setClaimError('');
+        try {
+            const res = await fetch('/api/auth/claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ claimId, password: claimPw, agreeMarketing })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '접근 설정에 실패했습니다.');
+            
+            const result = await authLoginBiz(data.email, claimPw);
+            if (!result.error) {
+                const session = getSession();
+                if (session) {
+                    // setCookie was moved to inside auth but let's do it safely
+                    setCookie('ibs_session', session.id, 1);
+                    setCookie('ibs_role', session.role, 1);
+                    router.replace(from || '/privacy-report');
+                } else {
+                    router.replace(from || '/privacy-report'); // session might be slight delayed
+                }
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (e: any) {
+            setClaimError(e.message);
+            setClaimLoading(false);
+        }
+    };
 
     // 이미 로그인돼 있으면 홈으로
     useEffect(() => {
@@ -173,34 +218,36 @@ function LoginContent() {
                 <h1 className="sr-only">IBS 법률사무소 로그인</h1>
                 {/* Logo removed per user request */}
 
-                {/* Mode Toggle */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <div className="flex rounded-xl p-1 mb-6" style={{ background: L.borderLight, border: `1px solid ${L.border}` }}>
-                        {([
-                            { key: 'personal', label: '개인', icon: <UserCircle className="w-4 h-4" /> },
-                            { key: 'client',   label: '기업',     icon: <Building2 className="w-4 h-4" /> },
-                            ...(showStaffTab ? [{ key: 'staff', label: '내부 직원', icon: <Users className="w-4 h-4" /> }] : []),
-                        ] as { key: LoginMode; label: string; icon: React.ReactNode }[]).map((tab) => (
-                            <button
-                                key={tab.key}
-                                onClick={() => { setMode(tab.key); setError(''); setBizError(''); setPersonalError(''); }}
-                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all"
-                                style={{
-                                    background: mode === tab.key ? 'linear-gradient(135deg,#e8c87a,#c9a84c)' : 'transparent',
-                                    color: mode === tab.key ? '#0f172a' : L.muted,
-                                    boxShadow: mode === tab.key ? '0 2px 8px rgba(184,150,10,0.2)' : 'none',
-                                }}
-                            >
-                                {tab.icon}{tab.label}
-                            </button>
-                        ))}
-                    </div>
-                </motion.div>
+                {/* Mode Toggle (Hidden if claimId exists) */}
+                {!claimId && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                        <div className="flex rounded-xl p-1 mb-6" style={{ background: L.borderLight, border: `1px solid ${L.border}` }}>
+                            {([
+                                { key: 'personal', label: '개인', icon: <UserCircle className="w-4 h-4" /> },
+                                { key: 'client',   label: '기업',     icon: <Building2 className="w-4 h-4" /> },
+                                ...(showStaffTab ? [{ key: 'staff', label: '내부 직원', icon: <Users className="w-4 h-4" /> }] : []),
+                            ] as { key: LoginMode; label: string; icon: React.ReactNode }[]).map((tab) => (
+                                <button
+                                    key={tab.key}
+                                    onClick={() => { setMode(tab.key); setError(''); setBizError(''); setPersonalError(''); }}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                                    style={{
+                                        background: mode === tab.key ? 'linear-gradient(135deg,#e8c87a,#c9a84c)' : 'transparent',
+                                        color: mode === tab.key ? '#0f172a' : L.muted,
+                                        boxShadow: mode === tab.key ? '0 2px 8px rgba(184,150,10,0.2)' : 'none',
+                                    }}
+                                >
+                                    {tab.icon}{tab.label}
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* Card */}
                 <AnimatePresence mode="wait">
                     <motion.div
-                        key={mode}
+                        key={claimId ? 'claim' : mode}
                         initial={{ opacity: 0, x: mode === 'staff' ? -20 : 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: mode === 'staff' ? 20 : -20 }}
@@ -211,69 +258,122 @@ function LoginContent() {
                             boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
                         }}>
 
+                            {/* ── Claim Flow ── */}
+                            {claimId && (
+                                <div className="space-y-5">
+                                    <div>
+                                        <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>초기 비밀번호 설정</h2>
+                                        <p className="text-xs" style={{ color: L.muted }}>보안을 위해 본인이 사용할 비밀번호를 등록해주세요.</p>
+                                    </div>
+
+                                    {/* Password */}
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>새 비밀번호</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
+                                            <input
+                                                style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                                                type={showClaimPw ? 'text' : 'password'}
+                                                placeholder="6자리 이상 입력"
+                                                autoComplete="off"
+                                                value={claimPw}
+                                                onChange={(e) => { setClaimPw(e.target.value); setClaimError(''); }}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleClaimLogin()}
+                                            />
+                                            <button onClick={() => setShowClaimPw(!showClaimPw)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: L.faint }}>
+                                                {showClaimPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Password Confirm */}
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>새 비밀번호 확인</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
+                                            <input
+                                                style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                                                type={showClaimPw ? 'text' : 'password'}
+                                                placeholder="비밀번호 재입력"
+                                                autoComplete="off"
+                                                value={claimPwConfirm}
+                                                onChange={(e) => { setClaimPwConfirm(e.target.value); setClaimError(''); }}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleClaimLogin()}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 약관 동의 */}
+                                    <div className="space-y-3 pt-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none" style={{ color: L.body }}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={agreePrivacy}
+                                                    onChange={(e) => setAgreePrivacy(e.target.checked)}
+                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                                />
+                                                [필수] 개인정보 수집 및 이용 동의
+                                            </label>
+                                            <button 
+                                                onClick={() => setModalContent('privacy')}
+                                                className="text-xs font-semibold hover:underline" 
+                                                style={{ color: L.gold }}>보기</button>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none" style={{ color: L.body }}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={agreeMarketing}
+                                                    onChange={(e) => setAgreeMarketing(e.target.checked)}
+                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                                />
+                                                [선택] 마케팅 정보 수신 동의
+                                            </label>
+                                            <button 
+                                                onClick={() => setModalContent('marketing')}
+                                                className="text-xs font-semibold hover:underline" 
+                                                style={{ color: L.gold }}>보기</button>
+                                        </div>
+                                    </div>
+
+                                    {claimError && (
+                                        <div className="flex items-center gap-2 text-sm" style={{ color: '#dc2626' }}>
+                                            <AlertCircle className="w-4 h-4 flex-shrink-0" />{claimError}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleClaimLogin}
+                                        disabled={claimLoading}
+                                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+                                        style={{
+                                            background: claimLoading ? 'rgba(201,168,76,0.3)' : 'linear-gradient(135deg,#e8c87a,#c9a84c)',
+                                            color: '#0f172a',
+                                            opacity: claimLoading ? 0.8 : 1,
+                                            boxShadow: claimLoading ? 'none' : '0 2px 12px rgba(184,150,10,0.25)',
+                                        }}
+                                    >
+                                        {claimLoading ? (
+                                            <span className="flex items-center gap-2">
+                                                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                                </svg>
+                                                설정 중...
+                                            </span>
+                                        ) : (<>설정 완료 및 리포트 보기 <ArrowRight className="w-4 h-4" /></>)}
+                                    </button>
+                                </div>
+                            )}
+
                             {/* ── Staff Login ── */}
-                            {mode === 'staff' && (
+                            {!claimId && mode === 'staff' && (
                                 <div className="space-y-5">
                                     <div>
                                         <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>직원 로그인</h2>
                                         <p className="text-xs" style={{ color: L.muted }}>법인 이메일과 비밀번호를 입력하세요.</p>
                                     </div>
-
-                                    {/* Role Quick-Login Badges — 개발 환경에서만 표시 */}
-                                    {process.env.NODE_ENV === 'development' && (
-                                        <div className="space-y-2">
-                                            <p className="text-[10px] font-bold tracking-widest uppercase" style={{ color: L.faint }}>
-                                                [DEV] 역할선택 — 선택하면 즉시 로그인
-                                            </p>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {[
-                                                    { email: 'admin@ibslaw.kr', pw: 'admin123', role: 'super_admin', dest: '/employee' },
-                                                    { email: 'lawyer1@ibslaw.kr', pw: 'lawyer123', role: 'lawyer', dest: '/lawyer' },
-                                                    { email: 'sales@ibslaw.kr', pw: 'sales123', role: 'sales', dest: '/employee' },
-                                                    { email: 'counselor@ibslaw.kr', pw: 'counsel123', role: 'counselor', dest: '/counselor' },
-                                                    { email: 'lit@ibslaw.kr', pw: 'lit123', role: 'litigation', dest: '/litigation' },
-                                                ].map((h) => {
-                                                    const ri = ROLE_ICONS[h.role];
-                                                    return (
-                                                        <button
-                                                            key={h.email}
-                                                            onClick={async () => {
-                                                                setLoading(true); setError('');
-                                                                await new Promise(r => setTimeout(r, 400));
-                                                                const result = await authLogin(h.email, h.pw);
-                                                                if (!result.error) {
-                                                                    const session = getSession();
-                                                                    if (session) {
-                                                                        setCookie('ibs_session', session.id, 1);
-                                                                        setCookie('ibs_role', session.role, 1);
-                                                                    }
-                                                                    router.replace(h.dest);
-                                                                } else {
-                                                                    setError(result.error);
-                                                                    setLoading(false);
-                                                                }
-                                                            }}
-                                                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-                                                            style={{
-                                                                background: `${ri?.color}08`,
-                                                                border: `1px solid ${ri?.color}25`,
-                                                                color: ri?.color || L.body
-                                                            }}
-                                                        >
-                                                            <span className="flex-shrink-0">{ri?.icon}</span>
-                                                            <div className="min-w-0">
-                                                                <div className="font-black text-[11px]">{ri?.label}</div>
-                                                                <div className="text-[9px] truncate" style={{ color: L.faint }}>
-                                                                    {ri?.dest_label}
-                                                                </div>
-                                                            </div>
-                                                            <ArrowRight className="w-3 h-3 ml-auto flex-shrink-0 opacity-40" />
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
 
                                     <div className="relative flex items-center gap-2" style={{ color: L.faint }}>
                                         <div className="flex-1 h-px" style={{ background: L.border }} />
@@ -356,7 +456,7 @@ function LoginContent() {
                             )}
 
                             {/* ── Client Login ── */}
-                            {mode === 'client' && (
+                            {!claimId && mode === 'client' && (
                                 <div className="space-y-5">
                                     <div>
                                         <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>기업 로그인</h2>
@@ -436,7 +536,7 @@ function LoginContent() {
                                 </div>
                             )}
                             {/* ── Personal Login ── */}
-                            {mode === 'personal' && (
+                            {!claimId && mode === 'personal' && (
                                 <div className="space-y-5">
                                     <div>
                                         <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>개인 로그인</h2>
@@ -546,6 +646,55 @@ function LoginContent() {
                     </p>
                 </div>
             </div>
+
+            {/* Modal for Privacy & Marketing Consent */}
+            <AnimatePresence>
+                {modalContent && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setModalContent(null)}>
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]"
+                        >
+                            <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: L.borderLight }}>
+                                <h3 className="font-bold" style={{ color: L.heading }}>
+                                    {modalContent === 'privacy' ? '개인정보 수집 및 이용 동의' : '마케팅 정보 수신 동의'}
+                                </h3>
+                                <button onClick={() => setModalContent(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                            </div>
+                            <div className="p-6 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap" style={{ color: L.body }}>
+                                {modalContent === 'privacy' ? 
+`[필수] 개인정보 수집 및 이용 동의서
+
+1. 수집하는 개인정보 항목: 이메일, 회사명, 접속 기록
+2. 수집 및 이용 목적: 프라이버시 리포트 발송, 서비스 제공 및 관련 안내
+3. 보유 및 이용 기간: 목적 달성 시 즉시 파기 (단, 관계 법령에 따라 보존할 필요가 있는 경우 해당 법령에서 정한 기간 동안 보존)
+
+귀하는 개인정보 수집 및 이용을 거부할 권리가 있습니다. 단, 거부 시 프라이버시 리포트 열람 및 서비스 이용이 제한될 수 있습니다.` 
+                                : 
+`[선택] 마케팅 정보 수신 동의서
+
+1. 발송 내용: 법률 정보, 새로운 서비스 안내, 세미나 및 초청 행사 등 마케팅 성격의 정보
+2. 수신 방법: 이메일 등
+3. 보유 및 이용 기간: 동의 철회 시까지 보존 및 이용
+
+귀하는 마케팅 정보 수신 동의를 거부하실 수 있으며, 거부하셔도 제공되는 기본 서비스(프라이버시 리포트 열람 등)는 이용하실 수 있습니다.`
+                                }
+                            </div>
+                            <div className="p-4 border-t flex justify-end" style={{ borderColor: L.borderLight, background: L.bg }}>
+                                <button 
+                                    onClick={() => setModalContent(null)}
+                                    className="px-5 py-2 rounded-lg font-bold text-sm bg-gray-800 text-white hover:bg-gray-700 transition"
+                                >
+                                    확인
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

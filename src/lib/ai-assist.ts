@@ -127,7 +127,7 @@ export interface AIAssistResponse {
     generatedAt: string;
 }
 
-async function callOpenAI(apiKey: string, req: AIAssistRequest): Promise<AIAssistResponse> {
+async function callOpenAI(apiKey: string, req: AIAssistRequest, requestedModel?: string): Promise<AIAssistResponse> {
     const promptConfig = getPromptConfig();
     const prompt = `${promptConfig.lawyerTonePrompt}
     
@@ -140,6 +140,8 @@ async function callOpenAI(apiKey: string, req: AIAssistRequest): Promise<AIAssis
 [질문 내용]
 ${req.question}`;
 
+    const modelToUse = requestedModel || promptConfig.promptModels?.lawyerTonePrompt || promptConfig.model || 'gpt-4o';
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -147,7 +149,7 @@ ${req.question}`;
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            model: 'gpt-4o',
+            model: modelToUse,
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.7,
         })
@@ -162,7 +164,7 @@ ${req.question}`;
 
     return {
         draft: content,
-        model: 'GPT-4o',
+        model: modelToUse,
         confidence: 95,
         references: ['AI 자동 생성 내용'],
         generatedAt: new Date().toISOString(),
@@ -180,7 +182,7 @@ export async function generateAIDraft(req: AIAssistRequest): Promise<AIAssistRes
     // API 키가 있으면 실제 API 호출 (GPT-4o 기준)
     if (apiKey && model === 'gpt-4o') {
         try {
-            return await callOpenAI(apiKey, req);
+            return await callOpenAI(apiKey, req, model);
         } catch (e) {
             console.error('Real API Failed, falling back to mock:', e);
         }

@@ -47,13 +47,11 @@ export function StepCell({ done, label, active }: { done: boolean; label: string
 
 export function ActionButton({
     c, run, confirmingId, setConfirmingId, confirmRep, setConfirmRep,
-    assigningId, setAssigningId, assignLawyer, setAssignLawyer, loading, refresh,
+    loading, refresh,
 }: {
     c: Company; run: (k: string, fn: () => Promise<void> | void) => void;
     confirmingId: string | null; setConfirmingId: (v: string | null) => void;
     confirmRep: string; setConfirmRep: (v: string) => void;
-    assigningId: string | null; setAssigningId: (v: string | null) => void;
-    assignLawyer: string; setAssignLawyer: (v: string) => void;
     loading: string | null; refresh: () => void;
 }) {
     const s = c.status;
@@ -63,10 +61,12 @@ export function ActionButton({
     const lawyerList = users?.filter(u => u.role === 'lawyer').map(u => u.name);
     const finalLawyers = lawyerList && lawyerList.length > 0 ? lawyerList : LAWYERS;
     const [analyzing, setAnalyzing] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // 분석 실행 (run 래퍼 없이 독립 실행하여 경합 방지)
     const triggerAnalysis = async () => {
         if (analyzing) return;
+        setErrorMsg(null);
         setAnalyzing(true);
         try {
             await updateCompany(c.id, { status: 'crawling' });
@@ -86,7 +86,7 @@ export function ActionButton({
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\n개인정보처리방침 URL을 확인하거나,\n방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
+                setErrorMsg(data.error || '알 수 없는 오류');
                 await updateCompany(c.id, { status: 'pending' });
             } else {
                 // 성공 시 상태 변환과 데이터(데모 포함) 업데이트
@@ -102,7 +102,7 @@ export function ActionButton({
                 await updateCompany(c.id, payload);
             }
         } catch (err: any) {
-            alert(`분석 중 에러 발생: ${err.message}`);
+            setErrorMsg(`분석 중 에러 발생: ${err.message}`);
             await updateCompany(c.id, { status: 'pending' });
         } finally {
             setAnalyzing(false);
@@ -110,12 +110,30 @@ export function ActionButton({
         }
     };
 
-    if (s === 'pending') return (
-        <Button variant="premium" size="sm" onClick={triggerAnalysis} disabled={analyzing}>
-            <Zap className="w-3.5 h-3.5 mr-1" />
-            {analyzing ? '분석 요청 중...' : '법률 분석'}
-        </Button>
-    );
+    if (s === 'pending') {
+        if (errorMsg) {
+            return (
+                <div className="flex flex-col items-center gap-1.5">
+                    <span className="text-[11px] font-bold flex items-center" style={{ color: '#dc2626' }}>
+                        <AlertTriangle className="w-3.5 h-3.5 mr-1" />크롤링 오류
+                    </span>
+                    <button
+                        onClick={() => setErrorMsg(null)}
+                        className="text-[10px] px-2 py-0.5 rounded font-bold transition-colors"
+                        style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca' }}
+                    >
+                        <RotateCcw className="w-3 h-3 inline mr-0.5" />초기화
+                    </button>
+                </div>
+            );
+        }
+        return (
+            <Button variant="premium" size="sm" onClick={triggerAnalysis} disabled={analyzing}>
+                <Zap className="w-3.5 h-3.5 mr-1" />
+                {analyzing ? '분석 요청 중...' : '법률 분석'}
+            </Button>
+        );
+    }
     if (s === 'crawling') return (
         <div className="flex items-center gap-2">
             <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: '#d97706' }}>
@@ -135,19 +153,14 @@ export function ActionButton({
         </div>
     );
     if (s === 'analyzed') return (
-        <>
-            {assigningId === c.id ? (
-                <div className="flex items-center gap-1.5">
-                    <select value={assignLawyer} onChange={e => setAssignLawyer(e.target.value)} style={selectStyle}>
-                        {finalLawyers.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                    <Button variant="premium" size="sm" onClick={() => run(c.id, () => { updateCompany(c.id, { status: 'reviewing', assignedLawyer: assignLawyer || finalLawyers[0] }); setAssigningId(null); })}>배정</Button>
-                    <button onClick={() => setAssigningId(null)} className="text-xs font-bold" style={{ color: T.muted }}>✕</button>
-                </div>
-            ) : (
-                <Button variant="outline" size="sm" onClick={() => setAssigningId(c.id)}>변호사 배정</Button>
-            )}
-        </>
+        <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => run(c.id, () => updateCompany(c.id, { status: 'reviewing', assignedLawyer: '공통' }))}
+            disabled={loading === c.id}
+        >
+            공통 배정
+        </Button>
     );
     if (s === 'assigned' || s === 'reviewing') return (
         <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: '#d97706' }}>
@@ -202,6 +215,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
     const [clientReplyNote, setClientReplyNote] = useState(c.clientReplyNote || '');
     const [saving, setSaving] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // 정보 저장만 (분석 트리거 없음)
     const handleSave = async () => {
@@ -225,6 +239,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
     const handleAnalyze = async () => {
         if (analyzing) return;
         // 먼저 현재 폼 데이터 저장
+        setErrorMsg(null);
         setAnalyzing(true);
         try {
             await updateCompany(c.id, {
@@ -250,7 +265,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                alert(`분석 실패: ${data.error || '알 수 없는 오류'}\n\nURL을 확인하거나 방침 원문 텍스트를 직접 붙여넣은 뒤 재시도해 주세요.`);
+                setErrorMsg(data.error || '알 수 없는 오류');
                 await updateCompany(c.id, { status: 'pending' });
             } else {
                 // 성공 시 데이터베이스에 리스크/이슈 저장 (데모 모드 포함)
@@ -267,7 +282,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                 await updateCompany(c.id, payload);
             }
         } catch (e: any) {
-            alert(`분석 요청 실패: ${e.message}`);
+            setErrorMsg(`분석 요청 실패: ${e.message}`);
             await updateCompany(c.id, { status: 'pending' });
         } finally {
             setAnalyzing(false);
@@ -369,25 +384,49 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                 <Save className="w-4 h-4" /> {saving ? '저장 완료 ✓' : '정보 저장'}
                             </button>
                             {/* 2) AI 분석 트리거 버튼 */}
-                            <button
-                                onClick={handleAnalyze}
-                                disabled={analyzing || (!privacyUrl && !privacyText)}
-                                className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                                style={{
-                                    background: analyzing ? '#fef3c7' : '#fffbeb',
-                                    color: analyzing ? '#d97706' : '#b8960a',
-                                    border: `1px solid ${analyzing ? '#fcd34d' : '#fde68a'}`,
-                                    opacity: (analyzing || (!privacyUrl && !privacyText)) ? 0.6 : 1,
-                                    cursor: (!privacyUrl && !privacyText) ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                {analyzing
-                                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> AI 분석 진행 중...</>
-                                    : <><Zap className="w-4 h-4" /> AI 법률 분석 실행</>
-                                }
-                            </button>
+                            {errorMsg && !analyzing ? (
+                                <div className="flex-1 flex gap-2">
+                                    <button
+                                        onClick={handleAnalyze}
+                                        className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                                    >
+                                        <AlertTriangle className="w-4 h-4" /> 크롤링 오류 (재시도)
+                                    </button>
+                                    <button
+                                        onClick={() => setErrorMsg(null)}
+                                        className="px-4 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors bg-white hover:bg-slate-50 border border-slate-300 shadow-sm text-slate-700"
+                                    >
+                                        <RotateCcw className="w-4 h-4" /> 초기화
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleAnalyze}
+                                    disabled={analyzing || (!privacyUrl && !privacyText)}
+                                    className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                    style={{
+                                        background: analyzing ? '#fef3c7' : '#fffbeb',
+                                        color: analyzing ? '#d97706' : '#b8960a',
+                                        border: `1px solid ${analyzing ? '#fcd34d' : '#fde68a'}`,
+                                        opacity: (analyzing || (!privacyUrl && !privacyText)) ? 0.6 : 1,
+                                        cursor: (!privacyUrl && !privacyText) ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {analyzing
+                                        ? <><RefreshCw className="w-4 h-4 animate-spin" /> AI 분석 진행 중...</>
+                                        : <><Zap className="w-4 h-4" /> AI 법률 분석 실행</>
+                                    }
+                                </button>
+                            )}
                         </div>
-                        {(!privacyUrl && !privacyText) && (
+                        {errorMsg && (
+                            <div className="col-span-2 flex items-center gap-2 text-[11px] px-4 py-3 rounded-lg font-medium" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                                {errorMsg}
+                            </div>
+                        )}
+                        {(!privacyUrl && !privacyText) && !errorMsg && (
                             <div className="col-span-2 flex items-center gap-2 text-[11px] px-3 py-2 rounded-lg" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
                                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
                                 분석을 실행하려면 개인정보 처리방침 URL 또는 원문 텍스트를 먼저 입력해 주세요.

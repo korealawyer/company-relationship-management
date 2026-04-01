@@ -82,6 +82,7 @@ function ResultContent() {
 
             try {
                 const promptConfig = getPromptConfig();
+                const model = promptConfig.promptModels?.analyzePrompt || promptConfig.model;
 
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
@@ -90,7 +91,8 @@ function ResultContent() {
                         url: payloadUrl,
                         companyId: payloadCompanyId,
                         manualText: payloadManualText,
-                        systemPrompt: promptConfig.analyzePrompt
+                        systemPrompt: promptConfig.analyzePrompt,
+                        model
                     })
                 });
 

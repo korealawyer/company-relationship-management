@@ -97,11 +97,11 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
   
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibsbase.com';
   const params = new URLSearchParams();
-  if (lead.biz) params.append('biz', lead.biz);
+  params.append('claim', leadId);
+  params.append('from', '/privacy-report');
   if (repId) params.append('rep', repId);
-  if (lead.name) params.append('cname', lead.name);
   const queryString = params.toString() ? `?${params.toString()}` : '';
-  const portalUrl = `${BASE_URL}/${queryString}`;
+  const portalUrl = `${BASE_URL}/login${queryString}`;
 
   return {
     to: lead.contactEmail || FROM_EMAIL,

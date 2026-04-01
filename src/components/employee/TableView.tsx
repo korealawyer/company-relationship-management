@@ -14,8 +14,6 @@ export default function TableView({ filtered, refresh }: TableViewProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [confirmRep, setConfirmRep] = useState(SALES_REPS[0]);
-    const [assigningId, setAssigningId] = useState<string | null>(null);
-    const [assignLawyer, setAssignLawyer] = useState('');
     const [loading, setLoading] = useState<string | null>(null);
 
     const run = async (key: string, fn: () => Promise<void> | void) => {
@@ -99,8 +97,6 @@ export default function TableView({ filtered, refresh }: TableViewProps) {
                                         <ActionButton c={c} run={run}
                                             confirmingId={confirmingId} setConfirmingId={setConfirmingId}
                                             confirmRep={confirmRep} setConfirmRep={setConfirmRep}
-                                            assigningId={assigningId} setAssigningId={setAssigningId}
-                                            assignLawyer={assignLawyer} setAssignLawyer={setAssignLawyer}
                                             loading={loading} refresh={refresh} />
                                     </td>
                                 </tr>

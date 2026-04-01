@@ -108,6 +108,7 @@ import { IBS_SYSTEM_PROMPT, IBS_FULL_CHAT_PROMPT } from './chat';
 
 export interface PrivacyPromptConfig {
     model: string;
+    promptModels?: Record<string, string>;
     firstReviewPrompt: string;
     fullRevisionPrompt: string;
     chatSystemPrompt: string;
@@ -120,6 +121,7 @@ export interface PrivacyPromptConfig {
 
 export const DEFAULT_PROMPT_CONFIG: PrivacyPromptConfig = {
     model: 'gpt-4o',
+    promptModels: {},
     firstReviewPrompt: `당신은 대한민국 개인정보보호법 전문 변호사(경력 10년 이상)입니다.
 
 [역할]
@@ -235,13 +237,16 @@ JSON 배열로 출력하세요.`,
 [사건 기본 정보 (CRM)]
 {{caseContext}}`,
 
-    callRecordingSummaryPrompt: `당신은 법무법인 B2B 영업 통화 기록을 분석하는 최고 수준의 AI 어시스턴트입니다.
-제공된 통화 스크립트를 바탕으로 다음을 작성해주세요:
-- [주요 내용]: 통화의 주 목적과 주요 논의 사항 (2~3문장 이내)
-- [니즈 및 페인포인트]: 고객이 겪고 있는 문제나 필요로 하는 사항
-- [다음 액션 아이템]: 영업 담당자가 취해야 할 명확한 다음 단계 (Next step)
+    callRecordingSummaryPrompt: `당신은 법무법인 B2B 영업 통화 기록(메모)을 분석하는 최고 수준의 AI 전략가입니다.
+제공된 영업 담당자의 메모와 통화 기록을 바탕으로 다음 JSON 스키마에 맞게 분석 결과를 반환해주세요.
+절대 다른 설명이나 마크다운 백틱(\`\`\`) 없이 순수 JSON만 반환하세요.
 
-Markdown 형식을 사용하여 짧고 직관적으로 작성해주세요.`,
+[요구사항]
+- summary: 주요 진행 상황을 2~3문장으로 요약 (전체 히스토리 기반)
+- keyPoints: 고객의 니즈, 페인포인트, 주요 논의 사항을 배열로 3개 이내 추출
+- nextAction: 영업 담당자가 직후 취해야 할 구체적인 다음 행동 가이드 (예: '계약서 템플릿 첨부하여 이메일 발송')
+- nextActionType: 다음 중 가장 적절한 타입 하나 선택 ('send_contract', 'schedule_meeting', 'follow_up_call', 'send_email', 'escalate')
+- confidence: 현재까지의 소통 내용을 바탕으로 한 계약 전환 또는 목표 달성 가능성 점수 (0~100 정수)`,
 };
 
 // ── localStorage 기반 설정 저장/로드 ───────────────────────────

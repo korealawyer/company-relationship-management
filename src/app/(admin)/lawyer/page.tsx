@@ -170,22 +170,28 @@ export default function LawyerPage() {
                     <div className="h-full flex flex-col sm:flex-row gap-6 pb-6">
                         <div className="w-full sm:w-80 flex-shrink-0 bg-white border border-slate-200/60 rounded-2xl overflow-hidden flex flex-col h-[300px] sm:h-[calc(100vh-12rem)] shadow-sm">
                             <div className="p-4 bg-slate-50/50 border-b border-slate-200/60">
-                                <h3 className="text-sm font-bold text-slate-700 font-sans">관리 중인 기업</h3>
+                                <h3 className="text-sm font-bold text-slate-700 font-sans">구독 중인 기업</h3>
                             </div>
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {cases.map(c => (
-                                    <div 
-                                        key={c.id} 
-                                        onClick={() => setSelectedDocCompanyId(c.id)}
-                                        className={`p-4 border-b border-slate-100 flex items-center justify-between cursor-pointer transition-colors ${selectedDocCompanyId === c.id ? 'bg-violet-50 border-l-4 border-l-violet-500' : 'hover:bg-slate-50'}`}
-                                    >
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-800">{c.name}</h4>
-                                            <p className="text-xs mt-1 text-slate-500">{c.biz}</p>
+                                {cases.filter(c => c.status === 'subscribed').length > 0 ? (
+                                    cases.filter(c => c.status === 'subscribed').map(c => (
+                                        <div 
+                                            key={c.id} 
+                                            onClick={() => setSelectedDocCompanyId(c.id)}
+                                            className={`p-4 border-b border-slate-100 flex items-center justify-between cursor-pointer transition-colors ${selectedDocCompanyId === c.id ? 'bg-violet-50 border-l-4 border-l-violet-500' : 'hover:bg-slate-50'}`}
+                                        >
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-800">{c.name}</h4>
+                                                <p className="text-xs mt-1 text-slate-500">{c.biz}</p>
+                                            </div>
+                                            <ChevronRight className={`w-4 h-4 ${selectedDocCompanyId === c.id ? 'text-violet-500' : 'text-slate-300'}`} />
                                         </div>
-                                        <ChevronRight className={`w-4 h-4 ${selectedDocCompanyId === c.id ? 'text-violet-500' : 'text-slate-300'}`} />
+                                    ))
+                                ) : (
+                                    <div className="p-6 text-center text-slate-400 text-sm">
+                                        구독중인 기업이 없습니다.
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
                         <div className="flex-1 h-full min-h-[500px]">
