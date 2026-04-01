@@ -12,6 +12,8 @@ import ScriptTab from './ScriptTab';
 import InfoTab from './InfoTab';
 import MemoTab from './MemoTab';
 import RecordingsTab from './RecordingsTab';
+import { useAuth } from '@/lib/AuthContext';
+import { supabaseCompanyStore } from '@/lib/supabaseStore';
 
 /* ── shared constants (local copy until callPageUtils is extracted) ── */
 const C = {
@@ -69,7 +71,48 @@ export default function InlinePanel({
     timer, callResult, onCallResult, onRefresh, setToast,
     isRecording, sttStatus, waveformData, companyRecordings,
 }: InlinePanelProps) {
+    const { user } = useAuth();
     const [tab, setTab] = useState<'script' | 'info' | 'memo' | 'recordings'>('script');
+    const [manualCaller, setManualCaller] = useState(user?.name || '영업담당자');
+    const [localResult, setLocalResult] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (user?.name && manualCaller === '영업담당자') {
+            setManualCaller(user.name);
+        }
+    }, [user]);
+
+    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback') => {
+        try {
+            setLocalResult(res);
+            
+            // --- 즉각적인 UI 반영 (Optimistic UI) ---
+            co.lastCallResult = res;
+            co.lastCallAt = new Date().toISOString();
+            co.lastCalledBy = manualCaller;
+            
+            // --- 백그라운드 DB 저장 (UI 딜레이 제거) ---
+            supabaseCompanyStore.update(co.id, {
+                lastCallResult: res,
+                lastCallAt: co.lastCallAt,
+                lastCalledBy: manualCaller,
+                callAttempts: (co.callAttempts || 0) + 1,
+            }).catch(e => {
+                console.error('Manual log failed:', e);
+                setToast('❌ 기록 저장 실패');
+                setLocalResult(null); // 실패 시 원복
+            });
+            
+            setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : '콜백'}`);
+            onRefresh(); // 부모 컴포넌트에 즉시 리렌더링 트리거
+        } catch(e) {
+            setToast('❌ 기록 처리 오류');
+            setLocalResult(null);
+        }
+    };
+
+    // Reset local result when company changes
+    useEffect(() => { setLocalResult(null); }, [co.id]);
 
     // Reset tab when company changes
     useEffect(() => { setTab('script'); }, [co.id]);
@@ -81,7 +124,7 @@ export default function InlinePanel({
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
         >
-            <td colSpan={10} className="p-0">
+            <td colSpan={11} className="p-0">
                 <div style={{
                     background: isOnCall ? '#f0fdf4' : '#f8fafc',
                     borderTop: `2px solid ${isOnCall ? '#059669' : '#4f46e5'}`,
@@ -98,7 +141,75 @@ export default function InlinePanel({
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📞 통화 스크립트</h3>
                                     <ScriptTab co={co} setToast={setToast} />
                                 </div>
+
+                                {/* 통화 녹음 내역 및 수동 기록 */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col shrink-0 min-h-[150px]">
+                                    <div className="flex flex-col gap-3 mb-3 border-b border-gray-100 pb-3">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 제어 ({companyRecordings.length})</h3>
+                                            <div className="flex items-center gap-2">
+                                                {!isOnCall ? (
+                                                    <button onClick={onStartCall}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black hover:scale-105 transition-transform"
+                                                        style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                                                        <Phone className="w-3 h-3" />통화 시작
+                                                    </button>
+                                                ) : <>
+                                                    <button onClick={timer.running ? timer.pause : timer.resume}
+                                                        className="p-1.5 rounded-lg"
+                                                        style={{ background: '#f8f9fc', border: `1px solid ${C.borderLight}` }}>
+                                                        {timer.running
+                                                            ? <Pause className="w-3 h-3" style={{ color: C.sub }} />
+                                                            : <Play className="w-3 h-3" style={{ color: '#059669' }} />}
+                                                    </button>
+                                                    <button onClick={onEndCall}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black animate-pulse"
+                                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+                                                        <PhoneOff className="w-3 h-3" />녹음 종료
+                                                    </button>
+                                                </>}
+                                            </div>
+                                        </div>
+
+                                        {/* 연락 기록(수동/자동 겸용) */}
+                                        <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-slate-500">담당자:</span>
+                                                <input 
+                                                    value={manualCaller} 
+                                                    onChange={e => setManualCaller(e.target.value)}
+                                                    className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 w-[80px] bg-white text-slate-700 outline-none focus:border-indigo-400"
+                                                />
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <button 
+                                                    onClick={() => isOnCall ? onCallResult('connected') : handleManualLog('connected')}
+                                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all border
+                                                        ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                >
+                                                    ✅ 연결됨
+                                                </button>
+                                                <button 
+                                                    onClick={() => isOnCall ? onCallResult('no_answer') : handleManualLog('no_answer')}
+                                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all border
+                                                        ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_answer' ? 'bg-rose-600 text-white border-rose-700 shadow-sm' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}
+                                                >
+                                                    📵 부재중
+                                                </button>
+                                                <button 
+                                                    onClick={() => isOnCall ? onCallResult('callback') : handleManualLog('callback')}
+                                                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all border
+                                                        ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
+                                                >
+                                                    🔄 콜백요청
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <RecordingsTab companyRecordings={companyRecordings} />
+                                </div>
                             </div>
+
                             
                             {/* Col 2: 메모 & AI 분석 */}
                             <div className="flex flex-col gap-4 h-full">
@@ -161,39 +272,10 @@ export default function InlinePanel({
                                     )}
                                 </div>
 
-                                {/* 통화 녹음 내역 */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1 shrink-0 min-h-[150px]">
-                                    <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
-                                        <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 녹음 ({companyRecordings.length})</h3>
-                                        <div className="flex items-center gap-2">
-                                            {!isOnCall ? (
-                                                <button onClick={onStartCall}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black hover:scale-105 transition-transform"
-                                                    style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                                                    <Phone className="w-3 h-3" />통화 시작
-                                                </button>
-                                            ) : <>
-                                                <button onClick={timer.running ? timer.pause : timer.resume}
-                                                    className="p-1.5 rounded-lg"
-                                                    style={{ background: '#f8f9fc', border: `1px solid ${C.borderLight}` }}>
-                                                    {timer.running
-                                                        ? <Pause className="w-3 h-3" style={{ color: C.sub }} />
-                                                        : <Play className="w-3 h-3" style={{ color: '#059669' }} />}
-                                                </button>
-                                                <button onClick={onEndCall}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black"
-                                                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
-                                                    <PhoneOff className="w-3 h-3" />종료
-                                                </button>
-                                            </>}
-                                        </div>
-                                    </div>
-                                    <RecordingsTab companyRecordings={companyRecordings} />
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
             </td>
         </motion.tr>
     );

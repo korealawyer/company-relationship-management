@@ -29,8 +29,8 @@ export interface UseCallPageReturn {
     setToast: (v: string) => void;
     callResult: string;
     activeCallId: string | null;
-    statusFilter: CaseStatus | 'all';
-    setStatusFilter: (v: CaseStatus | 'all') => void;
+    statusFilter: CaseStatus | 'all' | 'my_calls_today';
+    setStatusFilter: (v: CaseStatus | 'all' | 'my_calls_today') => void;
     sortKey: 'risk' | 'name' | 'status';
     sortAsc: boolean;
     showNews: boolean;
@@ -62,6 +62,12 @@ export interface UseCallPageReturn {
     selected: Company | null;
     calledCount: number;
     highRiskCount: number;
+    todayStats: {
+        total: number;
+        connected: number;
+        no_answer: number;
+        callback: number;
+    };
     newsItems: ReturnType<typeof NewsLeadService.getRelevantNews>;
     // handlers
     selectCompany: (id: string) => void;
@@ -74,7 +80,7 @@ export interface UseCallPageReturn {
 }
 
 /* ── Hook ────────────────────────────────────────────────────────── */
-export function useCallPage(): UseCallPageReturn {
+export function useCallPage(userName: string = ''): UseCallPageReturn {
     const { companies: dbCompanies, updateCompany } = useCompanies();
     const { settings: dbSettings } = useAutoSettings();
     const [companies, setCompanies] = useState<Company[]>([]);
@@ -83,7 +89,7 @@ export function useCallPage(): UseCallPageReturn {
     const [toast, setToast] = useState('');
     const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | ''>('');
     const [activeCallId, setActiveCallId] = useState<string | null>(null);
-    const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all'>('all');
+    const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all' | 'my_calls_today'>('all');
     const [sortKey, setSortKey] = useState<'risk' | 'name' | 'status'>('risk');
     const [sortAsc, setSortAsc] = useState(false);
     const [showNews, setShowNews] = useState(false);
@@ -187,7 +193,12 @@ export function useCallPage(): UseCallPageReturn {
     }, [refresh]);
 
     /* ── computed ── */
+    const isToday = (dateStr?: string) => dateStr && dateStr.startsWith(new Date().toISOString().split('T')[0]);
+
     const filtered = companies.filter(c => {
+        if (statusFilter === 'my_calls_today') {
+            return isToday(c.lastCallAt) && c.lastCalledBy === userName;
+        }
         if (statusFilter !== 'all' && c.status !== statusFilter) return false;
         const q = search.toLowerCase();
         return c.name.toLowerCase().includes(q) || c.biz.includes(q) || (c.contactName || '').includes(q);
@@ -201,6 +212,14 @@ export function useCallPage(): UseCallPageReturn {
 
     const statusCounts: Record<string, number> = { all: companies.length };
     companies.forEach(c => { statusCounts[c.status] = (statusCounts[c.status] || 0) + 1; });
+
+    const todayCalls = companies.filter(c => isToday(c.lastCallAt) && c.lastCalledBy === userName);
+    const todayStats = {
+        total: todayCalls.length,
+        connected: todayCalls.filter(c => c.lastCallResult === 'connected').length,
+        no_answer: todayCalls.filter(c => c.lastCallResult === 'no_answer').length,
+        callback: todayCalls.filter(c => c.lastCallResult === 'callback').length,
+    };
 
     const selected = companies.find(c => c.id === selectedId) || null;
     const calledCount = companies.filter(c => c.callNote).length;
@@ -240,7 +259,12 @@ export function useCallPage(): UseCallPageReturn {
     const endCall = async () => {
         if (!selected) return;
         const result = callResult || 'connected';
-        updateCompany(selected.id, { lastCallResult: result, lastCallAt: new Date().toISOString(), callAttempts: (selected.callAttempts || 0) + 1 });
+        updateCompany(selected.id, { 
+            lastCallResult: result as any, 
+            lastCallAt: new Date().toISOString(), 
+            lastCalledBy: userName,
+            callAttempts: (selected.callAttempts || 0) + 1 
+        });
         if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
         else if (result === 'callback') { setShowCallbackModal(true); }
         else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'lawyer_confirmed', assignedLawyer: SALES_REPS[0] }); }
@@ -357,6 +381,7 @@ export function useCallPage(): UseCallPageReturn {
         selected,
         calledCount,
         highRiskCount,
+        todayStats,
         newsItems,
         // handlers
         selectCompany,

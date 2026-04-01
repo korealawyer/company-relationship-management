@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { RefreshCw, CheckCircle2, Clock, Eye, Mail, Star, FileText, Zap, Save, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Company, CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL, LAWYERS } from '@/lib/constants';
-import { useCompanies } from '@/hooks/useDataLayer';
+import { useCompanies, useUsers } from '@/hooks/useDataLayer';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { getPromptConfig } from '@/lib/prompts/privacy';
@@ -59,6 +59,9 @@ export function ActionButton({
     const s = c.status;
     const selectStyle = { background: T.card, border: `1px solid ${T.border}`, color: T.body, borderRadius: 6, padding: '2px 6px', fontSize: 12 };
     const { updateCompany, mutate } = useCompanies();
+    const { users } = useUsers();
+    const lawyerList = users?.filter(u => u.role === 'lawyer').map(u => u.name);
+    const finalLawyers = lawyerList && lawyerList.length > 0 ? lawyerList : LAWYERS;
     const [analyzing, setAnalyzing] = useState(false);
 
     // 분석 실행 (run 래퍼 없이 독립 실행하여 경합 방지)
@@ -132,9 +135,9 @@ export function ActionButton({
             {assigningId === c.id ? (
                 <div className="flex items-center gap-1.5">
                     <select value={assignLawyer} onChange={e => setAssignLawyer(e.target.value)} style={selectStyle}>
-                        {LAWYERS.map(l => <option key={l} value={l}>{l}</option>)}
+                        {finalLawyers.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
-                    <Button variant="premium" size="sm" onClick={() => run(c.id, () => { updateCompany(c.id, { status: 'reviewing', assignedLawyer: assignLawyer }); setAssigningId(null); })}>배정</Button>
+                    <Button variant="premium" size="sm" onClick={() => run(c.id, () => { updateCompany(c.id, { status: 'reviewing', assignedLawyer: assignLawyer || finalLawyers[0] }); setAssigningId(null); })}>배정</Button>
                     <button onClick={() => setAssigningId(null)} className="text-xs font-bold" style={{ color: T.muted }}>✕</button>
                 </div>
             ) : (

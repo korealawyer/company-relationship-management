@@ -194,7 +194,7 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
     // 자동화 추적
     'callback_scheduled_at', 'follow_up_step', 'ai_memo_summary',
     'ai_next_action', 'ai_next_action_type',
-    'last_call_result', 'last_call_at', 'call_attempts',
+    'last_call_result', 'last_call_at', 'call_attempts', 'last_called_by',
   ];
   
   const row: Record<string, any> = {};
@@ -387,9 +387,13 @@ export const supabaseCompanyStore = {
 
     // 🔥 AI 분석 시 반환된 issues가 있으면 기존 이슈를 덮어쓰거나 추가 (기존 내역 초기화 후 새로 추가가 안정적임)
     if (updates.issues) { // 이슈가 0개(빈 배열)일 때도 업데이트하기 위해 존재 검사만 수행
-      // 기존 슈 삭제 후 통째로 교체 (AI 재분석을 위해)
+      // 기존 이슈 삭제 후 통째로 교체 (AI 재분석을 위해)
       await sb.from('issues').delete().eq('company_id', id);
       
+      let riskScore = 0;
+      let highCount = 0;
+      let medCount = 0;
+
       if (updates.issues.length > 0) {
         const issueRows = updates.issues.map(iss => {
           const { aiDraftGenerated, law, ...safeIss } = iss as Record<string, any>;
@@ -397,10 +401,28 @@ export const supabaseCompanyStore = {
           if (law) row.law_ref = law;
           if (!row.id) row.id = crypto.randomUUID();
           row.company_id = id;
+          
+          const lvl = iss.level || 'LOW';
+          if (lvl === 'HIGH') { riskScore += 30; highCount++; }
+          else if (lvl === 'MEDIUM') { riskScore += 15; medCount++; }
+          else if (lvl === 'LOW') { riskScore += 5; }
+
           return row;
         });
         await sb.from('issues').insert(issueRows);
       }
+      
+      riskScore = Math.min(100, riskScore);
+      let riskLevel = 'LOW';
+      if (highCount > 0 || riskScore >= 70) riskLevel = 'HIGH';
+      else if (medCount > 0 || riskScore >= 40) riskLevel = 'MEDIUM';
+
+      // Update the companies table with recalculated riskScore
+      await sb.from('companies').update({
+        risk_score: riskScore,
+        risk_level: riskLevel,
+        issue_count: updates.issues.length,
+      }).eq('id', id);
     }
   },
 

@@ -10,6 +10,20 @@ export async function GET() {
     const { data, error } = await supabase.rpc('get_call_locks_status');
 
     if (error) {
+      if (error.message.includes('Could not find the function') || error.message.includes('schema cache')) {
+        const { memLocksCache } = await import('@/lib/memLockStore');
+        const now = new Date().getTime();
+        
+        // Cleanup expired locks
+        for (const [key, lock] of memLocksCache.entries()) {
+          if (new Date(lock.lockedUntil).getTime() <= now) {
+            memLocksCache.delete(key);
+          }
+        }
+        
+        return NextResponse.json(Array.from(memLocksCache.values()));
+      }
+
       console.error('Call lock status error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

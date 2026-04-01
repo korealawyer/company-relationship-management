@@ -99,18 +99,44 @@ export async function POST(request: NextRequest) {
 
             let html = '';
             try {
-                const res = await fetch(fetchUrl.toString(), {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    },
-                    redirect: 'follow',
-                    signal: controller.signal
-                });
+                const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+                let res: Response | null = null;
                 
-                if (res.ok) {
+                // ScrapingBee 크롤링 시도 (모달 클릭 자동화)
+                if (scrapingBeeKey) {
+                    console.log(`[Analyze API] Using ScrapingBee API for URL: ${url}`);
+                    const js_scenario = {
+                        "instructions": [
+                            // '개인정보' 문구가 포함된 요소를 찾아 클릭 시도
+                            {"evaluate": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
+                            // 모달이 랜더링되고 표시될 시간을 2.5초 대기
+                            {"wait": 2500}
+                        ]
+                    };
+                    const sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&js_scenario=${encodeURIComponent(JSON.stringify(js_scenario))}&render_js=true`;
+                    
+                    res = await fetch(sbUrl, { signal: controller.signal });
+                    if (!res.ok) {
+                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. Falling back to default fetch.`);
+                        res = null; // 실패 시 폴백 처리 트리거
+                    }
+                }
+
+                // 일반 Fetch (ScrapingBee 미적용 또는 실패 시 폴백)
+                if (!res) {
+                    res = await fetch(fetchUrl.toString(), {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        },
+                        redirect: 'follow',
+                        signal: controller.signal
+                    });
+                }
+                
+                if (res?.ok) {
                     html = await res.text();
                 } else {
-                    console.warn(`[Analyze API] HTTP Fetch failed: Status ${res.status}`);
+                    console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
                 }
             } finally {
                 clearTimeout(timeoutId);

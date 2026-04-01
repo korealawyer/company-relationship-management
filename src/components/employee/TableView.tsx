@@ -15,7 +15,7 @@ export default function TableView({ filtered, refresh }: TableViewProps) {
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [confirmRep, setConfirmRep] = useState(SALES_REPS[0]);
     const [assigningId, setAssigningId] = useState<string | null>(null);
-    const [assignLawyer, setAssignLawyer] = useState(LAWYERS[0]);
+    const [assignLawyer, setAssignLawyer] = useState('');
     const [loading, setLoading] = useState<string | null>(null);
 
     const run = async (key: string, fn: () => Promise<void> | void) => {

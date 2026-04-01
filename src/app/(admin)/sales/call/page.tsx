@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown } from 'lucide-react';
+import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
 import { useAuth } from '@/lib/AuthContext';
 import { useCallLocks } from '@/hooks/useCallLocks';
@@ -23,9 +23,9 @@ export default function SalesCallPage() {
         showCallbackModal, setShowCallbackModal, callbackTime, setCallbackTime, kakaoTarget, setKakaoTarget,
         kakaoTemplate, setKakaoTemplate, kakaoSending, setKakaoSending, kakaoStatuses, autoSettings,
         contractPreviewTarget, setContractPreviewTarget, timer, isRecording, sttStatus, waveformData,
-        filtered, statusCounts, selected, calledCount, highRiskCount, newsItems,
+        filtered, statusCounts, selected, calledCount, highRiskCount, todayStats, newsItems,
         selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh
-    } = useCallPage();
+    } = useCallPage(user?.name || '');
 
     const SortHeader = ({ label, k, w }: { label: string; k: typeof sortKey; w?: string }) => (
         <th className={`text-left py-3 px-3 cursor-pointer select-none text-[11px] font-bold ${w || ''}`} style={{ color: sortKey === k ? C.accent : C.muted }} onClick={() => toggleSort(k)}>
@@ -33,8 +33,8 @@ export default function SalesCallPage() {
         </th>
     );
 
-    const FILTERS: { key: CaseStatus | 'all'; label: string; icon: string }[] = [
-        { key: 'all', label: '전체', icon: '📋' }, { key: 'analyzed', label: '분석완료', icon: '🔍' },
+    const FILTERS: { key: CaseStatus | 'all' | 'my_calls_today'; label: string; icon: string }[] = [
+        { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, { key: 'analyzed', label: '분석완료', icon: '🔍' },
         { key: 'lawyer_confirmed', label: '변호사컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일발송', icon: '📧' },
         { key: 'client_replied', label: '답장수신', icon: '💬' }, { key: 'client_viewed', label: '리포트열람', icon: '👁️' },
         { key: 'contract_sent', label: '계약서발송', icon: '📄' }, { key: 'contract_signed', label: '서명완료', icon: '✍️' },
@@ -65,6 +65,7 @@ export default function SalesCallPage() {
                                     className="pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 outline-none w-[140px]" />
                             </div>
                             <Link href="/employee"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600"><LayoutDashboard className="w-3.5 h-3.5 hidden sm:block" /> 대시보드</button></Link>
+                            <Link href="/sales-queue"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600"><Layers className="w-3.5 h-3.5 hidden sm:block" /> 세일즈 큐</button></Link>
                             <Link href="/sales/call"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-50 border border-indigo-200 text-indigo-600"><Headphones className="w-3.5 h-3.5 hidden sm:block" /> 전화 영업</button></Link>
                             <Link href="/sales/voice-memo"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600"><Mic className="w-3.5 h-3.5 hidden sm:block" /> 음성 메모</button></Link>
                             <Link href="/sales/pricing-calculator"><button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600"><Calculator className="w-3.5 h-3.5 hidden sm:block" /> 견적 계산기</button></Link>
@@ -73,9 +74,13 @@ export default function SalesCallPage() {
                     
                     <div className="flex items-center gap-3 mb-2">
                         <div className="flex gap-2 flex-1">
-                            {[{ l: '대기', v: companies.length - calledCount, c: '#4f46e5', b: '#eef2ff' }, { l: '완료', v: calledCount, c: '#059669', b: '#ecfdf5' }, { l: '고위험', v: highRiskCount, c: '#dc2626', b: '#fef2f2' }, { l: '전환율', v: companies.length > 0 ? `${Math.round(calledCount / companies.length * 100)}%` : '0%', c: '#0891b2', b: '#ecfeff' }].map(k => (
+                            {[{ l: '대기', v: companies.length - calledCount, c: '#4f46e5', b: '#eef2ff' }, 
+                              { l: '오늘영업', v: todayStats.total, c: '#059669', b: '#ecfdf5', sub: `✅${todayStats.connected} 📵${todayStats.no_answer} 🔄${todayStats.callback}` }, 
+                              { l: '고위험', v: highRiskCount, c: '#dc2626', b: '#fef2f2' }, 
+                              { l: '전환율', v: companies.length > 0 ? `${Math.round(calledCount / companies.length * 100)}%` : '0%', c: '#0891b2', b: '#ecfeff' }].map(k => (
                                 <div key={k.l} className="rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: k.b }}>
                                     <span className="text-base font-black" style={{ color: k.c }}>{k.v}</span>
+                                    {k.sub && <span className="text-[10px] font-bold" style={{ color: k.c, opacity: 0.8 }}>{k.sub}</span>}
                                     <span className="text-[10px] font-medium text-slate-600">{k.l}</span>
                                 </div>
                             ))}
@@ -103,7 +108,9 @@ export default function SalesCallPage() {
                     
                     <div className="flex gap-1 flex-wrap">
                         {FILTERS.map(f => {
-                            const cnt = statusCounts[f.key] || 0; const a = statusFilter === f.key; if (f.key !== 'all' && cnt === 0) return null;
+                            const cnt = f.key === 'my_calls_today' ? todayStats.total : (statusCounts[f.key] || 0); 
+                            const a = statusFilter === f.key; 
+                            if (f.key !== 'all' && f.key !== 'my_calls_today' && cnt === 0) return null;
                             return <button key={f.key} onClick={() => setStatusFilter(f.key)} className={`px-2 py-1 rounded-md text-[10px] font-bold border ${a ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-transparent text-slate-500 border-transparent'}`}>{f.icon} {f.label} {cnt > 0 && <span className="ml-0.5 opacity-60">{cnt}</span>}</button>;
                         })}
                     </div>
@@ -118,7 +125,8 @@ export default function SalesCallPage() {
                             <SortHeader label="기업명" k="name" w="w-[140px] max-w-[140px]" />
                             <SortHeader label="상태" k="status" w="w-[90px]" />
                             <SortHeader label="위험도" k="risk" w="w-[80px]" />
-                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[70px]">담당자</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[70px]">업체담당</th>
+                            <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[70px]">영업자</th>
                             <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[120px]">전화번호</th>
                             <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[60px]">전환율</th>
                             <th className="text-left text-[11px] font-bold py-3 px-3 text-slate-500 w-[60px]">이슈</th>

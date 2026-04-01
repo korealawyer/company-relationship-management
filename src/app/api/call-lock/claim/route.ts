@@ -15,6 +15,32 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      // Fallback for missing SQL schema in development
+      if (error.message.includes('Could not find the function') || error.message.includes('schema cache')) {
+        const { memLocksCache } = await import('@/lib/memLockStore');
+        const now = new Date();
+        const existing = memLocksCache.get(companyId);
+
+        if (existing && new Date(existing.lockedUntil).getTime() > now.getTime() && existing.userId !== userId) {
+          return NextResponse.json({
+            success: false,
+            locked_by: existing.userName,
+            locked_until: existing.lockedUntil
+          });
+        }
+
+        const lockedUntil = new Date(now.getTime() + 30 * 60000).toISOString();
+        memLocksCache.set(companyId, {
+          companyId,
+          userId,
+          userName,
+          lockedAt: now.toISOString(),
+          lockedUntil
+        });
+
+        return NextResponse.json({ success: true, locked_until: lockedUntil });
+      }
+
       console.error('Call lock claim error:', error);
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }

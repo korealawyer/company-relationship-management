@@ -174,6 +174,7 @@ export interface Company {
     aiNextActionType?: string;
     lastCallResult?: 'connected' | 'no_answer' | 'callback';
     lastCallAt?: string;
+    lastCalledBy?: string;
     callAttempts?: number;
 }
 

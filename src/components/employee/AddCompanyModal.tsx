@@ -31,6 +31,7 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                 <div className="space-y-3">
                     {[
                         { k: 'name', l: '기업명 *', ph: '(주)교촌에프앤비' },
+                        { k: 'bizType', l: '업종 분류', type: 'select', options: [{label: '선택 안함', value: ''}, {label: '프랜차이즈', value: '프랜차이즈'}, {label: '그외', value: '그외'}] },
                         { k: 'biz', l: '사업자번호', ph: '123-45-67890' },
                         { k: 'url', l: '홈페이지 URL', ph: 'https://kyochon.com' },
                         { k: 'email', l: '이메일 *', ph: 'legal@kyochon.com' },
@@ -39,18 +40,38 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                     ].map(f => (
                         <div key={f.k}>
                             <label className="text-xs font-bold mb-1 block" style={{ color: T.sub }}>{f.l}</label>
-                            <input value={addForm[f.k as keyof typeof addForm]}
-                                onChange={e => setAddForm((p: typeof addForm) => ({ ...p, [f.k]: e.target.value }))}
-                                placeholder={f.ph}
-                                className="w-full px-3 py-2 rounded-lg text-sm font-medium"
-                                style={{ background: '#f8f9fc', border: `1px solid ${T.border}`, color: T.body, outline: 'none' }} />
+                            {f.type === 'select' ? (
+                                <select 
+                                    value={addForm[f.k as keyof typeof addForm]}
+                                    onChange={e => setAddForm((p: typeof addForm) => ({ ...p, [f.k]: e.target.value }))}
+                                    className="w-full px-3 py-2 rounded-lg text-sm font-medium"
+                                    style={{ background: '#f8f9fc', border: `1px solid ${T.border}`, color: T.body, outline: 'none' }}
+                                >
+                                    {f.options?.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input value={addForm[f.k as keyof typeof addForm]}
+                                    onChange={e => setAddForm((p: typeof addForm) => ({ ...p, [f.k]: e.target.value }))}
+                                    placeholder={f.ph}
+                                    className="w-full px-3 py-2 rounded-lg text-sm font-medium"
+                                    style={{ background: '#f8f9fc', border: `1px solid ${T.border}`, color: T.body, outline: 'none' }} />
+                            )}
                         </div>
                     ))}
                 </div>
                 <div className="flex gap-2 mt-5">
                     <Button variant="ghost" className="flex-1" onClick={onClose}>취소</Button>
                     <Button variant="premium" className="flex-1" onClick={() => {
-                        if (!addForm.name || !addForm.email) return;
+                        if (!addForm.name || !addForm.email || !addForm.bizType) {
+                            alert('기업명, 이메일, 업종 분류는 필수 항목입니다.');
+                            return;
+                        }
+                        if (addForm.bizType !== '프랜차이즈' && addForm.bizType !== '그외') {
+                            alert('업종 분류(프랜차이즈/그외)를 정확히 선택해주세요.');
+                            return;
+                        }
                         addCompany({
                             name: addForm.name, biz: addForm.biz, url: addForm.url,
                             email: addForm.email, phone: addForm.phone,

@@ -138,12 +138,22 @@ export default function CompanyTableRow({
               </div>
           </td>
           <td className="py-2.5 px-3">
-              <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1 flex-wrap">
-                      <Badge status={c.status}/>
-                      {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="카카오 알림톡 발송 완료">💬</span>}
-                      {(() => {
-                          const sig = AutoSignatureService.getStatus(c.id);
+                  <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
+                          <Badge status={c.status}/>
+                          {c.lastCallResult && c.lastCallAt && new Date(c.lastCallAt).toDateString() === new Date().toDateString() && (
+                              <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" 
+                                    style={{
+                                        background: c.lastCallResult === 'connected' ? '#ecfdf5' : c.lastCallResult === 'no_answer' ? '#fef2f2' : '#fffbeb',
+                                        color: c.lastCallResult === 'connected' ? '#059669' : c.lastCallResult === 'no_answer' ? '#dc2626' : '#d97706',
+                                        border: `1px solid ${c.lastCallResult === 'connected' ? '#a7f3d0' : c.lastCallResult === 'no_answer' ? '#fecaca' : '#fde68a'}`
+                                    }}>
+                                  {c.lastCallResult === 'connected' ? '✅연결됨' : c.lastCallResult === 'no_answer' ? '📵부재중' : '🔄콜백'}
+                              </span>
+                          )}
+                          {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="카카오 알림톡 발송 완료">💬</span>}
+                          {(() => {
+                              const sig = AutoSignatureService.getStatus(c.id);
                           if (!sig) return null;
                           return sig.status === 'watching' ? <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold animate-pulse cursor-default" style={{background:'#fef3c7',color:'#92400e',border:'1px solid #fde68a'}} title="계약서 발송됨 → 고객 전자서명 대기 중 (자동 감지)">✍️대기</span> : <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold cursor-default" style={{background:'#d1fae5',color:'#065f46',border:'1px solid #a7f3d0'}} title="고객이 전자서명 완료! → 구독 자동 전환 진행">✅서명</span>;
                       })()}
@@ -163,6 +173,13 @@ export default function CompanyTableRow({
           </td>
           <td className="py-2.5 px-3">{c.riskScore > 0 && <div className="flex items-center gap-1.5"><div className="w-14 h-2 rounded-full overflow-hidden" style={{background:'#e5e7eb'}}><div className="h-full rounded-full" style={{width:`${c.riskScore}%`,background:rc.bar}}/></div><span className="text-[10px] font-bold" style={{color:rc.text}}>{c.riskScore}</span></div>}</td>
           <td className="py-2.5 px-3"><span className="text-[11px]" style={{color:c.contactName?C.body:C.amber}}>{c.contactName||'미등록'}</span></td>
+          <td className="py-2.5 px-3">
+              {c.lastCalledBy ? (
+                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded-md">{c.lastCalledBy}</span>
+              ) : (
+                  <span className="text-[11px]" style={{color:C.faint}}>—</span>
+              )}
+          </td>
           <td className="py-2.5 px-3 whitespace-nowrap" onClick={e=>e.stopPropagation()}><a href={`tel:${(c.contactPhone||c.phone).replace(/[^0-9+]/g,'')}`} className="text-[11px] font-mono inline-flex items-center gap-1 hover:text-indigo-600" style={{color:C.sub, opacity: isLockedByOther ? 0.5 : 1}} title={isLockedByOther ? "다른 담당자가 통화중입니다" : "클릭하여 전화걸기"} onClick={(e) => { if(isLockedByOther && lockInfo) { e.preventDefault(); alert(`현재 ${lockInfo.userName}님이 통화중입니다 (${remainingMin}분 남음)`); } }}><Phone className="w-3 h-3" style={{color:C.accent}}/>{c.contactPhone||c.phone}</a></td>
           <td className="py-2.5 px-3">{(() => {
               const p = ConversionPredictionService.predict(c);

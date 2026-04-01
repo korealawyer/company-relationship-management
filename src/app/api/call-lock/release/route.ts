@@ -13,6 +13,17 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      if (error.message.includes('Could not find the function') || error.message.includes('schema cache')) {
+        const { memLocksCache } = await import('@/lib/memLockStore');
+        const existing = memLocksCache.get(companyId);
+        
+        if (existing && existing.userId === userId) {
+          memLocksCache.delete(companyId);
+        }
+        
+        return NextResponse.json({ success: true });
+      }
+
       console.error('Call lock release error:', error);
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }

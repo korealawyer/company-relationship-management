@@ -18,6 +18,7 @@ export default function SalesQueuePage() {
     const [loading, setLoading] = useState(true);
     const [activeCall, setActiveCall] = useState<Company | null>(null);
     const [queueOpen, setQueueOpen] = useState(true);
+    const [memoText, setMemoText] = useState("");
     
     // Stats for today
     const [stats, setStats] = useState({ connected: 0, missed: 0, callback: 0 });
@@ -35,7 +36,7 @@ export default function SalesQueuePage() {
             const todayStr = new Date().toISOString().split('T')[0];
             let c = 0, m = 0, cb = 0;
             comps.forEach(comp => {
-                if (comp.lastCallAt && comp.lastCallAt.startsWith(todayStr)) {
+                if (comp.lastCallAt && comp.lastCallAt.startsWith(todayStr) && comp.lastCalledBy === user?.name) {
                     if (comp.lastCallResult === 'connected') c++;
                     else if (comp.lastCallResult === 'no_answer') m++;
                     else if (comp.lastCallResult === 'callback') cb++;
@@ -58,7 +59,7 @@ export default function SalesQueuePage() {
         loadData();
         const int = setInterval(loadData, 30000); // 30s auto refresh
         return () => clearInterval(int);
-    }, [loadData]);
+    }, [loadData, user?.name]);
 
     const handleNextCall = async (retryCount = 0) => {
         if (!user) {
@@ -123,15 +124,38 @@ export default function SalesQueuePage() {
             if (result === '부재중') callRes = 'no_answer';
             else if (result === '콜백') callRes = 'callback';
             
-            await supabaseCompanyStore.update(activeCall.id, {
+            const payload: Partial<Company> = {
                 lastCallResult: callRes,
                 lastCallAt: new Date().toISOString(),
+                lastCalledBy: user.name,
                 callAttempts: (activeCall.callAttempts || 0) + 1,
-            });
-            
+            };
+
             // Also append a memo if needed, optional
+            if (memoText.trim()) {
+                const newMemo = {
+                    id: Math.random().toString(36).substring(7),
+                    createdAt: new Date().toISOString(),
+                    author: user.name,
+                    content: memoText.trim()
+                };
+                payload.memos = [newMemo, ...(activeCall.memos || [])];
+                
+                // Add to timeline
+                const newTimeEvent = {
+                    id: Math.random().toString(36).substring(7),
+                    createdAt: new Date().toISOString(),
+                    author: user.name,
+                    type: 'call' as const,
+                    content: `[결과: ${result}] ${memoText.trim()}`
+                };
+                payload.timeline = [newTimeEvent, ...(activeCall.timeline || [])];
+            }
+            
+            await supabaseCompanyStore.update(activeCall.id, payload);
             
             setActiveCall(null);
+            setMemoText("");
             reset();
             
             // Auto reload to update queue
@@ -233,6 +257,15 @@ export default function SalesQueuePage() {
                                 <span>{iss.title}</span>
                             </div>
                         ))}
+                    </div>
+
+                    <div className={styles.memoBox}>
+                        <textarea
+                            className={styles.memoInput}
+                            placeholder="간단한 통화 메모나 다음 액션을 기록하세요..."
+                            value={memoText}
+                            onChange={(e) => setMemoText(e.target.value)}
+                        />
                     </div>
                     
                     <div className={styles.resultBtns}>

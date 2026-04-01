@@ -145,6 +145,16 @@ export function useAutoSettings() {
   return { settings: data, isLoading, error, mutate, updateSettings };
 }
 
+export function useUsers() {
+  const { data, error, isLoading, mutate } = useSWR<any[]>(
+    'users',
+    async () => await dataLayer.users.getAll(),
+    { fallbackData: [], ...SWR_OPTS }
+  );
+
+  return { users: data || [], isLoading, error, mutate };
+}
+
 export function useAutoLogs() {
   const { data, error, isLoading, mutate } = useSWR<AutoLog[]>(
     'auto-logs',

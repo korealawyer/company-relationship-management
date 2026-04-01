@@ -54,7 +54,7 @@ export function useExcelImportExport(
                 '기업명': '아이비에스 주식회사 (필수)',
                 '사업자번호': '123-45-67890',
                 '이메일': 'contact@ibs.example.com',
-                '업종': 'IT / 소프트웨어',
+                '업종': '프랜차이즈',
                 '홈페이지': 'https://ibs.example.com',
                 '전화번호': '02-1234-5678',
                 '가맹점수': '10',
@@ -111,6 +111,13 @@ export function useExcelImportExport(
             const name = String(row['기업명'] || row['회사명'] || row['name'] || '').trim();
             const email = String(row['이메일'] || row['email'] || '').trim();
             if (!name) continue;
+
+            const bizType = String(row['업종'] || row['업종 분류'] || row['bizType'] || '').trim();
+            if (!bizType || (bizType !== '프랜차이즈' && bizType !== '그외')) {
+                showToast(`❌ [${name}] 기업의 업종(프랜차이즈/그외) 값이 누락되었거나 올바르지 않아 업로드가 취소되었습니다.`);
+                setExcelUploading(false);
+                return;
+            }
 
             const biz = String(row['사업자번호'] || row['biz'] || '').trim();
             const memoContent = String(row['메모'] || row['memo'] || '').trim();
