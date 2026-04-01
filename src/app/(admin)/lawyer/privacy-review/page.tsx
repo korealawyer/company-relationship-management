@@ -251,7 +251,7 @@ export default function PrivacyReviewPage() {
 
 function PrivacyReviewContent() {
     const searchParams = useSearchParams();
-    const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer']);
+    const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer', 'sales']);
     const company = searchParams?.get('company') || '(주)샐러디';
     const leadId = searchParams?.get('leadId') || undefined;
     const [tab, setTab] = useState<'first' | 'full'>('first');

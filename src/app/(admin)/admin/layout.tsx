@@ -7,6 +7,7 @@ import { useRequireAuth } from '@/lib/AuthContext';
 import {
     Shield, Building2, Mail, CheckCircle2, BarChart3, Sparkles
 } from 'lucide-react';
+import { RoleType } from '@/lib/types';
 
 const ADMIN_TABS = [
     { href: '/admin',                 label: '대시보드',     icon: Shield },
@@ -18,8 +19,13 @@ const ADMIN_TABS = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'hr', 'finance', 'general']);
     const pathname = usePathname();
+    const isEmailPreview = pathname.startsWith('/admin/email-preview');
+    const allowedRoles: RoleType[] = isEmailPreview 
+        ? ['super_admin', 'admin', 'hr', 'finance', 'general', 'sales']
+        : ['super_admin', 'admin', 'hr', 'finance', 'general'];
+
+    const { loading, authorized } = useRequireAuth(allowedRoles);
 
     if (loading || !authorized) return null;
 

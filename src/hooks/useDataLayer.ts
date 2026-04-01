@@ -26,11 +26,18 @@ const SWR_OPTS = {
   errorRetryCount: 2,             // 에러 시 재시도 2회 제한
 };
 
+const EMPTY_COMPANIES: Company[] = [];
+const EMPTY_LITIGATIONS: LitigationCase[] = [];
+const EMPTY_CONSULTATIONS: Consultation[] = [];
+const EMPTY_NOTIFICATIONS: AppNotification[] = [];
+const EMPTY_PERSONAL_LITIGATIONS: PersonalLitigation[] = [];
+const EMPTY_AUTO_LOGS: AutoLog[] = [];
+
 export function useCompanies() {
   const { data, error, isLoading, mutate } = useSWR<Company[]>(
     'companies',
     async () => await dataLayer.companies.getAll(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_COMPANIES, ...SWR_OPTS }
   );
 
   const addCompany = async (company: Partial<Company>) => {
@@ -55,14 +62,14 @@ export function useCompanies() {
     return result;
   };
 
-  return { companies: data || [], isLoading, error, mutate, addCompany, updateCompany, deleteCompany, importBulk };
+  return { companies: data || EMPTY_COMPANIES, isLoading, error, mutate, addCompany, updateCompany, deleteCompany, importBulk };
 }
 
 export function useLitigations() {
   const { data, error, isLoading, mutate } = useSWR<LitigationCase[]>(
     'litigations',
     async () => await dataLayer.litigation.getAll(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_LITIGATIONS, ...SWR_OPTS }
   );
 
   const addLitigation = async (lit: Partial<LitigationCase>) => {
@@ -75,24 +82,24 @@ export function useLitigations() {
     mutate();
   };
 
-  return { litigations: data || [], isLoading, error, mutate, addLitigation, updateLitigation };
+  return { litigations: data || EMPTY_LITIGATIONS, isLoading, error, mutate, addLitigation, updateLitigation };
 }
 
 export function useConsultations() {
   const { data, error, isLoading, mutate } = useSWR<Consultation[]>(
     'consultations',
     async () => await dataLayer.consult.getAll(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_CONSULTATIONS, ...SWR_OPTS }
   );
 
-  return { consultations: data || [], isLoading, error, mutate };
+  return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate };
 }
 
 export function useNotifications() {
   const { data, error, isLoading, mutate } = useSWR<AppNotification[]>(
     'notifications',
     async () => await dataLayer.notifications.getAll(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_NOTIFICATIONS, ...SWR_OPTS }
   );
 
   const markAsRead = async (id: string) => {
@@ -110,17 +117,17 @@ export function useNotifications() {
     mutate();
   };
 
-  return { notifications: data || [], isLoading, error, markAsRead, markAllAsRead, deleteNotification };
+  return { notifications: data || EMPTY_NOTIFICATIONS, isLoading, error, markAsRead, markAllAsRead, deleteNotification };
 }
 
 export function usePersonalLitigations() {
   const { data, error, isLoading, mutate } = useSWR<PersonalLitigation[]>(
     'personal-litigations',
     async () => await dataLayer.personal.getAll(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_PERSONAL_LITIGATIONS, ...SWR_OPTS }
   );
 
-  return { personalLitigations: data || [], isLoading, error, mutate };
+  return { personalLitigations: data || EMPTY_PERSONAL_LITIGATIONS, isLoading, error, mutate };
 }
 
 export function useAutoSettings() {
@@ -142,10 +149,10 @@ export function useAutoLogs() {
   const { data, error, isLoading, mutate } = useSWR<AutoLog[]>(
     'auto-logs',
     async () => await dataLayer.auto.getLogs(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_AUTO_LOGS, ...SWR_OPTS }
   );
 
-  return { logs: data || [], isLoading, error, mutate };
+  return { logs: data || EMPTY_AUTO_LOGS, isLoading, error, mutate };
 }
 
 // 기존 store 호환을 위한 공통 리프레시 헬퍼

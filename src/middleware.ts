@@ -25,6 +25,8 @@ const PROTECTED_PATHS = [
     '/personal-litigation',
     '/consultation-history',
     '/finance',
+    '/sales',
+    '/sales-queue',
     // /privacy-report 는 공개 접근 허용 (비로그인 진단 페이지)
 ];
 
@@ -33,7 +35,7 @@ function isPathAllowed(pathname: string, role: string): boolean {
     if (['super_admin', 'admin'].includes(role)) return true; // 관리자 전체 허용
 
     const ROLE_ALLOWED: Record<string, string[]> = {
-        sales:      ['/employee', '/cases', '/contracts'],
+        sales:      ['/employee', '/cases', '/contracts', '/admin/email-preview', '/lawyer/privacy-review', '/sales', '/sales-queue'],
         lawyer:     ['/lawyer', '/cases', '/documents'],
         litigation: ['/litigation', '/cases'],
         finance:    ['/finance', '/billing', '/admin'],
