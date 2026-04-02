@@ -141,24 +141,24 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${vars.unsubscribeToken}`;
     return `<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Apple SD Gothic Neo',Pretendard,sans-serif">
-<div style="max-width:600px;margin:0 auto;background:#f1f5f9;padding:24px 0">
+<body style="margin:0;padding:0;background-color:#ffffff;font-family:'Apple SD Gothic Neo',Pretendard,sans-serif">
+<div style="max-width:640px;margin:0 auto;padding:0">
 
   <!-- 헤더 -->
-  <div style="background:#04091a;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center">
-    <p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">⚖️ IBS 법률사무소</p>
-    <p style="color:#94a3b8;font-size:13px;margin:6px 0 0">기업 비즈니스의 압도적 기준 · 45,000개사 자문 실적</p>
+  <div style="background:#04091a;border-radius:16px 16px 0 0;padding:32px 40px;text-align:center">
+    <p style="color:#e8c87a;font-size:26px;font-weight:900;margin:0;line-height:1.4">⚖️ IBS 법률사무소</p>
+    <p style="color:rgba(240,244,255,0.6);font-size:14px;margin:8px 0 0">기업 비즈니스의 압도적 기준 · 45,000개사 자문 실적</p>
   </div>
 
   <!-- 리스크 요약 배너 -->
-  <div style="background:#fef2f2;border-left:4px solid #f87171;padding:20px 32px;margin:0">
-    <p style="color:#dc2626;font-size:15px;font-weight:900;margin:0 0 6px">⚠️ 개인정보처리방침 검토 결과 — ${vars.issueCount}건 시정 권고</p>
-    <p style="color:#374151;font-size:13px;margin:0">개인정보보호법 위반 시 최대 과징금 <strong>3,000만원</strong>이 부과될 수 있는 사항이 확인되었습니다.</p>
+  <div style="background:#fef2f2;border-left:4px solid #f87171;padding:24px 40px;margin:0">
+    <p style="color:#dc2626;font-size:16px;font-weight:900;margin:0 0 8px">⚠️ 개인정보처리방침 검토 결과 — ${vars.issueCount}건 시정 권고</p>
+    <p style="color:#374151;font-size:14px;margin:0">개인정보보호법 위반 시 최대 과징금 <strong>3,000만원</strong>이 부과될 수 있는 사항이 확인되었습니다.</p>
   </div>
 
   <!-- 본문 -->
-  <div style="background:#fff;padding:32px 32px 28px">
-    <p style="color:#1e293b;font-size:15px;font-weight:bold;margin:0 0 20px">${vars.contactName} 담당자님께</p>
+  <div style="background:#ffffff;padding:36px 40px 32px">
+    <p style="color:#1e293b;font-size:16px;font-weight:bold;margin:0 0 24px">${vars.contactName} 담당자님께</p>
 
     ${lawyerName ? `
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 16px">
@@ -186,19 +186,19 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
 
 
     <!-- 검토 결과 요약 -->
-    <p style="color:#1e293b;font-size:13px;font-weight:bold;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0">📋 주요 검토 결과 요약</p>
-    <table style="width:100%;border-collapse:collapse;margin:0 0 24px">
+    <p style="color:#1e293b;font-size:14px;font-weight:bold;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0">📋 주요 검토 결과 요약</p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px">
       <thead>
         <tr style="background:#f8fafc">
-          <th style="padding:10px 12px;text-align:left;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0;word-break:keep-all">검토 항목</th>
-          <th style="padding:10px 12px;text-align:center;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0;white-space:nowrap">위험도</th>
-          <th style="padding:10px 12px;text-align:left;color:#64748b;font-size:12px;border-bottom:2px solid #e2e8f0;word-break:keep-all">관련 법조문</th>
+          <th style="padding:12px 14px;text-align:left;color:#64748b;font-size:13px;border-bottom:2px solid #e2e8f0;word-break:keep-all">검토 항목</th>
+          <th style="padding:12px 14px;text-align:center;color:#64748b;font-size:13px;border-bottom:2px solid #e2e8f0;white-space:nowrap">위험도</th>
+          <th style="padding:12px 14px;text-align:left;color:#64748b;font-size:13px;border-bottom:2px solid #e2e8f0;word-break:keep-all">관련 법조문</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">수집항목 과다수집</td><td style="padding:10px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">고위험</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b;word-break:keep-all">개인정보보호법 제16조</td></tr>
-        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">제3자 제공 미명시</td><td style="padding:10px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">고위험</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b;word-break:keep-all">개인정보보호법 제17조</td></tr>
-        <tr><td style="padding:10px 12px;font-size:13px;color:#1e293b;word-break:keep-all">보유기간 일부 누락</td><td style="padding:10px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fffbeb;color:#d97706;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px">주의</span></td><td style="padding:10px 12px;font-size:12px;color:#64748b;word-break:keep-all">개인정보보호법 제21조</td></tr>
+        <tr><td style="padding:12px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">수집항목 과다수집</td><td style="padding:12px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">고위험</span></td><td style="padding:12px 14px;font-size:13px;color:#64748b;word-break:keep-all">개인정보보호법 제16조</td></tr>
+        <tr><td style="padding:12px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">제3자 제공 미명시</td><td style="padding:12px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">고위험</span></td><td style="padding:12px 14px;font-size:13px;color:#64748b;word-break:keep-all">개인정보보호법 제17조</td></tr>
+        <tr><td style="padding:12px 14px;font-size:14px;color:#1e293b;word-break:keep-all">보유기간 일부 누락</td><td style="padding:12px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fffbeb;color:#d97706;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">주의</span></td><td style="padding:12px 14px;font-size:13px;color:#64748b;word-break:keep-all">개인정보보호법 제21조</td></tr>
       </tbody>
     </table>
 
@@ -212,13 +212,13 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
       검토 결과에 대해 궁금하신 사항이 있으시면 언제든 연락 주시기 바랍니다.
     </p>
 
-    <!-- CTA (클릭 추적 포함) -->
-    <div style="text-align:center;padding:20px 0 8px">
-      <a href="${trackClick}" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:16px 36px;border-radius:10px;font-weight:900;font-size:15px;display:inline-block">
+    <!-- CTA -->
+    <div style="text-align:center;padding:24px 0 12px">
+      <a href="${trackClick}" style="background:linear-gradient(135deg,#e8c87a,#c9a84c);color:#04091a;text-decoration:none;padding:18px 48px;border-radius:12px;font-weight:900;font-size:16px;display:inline-block;box-shadow:0 4px 16px rgba(201,168,76,0.3)">
         검토 결과 전문 보기 →
       </a>
     </div>
-    <p style="text-align:center;color:#94a3b8;font-size:12px;margin:12px 0 0">클릭 시 귀사 개인정보처리방침 검토 보고서를 확인하실 수 있습니다</p>
+    <p style="text-align:center;color:#94a3b8;font-size:13px;margin:16px 0 0">클릭 시 귀사 개인정보처리방침 검토 보고서를 확인하실 수 있습니다</p>
 
     <!-- 서명 -->
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0">
@@ -243,17 +243,17 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
   </div>
 
   <!-- 실적 배너 -->
-  <div style="background:#0f172a;padding:20px 32px;display:flex;justify-content:space-around;text-align:center">
-    <div><p style="color:#c9a84c;font-size:20px;font-weight:900;margin:0">1,000억+</p><p style="color:#64748b;font-size:11px;margin:4px 0 0">자문 기업 엑시트</p></div>
-    <div><p style="color:#c9a84c;font-size:20px;font-weight:900;margin:0">80,000+</p><p style="color:#64748b;font-size:11px;margin:4px 0 0">법률 자문 건수</p></div>
-    <div><p style="color:#c9a84c;font-size:20px;font-weight:900;margin:0">45,000+</p><p style="color:#64748b;font-size:11px;margin:4px 0 0">회원사</p></div>
+  <div style="background:#0f172a;padding:28px 40px;display:flex;justify-content:space-around;text-align:center">
+    <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">1,000억+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">자문 기업 엑시트</p></div>
+    <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">80,000+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">법률 자문 건수</p></div>
+    <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">45,000+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">회원사</p></div>
   </div>
 
   <!-- 풋터 -->
-  <div style="background:#04091a;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center">
-    <p style="color:#64748b;font-size:11px;margin:0 0 6px">IBS 법률사무소 | 대표번호 02-598-8518 | info@ibslaw.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
-    <p style="color:#475569;font-size:11px;margin:0 0 2px">서울시 서초구 서초대로 272 IBS빌딩</p>
-    <p style="color:#475569;font-size:11px;margin:0">서울시 서초구 서초대로 270 IBS법률상담센터</p>
+  <div style="background:#04091a;border-radius:0 0 16px 16px;padding:24px 40px;text-align:center">
+    <p style="color:#64748b;font-size:12px;margin:0 0 8px">IBS 법률사무소 | 대표번호 02-598-8518 | info@ibslaw.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
+    <p style="color:#475569;font-size:12px;margin:0 0 4px">서울시 서초구 서초대로 272 IBS빌딩</p>
+    <p style="color:#475569;font-size:12px;margin:0">서울시 서초구 서초대로 270 IBS법률상담센터</p>
   </div>
 
   <!-- 트래킹 픽셀 (이메일 열람 추적) -->
