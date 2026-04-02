@@ -227,14 +227,14 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
       <div style="display:flex;align-items:flex-start;justify-content:flex-start;gap:16px">
         ${lawyerName ? `
         <div style="text-align:left;">
-          <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 6px">${lawyerName} 변호사</p>
+          <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 3px">${lawyerName} 변호사</p>
           <p style="color:#64748b;font-size:13px;margin:0 0 2px">IBS 법률사무소 · 개인정보보호 전문</p>
           <p style="color:#64748b;font-size:13px;margin:0 0 2px">대한변호사협회 등록 · 개인정보관리사(CPPG)</p>
           <p style="color:#64748b;font-size:13px;margin:0">직통 02-598-8518 | info@ibslaw.co.kr</p>
         </div>
         ` : `
         <div style="text-align:left;">
-          <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 6px">IBS 법률사무소 개인정보보호 팀</p>
+          <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 3px">IBS 법률사무소 개인정보보호 팀</p>
           <p style="color:#64748b;font-size:13px;margin:0">02-598-8518 | info@ibslaw.co.kr</p>
         </div>
         `}
@@ -246,7 +246,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
   <div style="background:#0f172a;padding:28px 40px;display:flex;justify-content:space-around;text-align:center">
     <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">1,000억+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">자문 기업 엑시트</p></div>
     <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">80,000+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">법률 자문 건수</p></div>
-    <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">45,000+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">회원사</p></div>
+    <div><p style="color:#c9a84c;font-size:24px;font-weight:900;margin:0">45,000+</p><p style="color:#64748b;font-size:12px;margin:6px 0 0">지원회원</p></div>
   </div>
 
   <!-- 풋터 -->
