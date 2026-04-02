@@ -346,7 +346,10 @@ export const supabaseCompanyStore = {
     if (Object.keys(row).length > 0) {
       row.updated_at = new Date().toISOString();
       const { error } = await sb.from('companies').update(row).eq('id', id);
-      if (error) console.error('Failed to update company:', error);
+      if (error) {
+        console.error('Failed to update company:', error);
+        throw new Error(error.message);
+      }
     }
 
     // 2) Handle Nested Arrays (Memos, Timelines, Contacts)
@@ -412,7 +415,11 @@ export const supabaseCompanyStore = {
 
           return row;
         });
-        await sb.from('issues').insert(issueRows);
+        const { error: insertError } = await sb.from('issues').insert(issueRows);
+        if (insertError) {
+          console.error('Failed to insert issues:', insertError);
+          throw new Error(insertError.message);
+        }
       }
       
       riskScore = Math.min(100, riskScore);
@@ -421,11 +428,16 @@ export const supabaseCompanyStore = {
       else if (medCount > 0 || riskScore >= 40) riskLevel = 'MEDIUM';
 
       // Update the companies table with recalculated riskScore
-      await sb.from('companies').update({
+      const { error: secondUpdateError } = await sb.from('companies').update({
         risk_score: riskScore,
         risk_level: riskLevel,
         issue_count: updates.issues.length,
       }).eq('id', id);
+      
+      if (secondUpdateError) {
+        console.error('Failed to update company risk score:', secondUpdateError);
+        throw new Error(secondUpdateError.message);
+      }
     }
   },
 
