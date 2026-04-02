@@ -76,6 +76,7 @@ const LINKS_BY_ROLE: Record<string, NavLink[]> = {
         { href: '/litigation', label: '송무 대시보드' },
         { href: '/counselor', label: 'EAP 상담' },
         { href: '/dashboard', label: '고객 포털' },
+        { href: '/admin/all-routes', label: '사이트맵' },
     ],
     // EAP 상담사
     counselor: [

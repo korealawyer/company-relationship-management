@@ -173,7 +173,7 @@ export interface Company {
     aiMemoSummary?: string;
     aiNextAction?: string;
     aiNextActionType?: string;
-    lastCallResult?: 'connected' | 'no_answer' | 'callback';
+    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site';
     lastCallAt?: string;
     lastCalledBy?: string;
     callAttempts?: number;

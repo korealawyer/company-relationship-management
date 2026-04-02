@@ -22,13 +22,15 @@ export default function SalesQueuePage() {
     const [queueOpen, setQueueOpen] = useState(true);
     const [memoText, setMemoText] = useState("");
     const [toastMsg, setToastMsg] = useState(""); // Toast Message
+    const [isEditingContact, setIsEditingContact] = useState(false);
+    const [editContactName, setEditContactName] = useState("");
     
     // Wrap-up state
     const [callState, setCallState] = useState<'calling' | 'wrapup'>('calling');
-    const [selectedResult, setSelectedResult] = useState<'연결됨'|'부재중'|'콜백' | null>(null);
+    const [selectedResult, setSelectedResult] = useState<'연결-메일'|'연결-콜백'|'연결-거절'|'부재중(24h)'|'사이트이상(패스)' | null>(null);
     
     // Stats for today
-    const [stats, setStats] = useState({ connected: 0, missed: 0, callback: 0 });
+    const [stats, setStats] = useState({ connected: 0, missed: 0, callback: 0, rejected: 0, invalid: 0 });
     
     const { sec, fmt, start, reset, pause } = useTimer();
 
@@ -39,15 +41,17 @@ export default function SalesQueuePage() {
             
             // Calc stats for today
             const todayStr = new Date().toISOString().split('T')[0];
-            let c = 0, m = 0, cb = 0;
+            let c = 0, m = 0, cb = 0, rj = 0, inv = 0;
             comps.forEach(comp => {
                 if (comp.lastCallAt && comp.lastCallAt.startsWith(todayStr) && comp.lastCalledBy === user?.name) {
                     if (comp.lastCallResult === 'connected') c++;
                     else if (comp.lastCallResult === 'no_answer') m++;
                     else if (comp.lastCallResult === 'callback') cb++;
+                    else if (comp.lastCallResult === 'rejected') rj++;
+                    else if (comp.lastCallResult === 'invalid_site') inv++;
                 }
             });
-            setStats({ connected: c, missed: m, callback: cb });
+            setStats({ connected: c, missed: m, callback: cb, rejected: rj, invalid: inv });
             
             // Sort by not called today first, then riskScore DESC
             const uncalled = comps.filter(comp => {
@@ -83,6 +87,8 @@ export default function SalesQueuePage() {
                 setSelectedResult(null);
                 setToastMsg('기존에 진행 중이던 통화 화면을 복구했습니다.');
                 setTimeout(() => setToastMsg(''), 3000);
+                setEditContactName(c.contactName || '');
+                setIsEditingContact(false);
                 reset();
                 start();
             }
@@ -132,6 +138,8 @@ export default function SalesQueuePage() {
                 setCallState('calling');
                 setSelectedResult(null);
                 setMemoText("");
+                setEditContactName(candidate.contactName || '');
+                setIsEditingContact(false);
                 reset(); // Reset timer
                 start(); // Start timer
             } else {
@@ -144,6 +152,24 @@ export default function SalesQueuePage() {
         }
     };
     
+    const handleSaveContact = async () => {
+        if (!activeCall) return;
+        try {
+            await supabaseCompanyStore.update(activeCall.id, { contactName: editContactName });
+            setActiveCall({ ...activeCall, contactName: editContactName });
+            setIsEditingContact(false);
+            
+            // Also update the queue state to reflect new contact
+            setCompanies(prev => prev.map(c => c.id === activeCall.id ? { ...c, contactName: editContactName } : c));
+            
+            setToastMsg('담당자 명이 수정되었습니다.');
+            setTimeout(() => setToastMsg(''), 3000);
+        } catch (e) {
+            console.error(e);
+            alert('담당자명 수정 중 오류가 발생했습니다.');
+        }
+    };
+
     const cancelCall = async () => {
         if (!activeCall || !user) return;
         
@@ -165,16 +191,21 @@ export default function SalesQueuePage() {
         }
     };
 
-    const handleResult = (result: '연결됨'|'부재중'|'콜백', nextAction?: 'review'|'memo') => {
+    const handleResult = (result: '연결-메일'|'연결-콜백'|'연결-거절'|'부재중(24h)'|'사이트이상(패스)', nextAction?: 'review'|'memo') => {
         pause(); // Stop timer
         setSelectedResult(result);
         setCallState('wrapup');
 
         if (nextAction === 'memo') {
             document.getElementById('queue-memo-input')?.focus();
-        } else if (nextAction === 'review') {
+        } else if (result === '연결-메일') {
             setToastMsg('✅ 검토 요청이 등록되었습니다.');
             setMemoText(prev => prev ? prev + '\n[변호사 검토 요청]' : '[변호사 검토 요청]');
+        }
+        
+        if (result === '사이트이상(패스)') {
+            // instant complete can be done by user clicking save, but focus button so user just hits enter!
+            document.querySelector<HTMLButtonElement>('.' + styles.saveWrapupBtn)?.focus();
         }
     };
 
@@ -185,10 +216,11 @@ export default function SalesQueuePage() {
             // Un-claim
             await releaseCompany(activeCall.id, user.id).catch(() => {});
             
-            // Save call result mapping
-            let callRes: 'connected'|'no_answer'|'callback' = 'connected';
-            if (selectedResult === '부재중') callRes = 'no_answer';
-            else if (selectedResult === '콜백') callRes = 'callback';
+            let callRes: 'connected'|'no_answer'|'callback'|'rejected'|'invalid_site' = 'connected';
+            if (selectedResult === '부재중(24h)') callRes = 'no_answer';
+            else if (selectedResult === '연결-콜백') callRes = 'callback';
+            else if (selectedResult === '연결-거절') callRes = 'rejected';
+            else if (selectedResult === '사이트이상(패스)') callRes = 'invalid_site';
             
             const payload: Partial<Company> = {
                 lastCallResult: callRes,
@@ -325,6 +357,10 @@ export default function SalesQueuePage() {
                         <span>콜백 대기</span>
                         <span className={styles.statValue}>{stats.callback}</span>
                     </div>
+                    <div className={`${styles.statBadge} bg-slate-100 text-slate-600 border border-slate-200`}>
+                        <span>거절</span>
+                        <span className={styles.statValue}>{stats.rejected}</span>
+                    </div>
                 </div>
             </div>
 
@@ -343,9 +379,38 @@ export default function SalesQueuePage() {
                     <div className={styles.callingHeader}>
                         <div>
                             <h3 className={styles.callingTitle}>{activeCall.name}</h3>
-                            <p className={styles.callingSub}>
-                                담당자: {activeCall.contactName || '미상'} ({activeCall.contactPhone || activeCall.phone || '번호 없음'})
-                            </p>
+                            <div className={styles.callingSub}>
+                                담당자:{' '}
+                                {isEditingContact ? (
+                                    <span className="inline-flex items-center gap-1 ml-1">
+                                        <input 
+                                            autoFocus
+                                            type="text" 
+                                            value={editContactName} 
+                                            onChange={e => setEditContactName(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') handleSaveContact();
+                                                if (e.key === 'Escape') {
+                                                    setIsEditingContact(false);
+                                                    setEditContactName(activeCall.contactName || '');
+                                                }
+                                            }}
+                                            className="px-1.5 py-0.5 text-[11px] border border-slate-300 rounded focus:outline-none focus:border-blue-500 text-slate-800"
+                                            placeholder="담당자명"
+                                        />
+                                        <button onClick={handleSaveContact} className="px-2 py-0.5 text-[10px] bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">저장</button>
+                                        <button onClick={() => { setIsEditingContact(false); setEditContactName(activeCall.contactName || ''); }} className="px-2 py-0.5 text-[10px] bg-slate-200 text-slate-700 rounded hover:bg-slate-300 transition-colors">취소</button>
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 ml-1 group">
+                                        <span className="text-slate-700 font-medium">{activeCall.contactName || '미상'}</span>
+                                        <button onClick={() => { setEditContactName(activeCall.contactName || ''); setIsEditingContact(true); }} className="text-slate-400 hover:text-blue-500 px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity" title="담당자 수정">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                        </button>
+                                    </span>
+                                )} 
+                                <span className="ml-1">({activeCall.contactPhone || activeCall.phone || '번호 없음'})</span>
+                            </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                             <div className="flex items-center gap-3">
@@ -466,23 +531,23 @@ export default function SalesQueuePage() {
                     <div className="w-full mt-4">
                         {callState === 'calling' ? (
                             <div className="flex flex-col gap-3 w-full">
-                                <div className="flex gap-3">
-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[14px] py-3.5`} onClick={() => handleResult('연결됨')}>
-                                        ✅ 연결
+                                <div className="flex gap-2">
+                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('연결-메일')}>
+                                        ✅ 연결-메일
                                     </button>
-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[14px] py-3.5`} onClick={() => handleResult('연결됨', 'review')}>
-                                        📄 연결(검토)
+                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('연결-콜백')}>
+                                        🔄 연결-콜백
                                     </button>
-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[14px] py-3.5`} onClick={() => handleResult('연결됨', 'memo')}>
-                                        📝 연결(메모)
+                                    <button className={`${styles.resultBtn} bg-slate-200 text-slate-700 hover:bg-slate-300 flex-1 text-[13px] py-3.5`} onClick={() => handleResult('연결-거절')}>
+                                        ❌ 연결-거절
                                     </button>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button className={`${styles.resultBtn} ${styles.missed} flex-1 text-[14px] py-3.5`} onClick={() => handleResult('부재중', 'memo')}>
-                                        📵 부재(메모)
+                                <div className="flex gap-2">
+                                    <button className={`${styles.resultBtn} ${styles.missed} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('부재중(24h)')}>
+                                        📵 부재(24h)
                                     </button>
-                                    <button className={`${styles.resultBtn} ${styles.callback} flex-1 text-[14px] py-3.5`} onClick={() => handleResult('콜백', 'memo')}>
-                                        🔄 콜백(메모)
+                                    <button className={`${styles.resultBtn} bg-red-100 text-red-700 hover:bg-red-200 flex-1 text-[13px] py-3.5`} onClick={() => handleResult('사이트이상(패스)')}>
+                                        ⚠️ 사이트이상(패스)
                                     </button>
                                 </div>
                             </div>
@@ -490,9 +555,15 @@ export default function SalesQueuePage() {
                             <div className={styles.wrapupSection}>
                                 <div className={styles.wrapupMsg}>
                                     현재 [<strong>{selectedResult}</strong>] 상태로 정리 중입니다. 
-                                    {(selectedResult === '부재중' || selectedResult === '콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
+                                    {(selectedResult === '부재중(24h)' || selectedResult === '연결-콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
                                 </div>
-                                <button className={styles.saveWrapupBtn} onClick={finishCall}>
+                                <button className={styles.saveWrapupBtn} onClick={() => {
+                                    finishCall().then(() => {
+                                        if (selectedResult === '사이트이상(패스)') {
+                                            setTimeout(() => handleNextCall(0), 500); // 자동 다음 호출
+                                        }
+                                    });
+                                }}>
                                     💾 저장 및 다음 대기열
                                 </button>
                                 <button className={styles.cancelWrapupBtn} onClick={() => { setCallState('calling'); setSelectedResult(null); start(); }}>

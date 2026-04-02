@@ -53,9 +53,10 @@ export interface InlinePanelProps {
     onStartCall: () => void;
     onEndCall: () => void;
     onClose: () => void;
+    onPass?: () => void;
     timer: UseTimerReturn;
     callResult: string;
-    onCallResult: (r: 'connected' | 'no_answer' | 'callback') => void;
+    onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
     onRefresh: () => void;
     setToast: (s: string) => void;
     isRecording: boolean;
@@ -66,7 +67,7 @@ export interface InlinePanelProps {
 
 /* ── Component ── */
 export default function InlinePanel({
-    co, isOnCall, onStartCall, onEndCall, onClose,
+    co, isOnCall, onStartCall, onEndCall, onClose, onPass,
     timer, callResult, onCallResult, onRefresh, setToast,
     isRecording, sttStatus, waveformData, companyRecordings,
 }: InlinePanelProps) {
@@ -81,7 +82,7 @@ export default function InlinePanel({
         }
     }, [user]);
 
-    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback') => {
+    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => {
         try {
             setLocalResult(res);
             
@@ -110,9 +111,9 @@ export default function InlinePanel({
                     salesUserName: manualCaller,
                     fileSizeBytes: 0,
                     durationSeconds: 0,
-                    transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : '콜백요청'}`,
+                    transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백요청' : res === 'rejected' ? '거절' : '사이트 이상'}`,
                     transcriptSummary: '수동 통화 기록',
-                    callResult: res,
+                    callResult: res as 'connected'|'no_answer'|'callback', // DB type may still need to be compatible, but keeping as res for now.
                     sttStatus: 'completed',
                     sttProvider: 'mock',
                     contactName: co.contactName || '',
@@ -120,7 +121,7 @@ export default function InlinePanel({
                 });
             });
             
-            setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : '콜백'}`);
+            setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백' : res === 'rejected' ? '거절' : '사이트 이상'}`);
             onRefresh(); // 부모 컴포넌트에 즉시 리렌더링 트리거
         } catch(e) {
             setToast('❌ 기록 처리 오류');
@@ -153,7 +154,7 @@ export default function InlinePanel({
         }
     };
 
-    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback', nextAction?: 'review' | 'memo') => {
+    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
         // 1. 콜 이력 로깅
         if (isOnCall) {
             onCallResult(res);
@@ -165,7 +166,13 @@ export default function InlinePanel({
         if (nextAction === 'memo') {
             setTab('memo');
         } else if (nextAction === 'review') {
-            setToast('✅ 변호사 검토 요청이 접수되었습니다. (API 연동 준비중)');
+            setToast('✅ 변호사 검토 요청이 접수되었습니다. (자동 메일 발송 준비)');
+        } else if (nextAction === 'alarm') {
+            setToast('⏰ 24시간 후 재연락 알람이 설정되었습니다.');
+        } else if (nextAction === 'pass') {
+            setToast('⏭️ 다음 기업으로 넘어갑니다.');
+            if (onPass) onPass();
+            else onClose();
         }
     };
 
@@ -304,41 +311,41 @@ export default function InlinePanel({
                                             <div className="flex flex-col gap-1.5 mt-1">
                                                 <div className="flex gap-1.5">
                                                     <button 
-                                                        onClick={() => handleResultAction('connected')}
-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
-                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
-                                                    >
-                                                        ✅ 연결
-                                                    </button>
-                                                    <button 
                                                         onClick={() => handleResultAction('connected', 'review')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
                                                     >
-                                                        📄 연결(검토)
+                                                        ✅ 연결-메일
                                                     </button>
                                                     <button 
-                                                        onClick={() => handleResultAction('connected', 'memo')}
+                                                        onClick={() => handleResultAction('callback', 'alarm')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
-                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
                                                     >
-                                                        📝 연결(메모)
+                                                        🔄 연결-콜백
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResultAction('rejected')}
+                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'rejected' ? 'bg-slate-700 text-white border-slate-800 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                                    >
+                                                        ❌ 연결-거절
                                                     </button>
                                                 </div>
                                                 <div className="flex gap-1.5">
                                                     <button 
-                                                        onClick={() => handleResultAction('no_answer', 'memo')}
+                                                        onClick={() => handleResultAction('no_answer', 'alarm')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_answer' ? 'bg-rose-600 text-white border-rose-700 shadow-sm' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}
                                                     >
-                                                        📵 부재(메모)
+                                                        📵 부재(24h)
                                                     </button>
                                                     <button 
-                                                        onClick={() => handleResultAction('callback', 'memo')}
+                                                        onClick={() => handleResultAction('invalid_site', 'pass')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
-                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'invalid_site' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                                                     >
-                                                        🔄 콜백(메모)
+                                                        ⚠️ 사이트이상(패스)
                                                     </button>
                                                 </div>
                                             </div>

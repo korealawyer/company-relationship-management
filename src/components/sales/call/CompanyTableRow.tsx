@@ -32,17 +32,18 @@ interface CompanyTableRowProps {
   onSelect: (id: string) => void;
   onStartCall: () => void;
   onEndCall: () => Promise<void>;
-  onCallResult: (r: 'connected' | 'no_answer' | 'callback') => void;
+  onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
   onRefresh: () => void;
   setToast: (s: string) => void;
   onOpenKakao: (c: Company) => void;
   onOpenContract: (c: Company) => void;
+  onPass?: () => void;
 }
 
 export default function CompanyTableRow({
   c, lockInfo, myUserId, index, selectedId, activeCallId, kakaoStatuses, callResult, timer, 
   isRecording, sttStatus, waveformData, onSelect, onStartCall, onEndCall, 
-  onCallResult, onRefresh, setToast, onOpenKakao, onOpenContract
+  onCallResult, onRefresh, setToast, onOpenKakao, onOpenContract, onPass
 }: CompanyTableRowProps) {
   const isSel = selectedId === c.id;
   const isCall = activeCallId === c.id;
@@ -121,13 +122,13 @@ export default function CompanyTableRow({
     <React.Fragment>
       <tr onClick={() => onSelect(c.id)} className="cursor-pointer transition-all"
           style={{
-            background: isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
+            background: (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? '#f1f5f9' : isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
             borderBottom: `1px solid ${C.borderLight}`,
             borderLeft: isLockedByMe ? '3px solid #10b981' : isLockedByOther ? '3px solid #ef4444' : isCall ? '3px solid #059669' : isSel ? '3px solid #4f46e5' : '3px solid transparent',
-            opacity: isLockedByOther ? 0.7 : 1
+            opacity: isLockedByOther ? 0.7 : (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? 0.5 : 1
           }}
           onMouseEnter={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.rowHover; }}
-          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.surface; }}>
+          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? '#f1f5f9' : C.surface; }}>
           <td className="py-2.5 px-3 text-[12px] font-mono" style={{color:C.faint}}>{index + 1}</td>
           <td className="py-2.5 px-3">
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -149,11 +150,11 @@ export default function CompanyTableRow({
                           {c.lastCallResult && c.lastCallAt && new Date(c.lastCallAt).toDateString() === new Date().toDateString() && (
                               <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" 
                                     style={{
-                                        background: c.lastCallResult === 'connected' ? '#ecfdf5' : c.lastCallResult === 'no_answer' ? '#fef2f2' : '#fffbeb',
-                                        color: c.lastCallResult === 'connected' ? '#059669' : c.lastCallResult === 'no_answer' ? '#dc2626' : '#d97706',
-                                        border: `1px solid ${c.lastCallResult === 'connected' ? '#a7f3d0' : c.lastCallResult === 'no_answer' ? '#fecaca' : '#fde68a'}`
+                                        background: c.lastCallResult === 'connected' ? '#ecfdf5' : c.lastCallResult === 'no_answer' ? '#fef2f2' : c.lastCallResult === 'callback' ? '#fffbeb' : '#f1f5f9',
+                                        color: c.lastCallResult === 'connected' ? '#059669' : c.lastCallResult === 'no_answer' ? '#dc2626' : c.lastCallResult === 'callback' ? '#d97706' : '#475569',
+                                        border: `1px solid ${c.lastCallResult === 'connected' ? '#a7f3d0' : c.lastCallResult === 'no_answer' ? '#fecaca' : c.lastCallResult === 'callback' ? '#fde68a' : '#cbd5e1'}`
                                     }}>
-                                  {c.lastCallResult === 'connected' ? '✅연결됨' : c.lastCallResult === 'no_answer' ? '📵부재중' : '🔄콜백'}
+                                  {c.lastCallResult === 'connected' ? '✅연결됨' : c.lastCallResult === 'no_answer' ? '📵부재중' : c.lastCallResult === 'callback' ? '🔄콜백' : c.lastCallResult === 'rejected' ? '❌거절' : '⚠️패스'}
                               </span>
                           )}
                           {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="카카오 알림톡 발송 완료">💬</span>}
@@ -300,7 +301,7 @@ export default function CompanyTableRow({
       <AnimatePresence>
           {isSel && <InlinePanel
               co={c} isOnCall={isCall} onStartCall={onStartCall}
-              onEndCall={onEndCall} onClose={() => onSelect('')}
+              onEndCall={onEndCall} onClose={() => onSelect('')} onPass={onPass}
               timer={timer} callResult={callResult as any}
               onCallResult={onCallResult} onRefresh={onRefresh} setToast={setToast}
               isRecording={isRecording} sttStatus={sttStatus} waveformData={waveformData}

@@ -18,7 +18,7 @@ export interface CallRecording {
     durationSeconds: number;
     transcript: string;
     transcriptSummary: string;
-    callResult: 'connected' | 'no_answer' | 'callback';
+    callResult: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site';
     sttStatus: 'pending' | 'processing' | 'completed' | 'failed';
     sttProvider: 'mock' | 'google' | 'whisper';
     contactName: string;
@@ -304,10 +304,19 @@ export const CallRecordingStore = {
     /** 통화 이력을 메모이력 기반으로도 저장 */
     _syncToMemo(entry: CallRecording): void {
         let contentStr = '';
+        const mapRes = {
+            'connected': '연결됨',
+            'no_answer': '부재중',
+            'callback': '콜백요청',
+            'rejected': '거절',
+            'invalid_site': '사이트이상'
+        };
+        const koRes = mapRes[entry.callResult] || entry.callResult;
+
         if (entry.transcriptSummary === '수동 통화 기록') {
-            contentStr = `📞 [수동 통화 기록] 상태 변경: ${entry.callResult === 'connected' ? '연결됨' : entry.callResult === 'no_answer' ? '부재중' : '콜백요청'}`;
+            contentStr = `📞 [수동 통화 기록] 상태 변경: ${koRes}`;
         } else {
-            contentStr = `📞 [통화 결과] ${entry.callResult === 'connected' ? '연결됨' : entry.callResult === 'no_answer' ? '부재중' : '콜백요청'}\n\n[AI 요약]\n${entry.transcriptSummary || '내용 없음'}\n\n[전문]\n${entry.transcript || '내용 없음'}`;
+            contentStr = `📞 [통화 결과] ${koRes}\n\n[AI 요약]\n${entry.transcriptSummary || '내용 없음'}\n\n[전문]\n${entry.transcript || '내용 없음'}`;
         }
 
         fetch('/api/memos', {

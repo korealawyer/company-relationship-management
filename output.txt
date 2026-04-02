@@ -1,0 +1,29 @@
+﻿=== Unlinked Static Routes ===
+/admin/permissions (\src\app\(admin)\admin\permissions\page.tsx)
+/god-view/sales-board (\src\app\(admin)\god-view\sales-board\page.tsx)
+/preview (\src\app\(admin)\preview\page.tsx)
+/sales/guide (\src\app\(admin)\sales\guide\page.tsx)
+/forgot-password (\src\app\(auth)\forgot-password\page.tsx)
+/onboarding (\src\app\(auth)\onboarding\page.tsx)
+/signup/consent (\src\app\(auth)\signup\consent\page.tsx)
+/subscribe/success (\src\app\(auth)\subscribe\success\page.tsx)
+/contracts/new (\src\app\(client)\contracts\new\page.tsx)
+/documents/requests (\src\app\(client)\documents\requests\page.tsx)
+/documents/upload (\src\app\(client)\documents\upload\page.tsx)
+/welcome (\src\app\(client)\welcome\page.tsx)
+/about (\src\app\(marketing)\about\page.tsx)
+/landing (\src\app\(marketing)\landing\page.tsx)
+/client-portal/document-requests/new (\src\app\client-portal\document-requests\new\page.tsx)
+/client-portal/document-requests (\src\app\client-portal\document-requests\page.tsx)
+/client-portal/my-cases (\src\app\client-portal\my-cases\page.tsx)
+
+=== Dynamic Routes (Not Checked Automatically) ===
+/intake/[token] (\src\app\(auth)\intake\[token]\page.tsx)
+/cases/[id] (\src\app\(client)\cases\[id]\page.tsx)
+/contracts/sign/[token] (\src\app\(client)\contracts\sign\[token]\page.tsx)
+/contracts/[id] (\src\app\(client)\contracts\[id]\page.tsx)
+/documents/[id] (\src\app\(client)\documents\[id]\page.tsx)
+/client-portal/documents/[id] (\src\app\client-portal\documents\[id]\page.tsx)
+
+Total routes: 72
+Unlinked static routes: 17

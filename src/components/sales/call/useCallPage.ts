@@ -73,7 +73,7 @@ export interface UseCallPageReturn {
     selectCompany: (id: string) => void;
     startCall: () => Promise<void>;
     endCall: () => Promise<void>;
-    handleCallResult: (r: 'connected' | 'no_answer' | 'callback') => void;
+    handleCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
     confirmCallback: () => void;
     toggleSort: (k: 'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType') => void;
     refresh: () => void;
@@ -87,7 +87,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
     const [search, setSearch] = useState('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [toast, setToast] = useState('');
-    const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | ''>('');
+    const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | ''>('');
     const [activeCallId, setActiveCallId] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all' | 'my_calls_today'>('all');
     const [sortKey, setSortKey] = useState<'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType'>('risk');
@@ -268,9 +268,9 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         }
     };
 
-    const handleCallResult = (r: 'connected' | 'no_answer' | 'callback') => {
+    const handleCallResult = (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => {
         setCallResult(r);
-        setToast(r === 'connected' ? '✅ 연결됨' : r === 'no_answer' ? '📵 부재중' : '📋 콜백요청');
+        setToast(r === 'connected' ? '✅ 연결됨' : r === 'no_answer' ? '📵 부재중' : r === 'callback' ? '📋 콜백요청' : r === 'rejected' ? '❌ 거절' : '⚠️ 사이트 이상(패스)');
     };
 
     const endCall = async () => {
@@ -284,6 +284,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         });
         if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
         else if (result === 'callback') { setShowCallbackModal(true); }
+        else if (result === 'rejected' || result === 'invalid_site') { CallQueueManager.removeFromQueue(selected.id); }
         else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'lawyer_confirmed', assignedLawyer: SALES_REPS[0] }); }
 
         if (isRecording) {
