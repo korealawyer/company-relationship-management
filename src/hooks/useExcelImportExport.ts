@@ -58,15 +58,15 @@ export function useExcelImportExport(
                 '기업명': '아이비에스 주식회사 (필수)',
                 '사업자번호': '123-45-67890',
                 '이메일': 'contact@ibs.example.com',
-                '구분': '프랜차이즈',
+                '구분(프랜차이즈/그외)': '프랜차이즈',
                 '업종': '식음료',
                 '홈페이지': 'https://ibs.example.com',
                 '전화번호': '02-1234-5678',
                 '가맹점수': '10',
-                '영업자': '홍길동',
-                '담당자': '홍길동',
+                '담당영업자': '홍길동 (시스템 직원 이름과 동일 시 자동 매핑, 다르면 메모 기록)',
+                '담당자': '김철수',
                 '담당자 전화': '010-1234-5678',
-                '담당자 이메일': 'hong@ibs.example.com',
+                '담당자 이메일': 'kim@ibs.example.com',
                 '개인정보방침 URL': 'https://ibs.example.com/privacy',
                 '개인정보방침 전문': '당사는 고객의 개인정보를 소중하게 생각합니다...',
                 '메모': '신규 유망 고객사',
@@ -77,10 +77,21 @@ export function useExcelImportExport(
         XLSX.utils.book_append_sheet(wb, ws, '업로드 양식');
         
         ws['!cols'] = [
-            { wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 15 },
-            { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
-            { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 },
-            { wch: 40 }, { wch: 30 },
+            { wch: 30 }, // 기업명
+            { wch: 20 }, // 사업자번호
+            { wch: 30 }, // 이메일
+            { wch: 25 }, // 구분(프랜차이즈/그외)
+            { wch: 20 }, // 업종
+            { wch: 30 }, // 홈페이지
+            { wch: 15 }, // 전화번호
+            { wch: 10 }, // 가맹점수
+            { wch: 65 }, // 담당영업자
+            { wch: 15 }, // 담당자
+            { wch: 20 }, // 담당자 전화
+            { wch: 30 }, // 담당자 이메일
+            { wch: 40 }, // 개인정보방침 URL
+            { wch: 40 }, // 개인정보방침 전문
+            { wch: 30 }, // 메모
         ];
         XLSX.writeFile(wb, 'CRM_업로드_양식.xlsx');
         showToast('📥 업로드 양식이 다운로드되었습니다');

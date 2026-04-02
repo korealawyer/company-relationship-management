@@ -784,7 +784,7 @@ export default function AdminClientsPage() {
                                                             )}
                                                         </div>
                                                         );
-                                                    })}
+                                                    })()}
 
                                                     {/* 문서함 탭 */}
                                                     {detailTab === 'docs' && (
