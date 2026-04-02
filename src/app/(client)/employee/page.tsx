@@ -33,35 +33,37 @@ export default function EmployeePage() {
             alert('분석할 대기 중(pending)인 기업이 없거나, URL/개인정보처리방침 텍스트가 없습니다.');
             return;
         }
-        if (!confirm(`대기 중인 기업 ${pendings.length}건을 일괄 분석하시겠습니까?\nQStash를 통해 백그라운드 큐에 등록됩니다.`)) return;
+        if (!confirm(`대기 중인 기업 ${pendings.length}건을 일괄 분석하시겠습니까?\n모든 기업의 분석을 순차적으로 진행합니다. 다소 시간이 소요될 수 있습니다.`)) return;
         
         setIsBatchAnalyzing(true);
         const promptConfig = getPromptConfig();
         let queued = 0;
 
         try {
-            // 빠른 응답을 위해 QStash Publisher를 동시에 호출
-            await Promise.all(pendings.map(async (c) => {
+            // 서버 부하 및 API Rate Limit 방지를 위해 순차적으로 처리합니다.
+            for (const c of pendings) {
                 await crm.updateCompany(c.id, { status: 'crawling' });
-                return fetch('/api/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        companyId: c.id, 
-                        homepageUrl: c.url,
-                        privacyUrl: c.privacyUrl,
-                        manualText: c.privacyPolicyText,
-                        systemPrompt: promptConfig.analyzePrompt,
-                        model: promptConfig.model
-                    })
-                }).then(res => res.json()).then(data => {
+                try {
+                    const res = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            companyId: c.id, 
+                            homepageUrl: c.url,
+                            privacyUrl: c.privacyUrl,
+                            manualText: c.privacyPolicyText,
+                            systemPrompt: promptConfig.analyzePrompt,
+                            model: promptConfig.model
+                        })
+                    });
+                    const data = await res.json();
                     if (data.success) queued++;
-                }).catch(err => {
+                } catch (err) {
                     console.error('Batch analyze fetch error:', err);
-                });
-            }));
+                }
+            }
             crm.refresh();
-            crm.showToast(`✨ 총 ${queued}건의 일괄 분석 요청이 백그라운드 작업으로 등록되었습니다.`);
+            crm.showToast(`✨ 총 ${queued}건의 일괄 분석이 성공적으로 완료되었습니다.`);
         } catch (error) {
             console.error(error);
             alert('일괄 분석 요청 중 일부 문제가 발생했습니다.');
