@@ -15,6 +15,7 @@ import FeatureShowcase from '@/components/landing/FeatureShowcase';
 
 import GuideDownloadSection from '@/components/landing/GuideDownloadSection';
 import CtaSection from '@/components/landing/CtaSection';
+import ClaimPopup from '@/components/landing/ClaimPopup';
 
 export const revalidate = 3600; // Cache ISR revalidation strategy (1 hour)
 
@@ -23,6 +24,10 @@ export default function LandingPage() {
     <main className="bg-navy-deep">
       <h1 className="sr-only">IBS 프랜차이즈 법률사무소 공식 홈페이지</h1>
       <ScrollProgress />
+
+      <Suspense fallback={null}>
+        <ClaimPopup />
+      </Suspense>
 
       {/* ── 1. HERO — 플랫폼 규모감 ── */}
       <Suspense fallback={<div className="h-[600px] w-full bg-[#04091a] animate-pulse rounded-lg" />}>

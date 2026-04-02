@@ -6,6 +6,7 @@ import { C } from '@/lib/callPageUtils';
 import { Company } from '@/lib/types';
 import { AutoSignatureService } from '@/lib/salesAutomation';
 import { useCompanies } from '@/hooks/useDataLayer';
+import { renderContractEmailTemplateHtml } from '@/lib/emailTemplates';
 
 /* ─────────────────────────────────────────
    Props
@@ -116,68 +117,9 @@ export default function ContractPreviewModal({
           <div style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '24px 28px',
-            fontSize: 13,
-            color: C.body,
-            lineHeight: 1.75,
+            background: '#f8fafc',
           }}>
-            <p style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', marginBottom: 24, color: C.heading }}>
-              법률 자문 서비스 이용 계약서
-            </p>
-
-            <p style={{ marginBottom: 16 }}>
-              <strong>위탁인(이하 "갑"):</strong> {company.name}<br />
-              <strong>수탁인(이하 "을"):</strong> IBS 법률사무소 (대표변호사 홍길동)
-            </p>
-
-            <p style={{ marginBottom: 6, fontWeight: 600 }}>제1조 (목적)</p>
-            <p style={{ marginBottom: 16 }}>
-              본 계약은 갑이 을에게 개인정보보호법 관련 법률 자문 및 처리방침 수정 업무를 위탁하고,
-              을이 이를 성실히 수행함에 있어 필요한 제반 사항을 규정함을 목적으로 한다.
-            </p>
-
-            <p style={{ marginBottom: 6, fontWeight: 600 }}>제2조 (자문 범위)</p>
-            <ul style={{ marginBottom: 16, paddingLeft: 20 }}>
-              <li>개인정보처리방침 법적 적합성 검토 및 수정 의견서 제공</li>
-              <li>관련 법령 위반 리스크 분석 및 개선 권고</li>
-              <li>규제기관 제출용 문서 검토 지원</li>
-              <li>월 1회 정기 자문 보고서 제공</li>
-            </ul>
-
-            <p style={{ marginBottom: 6, fontWeight: 600 }}>제3조 (계약 기간)</p>
-            <p style={{ marginBottom: 16 }}>
-              계약 체결일로부터 12개월 (자동 갱신 조항 적용, 해지 의사통보 시 30일 전 서면 통보 필요)
-            </p>
-
-            <p style={{ marginBottom: 6, fontWeight: 600 }}>제4조 (자문 수수료)</p>
-            <p style={{ marginBottom: 16 }}>
-              월 자문료는 선택 플랜에 따라 결정되며, 매월 1일 자동 청구됩니다.
-              미납 시 서비스가 일시 중단될 수 있습니다.
-            </p>
-
-            <p style={{ marginBottom: 6, fontWeight: 600 }}>제5조 (비밀유지)</p>
-            <p style={{ marginBottom: 16 }}>
-              을은 본 계약 이행 과정에서 취득한 갑의 영업상·법적 비밀을 계약 종료 후 3년간 엄격히 비밀로 유지한다.
-            </p>
-
-            <p style={{ marginBottom: 6, fontWeight: 600 }}>제6조 (분쟁 해결)</p>
-            <p style={{ marginBottom: 16 }}>
-              본 계약으로 인한 분쟁은 서울중앙지방법원을 제1심 관할법원으로 한다.
-            </p>
-
-            <div style={{
-              marginTop: 32,
-              padding: 16,
-              background: C.elevated,
-              borderRadius: 10,
-              border: `1px solid ${C.borderLight}`,
-              fontSize: 12,
-              color: C.sub,
-            }}>
-              ※ 본 계약서는 전자서명법 제3조에 따라 전자서명으로 효력이 발생합니다.<br />
-              ※ 이메일 발송 후 수신인의 전자서명 완료 시 계약이 성립됩니다.<br />
-              ※ 문의: legal@ibslaw.co.kr | 02-000-0000
-            </div>
+            <div dangerouslySetInnerHTML={{ __html: renderContractEmailTemplateHtml(company, 'standard') }} />
           </div>
 
           {/* ── Footer ── */}

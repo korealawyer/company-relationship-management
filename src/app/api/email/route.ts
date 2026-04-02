@@ -3,7 +3,7 @@ import { requireSessionFromCookie } from '@/lib/auth';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
-import { renderContractEmailTemplateHtml } from '@/lib/emailTemplates';
+import { renderContractEmailTemplateHtml, buildHookEmailHtml } from '@/lib/emailTemplates';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -91,52 +91,27 @@ async function buildSalesEmail(leadId: string, lawyerNote: string) {
 async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string, customSubject?: string) {
   const lead = await supabaseCompanyStore.getById(leadId);
   if (!lead) return null;
-  const issueText = `개인정보처리방침에서 ${lead.issueCount || 0}건의 위반 가능성이 발견되었습니다.`;
-  
-  const riskKr = lead.riskLevel === 'HIGH' ? '고위험' : lead.riskLevel === 'MEDIUM' ? '주의' : lead.riskLevel === 'LOW' ? '양호' : '알 수 없음';
-  
+
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://ibsbase.com';
-  const params = new URLSearchParams();
-  params.append('claim', leadId);
-  params.append('from', '/privacy-report');
-  if (repId) params.append('rep', repId);
-  const queryString = params.toString() ? `?${params.toString()}` : '';
-  const portalUrl = `${BASE_URL}/login${queryString}`;
+  
+  const totalCount = lead?.issues?.length || lead?.issueCount || 5;
+
+  const vars = {
+    company: (lead as any).companyName || lead.name || '(주)샘플회사',
+    contactName: lead.contactName || '담당자',
+    lawyerName: (lead as any).lawyerName || (lead as any).assignedLawyer || '',
+    leadId: leadId,
+    repId: repId || '',
+    issueCount: String(totalCount),
+    unsubscribeToken: Buffer.from(`unsub_${leadId}`).toString('base64')
+  };
+
+  const html = buildHookEmailHtml(vars, lawyerNote, BASE_URL);
 
   return {
-    to: lead.contactEmail || FROM_EMAIL,
-    subject: customSubject || `[IBS 법률] ${lead.name || '미상기업'} 개인정보처리방침 리스크 진단 결과`,
-    html: `
-<div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:600px;margin:0 auto;padding:24px">
-  <div style="background:#0a0e1a;padding:20px;border-radius:12px;margin-bottom:24px">
-    <h2 style="color:#c9a84c;margin:0">${FROM_NAME}</h2>
-    <p style="color:#94a3b8;margin:4px 0 0">프랜차이즈 전문 법률 서비스</p>
-  </div>
-  <h3 style="color:#1e293b">${lead.contactName || '담당자'}님께</h3>
-  <p style="color:#374151;line-height:1.6">
-    안녕하세요. IBS 법률사무소 AI 분석 시스템이 귀사(<strong>${lead.name || '미상기업'}</strong>)의
-    개인정보처리방침을 검토한 결과를 전달드립니다.
-  </p>
-  <div style="background:#fef2f2;border-left:4px solid #f87171;padding:16px;margin:20px 0;border-radius:0 8px 8px 0">
-    <h4 style="color:#dc2626;margin:0 0 8px">🔴 ${riskKr} — ${issueText}</h4>
-    <p style="color:#374151;margin:0">과징금 최대 <strong>3,000만원</strong>이 부과될 수 있는 항목이 포함되어 있습니다.</p>
-  </div>
-  <h4 style="color:#374151">주요 발견 사항</h4>
-  <ul style="color:#374151;line-height:1.8">
-    <li>개인정보 과다수집 의심 (개보법 §16)</li>
-    <li>제3자 제공 현황 미명시 (개보법 §17)</li>
-    <li>보유기간 일부 항목 누락 (개보법 §21)</li>
-  </ul>
-  <div style="text-align:center;margin:32px 0">
-    <a href="${portalUrl}" style="background:linear-gradient(135deg,#c9a84c,#e8c87a);color:#0a0e1a;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;display:inline-block">
-      🏢 IBS 법률사무소 방문 및 진단 결과 확인하기 →
-    </a>
-  </div>
-  <p style="color:#64748b;font-size:12px;text-align:center">위 버튼을 클릭하면 귀사만의 맞춤 법률 진단 리포트를 바로 열람하실 수 있습니다.</p>
-  <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0"/>
-  <p style="color:#94a3b8;font-size:12px">본 이메일은 자동 분석 시스템에 의해 발송되었습니다.<br/>
-  문의: ${FROM_EMAIL} | IBS 법률사무소</p>
-</div>`,
+    to: lead.contactEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'info@ibslaw.co.kr',
+    subject: customSubject || `[IBS 법률] ${vars.company} 개인정보처리방침 리스크 진단 결과`,
+    html
   };
 }
 
