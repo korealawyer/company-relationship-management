@@ -130,6 +130,7 @@ export default function AdminClientsPage() {
     const [detailTab, setDetailTab] = useState<DetailTab>('info');
     const [showFilters, setShowFilters] = useState(false);
     const [toast, setToast] = useState('');
+    const [detailsCache, setDetailsCache] = useState<Record<string, { memos: any[]; timeline: any[] }>>({});
 
     // ── KPI 계산 ─────────────────────────────────────────
     const kpi = useMemo(() => {
@@ -446,7 +447,26 @@ export default function AdminClientsPage() {
 
                                             {/* 기업명 */}
                                             <button className="flex items-center gap-3 min-w-0 text-left"
-                                                onClick={() => { setExpandId(isExpanded ? null : c.id); setDetailTab('info'); }}>
+                                                onClick={() => { 
+                                                    if (isExpanded) {
+                                                        setExpandId(null);
+                                                    } else {
+                                                        setExpandId(c.id);
+                                                        setDetailTab('info');
+                                                        if (!detailsCache[c.id]) {
+                                                            import('@/lib/supabaseStore').then(({ supabaseCompanyStore }) => {
+                                                                supabaseCompanyStore.getById(c.id).then(full => {
+                                                                    if (full) {
+                                                                        setDetailsCache(prev => ({
+                                                                            ...prev, 
+                                                                            [c.id]: { memos: full.memos || [], timeline: full.timeline || [] }
+                                                                        }));
+                                                                    }
+                                                                });
+                                                            });
+                                                        }
+                                                    }
+                                                }}>
                                                 <div className={`p-2 rounded-xl flex-shrink-0 ${pm.bg}`}>
                                                     <PlanIcon className="w-4 h-4" style={{ color: pm.color }} />
                                                 </div>
@@ -537,7 +557,26 @@ export default function AdminClientsPage() {
                                                 <span>•</span>
                                                 <span>{formatRelativeDate(lastAct)}</span>
                                             </div>
-                                            <button onClick={() => { setExpandId(isExpanded ? null : c.id); setDetailTab('info'); }}
+                                            <button onClick={() => { 
+                                                    if (isExpanded) {
+                                                        setExpandId(null);
+                                                    } else {
+                                                        setExpandId(c.id);
+                                                        setDetailTab('info');
+                                                        if (!detailsCache[c.id]) {
+                                                            import('@/lib/supabaseStore').then(({ supabaseCompanyStore }) => {
+                                                                supabaseCompanyStore.getById(c.id).then(full => {
+                                                                    if (full) {
+                                                                        setDetailsCache(prev => ({
+                                                                            ...prev, 
+                                                                            [c.id]: { memos: full.memos || [], timeline: full.timeline || [] }
+                                                                        }));
+                                                                    }
+                                                                });
+                                                            });
+                                                        }
+                                                    }
+                                                }}
                                                 className="w-full text-xs font-bold py-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors border border-slate-100">
                                                 {isExpanded ? '접기' : '상세 보기'}
                                             </button>
@@ -672,16 +711,19 @@ export default function AdminClientsPage() {
                                                     )}
 
                                                     {/* 활동 이력 탭 */}
-                                                    {detailTab === 'activity' && (
+                                                    {detailTab === 'activity' && (() => {
+                                                        const memos = detailsCache[c.id]?.memos || c.memos || [];
+                                                        const timeline = detailsCache[c.id]?.timeline || c.timeline || [];
+                                                        return (
                                                         <div className="space-y-4">
                                                             <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> 최근 활동 타임라인</p>
 
                                                             {/* 메모 이력 */}
-                                                            {(c.memos && c.memos.length > 0) && (
+                                                            {(memos && memos.length > 0) && (
                                                                 <div>
-                                                                    <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> 메모 ({c.memos.length}건)</p>
+                                                                    <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> 메모 ({memos.length}건)</p>
                                                                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                                                                        {[...c.memos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5).map(m => (
+                                                                        {[...memos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5).map(m => (
                                                                             <div key={m.id} className="flex gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                                                                 <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
                                                                                     <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
@@ -700,11 +742,11 @@ export default function AdminClientsPage() {
                                                             )}
 
                                                             {/* 타임라인 이력 */}
-                                                            {(c.timeline && c.timeline.length > 0) && (
+                                                            {(timeline && timeline.length > 0) && (
                                                                 <div>
-                                                                    <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-blue-500" /> 타임라인 ({c.timeline.length}건)</p>
+                                                                    <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-blue-500" /> 타임라인 ({timeline.length}건)</p>
                                                                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                                                                        {c.timeline.slice(0, 5).map(t => (
+                                                                        {timeline.slice(0, 5).map((t: any) => (
                                                                             <div key={t.id} className="flex gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                                                                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                                                                                     <Clock className="w-3.5 h-3.5 text-blue-700" />
@@ -734,14 +776,15 @@ export default function AdminClientsPage() {
                                                                 </div>
                                                             </div>
 
-                                                            {(!c.memos || c.memos.length === 0) && (!c.timeline || c.timeline.length === 0) && (
+                                                            {(!memos || memos.length === 0) && (!timeline || timeline.length === 0) && (
                                                                 <div className="py-10 text-center">
                                                                     <Activity className="w-10 h-10 mx-auto text-slate-200 mb-3" />
                                                                     <p className="text-sm font-bold text-slate-400">기록된 활동이 없습니다</p>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    )}
+                                                        );
+                                                    })}
 
                                                     {/* 문서함 탭 */}
                                                     {detailTab === 'docs' && (

@@ -82,15 +82,17 @@ export default function SalesQueuePage() {
         if (myLock) {
             const c = companies.find(comp => comp.id === myLock.companyId);
             if (c) {
-                setActiveCall(c);
-                setCallState('calling');
-                setSelectedResult(null);
-                setToastMsg('기존에 진행 중이던 통화 화면을 복구했습니다.');
-                setTimeout(() => setToastMsg(''), 3000);
-                setEditContactName(c.contactName || '');
-                setIsEditingContact(false);
-                reset();
-                start();
+                supabaseCompanyStore.getById(c.id).then(fullC => {
+                    setActiveCall(fullC || c);
+                    setCallState('calling');
+                    setSelectedResult(null);
+                    setToastMsg('기존에 진행 중이던 통화 화면을 복구했습니다.');
+                    setTimeout(() => setToastMsg(''), 3000);
+                    setEditContactName(c.contactName || '');
+                    setIsEditingContact(false);
+                    reset();
+                    start();
+                });
             }
         }
     }, [user, activeCall, companies, locks, reset, start]);
@@ -119,13 +121,17 @@ export default function SalesQueuePage() {
             return;
         }
 
+        let finalCandidate = candidate;
         // 2. Verify candidate with server to prevent double-calling freshly completed calls
         try {
             const freshCandidate = await supabaseCompanyStore.getById(candidate.id);
-            if (freshCandidate && freshCandidate.lastCallAt && freshCandidate.lastCallAt.startsWith(todayStr)) {
-                // Someone else just finished calling this company!
-                setCompanies(prev => prev.filter(c => c.id !== freshCandidate.id));
-                return handleNextCall(retryCount + 1);
+            if (freshCandidate) {
+                if (freshCandidate.lastCallAt && freshCandidate.lastCallAt.startsWith(todayStr)) {
+                    // Someone else just finished calling this company!
+                    setCompanies(prev => prev.filter(c => c.id !== freshCandidate.id));
+                    return handleNextCall(retryCount + 1);
+                }
+                finalCandidate = freshCandidate;
             }
         } catch (e) {
             console.error('Candidate verification failed', e);
@@ -134,7 +140,7 @@ export default function SalesQueuePage() {
         try {
             const res = await claimCompany(candidate.id, user.id, user.name || '영업팀');
             if (res.success) {
-                setActiveCall(candidate);
+                setActiveCall(finalCandidate);
                 setCallState('calling');
                 setSelectedResult(null);
                 setMemoText("");
@@ -516,7 +522,7 @@ export default function SalesQueuePage() {
                             </div>
 
                             {/* 메모 입력 */}
-                            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden flex-1 flex flex-col min-h-[140px] focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
+                            <div className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden flex-none flex flex-col min-h-[140px] focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
                                 <textarea
                                     id="queue-memo-input"
                                     className="w-full h-full p-4 text-[13px] text-slate-800 resize-none outline-none placeholder:text-slate-400 bg-indigo-50/30"

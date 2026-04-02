@@ -224,6 +224,12 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
             const tB = new Date(b.updatedAt || b.createdAt || 0).getTime();
             d = tB - tA;
         }
+        
+        // 2차 정렬: 동일한 값일 때 순서가 무작위로 뒤섞이는 것(Jumping) 방지
+        if (d === 0) {
+            d = a.id.localeCompare(b.id);
+        }
+        
         return sortAsc ? -d : d;
     });
 
@@ -346,10 +352,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
 
         setActiveCallId(null); timer.reset(); setCallResult(''); refresh();
         if (result !== 'callback') {
-            const idx = filtered.findIndex(co => co.id === selected.id);
-            const next = filtered[idx + 1];
-            if (next) setTimeout(() => { setSelectedId(next.id); }, 400);
-            else setSelectedId(null);
+            setTimeout(() => { setSelectedId(null); }, 400);
         }
     };
 

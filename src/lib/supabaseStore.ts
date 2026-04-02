@@ -65,23 +65,14 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
   const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false });
   if (!rows) return [];
 
-  // ── 배치 쿼리: 서브 테이블을 한 번씩만 조회 (N+1 → 5 고정) ──
-  const [issuesRes, contactsRes, timelinesRes] = await Promise.all([
+  // ── 배치 쿼리: 리스트뷰 로딩 속도 최적화를 위해 메모와 타임라인 전역 조회 제외 ──
+  const [issuesRes, contactsRes] = await Promise.all([
     sb.from('issues').select('*'),
     sb.from('company_contacts').select('*'),
-    sb.from('company_timeline').select('*').order('created_at', { ascending: false }),
   ]);
-
-  // company_memos는 RLS 403 에러를 방지하기 위해 별도 처리
-  let memosRes: { data: any[] | null } = { data: null };
-  try {
-    memosRes = await sb.from('company_memos').select('*');
-  } catch { /* RLS 차단 시 무시 — /api/memos로 대체 */ }
 
   const issueMap = groupBy(issuesRes.data, 'company_id');
   const contactMap = groupBy(contactsRes.data, 'company_id');
-  const memoMap = groupBy(memosRes.data, 'company_id');
-  const timelineMap = groupBy(timelinesRes.data, 'company_id');
 
   const companies: Company[] = [];
   for (const row of rows) {
@@ -107,8 +98,8 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
       return obj as unknown as Issue;
     });
     c.contacts = (contactMap[c.id] || []).map(r => rowToObj<CompanyContact>(r));
-    c.memos = (memoMap[c.id] || []).map(r => rowToObj<CompanyMemo>(r));
-    c.timeline = (timelineMap[c.id] || []).map(r => rowToObj<CompanyTimelineEvent>(r));
+    c.memos = []; // 전체조회 시 성능 최적화: 상세 정보는 API나 getById로 레이지로딩 추천
+    c.timeline = []; // 전체조회 시 성능 최적화: 상세 정보는 API나 getById로 레이지로딩 추천
 
     companies.push(c);
   }

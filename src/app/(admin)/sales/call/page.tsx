@@ -165,11 +165,7 @@ export default function SalesCallPage() {
                                 onCallResult={handleCallResult} onRefresh={refresh} setToast={setToast}
                                 onOpenKakao={(co: Company) => { setKakaoTarget(co); setKakaoTemplate(0); }}
                                 onOpenContract={(co: Company) => { setContractPreviewTarget(co); }}
-                                onPass={() => {
-                                    const next = filtered[i + 1];
-                                    if (next) selectCompany(next.id);
-                                    else selectCompany('');
-                                }} />
+                                onPass={() => selectCompany('')} />
                         ))}
                     </tbody>
                 </table>

@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { store, Company, STATUS_LABEL } from '@/lib/mockStore';
+import { useUsers } from '@/hooks/useDataLayer';
 
 export function useExcelImportExport(
     companies: Company[],
@@ -9,6 +10,7 @@ export function useExcelImportExport(
     showToast: (msg: string) => void,
     importBulk: (data: Partial<Company>[]) => Promise<{ success: number; skipped: number }>
 ) {
+    const { users } = useUsers();
     const [showExcelUpload, setShowExcelUpload] = useState(false);
     const [excelData, setExcelData] = useState<Record<string, string>[]>([]);
     const [excelPreview, setExcelPreview] = useState<Record<string, string>[]>([]);
@@ -32,6 +34,7 @@ export function useExcelImportExport(
             '상태': STATUS_LABEL[c.status] || c.status,
             '위험도': c.riskLevel || '',
             '배정 변호사': c.assignedLawyer || '',
+            '영업자': c.assignedSalesName || '',
             '통화 메모': c.callNote || '',
             '플랜': c.plan || '',
         }));
@@ -43,7 +46,7 @@ export function useExcelImportExport(
             { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 30 },
             { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 },
             { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 12 },
-            { wch: 30 }, { wch: 10 },
+            { wch: 30 }, { wch: 15 }, { wch: 10 },
         ];
         XLSX.writeFile(wb, `IBS_CRM_기업목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
         showToast('📥 Excel 파일이 다운로드되었습니다');
@@ -60,6 +63,7 @@ export function useExcelImportExport(
                 '홈페이지': 'https://ibs.example.com',
                 '전화번호': '02-1234-5678',
                 '가맹점수': '10',
+                '영업자': '홍길동',
                 '담당자': '홍길동',
                 '담당자 전화': '010-1234-5678',
                 '담당자 이메일': 'hong@ibs.example.com',
@@ -75,8 +79,8 @@ export function useExcelImportExport(
         ws['!cols'] = [
             { wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 15 },
             { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
-            { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 40 },
-            { wch: 30 },
+            { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 },
+            { wch: 40 }, { wch: 30 },
         ];
         XLSX.writeFile(wb, 'CRM_업로드_양식.xlsx');
         showToast('📥 업로드 양식이 다운로드되었습니다');
@@ -123,9 +127,24 @@ export function useExcelImportExport(
             }
 
             const biz = String(row['사업자번호'] || row['biz'] || '').trim();
-            const memoContent = String(row['메모'] || row['memo'] || '').trim();
+            let memoContent = String(row['메모'] || row['memo'] || '').trim();
             const privacyUrl = String(row['개인정보방침 URL'] || row['privacyUrl'] || '').trim();
             const privacyPolicyText = String(row['개인정보방침 전문'] || row['privacyPolicyText'] || '').trim();
+
+            const salesNameInput = String(row['영업자'] || row['담당영업자'] || row['salesName'] || '').trim();
+            let assignedSalesId = undefined;
+            let assignedSalesName = undefined;
+
+            if (salesNameInput) {
+                const foundUser = users.find(u => u.name === salesNameInput);
+                if (foundUser) {
+                    assignedSalesId = foundUser.id;
+                    assignedSalesName = foundUser.name;
+                } else {
+                    const notice = `[시스템] 엑셀 업로드: 지정된 영업자 '${salesNameInput}' 정보가 시스템에 없어 자동 연결되지 않았습니다.`;
+                    memoContent = memoContent ? `${memoContent}\n\n${notice}` : notice;
+                }
+            }
 
             const memos = memoContent ? [{
                 id: crypto.randomUUID(),
@@ -142,7 +161,10 @@ export function useExcelImportExport(
                 phone: String(row['전화번호'] || row['phone'] || '').trim(),
                 storeCount: parseInt(String(row['가맹점수'] || row['storeCount'] || '0'), 10) || 0,
                 status: 'pending',
-                assignedLawyer: '', issues: [],
+                assignedLawyer: '', 
+                assignedSalesId,
+                assignedSalesName,
+                issues: [],
                 salesConfirmed: false, salesConfirmedAt: '', salesConfirmedBy: '',
                 lawyerConfirmed: false, lawyerConfirmedAt: '',
                 emailSentAt: '', emailSubject: '',
