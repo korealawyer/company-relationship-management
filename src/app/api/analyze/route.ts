@@ -90,25 +90,13 @@ export async function POST(request: NextRequest) {
                     try {
                         res = await fetch(sbUrl, { signal: controller.signal });
                         if (!res.ok) {
-                            console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. Falling back to Jina AI.`);
+                            console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
                             res = null;
                         }
                     } catch (e) {
                         console.warn(`[Analyze API] ScrapingBee network error:`, e);
                         res = null;
                     }
-                }
-
-                // 3. 최후 Fetch 폴백 (모두 실패 시 Jina AI 사용)
-                if (!res) {
-                    console.log(`[Analyze API] Using Jina AI fallback for URL: ${fetchUrl.toString()}`);
-                    res = await fetch(`https://r.jina.ai/${fetchUrl.toString()}`, {
-                        headers: {
-                            'Accept': 'text/plain',
-                            'X-Return-Format': 'text'
-                        },
-                        signal: controller.signal
-                    });
                 }
                 
                 if (res?.ok) {
