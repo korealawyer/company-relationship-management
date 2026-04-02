@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
-    let body: { url?: string; companyId?: string; manualText?: string; systemPrompt?: string; model?: string; };
+    let body: { url?: string; privacyUrl?: string; homepageUrl?: string; companyId?: string; manualText?: string; systemPrompt?: string; model?: string; };
     try {
         body = await request.json();
     } catch {
@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { url, companyId, manualText, systemPrompt, model } = body;
+    const { companyId, manualText, systemPrompt, model } = body as any;
+    const url = body.url || body.privacyUrl || body.homepageUrl;
 
     // ── 필수 파라미터 검증 ──
     if (!url && !companyId && !manualText) {

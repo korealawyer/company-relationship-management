@@ -79,7 +79,8 @@ export function ActionButton({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     companyId: c.id, 
-                    url: c.privacyUrl, 
+                    homepageUrl: c.url,
+                    privacyUrl: c.privacyUrl, 
                     manualText: c.privacyPolicyText,
                     systemPrompt: promptConfig.analyzePrompt,
                     model: promptConfig.model
@@ -259,7 +260,8 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     companyId: c.id, 
-                    url: privacyUrl, 
+                    homepageUrl: c.url,
+                    privacyUrl: privacyUrl, 
                     manualText: privacyText,
                     systemPrompt: promptConfig.analyzePrompt,
                     model: promptConfig.model

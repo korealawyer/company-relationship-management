@@ -59,7 +59,8 @@ function ResultContent() {
             setLoading(true);
             setError(null);
 
-            let payloadUrl = urlParam || '';
+            let payloadHomepageUrl = urlParam || '';
+            let payloadPrivacyUrl = '';
             let payloadManualText = '';
             let payloadCompanyId = companyParam || '';
 
@@ -68,13 +69,14 @@ function ResultContent() {
                 const leads = leadStore.getAll();
                 const matched = leads.find(l => l.companyName === companyParam);
                 if (matched) {
-                    payloadUrl = matched.privacyUrl || payloadUrl;
+                    payloadHomepageUrl = matched.domain || payloadHomepageUrl;
+                    payloadPrivacyUrl = matched.privacyUrl || '';
                     payloadManualText = matched.privacyPolicyText || '';
                     payloadCompanyId = matched.id;
                 }
             }
 
-            if (!payloadUrl && !payloadManualText && !payloadCompanyId) {
+            if (!payloadHomepageUrl && !payloadPrivacyUrl && !payloadManualText && !payloadCompanyId) {
                 setError('분석할 대상(URL, 회사명, 원문)이 명확하지 않습니다.');
                 setLoading(false);
                 return;
@@ -88,7 +90,8 @@ function ResultContent() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        url: payloadUrl,
+                        homepageUrl: payloadHomepageUrl,
+                        privacyUrl: payloadPrivacyUrl,
                         companyId: payloadCompanyId,
                         manualText: payloadManualText,
                         systemPrompt: promptConfig.analyzePrompt,

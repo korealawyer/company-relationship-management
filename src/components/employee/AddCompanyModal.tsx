@@ -121,7 +121,8 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                                             body: JSON.stringify({ 
                                                 companyId: newId, 
                                                 url: addForm.url, 
-                                                systemPrompt: promptConfig.analyzePrompt
+                                                systemPrompt: promptConfig.analyzePrompt,
+                                                model: promptConfig.model
                                             })
                                         });
                                         const data = await res.json();
