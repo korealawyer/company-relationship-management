@@ -65,11 +65,12 @@ export default function ClaimPopup() {
                         </div>
 
                         <h3 className="text-lg font-black text-center mb-2" style={{ color: '#f0f4ff' }}>
-                            프라이버시 리포트 발급 완료
+                            🚨 우리 회사의 개인정보보호, 정말 안전할까요?
                         </h3>
                         <p className="text-sm text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.6)' }}>
-                            해당 홈페이지로 유입되셨습니다.<br/>
-                            로그인 및 비밀번호 설정 후<br/>전체 리포트를 즉시 확인하실 수 있습니다.
+                            사소한 법률 위반도 막대한 과징금으로 이어질 수 있습니다.<br/>
+                            귀사 홈페이지의 취약점을 분석한 프라이버시 리포트를 발급했습니다.<br/>
+                            로그인 후 상세 진단 결과를 즉시 점검하세요.
                         </p>
 
                         <Button 
@@ -77,7 +78,7 @@ export default function ClaimPopup() {
                             className="w-full font-bold shadow-[0_4px_14px_0_rgba(201,168,76,0.39)]"
                             onClick={handleLoginRedirect}
                         >
-                            리포트 확인하기 <ArrowRight className="w-4 h-4 ml-1.5" />
+                            리스크 진단 결과 보기 <ArrowRight className="w-4 h-4 ml-1.5" />
                         </Button>
                     </div>
                 </motion.div>
