@@ -1,13 +1,14 @@
 'use client';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, TrendingUp, Bot, Phone, LayoutGrid, Ticket, Download, Upload, AlertTriangle, Send, X } from 'lucide-react';
+import { Plus, Search, TrendingUp, Bot, Phone, LayoutGrid, Ticket, Download, Upload, AlertTriangle, Send, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
 import { Company } from '@/lib/types';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import SalesDashboard from '@/components/crm/SalesDashboard';
 import ContractEmailTemplate from '@/components/crm/ContractEmailTemplate';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 import { useRequireAuth } from '@/lib/AuthContext';
 import { useEmployeeCRM } from '@/hooks/useEmployeeCRM';
 import { useExcelImportExport } from '@/hooks/useExcelImportExport';
@@ -23,6 +24,51 @@ export default function EmployeePage() {
     const { loading: authLoading, authorized } = useRequireAuth(['super_admin', 'admin', 'sales']);
     const crm = useEmployeeCRM();
     const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast, crm.importBulk);
+
+    const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
+
+    const handleBatchAnalyze = async () => {
+        const pendings = crm.companies.filter(c => c.status === 'pending' && (c.url || c.privacyUrl || c.privacyPolicyText));
+        if (pendings.length === 0) {
+            alert('분석할 대기 중(pending)인 기업이 없거나, URL/개인정보처리방침 텍스트가 없습니다.');
+            return;
+        }
+        if (!confirm(`대기 중인 기업 ${pendings.length}건을 일괄 분석하시겠습니까?\nQStash를 통해 백그라운드 큐에 등록됩니다.`)) return;
+        
+        setIsBatchAnalyzing(true);
+        const promptConfig = getPromptConfig();
+        let queued = 0;
+
+        try {
+            // 빠른 응답을 위해 QStash Publisher를 동시에 호출
+            await Promise.all(pendings.map(async (c) => {
+                await crm.updateCompany(c.id, { status: 'crawling' });
+                return fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        companyId: c.id, 
+                        homepageUrl: c.url,
+                        privacyUrl: c.privacyUrl,
+                        manualText: c.privacyPolicyText,
+                        systemPrompt: promptConfig.analyzePrompt,
+                        model: promptConfig.model
+                    })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) queued++;
+                }).catch(err => {
+                    console.error('Batch analyze fetch error:', err);
+                });
+            }));
+            crm.refresh();
+            crm.showToast(`✨ 총 ${queued}건의 일괄 분석 요청이 백그라운드 작업으로 등록되었습니다.`);
+        } catch (error) {
+            console.error(error);
+            alert('일괄 분석 요청 중 일부 문제가 발생했습니다.');
+        } finally {
+            setIsBatchAnalyzing(false);
+        }
+    };
 
     const [showAutoPanel, setShowAutoPanel] = useState(false);
     const [showInvitePanel, setShowInvitePanel] = useState(false);
@@ -101,6 +147,12 @@ export default function EmployeePage() {
                                 className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                 <Upload className="w-3.5 h-3.5" /> 대량 업로드
+                            </button>
+                            <button onClick={handleBatchAnalyze} disabled={isBatchAnalyzing}
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all disabled:opacity-50"
+                                style={{ background: '#fffbeb', color: '#b8960a', border: '1px solid #fde68a', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                <Zap className="w-3.5 h-3.5 flex-shrink-0" /> 
+                                {isBatchAnalyzing ? '분석 큐 전송 중...' : '일괄 대상 분석'}
                             </button>
                             <input ref={excel.fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={excel.handleExcelFile} />
                         </>

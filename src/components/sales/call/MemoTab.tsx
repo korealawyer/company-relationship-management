@@ -202,53 +202,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                 )}
             </div>
 
-            {/* ── 메모 입력 (2행) ── */}
-            <div className="flex flex-col gap-2">
-                <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="새 메모를 입력하세요..."
-                    className="flex-1 rounded-xl text-[12px] p-4 font-medium leading-relaxed"
-                    style={{
-                        background: C.surface,
-                        border: `1px solid ${C.borderLight}`,
-                        color: C.body,
-                        outline: 'none',
-                        resize: 'none',
-                        minHeight: 100,
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                            e.preventDefault();
-                            saveMemo();
-                        }
-                    }}
-                />
-                <div className="flex gap-2">
-                    <button
-                        onClick={saveMemo}
-                        disabled={!note.trim() || saving}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity"
-                        style={{
-                            background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe',
-                            opacity: (note.trim() && !saving) ? 1 : 0.5,
-                        }}
-                    >
-                        <Send className="w-3.5 h-3.5" />{saving ? '저장중...' : '메모 저장'}
-                    </button>
-                    {aiLoading && (
-                        <div className="flex items-center justify-center px-4 rounded-xl text-xs font-bold" 
-                            style={{ background: '#f3e8ff', color: '#7c3aed', border: '1px solid #d8b4fe' }}>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> 정리 중입니다...
-                        </div>
-                    )}
-                </div>
-                <p className="text-[9px] text-right mt-1" style={{ color: C.faint }}>
-                    Ctrl+Enter로 자동 저장 및 요약 진행
-                </p>
-            </div>
-
-            {/* ── 메모 히스토리 (3행) ── */}
+            {/* ── 메모 히스토리 (2행으로 변경됨) ── */}
             {memos.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-1.5 mb-1">
@@ -298,6 +252,52 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                     </div>
                 </div>
             )}
+
+            {/* ── 메모 입력 (3행으로 변경됨) ── */}
+            <div className="flex flex-col gap-2">
+                <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="새 메모를 입력하세요..."
+                    className="flex-1 rounded-xl text-[12px] p-4 font-medium leading-relaxed"
+                    style={{
+                        background: C.surface,
+                        border: `1px solid ${C.borderLight}`,
+                        color: C.body,
+                        outline: 'none',
+                        resize: 'none',
+                        minHeight: 100,
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            saveMemo();
+                        }
+                    }}
+                />
+                <div className="flex gap-2">
+                    <button
+                        onClick={saveMemo}
+                        disabled={!note.trim() || saving}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity"
+                        style={{
+                            background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe',
+                            opacity: (note.trim() && !saving) ? 1 : 0.5,
+                        }}
+                    >
+                        <Send className="w-3.5 h-3.5" />{saving ? '저장중...' : '메모 저장'}
+                    </button>
+                    {aiLoading && (
+                        <div className="flex items-center justify-center px-4 rounded-xl text-xs font-bold" 
+                            style={{ background: '#f3e8ff', color: '#7c3aed', border: '1px solid #d8b4fe' }}>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> 정리 중입니다...
+                        </div>
+                    )}
+                </div>
+                <p className="text-[9px] text-right mt-1" style={{ color: C.faint }}>
+                    Ctrl+Enter로 자동 저장 및 요약 진행
+                </p>
+            </div>
         </div>
     );
 }

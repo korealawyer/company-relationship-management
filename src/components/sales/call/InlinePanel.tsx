@@ -247,15 +247,7 @@ export default function InlinePanel({
                                 </div>
                             </div>
 
-                            {/* Col 2: 메모 & AI 분석 */}
-                            <div className="flex flex-col gap-4 h-full">
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
-                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모&요약</h3>
-                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
-                                </div>
-                            </div>
-
-                            {/* Col 3: 스크립트 & 통화 제어 */}
+                            {/* Col 2: 스크립트 & 통화 제어 (원래 Col 3) */}
                             <div className="flex flex-col gap-4 h-full">
 
                                 {/* 통화 제어 내역 및 수동 기록 */}
@@ -357,6 +349,14 @@ export default function InlinePanel({
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📞 통화 스크립트</h3>
                                     <ScriptTab co={co} setToast={setToast} />
+                                </div>
+                            </div>
+
+                            {/* Col 3: 메모 & AI 분석 (원래 Col 2) */}
+                            <div className="flex flex-col gap-4 h-full">
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모&요약</h3>
+                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
                                 </div>
                             </div>
 

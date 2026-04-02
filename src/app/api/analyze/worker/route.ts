@@ -1,39 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSessionFromCookie } from '@/lib/auth';
+import { verifySignatureAppRouter } from '@upstash/qstash/nextjs';
+import { getServiceSupabase } from '@/lib/supabase';
 
 // Pro 요금제 활용: 최대 3분 허용 (기본 15초 제한 해제)
 export const maxDuration = 180; // 3분
 export const runtime = 'nodejs'; // Edge 대신 Node 환경으로 넉넉한 컴퓨팅 사용
 
-
-export async function POST(request: NextRequest) {
-    // 인증 검증
-    // 인증 검증
-    const auth = await requireSessionFromCookie(request);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-    // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
-    let body: { url?: string; privacyUrl?: string; homepageUrl?: string; companyId?: string; manualText?: string; systemPrompt?: string; model?: string; };
+async function handler(request: NextRequest) {
+    let body: { url?: string; privacyUrl?: string; homepageUrl?: string; companyId?: string; manualText?: string; systemPrompt?: string; model?: string; authName?: string; };
     try {
         body = await request.json();
     } catch {
-        return NextResponse.json(
-            { success: false, error: '잘못된 요청 형식입니다. JSON Content-Type을 확인하세요.' },
-            { status: 400 }
-        );
+        return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 });
     }
 
-    // ── 필수 파라미터 검증 ──
-    const paramUrl = Object.values(body).find(val => typeof val === 'string' && val.startsWith('http')) as string || '';
-    const { companyId, manualText, systemPrompt, model } = body as any;
+    const paramUrl = Object.values(body).find((val: any) => typeof val === 'string' && val.startsWith('http')) as string || '';
+    const { companyId, manualText, systemPrompt, model, authName } = body as any;
     const homepageUrl = body.homepageUrl || paramUrl;
     const privacyUrl = body.privacyUrl || '';
 
+    // QStash Worker이므로 데이터베이스를 직접 업데이트해야 합니다.
+    const supabase = getServiceSupabase();
+    if (!supabase) {
+        console.error('[Analyze Worker] SUPABASE_SERVICE_ROLE_KEY 미설정.');
+        return NextResponse.json({ success: false, error: 'DB 연결 에러' }, { status: 500 });
+    }
+
+    // 실패 처리 헬퍼 함수
+    const failJob = async (errorMsg: string, statusText: string) => {
+        if (companyId) {
+            await supabase.from('companies').update({ status: 'pending' }).eq('id', companyId);
+            await supabase.from('auto_logs').insert({
+                company_id: companyId,
+                company_name: authName || '시스템',
+                type: 'ai_analysis',
+                label: statusText,
+                detail: errorMsg,
+                created_at: new Date().toISOString()
+            });
+        }
+        return NextResponse.json({ success: false, error: errorMsg }, { status: 200 }); // Retry 방지를 위해 200 반환할 수도 있으나, QStash 실패 처리를 위해선 500 유지. 단, 복구불가 에러는 200으로 떨구는게 맞음.
+    };
+
     if (!homepageUrl && !privacyUrl && !companyId && !manualText) {
-        return NextResponse.json(
-            { success: false, error: '분석에 필요한 식별 주소나 수동 텍스트 중 하나는 필수입니다.' },
-            { status: 400 }
-        );
+        return failJob('분석에 필요한 식별 주소나 텍스트가 없습니다.', '분석 실패');
     }
 
     let extractedText = '';
@@ -53,7 +63,7 @@ export async function POST(request: NextRequest) {
             let res: Response | null = null;
             
             if (scrapeDoKey) {
-                console.log(`[Analyze API] Using scrape.do API for URL: ${target}`);
+                console.log(`[Analyze Worker] Using scrape.do API for URL: ${target}`);
                 let sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&render=true`;
                 
                 if (isPrivacyPolicy) {
@@ -66,18 +76,12 @@ export async function POST(request: NextRequest) {
 
                 try {
                     res = await fetch(sdUrl, { signal: controller.signal });
-                    if (!res.ok) {
-                        console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
-                        res = null;
-                    }
-                } catch (e) {
-                    console.warn(`[Analyze API] scrape.do network error:`, e);
-                    res = null;
-                }
+                    if (!res.ok) res = null;
+                } catch (e) { res = null; }
             }
             
             if (!res && scrapingBeeKey) {
-                console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${target}`);
+                console.log(`[Analyze Worker] Using ScrapingBee API fallback for URL: ${target}`);
                 let sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&render_js=true`;
 
                 if (isPrivacyPolicy) {
@@ -92,22 +96,12 @@ export async function POST(request: NextRequest) {
 
                 try {
                     res = await fetch(sbUrl, { signal: controller.signal });
-                    if (!res.ok) {
-                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
-                        res = null;
-                    }
-                } catch (e) {
-                    console.warn(`[Analyze API] ScrapingBee network error:`, e);
-                    res = null;
-                }
+                    if (!res.ok) res = null;
+                } catch (e) { res = null; }
             }
             
-            if (res?.ok) {
-                html = await res.text();
-            } else {
-                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
-                throw new Error('Fetch failed in both services');
-            }
+            if (res?.ok) html = await res.text();
+            else throw new Error('Fetch failed in both services');
         } finally {
             clearTimeout(timeoutId);
         }
@@ -120,25 +114,16 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        // 분기 로직
-        // Case 2-3: manualText가 최우선
-        if (manualText && manualText.trim().length > 50) {
-            extractedText = manualText.trim();
-        } 
-        // Case 2-2: privacyUrl이 있는 경우
-        else if (privacyUrl && privacyUrl.startsWith('http')) {
-            extractedText = await crawlUrl(privacyUrl, true);
-        } 
-        // Case 2-1: homepageUrl만 있는 경우
+        if (manualText && manualText.trim().length > 50) extractedText = manualText.trim();
+        else if (privacyUrl && privacyUrl.startsWith('http')) extractedText = await crawlUrl(privacyUrl, true);
         else if (homepageUrl && homepageUrl.startsWith('http')) {
-            console.log(`[Analyze API] 홈페이지에서 푸터 정보 추출 시도 중: ${homepageUrl}`);
+            console.log(`[Analyze Worker] 홈페이지에서 푸터 정보 추출 시도 중: ${homepageUrl}`);
             const homeText = await crawlUrl(homepageUrl, false);
-            
-            // OpenAI로 사업자번호, 전화번호, 개인정보취급방침 URL 추출
             const apiKey = process.env.OPENAI_API_KEY;
+            
             if (apiKey) {
                 const aiController = new AbortController();
-                const timeoutId = setTimeout(() => aiController.abort(), 15000); // 15초 제한
+                const timeoutId = setTimeout(() => aiController.abort(), 15000); 
                 try {
                     const footerRes = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
@@ -169,9 +154,8 @@ export async function POST(request: NextRequest) {
                             phoneNumber: resultParsed.phoneNumber || "",
                             privacyUrl: resultParsed.privacyUrl || ""
                         };
-                        console.log(`[Analyze API] 추출된 푸터 정보:`, extractedFooter);
+                        console.log(`[Analyze Worker] 추출된 푸터 정보:`, extractedFooter);
                         
-                        // privacyUrl을 찾았으면 다시 크롤링 시도
                         if (extractedFooter.privacyUrl && extractedFooter.privacyUrl.startsWith('http')) {
                            extractedText = await crawlUrl(extractedFooter.privacyUrl, true);
                         } else {
@@ -179,44 +163,30 @@ export async function POST(request: NextRequest) {
                         }
                     }
                 } catch(e) {
-                    console.warn('[Analyze API] 푸터 정보 AI 추출 또는 크롤링 실패:', e);
+                    console.warn('[Analyze Worker] 푸터 정보 AI 추출 또는 크롤링 실패:', e);
                 } finally {
                     clearTimeout(timeoutId);
                 }
             }
         }
 
-        // 결과 검증
         if (!extractedText || extractedText.length < 50) {
-            console.warn('[Analyze API] 크롤링 실패 또는 텍스트 불충분');
-            return NextResponse.json(
-                { success: false, error: '웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },
-                { status: 422 }
-            );
+            return failJob('웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다.', '분석 실패');
         }
 
     } catch (error: any) {
-        console.error('[Analyze API] URL Fetch Error:', error);
-        const isTimeout = error.name === 'AbortError';
-        return NextResponse.json(
-            { success: false, error: isTimeout 
-                ? '웹사이트 응답이 없어 시간 초과되었습니다. 개인정보처리방침 텍스트를 직접 붙여넣어 주세요.'
-                : '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' 
-            },
-            { status: isTimeout ? 504 : 422 }
+        console.error('[Analyze Worker] URL Fetch Error:', error);
+        return failJob(
+            error.name === 'AbortError' 
+            ? '웹사이트 응답이 없어 시간 초과되었습니다.' 
+            : '유효한 URL 형식이 아니거나 크롤링에 실패했습니다.', 
+            '크롤링 중단됨'
         );
     }
 
-    // 4. OpenAI 실시간 분석 지시
     try {
         const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            console.error('[Analyze API] OPENAI_API_KEY is not set.');
-            return NextResponse.json(
-                { success: false, error: 'OpenAI API 키가 설정되지 않았습니다. 관리자에게 문의하세요.' },
-                { status: 500 }
-            );
-        }
+        if (!apiKey) return failJob('OpenAI API 키가 설정되지 않았습니다.', '서버 에러');
 
         const defaultPrompt = `주어진 [개인정보처리방침 원문] 텍스트를 분석하여, 대한민국 개인정보보호법에 위배되거나 고위험/주의가 필요한 법률적 문제점(최대 3개)을 JSON 형식으로 분리해 주세요.
 
@@ -249,29 +219,20 @@ export async function POST(request: NextRequest) {
   ]
 }`;
 
-        // systemPrompt가 제공되었다면 그것을 사용, 아니면 기본값 사용
         const targetPrompt = systemPrompt || defaultPrompt;
-        
-        // 텍스트는 토큰 제약을 고려해 15000자까지만 자름
         const truncatedText = extractedText.substring(0, 15000);
-        
-        let prompt = '';
-        if (targetPrompt.includes('{{extractedText}}')) {
-            prompt = targetPrompt.replace('{{extractedText}}', truncatedText);
-        } else {
-            prompt = targetPrompt + `\n\n[개인정보처리방침 원문]:\n${truncatedText}`;
-        }
-
+        let prompt = targetPrompt.includes('{{extractedText}}') 
+            ? targetPrompt.replace('{{extractedText}}', truncatedText) 
+            : targetPrompt + `\n\n[개인정보처리방침 원문]:\n${truncatedText}`;
 
         const aiController = new AbortController();
-        const aiTimeoutId = setTimeout(() => aiController.abort(), 90000); // Pro 요금제: 90초 AI 대기 타임아웃
+        const aiTimeoutId = setTimeout(() => aiController.abort(), 90000); 
 
         const targetModel = model || 'gpt-4o-mini';
         let content = '';
 
         if (targetModel.includes('claude')) {
-            // Anthropic API 호출
-            const anthropicKey = process.env.ANTHROPIC_API_KEY || apiKey; // 폴백용
+            const anthropicKey = process.env.ANTHROPIC_API_KEY || apiKey;
             const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
@@ -289,17 +250,9 @@ export async function POST(request: NextRequest) {
             });
             clearTimeout(aiTimeoutId);
 
-            if (!response.ok) {
-                console.error('[Analyze API] Anthropic Failure:', await response.text());
-                return NextResponse.json(
-                    { success: false, error: 'AI 모델(Anthropic) 호출에 실패했습니다. 관리자에게 문의하세요.' },
-                    { status: 502 }
-                );
-            }
-            const aiData = await response.json();
-            content = aiData.content?.[0]?.text || '';
+            if (!response.ok) return failJob('AI 모델(Anthropic) 호출에 실패했습니다.', '분석 실패');
+            content = (await response.json()).content?.[0]?.text || '';
         } else {
-            // 기본 OpenAI API 호출 (gpt-4o, gpt-4o-mini 등)
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -315,58 +268,69 @@ export async function POST(request: NextRequest) {
             });
             clearTimeout(aiTimeoutId);
 
-            if (!response.ok) {
-                console.error('[Analyze API] OpenAI Failure:', await response.text());
-                return NextResponse.json(
-                    { success: false, error: 'AI 모델(OpenAI) 호출에 실패했습니다. 관리자에게 문의하세요.' },
-                    { status: 502 }
-                );
-            }
-
-            const aiData = await response.json();
-            content = aiData.choices?.[0]?.message?.content || '';
+            if (!response.ok) return failJob('AI 모델(OpenAI) 호출에 실패했습니다.', '분석 실패');
+            content = (await response.json()).choices?.[0]?.message?.content || '';
         }
         
-        // 마크다운 JSON 오류 방어 파싱
         const cleanJson = content.replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsedResult = JSON.parse(cleanJson);
 
         if (parsedResult.riskLevel === 'UNKNOWN' || parsedResult.error) {
-            console.warn('[Analyze API] OpenAI가 원문을 식별할 수 없음.');
-            return NextResponse.json(
-                { success: false, error: parsedResult.error || '원문에서 개인정보처리방침 내용을 식별할 수 없습니다. 빈약한 페이지가 수집되었을 수 있으니, 전문 텍스트를 수동으로 복사·붙여넣기 후 다시 시도해 주세요.' },
-                { status: 422 }
-            );
+            return failJob(parsedResult.error || '원문에서 개인정보처리방침 내용을 식별할 수 없습니다.', '분석 보류됨');
         }
 
-        return NextResponse.json({
-            success: true,
-            isDemoMode: false,
-            message: 'AI 리얼타임 분석 완료',
-            analysisId: `real-${Date.now()}`,
-            analyzedUrl: privacyUrl || homepageUrl || null,
-            issueCount: parsedResult.issues?.length || 0,
-            issues: (parsedResult.issues || []).map((iss: any) => ({
-                ...iss,
-                id: crypto.randomUUID()
-            })),
-            riskLevel: parsedResult.riskLevel || 'MEDIUM',
-            rawText: extractedText,
-            extractedDetails: extractedFooter,
-            completedAt: new Date().toISOString(),
-        });
+        // 성공! 회사 데이터 업데이트 및 로그 추가
+        if (companyId) {
+            const payload: any = { 
+                status: 'analyzed',
+                issues: (parsedResult.issues || []).map((iss: any) => ({
+                    ...iss, id: crypto.randomUUID()
+                })),
+                issue_count: parsedResult.issues?.length || 0,
+                risk_level: parsedResult.riskLevel || 'MEDIUM',
+                privacy_url: privacyUrl || extractedFooter?.privacyUrl || homepageUrl || null,
+                privacy_policy_text: extractedText,
+                updated_at: new Date().toISOString()
+            };
+            
+            if (extractedFooter) {
+                if (extractedFooter.businessNumber) payload.biz_no = extractedFooter.businessNumber;
+                if (extractedFooter.phoneNumber) payload.contact_phone = extractedFooter.phoneNumber;
+            }
+            
+            await supabase.from('companies').update(payload).eq('id', companyId);
+            await supabase.from('auto_logs').insert({
+                company_id: companyId,
+                company_name: authName || '시스템',
+                type: 'ai_analysis',
+                label: '분석 완료',
+                detail: `발견된 이슈 ${parsedResult.issues?.length || 0}건 (${parsedResult.riskLevel || 'MEDIUM'})`,
+                created_at: new Date().toISOString()
+            });
+        }
+
+        return NextResponse.json({ success: true, message: 'AI 리얼타임 분석 완료' });
 
     } catch (error: any) {
-        console.error('[Analyze API] Unexpected Error during OpenAI call:', error);
-        if (error.name === 'AbortError') {
-            return NextResponse.json(
-                { success: false, error: 'AI 분석 서버의 응답이 지연되어 시간 초과로 중단되었습니다. 잠시 후 재조사해 주세요.' },
-                { status: 504 }
-            );
-        }
-        return NextResponse.json(
-            { success: false, error: 'AI 분석 중 예기치 않은 오류가 발생했습니다. 재조사를 진행해 주세요.' },
-            { status: 500 }
+        console.error('[Analyze Worker] Unexpected Error during OpenAI call:', error);
+        return failJob(
+            error.name === 'AbortError' ? 'AI 서버 응답 시간 초과로 중단되었습니다.' : '분석 중 예기치 않은 오류가 발생했습니다.',
+            '분석 중단됨'
         );
     }
 }
+
+// QStash 서명 검증기로 라우트 보호 (로컬 바이패스 포함)
+export const POST = async (req: NextRequest) => {
+    try {
+        const clonedReq = req.clone();
+        const body = await clonedReq.json();
+        if (body.isLocalBypass) {
+            return handler(req);
+        }
+    } catch (e) {
+        // ignore JSON parse error here
+    }
+    const verify = verifySignatureAppRouter(handler as any);
+    return verify(req as any);
+};

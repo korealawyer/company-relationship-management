@@ -99,28 +99,9 @@ export function ActionButton({
                     detail: data?.error || '알 수 없는 오류'
                 });
             } else {
-                // 성공 시 상태 변환과 데이터(데모 포함) 업데이트
-                const payload: any = { 
-                    status: 'analyzed',
-                    issues: data.issues || [],
-                    issueCount: data.issueCount || 0,
-                    riskLevel: data.riskLevel || 'MEDIUM'
-                };
-                if (data.rawText) {
-                    payload.privacyPolicyText = data.rawText;
-                }
-                if (data.extractedDetails) {
-                    if (data.extractedDetails.businessNumber) payload.businessRegNumber = data.extractedDetails.businessNumber;
-                    if (data.extractedDetails.phoneNumber) payload.supportPhone = data.extractedDetails.phoneNumber;
-                    if (data.extractedDetails.privacyUrl) payload.privacyUrl = data.extractedDetails.privacyUrl;
-                }
-                await updateCompany(c.id, payload);
-                await dataLayer.auto.addLog({
-                    type: 'ai_analysis',
-                    label: '분석 완료',
-                    companyName: c.name,
-                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
-                });
+                // 성공 시 백그라운드 QStash 작업으로 전달됨.
+                // UI에서는 crawling 상태를 유지하며 완료 시 Realtime/새로고침을 통해 반영받음
+                console.log('[API] 분석 요청 완료:', data.message);
             }
         } catch (err: any) {
             setErrorMsg(`분석 중 에러 발생: ${err.message}`);
@@ -304,24 +285,8 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                     detail: data?.error || '알 수 없는 오류'
                 });
             } else {
-                // 성공 시 데이터베이스에 리스크/이슈 저장 (데모 모드 포함)
-                const payload: any = { 
-                    status: 'analyzed',
-                    issues: data.issues || [],
-                    issueCount: data.issueCount || 0,
-                    riskLevel: data.riskLevel || 'MEDIUM'
-                };
-                if (data.rawText) {
-                    payload.privacyPolicyText = data.rawText;
-                    setPrivacyText(data.rawText); // 화면 즉시 업데이트
-                }
-                await updateCompany(c.id, payload);
-                await dataLayer.auto.addLog({
-                    type: 'ai_analysis',
-                    label: '분석 완료',
-                    companyName: c.name,
-                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
-                });
+                // 백그라운드 큐 작동 시작
+                console.log('[API] 크롤링/AI 분석 요청을 QStash로 넘겼습니다:', data.message);
             }
         } catch (e: any) {
             setErrorMsg(`분석 요청 실패: ${e.message}`);
