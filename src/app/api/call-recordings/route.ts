@@ -1,6 +1,6 @@
 import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, getServiceSupabase } from '@/lib/supabase';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -44,23 +44,31 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
     const fileName = `${companyId}/${Date.now()}_call.webm`;
 
-    if (!supabase) {
+    const adminSupabase = getServiceSupabase() || supabase;
+    if (!adminSupabase) {
       throw new Error('Supabase client is not initialized.');
     }
 
-    const { error: uploadError } = await supabase.storage
+    // Attempt to create bucket if it does not exist
+    try {
+        await adminSupabase.storage.createBucket('call-recordings', { public: true });
+    } catch (e) {
+        // bucket might already exist, ignore error
+    }
+
+    const { error: uploadError } = await adminSupabase.storage
       .from('call-recordings')
       .upload(fileName, buffer, {
         contentType: audioFile.type || 'audio/webm',
-        upsert: false
+        upsert: true
       });
 
     if (uploadError) {
       console.error('Supabase upload error:', uploadError);
-      throw new Error('오디오 파일 업로드에 실패했습니다.');
+      throw new Error(`오디오 파일 업로드에 실패했습니다. 상세: ${uploadError.message}`);
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = adminSupabase.storage
       .from('call-recordings')
       .getPublicUrl(fileName);
 
