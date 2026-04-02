@@ -4,6 +4,7 @@ import { Volume2, Sparkles, RefreshCw } from 'lucide-react';
 import { Company, type CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL } from '@/lib/constants';
 import { useEmployeeCRM } from '@/hooks/useEmployeeCRM';
+import { getPromptConfig } from '@/lib/prompts/privacy';
 
 const C = {
     surface: '#ffffff',
@@ -56,15 +57,31 @@ export default function ScriptTab({ co, setToast }: ScriptTabProps) {
 
     const handleGenerateAiScript = async () => {
         setIsGenerating(true);
-        setToast('브랜드 맞춤형 AI 스크립트 생성 중...');
+        setToast('브랜드 맞춤형 스크립트 자동 생성 중...');
         try {
+            const promptConfig = getPromptConfig();
+            const systemPrompt = promptConfig.salesScriptPrompt;
+            const model = promptConfig.promptModels?.salesScriptPrompt || promptConfig.model || 'gpt-4o';
+            
+            let apiKey = '';
+            try {
+                if (typeof window !== 'undefined') {
+                    apiKey = localStorage.getItem(`ibs_ai_key_${model}`) || '';
+                }
+            } catch (e) {
+                console.error('Failed to get API key from localStorage', e);
+            }
+
             const res = await fetch('/api/sales/generate-script', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     companyId: co.id,
                     brandName: co.name,
-                    issues: co.issues
+                    issues: co.issues,
+                    systemPrompt,
+                    model,
+                    apiKey
                 })
             });
             const data = await res.json();
@@ -76,12 +93,12 @@ export default function ScriptTab({ co, setToast }: ScriptTabProps) {
                         lastEditedAt: new Date().toISOString()
                     }
                 });
-                setToast('✨ AI 스크립트 생성 및 저장 완료');
+                setToast('✨ 맞춤형 스크립트 생성 및 저장 완료');
             } else {
                 setToast('❌ 스크립트 생성 실패: ' + (data.error || '알 수 없는 오류'));
             }
         } catch (error) {
-            console.error('AI 스크립트 생성 오류:', error);
+            console.error('맞춤 스크립트 생성 오류:', error);
             setToast('❌ 스크립트 생성 중 단절 발생');
         } finally {
             setIsGenerating(false);

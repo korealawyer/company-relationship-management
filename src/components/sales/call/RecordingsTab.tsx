@@ -52,7 +52,7 @@ export default function RecordingsTab({ companyRecordings }: RecordingsTabProps)
               </div>
               {rec.transcriptSummary && (
                 <div className="rounded-lg p-2 mb-2" style={{ background: '#f0fdf4', border: '1px solid #a7f3d0' }}>
-                  <p className="text-[10px] font-bold" style={{ color: '#059669' }}>📌 AI 요약</p>
+                  <p className="text-[10px] font-bold" style={{ color: '#059669' }}>📌 내용 요약</p>
                   <p className="text-[10px] mt-0.5" style={{ color: C.body }}>{rec.transcriptSummary}</p>
                 </div>
               )}

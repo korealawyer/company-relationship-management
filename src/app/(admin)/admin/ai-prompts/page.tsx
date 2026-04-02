@@ -175,6 +175,12 @@ export default function AdminAIPromptsPage() {
                                                 usage: '/api/sales/analyze-memo', 
                                                 desc: '영업 담당자가 작성한 소통 메모를 분석하여 주요 내용, 니즈, 다음 액션을 자동 요약합니다.' 
                                             },
+                                            { 
+                                                key: 'salesScriptPrompt' as const, 
+                                                label: '💬 브랜드 맞춤 영업 스크립트 프롬프트', 
+                                                usage: '/api/sales/generate-script', 
+                                                desc: '개별 기업(브랜드)의 리스크 분석 결과를 바탕으로 최적화된 전화영업 대본을 생성합니다.' 
+                                            },
                                         ].map(p => (
                                             <React.Fragment key={p.key}>
                                                 <tr 

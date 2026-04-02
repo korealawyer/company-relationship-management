@@ -118,6 +118,7 @@ export interface PrivacyPromptConfig {
     formFieldMappingPrompt: string;
     callRecordingSummaryPrompt: string;
     salesMemoSummaryPrompt: string;
+    salesScriptPrompt: string;
 }
 
 export const DEFAULT_PROMPT_CONFIG: PrivacyPromptConfig = {
@@ -259,6 +260,16 @@ JSON 배열로 출력하세요.`,
 - nextAction: 영업 담당자나 변호사가 직후에 취해야 할 가장 효과적이고 구체적인 다음 행동 가이드 (예: '계약서 초안 및 월 자문 견적서 포함하여 이메일 발송 등')
 - nextActionType: 다음 중 현재 상황에 가장 적절한 타입 하나를 영문으로 선택 ('send_contract', 'schedule_meeting', 'follow_up_call', 'send_email', 'escalate')
 - confidence: 현재까지의 소통 내용을 바탕으로 한 최종 계약 전환 또는 목표 달성 가능성 점수 (0~100 정수. 긍정적 시그널 존재 시 높게 책정)`,
+    
+    salesScriptPrompt: `이 에이전트는 [전화영업 스크립트 v2.0] 를 기본 대본으로 사용하면서, 스크립트 내 (브랜드별 교체) 구간을 브랜드별 리스크 진단 문서 근거로 맞춤 문구로 치환하여 작성합니다.
+
+[AI 작성 규칙]
+1. 전체 대본을 하나의 완전한 텍스트로 완성해서 반환하세요.
+2. 마크다운 \`\`\` 를 쓰지 말고, 순수 텍스트만 출력하세요.
+3. 스크립트 내용 외에 서론/결론 요약, 해설 등은 절대 출력하지 마세요 (no-summary policy).
+4. 실제 콜을 할 수 있도록 비즈니스 톤으로 자연스럽게 편집하세요.
+5. "불법입니다" 같은 단정적 표현 금지, "점검/민원 시 비용이 커진다" 정도로만 표현하세요.
+6. "지금 통화 가능하실까요?" 같은 허락 구하기 멘트는 제외하고 당당한 톤을 유지하세요.`
 };
 
 // ── localStorage 기반 설정 저장/로드 ───────────────────────────

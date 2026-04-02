@@ -8,22 +8,40 @@ export async function POST(request: NextRequest) {
     const auth = await requireSessionFromCookie(request);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    let body: { companyId: string, brandName: string, issues: any[], customPrompt?: string, model?: string };
+    let body: { companyId: string, brandName: string, issues: any[], systemPrompt?: string, model?: string, apiKey?: string };
     try {
         body = await request.json();
     } catch {
         return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 });
     }
 
-    const { brandName, issues, customPrompt, model } = body;
+    const { brandName, issues, systemPrompt, model, apiKey } = body;
 
     if (!brandName) {
         return NextResponse.json({ success: false, error: '브랜드명이 필요합니다.' }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-        return NextResponse.json({ success: false, error: 'OpenAI API 키가 설정되지 않았습니다.' }, { status: 500 });
+    const targetModel = model || 'gpt-4o';
+    let apiKeyFromBody = apiKey;
+
+    // 환경 변수 검증 (분기 처리)
+    let resolvedApiKey = '';
+    if (targetModel.includes('claude')) {
+        resolvedApiKey = apiKeyFromBody || process.env.ANTHROPIC_API_KEY || '';
+        if (!resolvedApiKey) {
+            return NextResponse.json({ success: false, error: 'Anthropic API 키가 설정되지 않았습니다.' }, { status: 500 });
+        }
+    } else if (targetModel.includes('gemini')) {
+        resolvedApiKey = apiKeyFromBody || process.env.GEMINI_API_KEY || '';
+        if (!resolvedApiKey) {
+            return NextResponse.json({ success: false, error: 'Gemini API 키가 설정되지 않았습니다.' }, { status: 500 });
+        }
+    } else {
+        // OpenAI Fallback
+        resolvedApiKey = apiKeyFromBody || process.env.OPENAI_API_KEY || '';
+        if (!resolvedApiKey) {
+            return NextResponse.json({ success: false, error: 'OpenAI API 키가 설정되지 않았습니다.' }, { status: 500 });
+        }
     }
 
     const v2Template = `[전화영업 스크립트 v2.0 - 기본 구조]
@@ -53,47 +71,102 @@ export async function POST(request: NextRequest) {
         `💡 리스크 ${x+1}: [${i.level}] ${i.title}\n - 발견된 내용: ${i.originalText}\n - 위반 위험: ${i.riskDesc}\n - 조언: ${i.lawyerNote || i.customDraft || '수정 필요'}`
     ).join('\n\n');
 
-    let basePrompt = `이 에이전트는 [전화영업 스크립트 v2.0] 를 기본 대본으로 사용하면서, 스크립트 내 (브랜드별 교체) 구간을 브랜드별 리스크 진단 문서 근거로 맞춤 문구로 치환하여 작성합니다.
-
-[입력 정보]
-- 대상 브랜드명: ${brandName}
-- 근거 리스크 데이터:
-${formattedIssues || '발견된 주요 리스크 없음 (일반 안내 모드로 작성할 것)'}
+    let defaultPrompt = `이 에이전트는 [전화영업 스크립트 v2.0] 를 기본 대본으로 사용하면서, 스크립트 내 (브랜드별 교체) 구간을 브랜드별 리스크 진단 문서 근거로 맞춤 문구로 치환하여 작성합니다.
 
 [AI 작성 규칙]
 1. 전체 대본을 하나의 완전한 텍스트로 완성해서 반환하세요.
 2. 마크다운 \`\`\` 를 쓰지 말고, 순수 텍스트만 출력하세요.
 3. 스크립트 내용 외에 서론/결론 요약, 해설 등은 절대 출력하지 마세요 (no-summary policy).
-4. 위 [전화영업 스크립트 v2.0 - 기본 구조]를 바탕으로, 실제 콜을 할 수 있도록 자연스럽게 편집하세요.
+4. 실제 콜을 할 수 있도록 비즈니스 톤으로 자연스럽게 편집하세요.
+5. "불법입니다" 같은 단정적 표현 금지, "점검/민원 시 비용이 커진다" 정도로만 표현하세요.
+6. "지금 통화 가능하실까요?" 같은 허락 구하기 멘트는 제외하고 당당한 톤을 유지하세요.`;
+
+    const finalPrompt = (systemPrompt || defaultPrompt) + `
+    
+[입력 정보]
+- 대상 브랜드명: ${brandName}
+- 근거 리스크 데이터:
+${formattedIssues || '발견된 주요 리스크 없음 (일반 안내 모드로 작성할 것)'}
 `;
 
-    if (customPrompt) {
-        basePrompt = customPrompt + '\n\n' + basePrompt;
-    }
+    let scriptContent = '';
 
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: model || 'gpt-4o',
-                temperature: 0.7,
-                messages: [
-                    { role: 'system', content: basePrompt },
-                    { role: 'user', content: v2Template }
-                ]
-            })
-        });
+        if (targetModel.includes('claude')) {
+            const anthropicKey = resolvedApiKey;
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                    'x-api-key': anthropicKey
+                },
+                body: JSON.stringify({
+                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022',
+                    max_tokens: 2048,
+                    system: finalPrompt,
+                    messages: [{ role: 'user', content: v2Template }]
+                }),
+            });
 
-        if (!response.ok) {
-            return NextResponse.json({ success: false, error: 'AI 모델 호출에 실패했습니다.' }, { status: 502 });
+            if (!response.ok) {
+                console.error('[Generate Script API] Anthropic Failure:', await response.text());
+                return NextResponse.json(
+                    { success: false, error: 'AI 모델(Anthropic) 호출에 실패했습니다.' },
+                    { status: 502 }
+                );
+            }
+            const aiData = await response.json();
+            scriptContent = aiData.content?.[0]?.text?.trim() || '';
+
+        } else if (targetModel.includes('gemini')) {
+            const geminiKey = resolvedApiKey;
+            const geminiModel = targetModel === 'gemini-1.5-pro' ? 'gemini-1.5-pro' : 'gemini-2.0-flash';
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: finalPrompt }] },
+                    contents: [{ role: 'user', parts: [{ text: v2Template }] }],
+                    generationConfig: { temperature: 0.7 }
+                }),
+            });
+
+            if (!response.ok) {
+                console.error('[Generate Script API] Gemini Failure:', await response.text());
+                return NextResponse.json(
+                    { success: false, error: 'AI 모델(Gemini) 호출에 실패했습니다.' },
+                    { status: 502 }
+                );
+            }
+            const aiData = await response.json();
+            scriptContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+
+        } else {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${resolvedApiKey}`
+                },
+                body: JSON.stringify({
+                    model: targetModel,
+                    temperature: 0.7,
+                    messages: [
+                        { role: 'system', content: finalPrompt },
+                        { role: 'user', content: v2Template }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                console.error('[Generate Script API] OpenAI Failure:', await response.text());
+                return NextResponse.json({ success: false, error: 'AI 모델(OpenAI) 호출에 실패했습니다.' }, { status: 502 });
+            }
+
+            const aiData = await response.json();
+            scriptContent = aiData.choices?.[0]?.message?.content?.trim() || '';
         }
-
-        const aiData = await response.json();
-        const scriptContent = aiData.choices?.[0]?.message?.content?.trim() || '';
 
         return NextResponse.json({
             success: true,

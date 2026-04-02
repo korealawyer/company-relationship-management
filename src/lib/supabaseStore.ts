@@ -643,11 +643,14 @@ export const supabaseAutoStore = {
   addLog: async (log: Omit<AutoLog, 'id' | 'at'>): Promise<void> => {
     const sb = getSupabase();
     if (!sb) return;
-    await sb.from('auto_logs').insert({
+    const { error } = await sb.from('auto_logs').insert({
       id: `log${Date.now()}`,
       ...objToRow(log as Record<string, unknown>),
       created_at: new Date().toISOString(),
     });
+    if (error) {
+      console.error('Failed to insert auto_log:', error);
+    }
   },
 };
 

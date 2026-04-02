@@ -105,7 +105,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
             });
             if (res.ok) {
                 setNote('');
-                setToast('💾 메모 저장 (AI 분석 업데이트 중...)');
+                setToast('💾 메모 저장 (내용 정리 중...)');
                 await loadMemos();
                 onRefresh();
             } else {
@@ -189,7 +189,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                         className="rounded-xl p-3"
                         style={{ background: '#f0fdf4', border: '1px solid #a7f3d0' }}
                     >
-                        <p className="text-[10px] font-bold mb-1" style={{ color: '#059669' }}>📌 이전 AI 분석</p>
+                        <p className="text-[10px] font-bold mb-1" style={{ color: '#059669' }}>📌 이전 정리 내용</p>
                         <p className="text-[10px]" style={{ color: C.body }}>{co.aiMemoSummary}</p>
                     </div>
                 ) : (
