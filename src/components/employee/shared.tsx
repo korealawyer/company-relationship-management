@@ -101,6 +101,11 @@ export function ActionButton({
                 if (data.rawText) {
                     payload.privacyPolicyText = data.rawText;
                 }
+                if (data.extractedDetails) {
+                    if (data.extractedDetails.businessNumber) payload.businessRegNumber = data.extractedDetails.businessNumber;
+                    if (data.extractedDetails.phoneNumber) payload.supportPhone = data.extractedDetails.phoneNumber;
+                    if (data.extractedDetails.privacyUrl) payload.privacyUrl = data.extractedDetails.privacyUrl;
+                }
                 await updateCompany(c.id, payload);
             }
         } catch (err: any) {

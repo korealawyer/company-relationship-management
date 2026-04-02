@@ -8,6 +8,7 @@ export const runtime = 'nodejs'; // Edge 대신 Node 환경으로 넉넉한 컴�
 
 export async function POST(request: NextRequest) {
     // 인증 검증
+    // 인증 검증
     const auth = await requireSessionFromCookie(request);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
@@ -22,123 +23,187 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    const { companyId, manualText, systemPrompt, model } = body as any;
-    const url = body.url || body.privacyUrl || body.homepageUrl;
-
     // ── 필수 파라미터 검증 ──
-    if (!url && !companyId && !manualText) {
+    const paramUrl = Object.values(body).find(val => typeof val === 'string' && val.startsWith('http')) as string || '';
+    const { companyId, manualText, systemPrompt, model } = body as any;
+    const homepageUrl = body.homepageUrl || paramUrl;
+    const privacyUrl = body.privacyUrl || '';
+
+    if (!homepageUrl && !privacyUrl && !companyId && !manualText) {
         return NextResponse.json(
-            { success: false, error: 'url, companyId, manualText 중 하나는 필수입니다.' },
+            { success: false, error: '분석에 필요한 식별 주소나 수동 텍스트 중 하나는 필수입니다.' },
             { status: 400 }
         );
     }
 
     let extractedText = '';
+    let extractedFooter: any = null;
 
-    // 1. 수동 텍스트 검증 (유효성 방어: 빈 문자열 방지 및 최소 50자 이상)
-    if (manualText && manualText.trim().length > 50) {
-        extractedText = manualText.trim();
-    } else if (url) {
-        // 2. URL 문자열 기반 크롤링
+    async function crawlUrl(target: string, isPrivacyPolicy: boolean): Promise<string> {
+        let html = '';
+        const fetchUrl = new URL(target);
+        if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+
         try {
-            const fetchUrl = new URL(url);
-            if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
+            const scrapeDoKey = process.env.SCRAPE_DO_API_KEY;
+            const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+            let res: Response | null = null;
             
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000); // Pro 요금제: 25초 크롤링 타임아웃
-
-            let html = '';
-            try {
-                const scrapeDoKey = process.env.SCRAPE_DO_API_KEY;
-                const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
-                let res: Response | null = null;
+            if (scrapeDoKey) {
+                console.log(`[Analyze API] Using scrape.do API for URL: ${target}`);
+                let sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&render=true`;
                 
-                // 1. scrape.do 크롤링 시도 (모달 클릭 자동화)
-                if (scrapeDoKey) {
-                    console.log(`[Analyze API] Using scrape.do API for URL: ${url}`);
+                if (isPrivacyPolicy) {
                     const playWithBrowser = [
-                        // '개인정보' 문구가 포함된 요소를 찾아 클릭 시도
                         {"Action": "Execute", "Execute": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
-                        // 모달이 랜더링되고 표시될 시간을 2.5초 대기
                         {"Action": "Wait", "Timeout": 2500}
                     ];
-                    
-                    const sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(url)}&playWithBrowser=${encodeURIComponent(JSON.stringify(playWithBrowser))}&render=true`;
-                    
-                    try {
-                        res = await fetch(sdUrl, { signal: controller.signal });
-                        if (!res.ok) {
-                            console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
-                            res = null; // 실패 시 폴백 처리 트리거
-                        }
-                    } catch (e) {
-                        console.warn(`[Analyze API] scrape.do network error:`, e);
+                    sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&playWithBrowser=${encodeURIComponent(JSON.stringify(playWithBrowser))}&render=true`;
+                }
+
+                try {
+                    res = await fetch(sdUrl, { signal: controller.signal });
+                    if (!res.ok) {
+                        console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
                         res = null;
                     }
+                } catch (e) {
+                    console.warn(`[Analyze API] scrape.do network error:`, e);
+                    res = null;
                 }
-                
-                // 2. ScrapingBee 폴백 (scrape.do 실패 시)
-                if (!res && scrapingBeeKey) {
-                    console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${url}`);
+            }
+            
+            if (!res && scrapingBeeKey) {
+                console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${target}`);
+                let sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&render_js=true`;
+
+                if (isPrivacyPolicy) {
                     const js_scenario = {
                         "instructions": [
                             {"evaluate": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
                             {"wait": 2500}
                         ]
                     };
-                    const sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&js_scenario=${encodeURIComponent(JSON.stringify(js_scenario))}&render_js=true`;
-                    
-                    try {
-                        res = await fetch(sbUrl, { signal: controller.signal });
-                        if (!res.ok) {
-                            console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
-                            res = null;
-                        }
-                    } catch (e) {
-                        console.warn(`[Analyze API] ScrapingBee network error:`, e);
+                    sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&js_scenario=${encodeURIComponent(JSON.stringify(js_scenario))}&render_js=true`;
+                }
+
+                try {
+                    res = await fetch(sbUrl, { signal: controller.signal });
+                    if (!res.ok) {
+                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
                         res = null;
                     }
+                } catch (e) {
+                    console.warn(`[Analyze API] ScrapingBee network error:`, e);
+                    res = null;
                 }
-                
-                if (res?.ok) {
-                    html = await res.text();
-                } else {
-                    console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
-                }
-            } finally {
-                clearTimeout(timeoutId);
             }
-
-            if (html) {
-                // Node 런타임이므로 넉넉하게 파싱 시작
-                // 150,000자(약 150KB)를 초과하는 대규모 텍스트일 경우 앞부분 잘라서 파싱 (Jina AI는 이미 마크다운 형식)
-                let cleanHtml = html.length > 200000 ? html.slice(0, 200000) : html;
-                
-                // 가벼운 Non-greedy(.*?) 정규식으로 CPU 연산 최소화
-                cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
-                cleanHtml = cleanHtml.replace(/<style[\s\S]*?<\/style>/gi, '');
-                cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
-                extractedText = cleanHtml.replace(/\s+/g, ' ').trim();
+            
+            if (res?.ok) {
+                html = await res.text();
+            } else {
+                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
+                throw new Error('Fetch failed in both services');
             }
-        } catch (error: any) {
-            console.error('[Analyze API] URL Fetch Error:', error);
-            const isTimeout = error.name === 'AbortError';
-            return NextResponse.json(
-                { success: false, error: isTimeout 
-                    ? '웹사이트 응답이 없어 시간 초과되었습니다. 개인정보처리방침 텍스트를 직접 붙여넣어 주세요.'
-                    : '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' 
-                },
-                { status: isTimeout ? 504 : 422 }
-            );
+        } finally {
+            clearTimeout(timeoutId);
         }
+
+        let cleanHtml = html.length > 200000 ? html.slice(0, 200000) : html;
+        cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+        cleanHtml = cleanHtml.replace(/<style[\s\S]*?<\/style>/gi, '');
+        cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
+        return cleanHtml.replace(/\s+/g, ' ').trim();
     }
 
-    // 3. 추출된 텍스트 확인 후, 부족하면 에러 반환 (수동 입력 유도)
-    if (!extractedText || extractedText.length < 50) {
-        console.warn('[Analyze API] 크롤링 실패 또는 추출된 텍스트 불충분');
+    try {
+        // 분기 로직
+        // Case 2-3: manualText가 최우선
+        if (manualText && manualText.trim().length > 50) {
+            extractedText = manualText.trim();
+        } 
+        // Case 2-2: privacyUrl이 있는 경우
+        else if (privacyUrl && privacyUrl.startsWith('http')) {
+            extractedText = await crawlUrl(privacyUrl, true);
+        } 
+        // Case 2-1: homepageUrl만 있는 경우
+        else if (homepageUrl && homepageUrl.startsWith('http')) {
+            console.log(`[Analyze API] 홈페이지에서 푸터 정보 추출 시도 중: ${homepageUrl}`);
+            const homeText = await crawlUrl(homepageUrl, false);
+            
+            // OpenAI로 사업자번호, 전화번호, 개인정보취급방침 URL 추출
+            const apiKey = process.env.OPENAI_API_KEY;
+            if (apiKey) {
+                const aiController = new AbortController();
+                const timeoutId = setTimeout(() => aiController.abort(), 15000); // 15초 제한
+                try {
+                    const footerRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            response_format: { type: "json_object" },
+                            messages: [{ 
+                                role: 'user', 
+                                content: `다음 웹사이트 내용에서 회사 푸터 정보를 찾아 JSON 객체로 반환해. 
+                                반환 형태: {"businessNumber": "사업자번호", "phoneNumber": "고객센터 전화번호", "privacyUrl": "개인정보처리방침 링크 URL"}
+                                만약 해당 정보가 없으면 빈 문자열("")로 반환할 것.
+                                URL은 절대 경로(예: https://...)이거나 상대 경로(/privacy)일 수 있음. 상대경로라면 원래 도메인(${homepageUrl})을 붙여서 절대경로로 만들어줘.
+                                내용의 일부: ${homeText.slice(homeText.length > 50000 ? homeText.length - 10000 : 0)}` 
+                            }]
+                        }),
+                        signal: aiController.signal
+                    });
+                    
+                    if (footerRes.ok) {
+                        const jsonPayload = await footerRes.json();
+                        const resultParsed = JSON.parse(jsonPayload.choices[0].message.content);
+                        extractedFooter = {
+                            businessNumber: resultParsed.businessNumber || "",
+                            phoneNumber: resultParsed.phoneNumber || "",
+                            privacyUrl: resultParsed.privacyUrl || ""
+                        };
+                        console.log(`[Analyze API] 추출된 푸터 정보:`, extractedFooter);
+                        
+                        // privacyUrl을 찾았으면 다시 크롤링 시도
+                        if (extractedFooter.privacyUrl && extractedFooter.privacyUrl.startsWith('http')) {
+                           extractedText = await crawlUrl(extractedFooter.privacyUrl, true);
+                        } else {
+                            throw new Error('푸터에서 개인정보처리방침 URL을 찾을 수 없습니다.');
+                        }
+                    }
+                } catch(e) {
+                    console.warn('[Analyze API] 푸터 정보 AI 추출 또는 크롤링 실패:', e);
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            }
+        }
+
+        // 결과 검증
+        if (!extractedText || extractedText.length < 50) {
+            console.warn('[Analyze API] 크롤링 실패 또는 텍스트 불충분');
+            return NextResponse.json(
+                { success: false, error: '웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },
+                { status: 422 }
+            );
+        }
+
+    } catch (error: any) {
+        console.error('[Analyze API] URL Fetch Error:', error);
+        const isTimeout = error.name === 'AbortError';
         return NextResponse.json(
-            { success: false, error: '웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },
-            { status: 422 }
+            { success: false, error: isTimeout 
+                ? '웹사이트 응답이 없어 시간 초과되었습니다. 개인정보처리방침 텍스트를 직접 붙여넣어 주세요.'
+                : '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' 
+            },
+            { status: isTimeout ? 504 : 422 }
         );
     }
 
@@ -279,7 +344,7 @@ export async function POST(request: NextRequest) {
             isDemoMode: false,
             message: 'AI 리얼타임 분석 완료',
             analysisId: `real-${Date.now()}`,
-            analyzedUrl: url ?? null,
+            analyzedUrl: privacyUrl || homepageUrl || null,
             issueCount: parsedResult.issues?.length || 0,
             issues: (parsedResult.issues || []).map((iss: any) => ({
                 ...iss,
@@ -287,6 +352,7 @@ export async function POST(request: NextRequest) {
             })),
             riskLevel: parsedResult.riskLevel || 'MEDIUM',
             rawText: extractedText,
+            extractedDetails: extractedFooter,
             completedAt: new Date().toISOString(),
         });
 
