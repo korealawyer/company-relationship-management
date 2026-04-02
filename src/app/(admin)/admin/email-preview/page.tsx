@@ -316,7 +316,7 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
                             <span className="text-[13px] font-medium text-slate-800">{subject}</span>
                         </div>
                     </div>
-                    <div className={`mx-auto ${viewMode === 'mobile' ? 'max-w-[400px]' : 'max-w-3xl'} overflow-hidden shadow-2xl rounded-tr-xl rounded-tl-xl border border-slate-200 bg-white transition-all`}>
+                    <div className={`mx-auto ${viewMode === 'mobile' ? 'max-w-[400px]' : 'max-w-4xl'} overflow-hidden shadow-2xl rounded-tr-xl rounded-tl-xl border border-slate-200 bg-white transition-all`}>
                         {/* Browser Window Chrome */}
                         <div className="h-10 bg-slate-50 border-b border-slate-200 flex items-center px-4 gap-2">
                             <div className="flex gap-1.5">
