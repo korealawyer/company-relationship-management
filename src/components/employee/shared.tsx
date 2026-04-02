@@ -81,7 +81,8 @@ export function ActionButton({
                     companyId: c.id, 
                     url: c.privacyUrl, 
                     manualText: c.privacyPolicyText,
-                    systemPrompt: promptConfig.analyzePrompt
+                    systemPrompt: promptConfig.analyzePrompt,
+                    model: promptConfig.model
                 })
             });
             const data = await res.json();
@@ -260,7 +261,8 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                     companyId: c.id, 
                     url: privacyUrl, 
                     manualText: privacyText,
-                    systemPrompt: promptConfig.analyzePrompt
+                    systemPrompt: promptConfig.analyzePrompt,
+                    model: promptConfig.model
                 })
             });
             const data = await res.json();

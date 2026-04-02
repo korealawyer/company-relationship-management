@@ -238,12 +238,6 @@ export default function CompanyTableRow({
           </td>
           <td className="py-2.5 px-3" onClick={e=>e.stopPropagation()}>
               <div className="flex items-center gap-1">
-                  <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}&leadId=${c.id}`} target="_blank" title="이메일 미리보기">
-                      <button className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="이메일 미리보기"><Mail className="w-3.5 h-3.5" style={{color:'#2563eb'}}/></button>
-                  </Link>
-                  <Link href={`/lawyer/privacy-review?company=${encodeURIComponent(c.name)}&leadId=${c.id}&preview=1`} target="_blank" title="1차 조문검토 미리보기">
-                      <button className="p-1.5 rounded-lg hover:bg-purple-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="1차 조문검토 미리보기"><Eye className="w-3.5 h-3.5" style={{color:'#7c3aed'}}/></button>
-                  </Link>
                   {(() => {
                       const link = c.domain || c.url;
                       const finalLink = link ? (link.startsWith('http') ? link : `http://${link}`) : '#';
@@ -256,16 +250,50 @@ export default function CompanyTableRow({
                                   }
                               }}
                           >
-                              <button className="p-1.5 rounded-lg hover:bg-cyan-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="홈페이지"><Globe className="w-3.5 h-3.5" style={{color:'#0891b2'}}/></button>
+                              <button className="p-1.5 rounded-lg flex items-center justify-center hover:bg-cyan-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="홈페이지"><Globe className="w-3.5 h-3.5" style={{color:'#0891b2'}}/></button>
                           </a>
                       );
                   })()}
-                  <button onClick={() => onOpenKakao(c)} className="p-1.5 rounded-lg hover:bg-yellow-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="카카오톡 발송">
-                      <MessageCircle className="w-3.5 h-3.5" style={{color:'#FAE100',fill:'#FAE100',stroke:'#3C1E1E'}}/>
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); onOpenContract(c); }} className="p-1.5 rounded-lg hover:bg-amber-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="계약서 발송 미리보기">
-                      <FileSignature className="w-3.5 h-3.5" style={{color:'#d97706'}}/>
-                  </button>
+                  <Link href={`/lawyer/privacy-review?company=${encodeURIComponent(c.name)}&leadId=${c.id}&preview=1`} target="_blank" title="1차 조문검토 미리보기">
+                      <button className="p-1.5 rounded-lg flex items-center justify-center hover:bg-purple-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="1차 조문검토 미리보기"><Eye className="w-3.5 h-3.5" style={{color:'#7c3aed'}}/></button>
+                  </Link>
+                  {(() => {
+                      const isMailKakaoDisabled = user?.role === 'sales' && !c.lawyerConfirmed;
+                      const isContractDisabled = !c.clientReplied;
+                      return (
+                          <>
+                              {isMailKakaoDisabled ? (
+                                  <button onClick={(e) => { e.stopPropagation(); alert('변호사 검토가 완료된 후에만 메일 발송이 가능합니다.'); }} className="p-1.5 rounded-lg flex items-center justify-center opacity-50 cursor-not-allowed" style={{border:`1px solid ${C.borderLight}`, background: C.surface}} title="메일 발송 (변호사 검토 대기중)">
+                                      <Mail className="w-3.5 h-3.5" style={{color:'#2563eb'}}/>
+                                  </button>
+                              ) : (
+                                  <Link href={`/admin/email-preview?company=${encodeURIComponent(c.name)}&leadId=${c.id}`} target="_blank" title="이메일 미리보기">
+                                      <button className="p-1.5 rounded-lg flex items-center justify-center hover:bg-blue-50 transition-colors" style={{border:`1px solid ${C.borderLight}`}} title="이메일 미리보기"><Mail className="w-3.5 h-3.5" style={{color:'#2563eb'}}/></button>
+                                  </Link>
+                              )}
+                              <button onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  if (isMailKakaoDisabled) {
+                                      alert('변호사 검토가 완료된 후에만 카카오톡 발송이 가능합니다.');
+                                      return;
+                                  }
+                                  onOpenKakao(c); 
+                              }} className={`p-1.5 rounded-lg flex items-center justify-center transition-colors ${isMailKakaoDisabled ? 'opacity-50 cursor-not-allowed bg-transparent' : 'hover:bg-yellow-50'}`} style={{border:`1px solid ${C.borderLight}`}} title={isMailKakaoDisabled ? "카카오톡 발송 (변호사 검토 대기중)" : "카카오톡 발송"}>
+                                  <MessageCircle className="w-3.5 h-3.5" style={{color:'#FAE100',fill:'#FAE100',stroke:'#3C1E1E'}}/>
+                              </button>
+                              <button onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  if (isContractDisabled) {
+                                      alert('해당 기업의 요청(회신)이 확인된 후에만 계약서를 발송할 수 있습니다.');
+                                      return;
+                                  }
+                                  onOpenContract(c); 
+                              }} className={`p-1.5 rounded-lg flex items-center justify-center transition-colors ${isContractDisabled ? 'opacity-50 cursor-not-allowed bg-transparent' : 'hover:bg-amber-50'}`} style={{border:`1px solid ${C.borderLight}`}} title={isContractDisabled ? "계약서 발송 (기업 요청 필요)" : "계약서 발송 미리보기"}>
+                                  <FileSignature className="w-3.5 h-3.5" style={{color:'#d97706'}}/>
+                              </button>
+                          </>
+                      );
+                  })()}
               </div>
           </td>
       </tr>

@@ -122,9 +122,11 @@ export function renderContractEmailTemplateHtml(company: Company, plan: 'starter
                 계약 체결 후 30일 이내 청약 철회가 가능하며, 이후에는 약정 기간에 따라 적용됩니다.
             </p>
             <div style="border-top: 1px solid #e5e7eb; margin-top: 16px; padding-top: 16px;">
-                <p style="font-size: 11px; color: #94a3b8; margin: 0;">
-                    IBS 법률사무소 | 서울특별시 서초구 서초대로 | 02-598-8518 | legal@ibslaw.co.kr
+                <p style="font-size: 11px; color: #94a3b8; margin: 0 0 4px;">
+                    IBS 법률사무소 | 02-598-8518 | legal@ibslaw.co.kr
                 </p>
+                <p style="font-size: 11px; color: #94a3b8; margin: 0 0 2px;">서울시 서초구 서초대로 272 IBS빌딩</p>
+                <p style="font-size: 11px; color: #94a3b8; margin: 0;">서울시 서초구 서초대로 270 IBS법률상담센터</p>
             </div>
         </div>
     </div>

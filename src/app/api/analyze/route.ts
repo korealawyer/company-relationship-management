@@ -48,36 +48,65 @@ export async function POST(request: NextRequest) {
 
             let html = '';
             try {
+                const scrapeDoKey = process.env.SCRAPE_DO_API_KEY;
                 const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
                 let res: Response | null = null;
                 
-                // ScrapingBee 크롤링 시도 (모달 클릭 자동화)
-                if (scrapingBeeKey) {
-                    console.log(`[Analyze API] Using ScrapingBee API for URL: ${url}`);
+                // 1. scrape.do 크롤링 시도 (모달 클릭 자동화)
+                if (scrapeDoKey) {
+                    console.log(`[Analyze API] Using scrape.do API for URL: ${url}`);
+                    const playWithBrowser = [
+                        // '개인정보' 문구가 포함된 요소를 찾아 클릭 시도
+                        {"Action": "Execute", "Execute": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
+                        // 모달이 랜더링되고 표시될 시간을 2.5초 대기
+                        {"Action": "Wait", "Timeout": 2500}
+                    ];
+                    
+                    const sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(url)}&playWithBrowser=${encodeURIComponent(JSON.stringify(playWithBrowser))}&render=true`;
+                    
+                    try {
+                        res = await fetch(sdUrl, { signal: controller.signal });
+                        if (!res.ok) {
+                            console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
+                            res = null; // 실패 시 폴백 처리 트리거
+                        }
+                    } catch (e) {
+                        console.warn(`[Analyze API] scrape.do network error:`, e);
+                        res = null;
+                    }
+                }
+                
+                // 2. ScrapingBee 폴백 (scrape.do 실패 시)
+                if (!res && scrapingBeeKey) {
+                    console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${url}`);
                     const js_scenario = {
                         "instructions": [
-                            // '개인정보' 문구가 포함된 요소를 찾아 클릭 시도
                             {"evaluate": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
-                            // 모달이 랜더링되고 표시될 시간을 2.5초 대기
                             {"wait": 2500}
                         ]
                     };
                     const sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&js_scenario=${encodeURIComponent(JSON.stringify(js_scenario))}&render_js=true`;
                     
-                    res = await fetch(sbUrl, { signal: controller.signal });
-                    if (!res.ok) {
-                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. Falling back to default fetch.`);
-                        res = null; // 실패 시 폴백 처리 트리거
+                    try {
+                        res = await fetch(sbUrl, { signal: controller.signal });
+                        if (!res.ok) {
+                            console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. Falling back to Jina AI.`);
+                            res = null;
+                        }
+                    } catch (e) {
+                        console.warn(`[Analyze API] ScrapingBee network error:`, e);
+                        res = null;
                     }
                 }
 
-                // 일반 Fetch (ScrapingBee 미적용 또는 실패 시 폴백)
+                // 3. 최후 Fetch 폴백 (모두 실패 시 Jina AI 사용)
                 if (!res) {
-                    res = await fetch(fetchUrl.toString(), {
+                    console.log(`[Analyze API] Using Jina AI fallback for URL: ${fetchUrl.toString()}`);
+                    res = await fetch(`https://r.jina.ai/${fetchUrl.toString()}`, {
                         headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                            'Accept': 'text/plain',
+                            'X-Return-Format': 'text'
                         },
-                        redirect: 'follow',
                         signal: controller.signal
                     });
                 }
@@ -93,8 +122,8 @@ export async function POST(request: NextRequest) {
 
             if (html) {
                 // Node 런타임이므로 넉넉하게 파싱 시작
-                // 150,000자(약 150KB)를 초과하는 대규모 HTML일 경우 앞부분만 잘라서 파싱 시작
-                let cleanHtml = html.length > 150000 ? html.slice(0, 150000) : html;
+                // 150,000자(약 150KB)를 초과하는 대규모 텍스트일 경우 앞부분 잘라서 파싱 (Jina AI는 이미 마크다운 형식)
+                let cleanHtml = html.length > 200000 ? html.slice(0, 200000) : html;
                 
                 // 가벼운 Non-greedy(.*?) 정규식으로 CPU 연산 최소화
                 cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
@@ -183,34 +212,69 @@ export async function POST(request: NextRequest) {
         const aiController = new AbortController();
         const aiTimeoutId = setTimeout(() => aiController.abort(), 90000); // Pro 요금제: 90초 AI 대기 타임아웃
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: model || 'gpt-4o-mini',
-                temperature: 0.1,
-                messages: [{ role: 'user', content: prompt }]
-            }),
-            signal: aiController.signal
-        });
-        clearTimeout(aiTimeoutId);
+        const targetModel = model || 'gpt-4o-mini';
+        let content = '';
 
-        if (!response.ok) {
-            console.error('[Analyze API] OpenAI Failure:', await response.text());
-            return NextResponse.json(
-                { success: false, error: 'AI 모델(OpenAI) 호출에 실패했습니다. 잠시 후 전문 텍스트를 직접 입력하여 다시 시도하거나 관리자에게 문의하세요.' },
-                { status: 502 }
-            );
+        if (targetModel.includes('claude')) {
+            // Anthropic API 호출
+            const anthropicKey = process.env.ANTHROPIC_API_KEY || apiKey; // 폴백용
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                    'x-api-key': anthropicKey
+                },
+                body: JSON.stringify({
+                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022',
+                    max_tokens: 4096,
+                    system: '반드시 순수 JSON 형식({ "riskLevel": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.',
+                    messages: [{ role: 'user', content: prompt }]
+                }),
+                signal: aiController.signal
+            });
+            clearTimeout(aiTimeoutId);
+
+            if (!response.ok) {
+                console.error('[Analyze API] Anthropic Failure:', await response.text());
+                return NextResponse.json(
+                    { success: false, error: 'AI 모델(Anthropic) 호출에 실패했습니다. 관리자에게 문의하세요.' },
+                    { status: 502 }
+                );
+            }
+            const aiData = await response.json();
+            content = aiData.content?.[0]?.text || '';
+        } else {
+            // 기본 OpenAI API 호출 (gpt-4o, gpt-4o-mini 등)
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: targetModel,
+                    temperature: 0.1,
+                    messages: [{ role: 'user', content: prompt }]
+                }),
+                signal: aiController.signal
+            });
+            clearTimeout(aiTimeoutId);
+
+            if (!response.ok) {
+                console.error('[Analyze API] OpenAI Failure:', await response.text());
+                return NextResponse.json(
+                    { success: false, error: 'AI 모델(OpenAI) 호출에 실패했습니다. 관리자에게 문의하세요.' },
+                    { status: 502 }
+                );
+            }
+
+            const aiData = await response.json();
+            content = aiData.choices?.[0]?.message?.content || '';
         }
-
-        const aiData = await response.json();
-        const content = aiData.choices?.[0]?.message?.content || '';
         
         // 마크다운 JSON 오류 방어 파싱
-        const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanJson = content.replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsedResult = JSON.parse(cleanJson);
 
         if (parsedResult.riskLevel === 'UNKNOWN' || parsedResult.error) {

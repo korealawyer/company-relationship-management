@@ -168,9 +168,11 @@ export default function ContractEmailTemplate({ company, plan = 'standard' }: Co
                     계약 체결 후 30일 이내 청약 철회가 가능하며, 이후에는 약정 기간에 따라 적용됩니다.
                 </p>
                 <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 16, paddingTop: 16 }}>
-                    <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-                        IBS 법률사무소 | 서울특별시 서초구 서초대로 | 02-598-8518 | legal@ibslaw.co.kr
+                    <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 4px' }}>
+                        IBS 법률사무소 | 02-598-8518 | legal@ibslaw.co.kr
                     </p>
+                    <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 2px' }}>서울시 서초구 서초대로 272 IBS빌딩</p>
+                    <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>서울시 서초구 서초대로 270 IBS법률상담센터</p>
                 </div>
             </div>
         </div>

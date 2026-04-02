@@ -133,8 +133,9 @@ function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, bas
 
   <!-- 풋터 -->
   <div style="background:#04091a;border-radius:0 0 16px 16px;padding:20px 32px;text-align:center">
-    <p style="color:#64748b;font-size:11px;margin:0 0 4px">IBS 법률사무소 | 서울 서초구 서초대로 270</p>
-    <p style="color:#475569;font-size:11px;margin:0">대표번호 02-598-8518 | info@ibslaw.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
+    <p style="color:#64748b;font-size:11px;margin:0 0 6px">IBS 법률사무소 | 대표번호 02-598-8518 | info@ibslaw.co.kr | <a href="${unsubscribeUrl}" style="color:#475569">수신거부</a></p>
+    <p style="color:#475569;font-size:11px;margin:0 0 2px">서울시 서초구 서초대로 272 IBS빌딩</p>
+    <p style="color:#475569;font-size:11px;margin:0">서울시 서초구 서초대로 270 IBS법률상담센터</p>
   </div>
 
   <!-- 트래킹 픽셀 (이메일 열람 추적) -->

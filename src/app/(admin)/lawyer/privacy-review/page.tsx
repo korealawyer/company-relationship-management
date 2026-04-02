@@ -12,6 +12,7 @@ import {
     type ScenarioCategory, getScenarioCategories,
 } from '@/lib/prompts/privacy';
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
+import { useAutoSettings } from '@/hooks/useDataLayer';
 import type { Company, Issue } from '@/lib/mockStore';
 
 // ── 색상 ──────────────────────────────────────────────────
@@ -252,6 +253,7 @@ export default function PrivacyReviewPage() {
 function PrivacyReviewContent() {
     const searchParams = useSearchParams();
     const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer', 'sales']);
+    const { settings: autoSettings } = useAutoSettings();
     const company = searchParams?.get('company') || '(주)샐러디';
     const leadId = searchParams?.get('leadId') || undefined;
     const [tab, setTab] = useState<'first' | 'full'>('first');
@@ -349,8 +351,32 @@ function PrivacyReviewContent() {
     // ── 1차 조문검토 컨펌 ────────────────────────────────────────
     // 변호사 컨펌 = "조문 검토됨" 상태를 기록하는 것이 전부
     // → 영업팀이 CRM에서 확인 후 이메일 미리보기 → 발송 (영업팀 역할)
-    const handleFirstConfirm = () => {
+    const handleFirstConfirm = async () => {
+        setConfirming(true);
+        if (leadId) {
+            await supabaseCompanyStore.update(leadId, { lawyerConfirmed: true, lawyerConfirmedAt: new Date().toISOString() });
+            
+            if (autoSettings?.autoSendEmail) {
+                try {
+                    await fetch('/api/email', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ type: 'company_hook', leadId, customSubject: `[IBS 법률] ${company} 개인정보처리방침 리스크 진단 결과` }),
+                    });
+                    await supabaseCompanyStore.update(leadId, { status: 'emailed', emailSentAt: new Date().toISOString() });
+                } catch(e) {}
+            } else {
+                try {
+                    await fetch('/api/email', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ type: 'clause_review_done', leadId, company, highRiskCount: highN, medRiskCount: medN }),
+                    });
+                } catch(e) {}
+            }
+        }
         setConfirmedTab('first');
+        setConfirming(false);
     };
 
     // ── 전체수정완본 컨펌 ────────────────────────────────────────
