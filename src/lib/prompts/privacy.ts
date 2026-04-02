@@ -117,6 +117,7 @@ export interface PrivacyPromptConfig {
     lawyerTonePrompt: string;
     formFieldMappingPrompt: string;
     callRecordingSummaryPrompt: string;
+    salesMemoSummaryPrompt: string;
 }
 
 export const DEFAULT_PROMPT_CONFIG: PrivacyPromptConfig = {
@@ -247,6 +248,17 @@ JSON 배열로 출력하세요.`,
 - nextAction: 영업 담당자가 직후 취해야 할 구체적인 다음 행동 가이드 (예: '계약서 템플릿 첨부하여 이메일 발송')
 - nextActionType: 다음 중 가장 적절한 타입 하나 선택 ('send_contract', 'schedule_meeting', 'follow_up_call', 'send_email', 'escalate')
 - confidence: 현재까지의 소통 내용을 바탕으로 한 계약 전환 또는 목표 달성 가능성 점수 (0~100 정수)`,
+
+    salesMemoSummaryPrompt: `당신은 법무법인 B2B 영업(세일즈) 및 고객 관계 관리를 전문으로 하는 최고 수준의 AI 전략가입니다.
+제공된 영업 담당자의 미팅, 통화, 이메일 등 모든 소통 메모 내역을 종합적으로 분석하여, 다음 JSON 스키마에 맞게 분석 결과를 반환해주세요.
+절대 다른 설명이나 마크다운 백틱(\`\`\`) 없이 순수 JSON만 반환하세요.
+
+[분석 목표 및 요구사항]
+- summary: 전체 소통 히스토리를 관통하는 주요 진행 상황과 현재 딜(Deal)의 상태를 2~3문장으로 명확히 요약.
+- keyPoints: 고객의 핵심 니즈(Needs), 법적 리스크/페인포인트, 그리고 주요 논의 사항을 배열 형태(array)로 3개 이내로 추출.
+- nextAction: 영업 담당자나 변호사가 직후에 취해야 할 가장 효과적이고 구체적인 다음 행동 가이드 (예: '계약서 초안 및 월 자문 견적서 포함하여 이메일 발송 등')
+- nextActionType: 다음 중 현재 상황에 가장 적절한 타입 하나를 영문으로 선택 ('send_contract', 'schedule_meeting', 'follow_up_call', 'send_email', 'escalate')
+- confidence: 현재까지의 소통 내용을 바탕으로 한 최종 계약 전환 또는 목표 달성 가능성 점수 (0~100 정수. 긍정적 시그널 존재 시 높게 책정)`,
 };
 
 // ── localStorage 기반 설정 저장/로드 ───────────────────────────

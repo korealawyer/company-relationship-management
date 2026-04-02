@@ -115,7 +115,7 @@ export default function ScriptTab({ co, setToast }: ScriptTabProps) {
                         }}
                     >
                         {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                        {isGenerating ? '생성 중...' : 'AI 재작성'}
+                        {isGenerating ? '생성 중...' : '스크립트 재작성'}
                     </button>
                     <button
                         onClick={copyScript}

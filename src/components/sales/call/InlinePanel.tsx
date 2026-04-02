@@ -128,6 +128,31 @@ export default function InlinePanel({
         }
     };
 
+    const handleResetCallData = async () => {
+        if (!confirm('정말로 이 기업의 통화 기록(상태, 시도 횟수)을 초기화하시겠습니까?')) return;
+        try {
+            await supabaseCompanyStore.update(co.id, {
+                lastCallResult: null,
+                lastCallAt: null,
+                lastCalledBy: null,
+                callAttempts: 0,
+            } as any);
+            
+            // UI optimistic update
+            co.lastCallResult = undefined;
+            co.lastCallAt = undefined;
+            co.lastCalledBy = undefined;
+            co.callAttempts = 0;
+            
+            setLocalResult(null);
+            setToast('✅ 통화 기록이 초기화되었습니다.');
+            onRefresh();
+        } catch (e) {
+            console.error('Reset log failed:', e);
+            setToast('❌ 초기화 오류');
+        }
+    };
+
     const handleResultAction = (res: 'connected' | 'no_answer' | 'callback', nextAction?: 'review' | 'memo') => {
         // 1. 콜 이력 로깅
         if (isOnCall) {
@@ -237,7 +262,17 @@ export default function InlinePanel({
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col shrink-0 min-h-[150px]">
                                     <div className="flex flex-col gap-3 mb-3 border-b border-gray-100 pb-3">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 제어 ({companyRecordings.length})</h3>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 제어 ({companyRecordings.length})</h3>
+                                                {user?.role === 'super_admin' && (
+                                                    <button onClick={handleResetCallData}
+                                                        className="px-1.5 py-0.5 rounded text-[10px] font-bold border bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                                                        title="통화 상태 초기화"
+                                                    >
+                                                        <RefreshCw className="w-2.5 h-2.5 inline mr-0.5" />초기화
+                                                    </button>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-2">
                                                 {!isOnCall ? (
                                                     <button onClick={onStartCall}

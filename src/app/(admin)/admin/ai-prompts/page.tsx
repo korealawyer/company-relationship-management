@@ -169,6 +169,12 @@ export default function AdminAIPromptsPage() {
                                                 usage: '/api/call-recordings', 
                                                 desc: '영업 통화 STT 텍스트에서 주요 내용, 니즈, 다음 액션을 자동 요약합니다.' 
                                             },
+                                            { 
+                                                key: 'salesMemoSummaryPrompt' as const, 
+                                                label: '📝 영업 메모 요약 프롬프트', 
+                                                usage: '/api/sales/analyze-memo', 
+                                                desc: '영업 담당자가 작성한 소통 메모를 분석하여 주요 내용, 니즈, 다음 액션을 자동 요약합니다.' 
+                                            },
                                         ].map(p => (
                                             <React.Fragment key={p.key}>
                                                 <tr 

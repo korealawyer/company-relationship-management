@@ -154,12 +154,17 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         });
     }, [companies]);
 
-    // 2초마다 자동화 폴링: 카카오 + 서명감지 + 이메일열람
+    // 2초마다 자동화 상태 업데이트 (데모성 자동 상태 변경 로직은 주석 처리)
     useEffect(() => {
         const poll = setInterval(() => {
             const map: Record<string, KakaoScheduleItem> = {};
             AutoKakaoService.getAll().forEach(k => { map[k.companyId] = k; });
             setKakaoStatuses(map);
+
+            /* 
+            // 사용자의 요청("멋대로 움직이는거 같아")으로 인해, 
+            // 이메일 열람, 서명 감지, 카카오 발송이 "시간 지나면 자동으로" 처리되던 데모 로직을 방지합니다.
+            
             const pending = AutoKakaoService.getPendingSends();
             pending.forEach(p => {
                 AutoKakaoService.markSent(p.companyId);
@@ -188,9 +193,10 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
                 updateCompany(o.companyId, { status: 'client_viewed' as any });
                 refresh();
             });
+            */
         }, 2000);
         return () => clearInterval(poll);
-    }, [refresh]);
+    }, [refresh, dbCompanies, updateCompany, setToast]);
 
     /* ── computed ── */
     const isToday = (dateStr?: string) => dateStr && dateStr.startsWith(new Date().toISOString().split('T')[0]);

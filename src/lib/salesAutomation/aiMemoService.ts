@@ -23,8 +23,8 @@ export const AIMemoService = {
 
         try {
             const promptConfig = getPromptConfig();
-            const systemPrompt = promptConfig.callRecordingSummaryPrompt;
-            const model = promptConfig.promptModels?.callRecordingSummaryPrompt || promptConfig.model || 'gpt-4o';
+            const systemPrompt = promptConfig.salesMemoSummaryPrompt;
+            const model = promptConfig.promptModels?.salesMemoSummaryPrompt || promptConfig.model || 'gpt-4o';
             
             // 브라우저 localStorage에서 관리자가 설정한 API 키 가져오기 (ai-assist 로직 재사용)
             let apiKey = '';

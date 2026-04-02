@@ -144,7 +144,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                         style={{ background: '#faf5ff', border: '1px solid #e9d5ff' }}
                     >
                         <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" style={{ color: '#7c3aed' }} />
-                        <p className="text-xs font-bold" style={{ color: '#7c3aed' }}>AI 요약 진행 중...</p>
+                        <p className="text-xs font-bold" style={{ color: '#7c3aed' }}>정리 중입니다...</p>
                     </div>
                 ) : aiResult ? (
                     <div className="rounded-xl p-4" style={{ background: '#faf5ff', border: '1px solid #e9d5ff' }}>
@@ -239,7 +239,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                     {aiLoading && (
                         <div className="flex items-center justify-center px-4 rounded-xl text-xs font-bold" 
                             style={{ background: '#f3e8ff', color: '#7c3aed', border: '1px solid #d8b4fe' }}>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> 분석중...
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> 정리 중입니다...
                         </div>
                     )}
                 </div>
