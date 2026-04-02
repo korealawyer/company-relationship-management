@@ -220,7 +220,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     <p style="text-align:center;color:#94a3b8;font-size:13px;margin:16px 0 0">클릭 시 귀사 개인정보처리방침 검토 보고서를 확인하실 수 있습니다</p>
 
     <!-- 서명 -->
-    <div style="margin-top:56px;padding-top:40px;padding-bottom:32px;border-top:1px solid #e2e8f0">
+    <div style="margin-top:56px;padding-top:40px;padding-bottom:0px;border-top:1px solid #e2e8f0">
       <div style="text-align:center;margin-bottom:32px;">
         <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">귀사의 안전한 개인정보 관리를 위해 최선을 다하겠습니다.</p><p style="color:#374151;font-size:14px;line-height:1.6;margin:0">감사합니다. </p>
       </div>
