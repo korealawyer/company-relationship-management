@@ -55,6 +55,7 @@ export interface AutoDataSource {
   getSettings(): Promise<AutoSettings>;
   saveSettings(patch: Partial<AutoSettings>): Promise<void>;
   getLogs(): Promise<AutoLog[]>;
+  addLog(log: Omit<AutoLog, 'id' | 'at'>): Promise<void>;
 }
 
 export interface NotificationDataSource {
@@ -99,6 +100,7 @@ const sbAuto: AutoDataSource = {
   getSettings: supabaseAutoStore.getSettings,
   saveSettings: supabaseAutoStore.saveSettings,
   getLogs: supabaseAutoStore.getLogs,
+  addLog: supabaseAutoStore.addLog,
 };
 
 const sbNotifications: NotificationDataSource = {

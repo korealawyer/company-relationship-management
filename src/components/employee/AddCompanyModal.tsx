@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { T } from './shared';
 import { useCompanies, useAutoSettings } from '@/hooks/useDataLayer';
 import { getPromptConfig } from '@/lib/prompts/privacy';
+import dataLayer from '@/lib/dataLayer';
+import { mutate as globalMutate } from 'swr';
 
 interface AddCompanyModalProps {
     onClose: () => void;
@@ -128,6 +130,12 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                                         const data = await res.json();
                                         if (!res.ok || !data.success) {
                                             await updateCompany(newId, { status: 'pending' });
+                                            await dataLayer.auto.addLog({
+                                                type: 'ai_analysis',
+                                                label: '분석 실패',
+                                                companyName: addForm.name,
+                                                detail: data?.error || '알 수 없는 오류'
+                                            });
                                         } else {
                                             const payload: any = { 
                                                 status: 'analyzed',
@@ -140,12 +148,25 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                                                 payload.privacyPolicyText = data.rawText;
                                             }
                                             await updateCompany(newId, payload);
+                                            await dataLayer.auto.addLog({
+                                                type: 'ai_analysis',
+                                                label: '분석 완료',
+                                                companyName: addForm.name,
+                                                detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
+                                            });
                                         }
-                                    } catch (err) {
+                                    } catch (err: any) {
                                         console.error('Auto analysis error:', err);
                                         await updateCompany(newId, { status: 'pending' });
+                                        await dataLayer.auto.addLog({
+                                            type: 'ai_analysis',
+                                            label: '분석 중단됨',
+                                            companyName: addForm.name,
+                                            detail: err.message || '네트워크 에러 발생'
+                                        });
                                     } finally {
                                         mutate(); // 전체 리프레시
+                                        globalMutate('auto-logs');
                                     }
                                 })();
                             }

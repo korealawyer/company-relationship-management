@@ -1,10 +1,10 @@
 'use client';
 import React, { useState } from 'react';
-import { Volume2 } from 'lucide-react';
+import { Volume2, Sparkles, RefreshCw } from 'lucide-react';
 import { Company, type CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL } from '@/lib/constants';
+import { useEmployeeCRM } from '@/hooks/useEmployeeCRM';
 
-/* ── CRM 라이트 색상 (공유 상수 추출 전 임시 로컬 복사) ─────── */
 const C = {
     surface: '#ffffff',
     border: '#d1d5db',
@@ -18,7 +18,7 @@ const C = {
 };
 
 /* ── helpers ─────────────────────────────────────────────── */
-function getScript(c: Company): string {
+function getLegacyScript(c: Company): string {
     const hi = c.contactName ? `${c.contactName} 님` : '담당자님';
     const issues = (c.issues || []).slice(0, 3);
     const it = issues.length > 0
@@ -33,35 +33,18 @@ function getScript(c: Company): string {
     return `${hi}, 법률사무소 IBS 영업팀입니다.\n${c.name} 건 관련 안내드리고자 연락드렸습니다.`;
 }
 
-function riskColor(s: number) {
-    if (s >= 70) return { bar: '#dc2626', text: '#dc2626', bg: '#fef2f2' };
-    if (s >= 40) return { bar: '#d97706', text: '#92400e', bg: '#fffbeb' };
-    return { bar: '#059669', text: '#065f46', bg: '#ecfdf5' };
-}
-
-function Badge({ status }: { status: CaseStatus }) {
-    return (
-        <span
-            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap"
-            style={{ background: STATUS_COLOR[status], color: STATUS_TEXT[status] }}
-        >
-            {STATUS_LABEL[status]}
-        </span>
-    );
-}
-
-/* ── Props ───────────────────────────────────────────────── */
 export interface ScriptTabProps {
     co: Company;
     setToast: (s: string) => void;
 }
 
-/* ── Component ───────────────────────────────────────────── */
 export default function ScriptTab({ co, setToast }: ScriptTabProps) {
     const [copied, setCopied] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const { updateCompany } = useEmployeeCRM();
 
-    const script = getScript(co);
-    const rc = riskColor(co.riskScore);
+    // Use AI custom script if available, fallback to legacy script
+    const script = co.customScript?.call || getLegacyScript(co);
 
     const copyScript = () => {
         navigator.clipboard.writeText(script).then(() => {
@@ -71,23 +54,84 @@ export default function ScriptTab({ co, setToast }: ScriptTabProps) {
         });
     };
 
+    const handleGenerateAiScript = async () => {
+        setIsGenerating(true);
+        setToast('브랜드 맞춤형 AI 스크립트 생성 중...');
+        try {
+            const res = await fetch('/api/sales/generate-script', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyId: co.id,
+                    brandName: co.name,
+                    issues: co.issues
+                })
+            });
+            const data = await res.json();
+            if (data.success && data.script) {
+                updateCompany(co.id, {
+                    customScript: {
+                        ...co.customScript,
+                        call: data.script,
+                        lastEditedAt: new Date().toISOString()
+                    }
+                });
+                setToast('✨ AI 스크립트 생성 및 저장 완료');
+            } else {
+                setToast('❌ 스크립트 생성 실패: ' + (data.error || '알 수 없는 오류'));
+            }
+        } catch (error) {
+            console.error('AI 스크립트 생성 오류:', error);
+            setToast('❌ 스크립트 생성 중 단절 발생');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const isCustom = !!co.customScript?.call;
+
     return (
         <div className="rounded-xl p-4 flex flex-col w-full h-full" style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}>
-            <div className="flex items-center justify-end mb-2">
-                <button
-                    onClick={copyScript}
-                    className="text-[10px] px-3 py-1 rounded-lg font-bold"
-                    style={{
-                        background: copied ? '#ecfdf5' : '#f1f5f9',
-                        color: copied ? '#059669' : C.sub,
-                        border: `1px solid ${copied ? '#a7f3d0' : C.borderLight}`,
-                    }}
-                >
-                    {copied ? '✅ 복사됨' : '📋 복사'}
-                </button>
+            <div className="flex items-center justify-between mb-3 border-b pb-2" style={{ borderColor: C.borderLight }}>
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: isCustom ? '#e0e7ff' : '#f1f5f9', color: isCustom ? '#4338ca' : C.sub }}>
+                        {isCustom ? '✨ 브랜드 맞춤형 스크립트 (v2.0)' : '기본 템플릿'}
+                    </span>
+                    {co.customScript?.lastEditedAt && (
+                        <span className="text-[10px]" style={{ color: C.faint }}>
+                            업데이트: {new Date(co.customScript.lastEditedAt).toLocaleString()}
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleGenerateAiScript}
+                        disabled={isGenerating}
+                        className="flex items-center gap-1 text-[10px] px-3 py-1 rounded-lg font-bold transition-colors"
+                        style={{
+                            background: isGenerating ? '#f1f5f9' : '#eef2ff',
+                            color: isGenerating ? C.faint : '#4f46e5',
+                            border: `1px solid ${isGenerating ? C.borderLight : '#c7d2fe'}`,
+                        }}
+                    >
+                        {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        {isGenerating ? '생성 중...' : 'AI 재작성'}
+                    </button>
+                    <button
+                        onClick={copyScript}
+                        className="text-[10px] px-3 py-1 rounded-lg font-bold transition-colors"
+                        style={{
+                            background: copied ? '#ecfdf5' : '#f1f5f9',
+                            color: copied ? '#059669' : C.sub,
+                            border: `1px solid ${copied ? '#a7f3d0' : C.borderLight}`,
+                        }}
+                    >
+                        {copied ? '✅ 복사됨' : '📋 복사'}
+                    </button>
+                </div>
             </div>
 
-            <div className="text-[12px] leading-[1.9] whitespace-pre-line flex-1" style={{ color: C.body }}>
+            <div className="text-[13px] leading-[1.8] whitespace-pre-wrap flex-1 overflow-y-auto" style={{ color: C.heading }}>
                 {script}
             </div>
         </div>

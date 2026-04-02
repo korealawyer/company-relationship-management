@@ -167,7 +167,12 @@ export function useAutoLogs() {
     { fallbackData: EMPTY_AUTO_LOGS, ...SWR_OPTS }
   );
 
-  return { logs: data || EMPTY_AUTO_LOGS, isLoading, error, mutate };
+  const addLog = async (log: Omit<AutoLog, 'id' | 'at'>) => {
+    await dataLayer.auto.addLog(log);
+    mutate();
+  };
+
+  return { logs: data || EMPTY_AUTO_LOGS, isLoading, error, mutate, addLog };
 }
 
 // 기존 store 호환을 위한 공통 리프레시 헬퍼

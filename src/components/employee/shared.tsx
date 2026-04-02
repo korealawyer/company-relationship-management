@@ -7,6 +7,8 @@ import { useCompanies, useUsers } from '@/hooks/useDataLayer';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { getPromptConfig } from '@/lib/prompts/privacy';
+import dataLayer from '@/lib/dataLayer';
+import { mutate as globalMutate } from 'swr';
 
 export const T = {
     heading: '#0f172a',
@@ -90,6 +92,12 @@ export function ActionButton({
             if (!res.ok || !data.success) {
                 setErrorMsg(data.error || '알 수 없는 오류');
                 await updateCompany(c.id, { status: 'pending' });
+                await dataLayer.auto.addLog({
+                    type: 'ai_analysis',
+                    label: '분석 실패',
+                    companyName: c.name,
+                    detail: data?.error || '알 수 없는 오류'
+                });
             } else {
                 // 성공 시 상태 변환과 데이터(데모 포함) 업데이트
                 const payload: any = { 
@@ -107,13 +115,26 @@ export function ActionButton({
                     if (data.extractedDetails.privacyUrl) payload.privacyUrl = data.extractedDetails.privacyUrl;
                 }
                 await updateCompany(c.id, payload);
+                await dataLayer.auto.addLog({
+                    type: 'ai_analysis',
+                    label: '분석 완료',
+                    companyName: c.name,
+                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
+                });
             }
         } catch (err: any) {
             setErrorMsg(`분석 중 에러 발생: ${err.message}`);
             await updateCompany(c.id, { status: 'pending' });
+            await dataLayer.auto.addLog({
+                type: 'ai_analysis',
+                label: '분석 중단됨',
+                companyName: c.name,
+                detail: err.message || '네트워크 에러 발생'
+            });
         } finally {
             setAnalyzing(false);
             await mutate(); // 최종 상태 반영
+            globalMutate('auto-logs');
         }
     };
 
@@ -276,6 +297,12 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
             if (!res.ok || !data.success) {
                 setErrorMsg(data.error || '알 수 없는 오류');
                 await updateCompany(c.id, { status: 'pending' });
+                await dataLayer.auto.addLog({
+                    type: 'ai_analysis',
+                    label: '분석 실패',
+                    companyName: c.name,
+                    detail: data?.error || '알 수 없는 오류'
+                });
             } else {
                 // 성공 시 데이터베이스에 리스크/이슈 저장 (데모 모드 포함)
                 const payload: any = { 
@@ -289,13 +316,26 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                     setPrivacyText(data.rawText); // 화면 즉시 업데이트
                 }
                 await updateCompany(c.id, payload);
+                await dataLayer.auto.addLog({
+                    type: 'ai_analysis',
+                    label: '분석 완료',
+                    companyName: c.name,
+                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
+                });
             }
         } catch (e: any) {
             setErrorMsg(`분석 요청 실패: ${e.message}`);
             await updateCompany(c.id, { status: 'pending' });
+            await dataLayer.auto.addLog({
+                type: 'ai_analysis',
+                label: '분석 중단됨',
+                companyName: c.name,
+                detail: e.message || '네트워크 에러 발생'
+            });
         } finally {
             setAnalyzing(false);
             await mutate();
+            globalMutate('auto-logs');
         }
     };
 
