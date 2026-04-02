@@ -112,7 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // ── 사업자번호 로그인 (이메일 맵핑) ──────────────────────────────────────
     const loginWithBizNo = useCallback(async (bizNo: string, password: string) => {
-        const result = await loginWithEmailFull(bizNo, password);
+        const cleanBizNo = bizNo.replace(/\D/g, '');
+        const emailToLogin = bizNo.includes('@') ? bizNo : (cleanBizNo.length > 0 ? `${cleanBizNo}@client.ibsbase.com` : bizNo);
+        const result = await loginWithEmailFull(emailToLogin, password);
         if (result.success) {
             setUser(result.user);
             return {};

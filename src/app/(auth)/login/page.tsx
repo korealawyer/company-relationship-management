@@ -59,7 +59,7 @@ function LoginContent() {
     const [mode, setMode] = useState<LoginMode>('client');
     const [showStaffTab, setShowStaffTab] = useState(false);
 
-    // Claim login state
+    const [claimBizNum, setClaimBizNum] = useState('');
     const [claimPw, setClaimPw] = useState('');
     const [claimPwConfirm, setClaimPwConfirm] = useState('');
     const [showClaimPw, setShowClaimPw] = useState(false);
@@ -70,6 +70,8 @@ function LoginContent() {
     const [modalContent, setModalContent] = useState<'privacy' | 'marketing' | null>(null);
 
     const handleClaimLogin = async () => {
+        const cleanBizNum = claimBizNum.replace(/\D/g, '');
+        if (!cleanBizNum || cleanBizNum.length < 10) { setClaimError('올바른 개인 사업자 번호(10자리)를 입력해주세요.'); return; }
         if (!claimPw || claimPw !== claimPwConfirm) { setClaimError('비밀번호가 일치하지 않거나 비어있습니다.'); return; }
         if (claimPw.length < 6) { setClaimError('비밀번호는 최소 6자 이상이어야 합니다.'); return; }
         if (!agreePrivacy) { setClaimError('필수 개인정보 수집 및 이용에 동의해주세요.'); return; }
@@ -78,12 +80,12 @@ function LoginContent() {
             const res = await fetch('/api/auth/claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ claimId, password: claimPw, agreeMarketing })
+                body: JSON.stringify({ claimId, bizNum: cleanBizNum, password: claimPw, agreeMarketing })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || '접근 설정에 실패했습니다.');
             
-            const result = await authLoginBiz(data.email, claimPw);
+            const result = await authLoginBiz(cleanBizNum, claimPw);
             if (!result.error) {
                 const session = getSession();
                 if (session) {
@@ -258,12 +260,29 @@ function LoginContent() {
                             boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
                         }}>
 
-                            {/* ── Claim Flow ── */}
+                                {/* ── Claim Flow ── */}
                             {claimId && (
                                 <div className="space-y-5">
                                     <div>
-                                        <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>초기 비밀번호 설정</h2>
-                                        <p className="text-xs" style={{ color: L.muted }}>보안을 위해 본인이 사용할 비밀번호를 등록해주세요.</p>
+                                        <h2 className="text-lg font-black mb-0.5" style={{ color: L.heading }}>초기 비밀번호 및 아이디 설정</h2>
+                                        <p className="text-xs" style={{ color: L.muted }}>보안을 위해 본인이 사용할 아이디(사업자 번호)와 비밀번호를 등록해주세요.</p>
+                                    </div>
+                                    
+                                    {/* BizNum ID */}
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>개인 사업자 번호 (아이디)</label>
+                                        <div className="relative">
+                                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
+                                            <input
+                                                style={inputStyle}
+                                                type="text"
+                                                placeholder="숫자만 입력 (예: 1234567890)"
+                                                autoComplete="off"
+                                                value={claimBizNum}
+                                                onChange={(e) => { setClaimBizNum(e.target.value.replace(/\D/g, '')); setClaimError(''); }}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleClaimLogin()}
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Password */}
@@ -466,13 +485,13 @@ function LoginContent() {
                                     {/* Biz number / Email */}
                                     <div>
                                         <label className="block text-sm font-semibold mb-1.5" style={{ color: L.sub }}>
-                                            담당자 이메일
+                                            사업자 번호 또는 이메일
                                         </label>
                                         <div className="relative">
                                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: L.faint }} />
                                             <input
                                                 style={inputStyle}
-                                                placeholder="name@company.com"
+                                                placeholder="사업자 번호 10자리 또는 담당자 이메일"
                                                 value={bizNum}
                                                 onChange={(e) => { setBizNum(e.target.value); setBizError(''); }}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleClientLogin()}

@@ -4,9 +4,9 @@ import { getServiceSupabase } from '@/lib/supabase';
 
 export async function POST(req: Request) {
     try {
-        const { claimId, password, agreeMarketing } = await req.json();
+        const { claimId, password, agreeMarketing, bizNum } = await req.json();
 
-        if (!claimId || !password) {
+        if (!claimId || !password || !bizNum) {
             return NextResponse.json({ error: '필수 정보가 누락되었습니다.' }, { status: 400 });
         }
 
@@ -16,11 +16,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: '유효하지 않은 링크이거나 회사를 찾을 수 없습니다.' }, { status: 404 });
         }
 
-        // 2. 고객 이메일 확인
-        // DB 테이블의 contact_email 컬럼은 스토어에서 email 또는 contactEmail로 매핑됩니다.
-        const targetEmail = company.email || (company as any).contactEmail;
-        if (!targetEmail) {
-            return NextResponse.json({ error: '담당자 이메일이 등록되지 않았습니다. 담당자 연락처를 먼저 추가해주세요.' }, { status: 400 });
+        // 2. 고객 이메일 설정: 사업자번호 기반 가상 이메일 생성
+        const cleanBizNum = bizNum.replace(/\D/g, '');
+        if (cleanBizNum.length < 10) {
+            return NextResponse.json({ error: '유효한 사업자 번호가 아닙니다.' }, { status: 400 });
+        }
+        const targetEmail = `${cleanBizNum}@client.ibsbase.com`;
+
+        // (선택) Company 레코드의 사업자 번호가 없다면 업데이트
+        if (!(company as any).registration_number) {
+            await getServiceSupabase()?.from('companies')
+                .update({ registration_number: cleanBizNum })
+                .eq('id', company.id);
         }
 
         // 3. Supabase Admin API 호출 (Service Role 필요)
