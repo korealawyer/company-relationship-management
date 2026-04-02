@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, RefreshCw, BrainCircuit, Sparkles, Zap, Clock, Trash2 } from 'lucide-react';
+import { Send, RefreshCw, BrainCircuit, Sparkles, Zap, Clock, Trash2, Download } from 'lucide-react';
 import { Company, CompanyMemo } from '@/lib/types';
 import { AIMemoService, type AIMemoResult } from '@/lib/salesAutomation';
 import { useAuth } from '@/lib/AuthContext';
@@ -38,6 +38,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
     const [aiResult, setAiResult] = useState<AIMemoResult | null>(null);
     const [aiLoading, setAiLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [resummarizingId, setResummarizingId] = useState<string | null>(null);
 
     // 메모 목록 로드
     const loadMemos = useCallback(async () => {
@@ -131,6 +132,53 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
             }
         } catch {
             setToast('⚠️ 삭제 실패');
+        }
+    };
+
+    const handleDownloadTxt = (memo: CompanyMemo) => {
+        const scriptMatch = memo.content.split('[전문]');
+        if (scriptMatch.length > 1) {
+            const script = scriptMatch[1].replace(/^\n+/, ''); // 맨 앞 줄바꿈 제거
+            const blob = new Blob([script], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `녹음내용_${formatDateTime(memo.createdAt).replace(/[^0-9]/g, '')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    };
+
+    const handleReSummarize = async (memo: CompanyMemo) => {
+        if (resummarizingId === memo.id) return;
+        const parts = memo.content.split('[전문]');
+        if (parts.length < 2) return;
+        
+        setResummarizingId(memo.id);
+        const script = parts[1].trim();
+        setToast('AI 요약을 다시 생성 중입니다...');
+        
+        try {
+            const res = await fetch('/api/ai/resummarize-stt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ memoId: memo.id, transcript: script, memoContent: memo.content })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                setToast('요약이 성공적으로 업데이트되었습니다.');
+                await loadMemos();
+                onRefresh();
+            } else {
+                setToast(`요약 업데이트 실패: ${data.error}`);
+            }
+        } catch (e) {
+            setToast('요약 생성 중 서버 오류가 발생했습니다.');
+        } finally {
+            setResummarizingId(null);
         }
     };
 
@@ -234,15 +282,36 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                                             {formatDateTime(memo.createdAt)}
                                         </span>
                                     </div>
-                                    {user?.role !== 'sales' && (
-                                        <button
-                                            onClick={() => deleteMemo(memo.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
-                                            title="메모 삭제"
-                                        >
-                                            <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
-                                        </button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                        {memo.content.includes('[전문]') && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleDownloadTxt(memo)}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-100 transition-all flex items-center text-[9px] text-slate-500 font-medium"
+                                                    title="TXT 다운로드"
+                                                >
+                                                    <Download className="w-3 h-3 mr-0.5" /> TXT
+                                                </button>
+                                                <button
+                                                    onClick={() => handleReSummarize(memo)}
+                                                    disabled={resummarizingId === memo.id}
+                                                    className={`opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-100 transition-all flex items-center text-[9px] text-slate-500 font-medium ${resummarizingId === memo.id ? 'opacity-100 cursor-not-allowed text-purple-500' : ''}`}
+                                                    title="다시 요약하기"
+                                                >
+                                                    <RefreshCw className={`w-3 h-3 mr-0.5 ${resummarizingId === memo.id ? 'animate-spin text-purple-500' : ''}`} /> 요약 재분석
+                                                </button>
+                                            </>
+                                        )}
+                                        {user?.role !== 'sales' && (
+                                            <button
+                                                onClick={() => deleteMemo(memo.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
+                                                title="메모 삭제"
+                                            >
+                                                <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 <p className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: C.body }}>
                                     {memo.content}
