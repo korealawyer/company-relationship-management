@@ -1,29 +1,29 @@
 import { Company } from '@/lib/types';
 
 export const PLAN_DETAILS: Record<string, { name: string; price: string; features: string[] }> = {
-    starter: {
-        name: 'Entry',
-        price: '월 33만원',
-        features: ['본사 법률자문 (무제한)', '변호사 검토 의견서', '법률 문서 2,000종 제공'],
-    },
-    standard: {
-        name: 'Growth',
-        price: '월 55만원',
-        features: ['Entry 전체 포함', '분기별 정기 검토', '가맹점 법률상담 BACKCALL', '법률 문서 2,000종 제공'],
-    },
-    premium: {
-        name: 'Scale',
-        price: '월 110만원',
-        features: ['Growth 전체 포함', '전담 파트너 변호사 배정', '임직원 법률상담 포함', '분기 리스크 브리핑', 'EAP 심리상담'],
-    },
+  starter: {
+    name: 'Entry',
+    price: '월 33만원',
+    features: ['본사 법률자문 (무제한)', '변호사 검토 의견서', '법률 문서 2,000종 제공'],
+  },
+  standard: {
+    name: 'Growth',
+    price: '월 55만원',
+    features: ['Entry 전체 포함', '분기별 정기 검토', '가맹점 법률상담 BACKCALL', '법률 문서 2,000종 제공'],
+  },
+  premium: {
+    name: 'Scale',
+    price: '월 110만원',
+    features: ['Growth 전체 포함', '전담 파트너 변호사 배정', '임직원 법률상담 포함', '분기 리스크 브리핑', 'EAP 심리상담'],
+  },
 };
 
 export function renderContractEmailTemplateHtml(company: Company, plan: 'starter' | 'standard' | 'premium' = 'standard') {
-    const planInfo = PLAN_DETAILS[plan] || PLAN_DETAILS.standard;
-    const highIssues = company.issues?.filter(i => i.level === 'HIGH').length || 0;
-    const totalIssues = company.issues?.length || company.issueCount || 0;
+  const planInfo = PLAN_DETAILS[plan] || PLAN_DETAILS.standard;
+  const highIssues = company.issues?.filter(i => i.level === 'HIGH').length || 0;
+  const totalIssues = company.issues?.length || company.issueCount || 0;
 
-    return `
+  return `
     <div style="max-width: 640px; margin: 0 auto; font-family: 'Pretendard', -apple-system, sans-serif;">
         <!-- 헤더 -->
         <div style="background: linear-gradient(135deg, #04091a 0%, #0d1b3e 100%); padding: 32px 40px; border-radius: 16px 16px 0 0;">
@@ -134,12 +134,12 @@ export function renderContractEmailTemplateHtml(company: Company, plan: 'starter
 }
 
 export function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, baseUrl: string = ''): string {
-    const lawyerName = vars.lawyerName || '';
-    const trackOpen = `${baseUrl}/api/track?lid=${vars.leadId}&type=open`;
-    const reportUrl = `${baseUrl}/?claim=${vars.leadId}`;
-    const trackClick = `${baseUrl}/api/track?lid=${vars.leadId}&type=click&url=${encodeURIComponent(reportUrl)}`;
-    const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${vars.unsubscribeToken}`;
-    return `<!DOCTYPE html>
+  const lawyerName = vars.lawyerName || '';
+  const trackOpen = `${baseUrl}/api/track?lid=${vars.leadId}&type=open`;
+  const reportUrl = `${baseUrl}/?claim=${vars.leadId}`;
+  const trackClick = `${baseUrl}/api/track?lid=${vars.leadId}&type=click&url=${encodeURIComponent(reportUrl)}`;
+  const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${vars.unsubscribeToken}`;
+  return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Apple SD Gothic Neo',Pretendard,sans-serif">
 <div style="max-width:640px;margin:0 auto;padding:0">
@@ -220,10 +220,9 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     <p style="text-align:center;color:#94a3b8;font-size:13px;margin:16px 0 0">클릭 시 귀사 개인정보처리방침 검토 보고서를 확인하실 수 있습니다</p>
 
     <!-- 서명 -->
-    <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0">
-      <div style="text-align:left;margin-bottom:24px;">
-        <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">감사합니다.</p>
-        <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">귀사의 안전한 개인정보 관리를 위해 최선을 다하겠습니다.</p>
+    <div style="margin-top:56px;padding-top:40px;padding-bottom:32px;border-top:1px solid #e2e8f0">
+      <div style="text-align:center;margin-bottom:32px;">
+        <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">귀사의 안전한 개인정보 관리를 위해 최선을 다하겠습니다.</p><p style="color:#374151;font-size:14px;line-height:1.6;margin:0">감사합니다. </p>
       </div>
       <div style="display:flex;align-items:flex-start;justify-content:flex-start;gap:16px">
         ${lawyerName ? `
