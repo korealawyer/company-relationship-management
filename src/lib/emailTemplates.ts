@@ -221,20 +221,20 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
 
     <!-- 서명 -->
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e2e8f0">
-      <div style="text-align:center;margin-bottom:24px;">
+      <div style="text-align:left;margin-bottom:24px;">
         <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">감사합니다.</p>
         <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">귀사의 안전한 개인정보 관리를 위해 최선을 다하겠습니다.</p>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+      <div style="display:flex;align-items:flex-start;justify-content:flex-start;gap:16px">
         ${lawyerName ? `
-        <div style="text-align:center;">
+        <div style="text-align:left;">
           <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 6px">${lawyerName} 변호사</p>
           <p style="color:#64748b;font-size:13px;margin:0 0 2px">IBS 법률사무소 · 개인정보보호 전문</p>
           <p style="color:#64748b;font-size:13px;margin:0 0 2px">대한변호사협회 등록 · 개인정보관리사(CPPG)</p>
           <p style="color:#64748b;font-size:13px;margin:0">직통 02-598-8518 | info@ibslaw.co.kr</p>
         </div>
         ` : `
-        <div style="text-align:center;">
+        <div style="text-align:left;">
           <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 6px">IBS 법률사무소 개인정보보호 팀</p>
           <p style="color:#64748b;font-size:13px;margin:0">02-598-8518 | info@ibslaw.co.kr</p>
         </div>
