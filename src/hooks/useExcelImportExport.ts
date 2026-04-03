@@ -8,9 +8,11 @@ export function useExcelImportExport(
     companies: Company[],
     refresh: () => void,
     showToast: (msg: string) => void,
-    importBulk: (data: Partial<Company>[]) => Promise<{ success: number; skipped: number }>
+    importBulk: (data: Partial<Company>[]) => Promise<{ success: number; skipped: number }>,
+    updateCompany: (id: string, payload: Partial<Company>) => Promise<void>
 ) {
     const { users } = useUsers();
+    const [importMode, setImportMode] = useState<'create_leads' | 'update_privacy'>('create_leads');
     const [showExcelUpload, setShowExcelUpload] = useState(false);
     const [excelData, setExcelData] = useState<Record<string, string>[]>([]);
     const [excelPreview, setExcelPreview] = useState<Record<string, string>[]>([]);
@@ -122,6 +124,55 @@ export function useExcelImportExport(
 
     const handleExcelImport = async () => {
         setExcelUploading(true);
+
+        if (importMode === 'update_privacy') {
+            let success = 0;
+            let skipped = 0;
+            
+            for (const row of excelData) {
+                const values = Object.values(row);
+                // 요구사항 반영: a열, b열, c열 (기업명 개인정보처리방침url 개인정보처리방침전문) 지원
+                const nameStr = String(row['기업명'] || row['회사명'] || values[0] || '').trim();
+                const privacyUrl = String(row['개인정보처리방침url'] || row['개인정보처리방침 URL'] || values[1] || '').trim();
+                const privacyText = String(row['개인정보처리방침전문'] || row['개인정보처리방침 전문'] || values[2] || '').trim();
+                
+                if (!nameStr) continue;
+
+                // 기업명으로 매칭
+                const matchedCompany = companies.find(c => c.name === nameStr);
+                if (matchedCompany) {
+                    const updates: Partial<Company> = {};
+                    if (privacyUrl) updates.privacyUrl = privacyUrl;
+                    if (privacyText) updates.privacyPolicyText = privacyText;
+                    
+                    if (Object.keys(updates).length > 0) {
+                        try {
+                            await updateCompany(matchedCompany.id, updates);
+                            success++;
+                        } catch (err) {
+                            console.error('Update error:', err);
+                            skipped++;
+                        }
+                    } else {
+                        skipped++;
+                    }
+                } else {
+                    skipped++;
+                }
+            }
+            
+            showToast(success > 0 
+                ? `✅ 기업명 매칭 성공: ${success}건의 개인정보 데이터가 삽입되었습니다. (스킵/실패: ${skipped}건)` 
+                : `❌ 매칭된 기업이 없거나 업데이트할 데이터가 없습니다. (스킵 ${skipped}건)`
+            );
+            setExcelUploading(false);
+            setShowExcelUpload(false);
+            setExcelData([]);
+            setExcelPreview([]);
+            refresh();
+            return;
+        }
+
         const mappedList: Partial<Company>[] = [];
 
         for (const row of excelData) {
@@ -226,7 +277,7 @@ export function useExcelImportExport(
     return {
         showExcelUpload, setShowExcelUpload,
         excelData, setExcelData, excelPreview, setExcelPreview,
-        excelUploading, fileInputRef,
+        excelUploading, fileInputRef, importMode, setImportMode,
         handleExcelDownload, handleTemplateDownload, handleExcelFile, handleExcelImport
     };
 }

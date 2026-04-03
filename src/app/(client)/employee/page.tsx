@@ -23,7 +23,7 @@ import TableView from '@/components/employee/TableView';
 export default function EmployeePage() {
     const { loading: authLoading, authorized } = useRequireAuth(['super_admin', 'admin', 'sales']);
     const crm = useEmployeeCRM();
-    const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast, crm.importBulk);
+    const excel = useExcelImportExport(crm.companies, crm.refresh, crm.showToast, crm.importBulk, crm.updateCompany);
 
     const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
 
@@ -189,10 +189,15 @@ export default function EmployeePage() {
                                 style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                 <Download className="w-3.5 h-3.5" /> 내보내기
                             </button>
-                            <button onClick={() => excel.fileInputRef.current?.click()}
+                            <button onClick={() => { excel.setImportMode('create_leads'); excel.fileInputRef.current?.click(); }}
                                 className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
                                 style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
                                 <Upload className="w-3.5 h-3.5" /> 대량 업로드
+                            </button>
+                            <button onClick={() => { excel.setImportMode('update_privacy'); excel.fileInputRef.current?.click(); }}
+                                className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all"
+                                style={{ background: '#fdf4ff', color: '#c026d3', border: '1px solid #e8bceb', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                                <Upload className="w-3.5 h-3.5" /> 방침 업로드
                             </button>
                             <button onClick={handleBatchAnalyze} disabled={isBatchAnalyzing}
                                 className="hidden sm:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold transition-all disabled:opacity-50"
@@ -273,7 +278,7 @@ export default function EmployeePage() {
 
             {/* Modals & Overlays */}
             <AnimatePresence>
-                {excel.showExcelUpload && <ExcelUploadModal excelData={excel.excelData} excelPreview={excel.excelPreview} excelUploading={excel.excelUploading} onClose={() => { excel.setShowExcelUpload(false); excel.setExcelPreview([]); excel.setExcelData([]); }} onImport={excel.handleExcelImport} />}
+                {excel.showExcelUpload && <ExcelUploadModal excelData={excel.excelData} excelPreview={excel.excelPreview} excelUploading={excel.excelUploading} importMode={excel.importMode} onClose={() => { excel.setShowExcelUpload(false); excel.setExcelPreview([]); excel.setExcelData([]); }} onImport={excel.handleExcelImport} />}
                 {showAdd && <AddCompanyModal onClose={() => setShowAdd(false)} refresh={crm.refresh} />}
 
                 {contractModal && (

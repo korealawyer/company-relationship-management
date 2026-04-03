@@ -8,11 +8,12 @@ interface ExcelUploadModalProps {
     excelData: Record<string, string>[];
     excelPreview: Record<string, string>[];
     excelUploading: boolean;
+    importMode?: 'create_leads' | 'update_privacy';
     onClose: () => void;
     onImport: () => void;
 }
 
-export default function ExcelUploadModal({ excelData, excelPreview, excelUploading, onClose, onImport }: ExcelUploadModalProps) {
+export default function ExcelUploadModal({ excelData, excelPreview, excelUploading, importMode = 'create_leads', onClose, onImport }: ExcelUploadModalProps) {
     return (
         <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}
@@ -23,8 +24,8 @@ export default function ExcelUploadModal({ excelData, excelPreview, excelUploadi
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${T.border}` }}>
                     <div>
                         <h2 className="text-base font-black flex items-center gap-2" style={{ color: T.heading }}>
-                            <Upload className="w-4 h-4" style={{ color: '#2563eb' }} />
-                            Excel 업로드 미리보기
+                            <Upload className="w-4 h-4" style={{ color: importMode === 'update_privacy' ? '#c026d3' : '#2563eb' }} />
+                            {importMode === 'update_privacy' ? '방침 일괄 업데이트 미리보기' : 'Excel 업로드 미리보기'}
                         </h2>
                         <p className="text-xs mt-0.5" style={{ color: T.muted }}>{excelData.length}건의 데이터가 파싱되었습니다</p>
                     </div>
@@ -62,10 +63,21 @@ export default function ExcelUploadModal({ excelData, excelPreview, excelUploadi
                 </div>
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: `1px solid ${T.border}`, background: '#f8f9fc' }}>
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#dbeafe', color: '#2563eb' }}>
-                            필수 열: 기업명 (또는 회사명)
-                        </span>
-                        <span className="text-[10px]" style={{ color: T.faint }}>선택: 사업자번호, 이메일, 전화번호, 가맹점수 등</span>
+                        {importMode === 'update_privacy' ? (
+                            <>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#fdf4ff', color: '#c026d3' }}>
+                                    매칭 열: 기업명 (A열)
+                                </span>
+                                <span className="text-[10px]" style={{ color: T.faint }}>업데이트 열: 개인정보처리방침 url (B열), 전문 (C열)</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#dbeafe', color: '#2563eb' }}>
+                                    필수 열: 기업명 (또는 회사명)
+                                </span>
+                                <span className="text-[10px]" style={{ color: T.faint }}>선택: 사업자번호, 이메일, 전화번호, 가맹점수 등</span>
+                            </>
+                        )}
                     </div>
                     <div className="flex gap-2">
                         <Button variant="ghost" onClick={onClose}>취소</Button>
