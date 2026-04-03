@@ -247,6 +247,11 @@ export function ActionButton({
 export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void }) {
     const { updateCompany, mutate } = useCompanies();
     const { user } = useAuth();
+    const [name, setName] = useState(c.name || '');
+    const [url, setUrl] = useState(c.url || c.domain || '');
+    const [biz, setBiz] = useState(c.biz || '');
+    const [contactName, setContactName] = useState(c.contactName || '');
+    const [contactPhone, setContactPhone] = useState(c.contactPhone || c.phone || '');
     const [privacyUrl, setPrivacyUrl] = useState(c.privacyUrl || '');
     const [privacyText, setPrivacyText] = useState(c.privacyPolicyText || '');
     const [callNote, setCallNote] = useState(c.callNote || '');
@@ -260,6 +265,11 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
         setSaving(true);
         try {
             await updateCompany(c.id, {
+                name,
+                url,
+                biz,
+                contactName,
+                contactPhone,
                 privacyUrl,
                 privacyPolicyText: privacyText,
                 callNote,
@@ -361,6 +371,42 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                 <div className="px-6 py-4" style={{ background: '#f8fafc', borderTop: `1px solid ${T.border}` }}>
                     <div className="grid grid-cols-2 gap-6">
                         
+                        {/* 기업 기본 정보 영역 */}
+                        <div className="col-span-2 space-y-4 pb-4 border-b border-slate-200">
+                            <h4 className="text-sm font-bold flex items-center gap-1.5 text-slate-800">
+                                🏢 기업 상세 정보
+                            </h4>
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>기업명</label>
+                                    <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-xs font-bold" style={{ color: T.sub }}>홈페이지</label>
+                                        {url && (
+                                            <a href={url.startsWith('http') ? url : `https://${url}`} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded transition-colors font-medium flex items-center" onClick={(e) => e.stopPropagation()}>
+                                                접속하기 ↗
+                                            </a>
+                                        )}
+                                    </div>
+                                    <input value={url} onChange={e => setUrl(e.target.value)} style={inputStyle} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>사업자번호</label>
+                                    <input value={biz} onChange={e => setBiz(e.target.value)} style={inputStyle} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>담당자명</label>
+                                    <input value={contactName} onChange={e => setContactName(e.target.value)} style={inputStyle} />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold mb-1.5 block" style={{ color: T.sub }}>연락처</label>
+                                    <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} style={inputStyle} />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* 좌측 렌더링 영역: 기존 통화 기록 등 */}
                         <div className="col-span-2 md:col-span-1 space-y-4">
                             <div>

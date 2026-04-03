@@ -44,8 +44,15 @@ export default function TableView({ filtered, refresh }: TableViewProps) {
                         {filtered.map((c: Company) => (
                             <React.Fragment key={c.id}>
                                 <tr
-                                    className="transition-colors"
+                                    className="transition-colors cursor-pointer"
                                     style={{ borderBottom: `1px solid ${T.borderSub}` }}
+                                    onClick={(e) => {
+                                        const target = e.target as HTMLElement;
+                                        if (target.closest('button') || target.closest('a') || target.closest('select')) {
+                                            return;
+                                        }
+                                        setExpandedId(expandedId === c.id ? null : c.id);
+                                    }}
                                     onMouseEnter={e => (e.currentTarget.style.background = T.rowHover)}
                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
 
