@@ -138,8 +138,8 @@ export function ActionButton({
         }
     };
 
-    if (s === 'pending') {
-        if (errorMsg) {
+    if (s === 'pending' || s === 'crawling') {
+        if (s === 'pending' && errorMsg) {
             return (
                 <div className="flex flex-col items-center gap-1.5">
                     <span className="text-[11px] font-bold flex items-center" style={{ color: '#dc2626' }}>
@@ -155,31 +155,41 @@ export function ActionButton({
                 </div>
             );
         }
+        
+        const isAnalyzing = analyzing || s === 'crawling';
+        
         return (
-            <Button variant="premium" size="sm" onClick={triggerAnalysis} disabled={analyzing}>
-                <Zap className="w-3.5 h-3.5 mr-1" />
-                {analyzing ? '분석 요청 중...' : '법률 분석'}
-            </Button>
+            <div className="flex flex-col items-center gap-1">
+                <Button 
+                    variant="premium" 
+                    size="sm" 
+                    onClick={triggerAnalysis} 
+                    disabled={isAnalyzing}
+                >
+                    {isAnalyzing ? (
+                        <><RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> 분석 중...</>
+                    ) : (
+                        <><Zap className="w-3.5 h-3.5 mr-1" /> 법률 분석</>
+                    )}
+                </Button>
+                
+                {/* crawling 상태가 너무 오래 지속될 경우 강제 초기화할 수 있는 작은 버튼 */}
+                {s === 'crawling' && (
+                    <button
+                        onClick={async () => {
+                            await updateCompany(c.id, { status: 'pending' });
+                            await mutate();
+                        }}
+                        className="text-[9px] px-1.5 py-0.5 rounded font-medium mt-1 hover:underline"
+                        style={{ color: T.faint }}
+                        title="분석이 멈춘 경우 상태를 초기화합니다"
+                    >
+                        상태 강제 초기화
+                    </button>
+                )}
+            </div>
         );
     }
-    if (s === 'crawling') return (
-        <div className="flex items-center gap-2">
-            <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: '#d97706' }}>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> 분석 중...
-            </span>
-            <button
-                onClick={async () => {
-                    await updateCompany(c.id, { status: 'pending' });
-                    await mutate();
-                }}
-                className="text-[10px] px-2 py-0.5 rounded font-bold"
-                style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca' }}
-                title="분석이 멈춘 경우 상태를 초기화합니다"
-            >
-                <RotateCcw className="w-3 h-3 inline mr-0.5" />초기화
-            </button>
-        </div>
-    );
     if (s === 'analyzed') return (
         <Button 
             variant="outline" 
