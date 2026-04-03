@@ -33,8 +33,12 @@ export default function PrivacyAnalysisClientPage() {
     }
 
     const { issues, riskLevel, lawyerConfirmed } = company;
-    const hasAnalysis = issues && issues.length > 0 && lawyerConfirmed;
-    const effectiveRiskLevel = riskLevel || (hasAnalysis ? 'MEDIUM' : 'LOW');
+    // 변호사 컨펌이 완료되었으면 결과가 존재하는 것으로 간주 (이슈가 0개라도 완료된 분석임)
+    const hasAnalysis = !!lawyerConfirmed;
+    const hasIssues = issues && issues.length > 0;
+    
+    // 이슈가 없으면 무조건 'LOW' (양호) 등급 배정
+    const effectiveRiskLevel = hasIssues ? (riskLevel || 'MEDIUM') : 'LOW';
 
     return (
         <div className="min-h-screen pt-20 pb-20 px-4" style={{ background: '#f8f7f4' }}>
@@ -86,6 +90,17 @@ export default function PrivacyAnalysisClientPage() {
                         <FileText className="w-12 h-12 mx-auto mb-4" style={{ color: '#d1d5db' }} />
                         <h3 className="text-xl font-bold mb-2 text-gray-900">아직 분석 결과가 없습니다.</h3>
                         <p className="text-sm text-gray-500 mb-6">담당 변호사가 현재 확인 또는 분석을 진행 중일 수 있습니다.</p>
+                    </motion.div>
+                ) : !hasIssues ? (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20 px-4 rounded-3xl"
+                        style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #bbf7d0' }}>
+                        <div className="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
+                            <CheckCircle2 className="w-10 h-10 text-green-600" />
+                        </div>
+                        <h3 className="text-2xl font-black mb-3 text-green-900">법적 리스크가 발견되지 않았습니다</h3>
+                        <p className="text-base text-green-700 max-w-lg mx-auto font-medium">
+                            {company.name}의 개인정보 처리방침은 현재 관련 법령을 충실히 준수하고 있으며, 즉각적인 수정이나 보완이 필요한 치명적인 위반 사항이 발견되지 않았습니다.
+                        </p>
                     </motion.div>
                 ) : (
                     <>

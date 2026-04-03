@@ -34,13 +34,7 @@ function SubscribeCTA() {
     );
 }
 
-/* ── 목업 팀원 ─────────────────────────────────────────── */
-const TEAM_MEMBERS = [
-    { name: '박HR담당', email: 'hr@client.com', role: '관리자', joinDate: '2025.09.15', active: true },
-    { name: '김영업부장', email: 'sales@nolbu.co.kr', role: '멤버', joinDate: '2025.10.01', active: true },
-    { name: '이법무팀장', email: 'legal@nolbu.co.kr', role: '멤버', joinDate: '2025.11.20', active: true },
-    { name: '최인사과장', email: 'hr2@nolbu.co.kr', role: '멤버', joinDate: '2026.01.05', active: false },
-];
+import { useCompanies } from '@/hooks/useDataLayer';
 
 /* ── 메인 페이지 ───────────────────────────────────────── */
 export default function ProfilePage() {
@@ -48,11 +42,14 @@ export default function ProfilePage() {
     const [editing, setEditing] = useState(false);
     const [isSubscribed] = useState(true);
 
+    const { companies } = useCompanies();
+    const [company, setCompany] = useState<any>(null);
+
     // 프로필 편집 필드
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('010-1234-5678');
-    const [department, setDepartment] = useState('HR팀');
+    const [department, setDepartment] = useState('대표이사/담당자');
 
     useEffect(() => {
         const s = getSession();
@@ -60,9 +57,30 @@ export default function ProfilePage() {
         if (s) { setName(s.name); setEmail(s.email); }
     }, []);
 
+    useEffect(() => {
+        if (session?.companyId && companies?.length) {
+            const match = companies.find((c: any) => c.id === session.companyId);
+            if (match) setCompany(match);
+        }
+    }, [session, companies]);
+
     if (!isSubscribed) return <SubscribeCTA />;
 
-    const company = session?.companyName || '(주)놀부NBG';
+    const companyName = company?.name || session?.companyName || '회사 정보 없음';
+    const bizNo = company?.biz || '-';
+    // Use first primary contact as representative if none specifically stored, or fallback
+    const representative = company?.contacts?.find((c: any) => c.isPrimary)?.name || company?.contactName || '미지정';
+    const industry = company?.franchiseType === '프랜차이즈' ? '프랜차이즈 (가맹본부)' : (company?.bizType || '일반 기업');
+    const employeeCount = '-'; // Not in schema, leave placeholder or omit
+    const storeCount = company?.storeCount ? `${company.storeCount}개` : '-';
+
+    const TEAM_MEMBERS = (company?.contacts || []).map((c: any) => ({
+        name: c.name,
+        email: c.email || '-',
+        role: c.isPrimary ? '관리자' : (c.role || '멤버'),
+        joinDate: '-', // No join date in schema
+        active: true
+    }));
 
     return (
         <div className="min-h-screen pt-20 pb-16" style={{ background: '#f8f7f4' }}>
@@ -97,7 +115,7 @@ export default function ProfilePage() {
                             {[
                                 { icon: <Mail className="w-4 h-4" />, value: session?.email || '' },
                                 { icon: <Phone className="w-4 h-4" />, value: phone },
-                                { icon: <Building2 className="w-4 h-4" />, value: company },
+                                { icon: <Building2 className="w-4 h-4" />, value: companyName },
                                 { icon: <Calendar className="w-4 h-4" />, value: '가입일: 2025.09.15' },
                             ].map((item, i) => (
                                 <div key={i} className="flex items-center gap-2.5 text-xs" style={{ color: '#374151' }}>
@@ -121,12 +139,12 @@ export default function ProfilePage() {
                             <h3 className="font-black mb-4" style={{ color: '#111827' }}>회사 정보</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 {[
-                                    { label: '회사명', value: company },
-                                    { label: '사업자 번호', value: '123-45-67890' },
-                                    { label: '대표자', value: '김정래' },
-                                    { label: '업종', value: '프랜차이즈 (외식)' },
-                                    { label: '임직원 수', value: '약 3,800명' },
-                                    { label: '가맹점 수', value: '약 1,200개' },
+                                    { label: '회사명', value: companyName },
+                                    { label: '사업자 번호', value: bizNo },
+                                    { label: '대표자', value: representative },
+                                    { label: '업종', value: industry },
+                                    { label: '임직원 수', value: employeeCount },
+                                    { label: '가맹점 수', value: storeCount },
                                 ].map(field => (
                                     <div key={field.label}>
                                         <label className="text-[10px] font-bold tracking-wider uppercase" style={{ color: '#9ca3af' }}>{field.label}</label>
@@ -147,17 +165,17 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-2">
-                                {TEAM_MEMBERS.map((m, i) => (
+                                {TEAM_MEMBERS.length > 0 ? TEAM_MEMBERS.map((m: any, i: number) => (
                                     <div key={i} className="flex items-center justify-between p-3 rounded-xl"
                                         style={{ background: '#f8f7f4', border: '1px solid #f0ede6' }}>
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
                                                 style={{ background: '#f0ede6', color: m.active ? '#111827' : '#9ca3af' }}>
-                                                {m.name[0]}
+                                                {(m.name || '알')[0]}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-bold" style={{ color: m.active ? '#111827' : '#9ca3af' }}>{m.name}</span>
+                                                    <span className="text-sm font-bold" style={{ color: m.active ? '#111827' : '#9ca3af' }}>{m.name || '알 수 없음'}</span>
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
                                                         style={{
                                                             background: m.role === '관리자' ? '#fff3cd' : '#f3f4f6',
@@ -173,7 +191,11 @@ export default function ProfilePage() {
                                         </div>
                                         <span className="text-[10px]" style={{ color: '#9ca3af' }}>{m.joinDate}</span>
                                     </div>
-                                ))}
+                                )) : (
+                                    <div className="p-4 text-center text-sm" style={{ color: '#6b7280', border: '1px solid #f0ede6', borderRadius: '0.75rem' }}>
+                                        등록된 팀원이 없습니다.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

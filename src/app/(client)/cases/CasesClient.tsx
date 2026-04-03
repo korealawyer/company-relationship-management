@@ -8,75 +8,7 @@ import {
 
 import { LawCase, CaseStatus } from '@/types/cases';
 
-const getCases = (companyName: string): LawCase[] => [
-    {
-        id: 'c1',
-        caseNumber: '2024가합12345',
-        title: '손해배상(기)',
-        type: '민사 본안',
-        status: 'active',
-        court: '서울중앙지방법원',
-        judge: '김영수 판사',
-        lawyer: '김수현',
-        plaintiff: companyName,
-        defendant: '(주)가맹계약사',
-        filedDate: '2024-01-15',
-        nextDate: '2024-04-10',
-        nextEvent: '변론기일',
-        amount: '1,500,000,000',
-        description: '계약 불이행에 따른 손해배상 청구소송, 원고 측 입증 진행 중',
-        progress: 40,
-        updates: [
-            { date: '2024-03-01', content: '원고 제1준비서면 제출' },
-            { date: '2024-02-15', content: '피고 답변서 제출' },
-            { date: '2024-01-15', content: '소장 접수' }
-        ]
-    },
-    {
-        id: 'c2',
-        caseNumber: '2023나98765',
-        title: '물품대금',
-        type: '민사 항소',
-        status: 'pending',
-        court: '서울고등법원',
-        judge: '박지은 판사',
-        lawyer: '박준호',
-        plaintiff: 'A하청업체',
-        defendant: companyName,
-        filedDate: '2023-11-20',
-        nextDate: null,
-        nextEvent: '기일 지정 대기',
-        amount: '350,000,000',
-        description: '1심 일부 패소에 따른 항소심 (기일 지정 대기 중)',
-        progress: 15,
-        updates: [
-            { date: '2023-12-05', content: '항소이유서 발송' },
-            { date: '2023-11-20', content: '항소장 접수' }
-        ]
-    },
-    {
-        id: 'c3',
-        caseNumber: '2023가단54321',
-        title: '임대차보증금 반환',
-        type: '민사 소액',
-        status: 'won',
-        court: '수원지방법원',
-        judge: '최동현 판사',
-        lawyer: '김수현',
-        plaintiff: companyName,
-        defendant: '건물주 이모씨',
-        filedDate: '2023-05-10',
-        nextDate: null,
-        nextEvent: null,
-        amount: '80,000,000',
-        description: '원고 전부 승소 선고, 강제집행 준비 여부 검토예정',
-        progress: 100,
-        updates: [
-            { date: '2023-12-10', content: '판결문 송달 확정' },
-            { date: '2023-12-01', content: '원고 승소 판결 선고' }
-        ]
-    }
-];
+import { useLitigations } from '@/hooks/useDataLayer';
 
 import CourtSearchPanel from '@/components/cases/CourtSearchPanel';
 import KpiCard from '@/components/cases/KpiCard';
@@ -89,12 +21,36 @@ export function CasesClient({ initialUser }: { initialUser: any }) {
     const [searchQuery, setSearchQuery] = useState('');
 
     const companyName = initialUser?.companyName || '(주)기업명';
-    const CASES = getCases(companyName);
+    const companyId = initialUser?.companyId;
 
-    const [courtSearchOpen, setCourtSearchOpen] = useState(true);
+    const { litigations, isLoading } = useLitigations();
+    const [courtSearchOpen, setCourtSearchOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 8;
+
+    const CASES: LawCase[] = React.useMemo(() => {
+        if (!litigations || !companyId) return [];
+        return litigations.filter((l: any) => l.companyId === companyId).map((l: any) => ({
+            id: l.id,
+            caseNumber: l.caseNo || '-',
+            title: l.type || '사건명 없음',
+            type: l.type || '구분 없음',
+            status: (l.status === 'closed' || l.status === 'judgment') ? (l.result === '승소' ? 'won' : 'settled') : (l.status === 'preparing' ? 'pending' : 'active'),
+            court: l.court || '법원 미정',
+            judge: '담당판사',
+            lawyer: l.assignedLawyer || '담당변호사 지정대기',
+            plaintiff: l.companyName,
+            defendant: l.opponent,
+            filedDate: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '-',
+            nextDate: l.deadlines?.[0]?.dueDate || null,
+            nextEvent: l.deadlines?.[0]?.label || null,
+            amount: l.claimAmount ? l.claimAmount.toLocaleString() : '-',
+            description: l.notes || '진행상황 요약 없음',
+            progress: l.status === 'closed' ? 100 : (l.status === 'preparing' ? 10 : 50),
+            updates: l.deadlines?.map((d: any) => ({ date: d.dueDate, content: d.label })) || []
+        }));
+    }, [litigations, companyId]);
 
     const filtered = CASES.filter(c => {
         if (filterStatus !== 'all' && c.status !== filterStatus) return false;
@@ -109,7 +65,8 @@ export function CasesClient({ initialUser }: { initialUser: any }) {
 
     const activeCount = CASES.filter(c => c.status === 'active').length;
     const wonCount = CASES.filter(c => c.status === 'won').length;
-    const totalAmount = '58억 4,100만원';
+    const totalAmountValue = CASES.reduce((sum, c) => sum + (parseInt(c.amount.replace(/,/g, '')) || 0), 0);
+    const totalAmount = totalAmountValue > 0 ? totalAmountValue.toLocaleString() + '원' : '0원';
 
     return (
         <div className="min-h-screen pt-20 pb-12" style={{ background: '#f8f7f4' }}>
