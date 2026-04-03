@@ -5,8 +5,7 @@ import { PushService } from '@/lib/leadScoring';
 // ── POST /api/push/send ─────────────────────────────────
 // 트래킹 API에서 호출 → 모든 구독자에게 푸시 발송
 export async function POST(req: NextRequest) {
-  const __auth = await requireSessionFromCookie(req as any);
-  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+
 
     try {
         const { leadId, title, body, url } = await req.json();
