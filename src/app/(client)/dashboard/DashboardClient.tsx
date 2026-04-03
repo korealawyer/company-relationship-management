@@ -520,10 +520,10 @@ function RecentDocumentsWidget({ companyId }: { companyId?: string }) {
 function PrivacyReportWidget({ company }: { company: any }) {
     if (!company) return null;
 
-    // Use riskLevel if present, otherwise default based on whether issues exist
-    const hasAnalysis = company.issues && company.issues.length > 0;
+    // Use riskLevel if present, otherwise default based on whether issues exist AND lawyer confirmed
+    const hasAnalysis = company.issues && company.issues.length > 0 && company.lawyerConfirmed;
     const effectiveRiskLevel = company.riskLevel || (hasAnalysis ? 'MEDIUM' : 'LOW');
-    const issueCount = company.issues ? company.issues.length : 0;
+    const issueCount = hasAnalysis ? company.issues.length : 0;
 
     const riskColor = effectiveRiskLevel === 'HIGH' ? '#f87171' : effectiveRiskLevel === 'MEDIUM' ? '#fb923c' : '#4ade80';
     const riskBg = effectiveRiskLevel === 'HIGH' ? '#fef2f2' : effectiveRiskLevel === 'MEDIUM' ? '#fffbeb' : '#f0fdf4';

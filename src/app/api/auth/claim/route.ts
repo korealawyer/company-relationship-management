@@ -23,10 +23,10 @@ export async function POST(req: Request) {
         }
         const targetEmail = `${cleanBizNum}@client.ibsbase.com`;
 
-        // (선택) Company 레코드의 사업자 번호가 없다면 업데이트
-        if (!(company as any).registration_number) {
+        // (선택) Company 레코드의 사업자 번호가 올바르지 않거나 (임시 번호 등) 빈 경우 업데이트
+        if (!company.biz || company.biz.startsWith('T') || company.biz.trim() === '') {
             await getServiceSupabase()?.from('companies')
-                .update({ registration_number: cleanBizNum })
+                .update({ biz_no: cleanBizNum })
                 .eq('id', company.id);
         }
 

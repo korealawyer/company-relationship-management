@@ -35,9 +35,17 @@ export async function POST(req: NextRequest) {
         return response;
     }
     
-    // Playwright Test 지원용 Mock 로그인 (Client / B2B)
     if (bizNum === '1234567890' || type === 'client') {
-        const response = NextResponse.json({ user: { id: 'mock', role: 'client_hr', companyId: bizNum } });
+        const { getServiceSupabase } = await import('@/lib/supabase');
+        const sb = getServiceSupabase();
+        let targetCompanyId = bizNum;
+        
+        if (sb) {
+            const { data } = await sb.from('companies').select('id').eq('biz_no', bizNum).single();
+            if (data?.id) targetCompanyId = data.id;
+        }
+
+        const response = NextResponse.json({ user: { id: 'mock', role: 'client_hr', companyId: targetCompanyId } });
         response.cookies.set('ibs_session', 'mock_client_session');
         response.cookies.set('ibs_role', 'client_hr');
         return response;

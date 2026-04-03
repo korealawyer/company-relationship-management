@@ -194,7 +194,7 @@ export default function CompanyTableRow({
               return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-bold" style={{background:cl.bg,color:cl.c}} title={p.factors.join(' · ')}>{cl.icon}{p.score}%</span>;
           })()}</td>
           <td className="py-2.5 px-3">{c.issues && c.issues.length > 0 ? <span className="text-[12px] font-bold" style={{color:'#dc2626'}}>{c.issues.filter(ii=>ii.level==='HIGH').length}H/{c.issues.length}건</span> : <span className="text-[12px]" style={{color:C.faint}}>—</span>}</td>
-          <td className="py-2.5 px-3 max-w-[200px]" onClick={e => e.stopPropagation()}>
+          <td className="py-2.5 px-3 max-w-[250px]" onClick={e => e.stopPropagation()}>
               {isEditingMemo ? (
                   <div className="flex flex-col gap-1">
                       <textarea 

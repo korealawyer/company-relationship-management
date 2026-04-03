@@ -145,12 +145,12 @@ export default function SalesCallPage() {
                             <SortHeader label="구분" k="franchiseType" w="min-w-[80px] max-w-[90px] bg-slate-50 border-x border-slate-200/60" />
                             <SortHeader label="상태" k="status" w="min-w-[100px] max-w-[120px] bg-slate-50 border-r border-slate-200/60" />
                             <SortHeader label="위험도" k="risk" w="min-w-[80px] max-w-[100px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="업체담당" k="contactName" w="min-w-[55px] max-w-[65px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="업체담당" k="contactName" w="min-w-[80px] max-w-[100px] bg-slate-50 border-r border-slate-200/60" />
                             <SortHeader label="영업자" k="salesRep" w="min-w-[80px] max-w-[90px] bg-slate-50 border-r border-slate-200/60" />
                             <SortHeader label="전화번호" k="phone" w="min-w-[130px] max-w-[150px] bg-slate-50 border-r border-slate-200/60" />
                             <SortHeader label="전환율" k="conversion" w="min-w-[80px] max-w-[90px] bg-slate-50 border-r border-slate-200/60" />
                             <SortHeader label="이슈" k="issue" w="min-w-[70px] max-w-[80px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="최근 메모" k="memo" w="w-[200px] min-w-[200px] max-w-[200px] bg-slate-50 border-r border-slate-200/60" />
+                            <SortHeader label="최근 메모" k="memo" w="w-[250px] min-w-[250px] max-w-[250px] bg-slate-50 border-r border-slate-200/60" />
                             <th className="text-left text-[14px] font-bold py-3 px-3 align-middle text-slate-600 min-w-[160px] max-w-[160px] bg-slate-50 outline outline-1 outline-slate-200">바로가기</th>
                         </tr>
                     </thead>
