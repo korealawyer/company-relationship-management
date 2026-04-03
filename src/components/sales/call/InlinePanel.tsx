@@ -82,7 +82,7 @@ export default function InlinePanel({
         }
     }, [user]);
 
-    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => {
+    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
         try {
             setLocalResult(res);
             
@@ -91,12 +91,19 @@ export default function InlinePanel({
             co.lastCallAt = new Date().toISOString();
             co.lastCalledBy = manualCaller;
             
+            let extraUpdate: any = {};
+            if (nextAction === 'review' && co.status === 'analyzed') {
+                extraUpdate = { status: 'reviewing' };
+                co.status = 'reviewing';
+            }
+            
             // --- 백그라운드 DB 저장 (UI 딜레이 제거) ---
             supabaseCompanyStore.update(co.id, {
                 lastCallResult: res,
                 lastCallAt: co.lastCallAt,
                 lastCalledBy: manualCaller,
                 callAttempts: (co.callAttempts || 0) + 1,
+                ...extraUpdate
             }).catch(e => {
                 console.error('Manual log failed:', e);
                 setToast('❌ 기록 저장 실패');
@@ -159,7 +166,7 @@ export default function InlinePanel({
         if (isOnCall) {
             onCallResult(res);
         } else {
-            handleManualLog(res);
+            handleManualLog(res, nextAction);
         }
         
         // 2. 후속 액션 진행 

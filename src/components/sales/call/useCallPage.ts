@@ -291,7 +291,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
         else if (result === 'callback') { setShowCallbackModal(true); }
         else if (result === 'rejected' || result === 'invalid_site') { CallQueueManager.removeFromQueue(selected.id); }
-        else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'lawyer_confirmed', assignedLawyer: SALES_REPS[0] }); }
+        else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'reviewing', assignedLawyer: SALES_REPS[0] }); }
 
         if (isRecording) {
             if (waveformInterval.current) { clearInterval(waveformInterval.current); waveformInterval.current = null; }

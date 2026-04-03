@@ -235,6 +235,10 @@ export default function SalesQueuePage() {
                 callAttempts: (activeCall.callAttempts || 0) + 1,
             };
 
+            if (selectedResult === '연결-메일' && activeCall.status === 'analyzed') {
+                payload.status = 'reviewing';
+            }
+
             // 자동 콜백 24시간 처리
             if (callRes === 'no_answer' || callRes === 'callback') {
                 const tomorrow = new Date();

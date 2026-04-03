@@ -8,7 +8,75 @@ import {
 
 import { LawCase, CaseStatus } from '@/types/cases';
 
-const getCases = (companyName: string): LawCase[] => [];
+const getCases = (companyName: string): LawCase[] => [
+    {
+        id: 'c1',
+        caseNumber: '2024가합12345',
+        title: '손해배상(기)',
+        type: '민사 본안',
+        status: 'active',
+        court: '서울중앙지방법원',
+        judge: '김영수 판사',
+        lawyer: '김수현',
+        plaintiff: companyName,
+        defendant: '(주)가맹계약사',
+        filedDate: '2024-01-15',
+        nextDate: '2024-04-10',
+        nextEvent: '변론기일',
+        amount: '1,500,000,000',
+        description: '계약 불이행에 따른 손해배상 청구소송, 원고 측 입증 진행 중',
+        progress: 40,
+        updates: [
+            { date: '2024-03-01', content: '원고 제1준비서면 제출' },
+            { date: '2024-02-15', content: '피고 답변서 제출' },
+            { date: '2024-01-15', content: '소장 접수' }
+        ]
+    },
+    {
+        id: 'c2',
+        caseNumber: '2023나98765',
+        title: '물품대금',
+        type: '민사 항소',
+        status: 'pending',
+        court: '서울고등법원',
+        judge: '박지은 판사',
+        lawyer: '박준호',
+        plaintiff: 'A하청업체',
+        defendant: companyName,
+        filedDate: '2023-11-20',
+        nextDate: null,
+        nextEvent: '기일 지정 대기',
+        amount: '350,000,000',
+        description: '1심 일부 패소에 따른 항소심 (기일 지정 대기 중)',
+        progress: 15,
+        updates: [
+            { date: '2023-12-05', content: '항소이유서 발송' },
+            { date: '2023-11-20', content: '항소장 접수' }
+        ]
+    },
+    {
+        id: 'c3',
+        caseNumber: '2023가단54321',
+        title: '임대차보증금 반환',
+        type: '민사 소액',
+        status: 'won',
+        court: '수원지방법원',
+        judge: '최동현 판사',
+        lawyer: '김수현',
+        plaintiff: companyName,
+        defendant: '건물주 이모씨',
+        filedDate: '2023-05-10',
+        nextDate: null,
+        nextEvent: null,
+        amount: '80,000,000',
+        description: '원고 전부 승소 선고, 강제집행 준비 여부 검토예정',
+        progress: 100,
+        updates: [
+            { date: '2023-12-10', content: '판결문 송달 확정' },
+            { date: '2023-12-01', content: '원고 승소 판결 선고' }
+        ]
+    }
+];
 
 import CourtSearchPanel from '@/components/cases/CourtSearchPanel';
 import KpiCard from '@/components/cases/KpiCard';

@@ -363,7 +363,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                 </div>
 
                 {/* ── 통계 ── */}
-                <StatsRow documents={allDocs.filter(d => !d.isDemo)} />
+                <StatsRow documents={allDocs} />
 
                 {/* ── 메인 레이아웃 ── */}
                 <div className="grid lg:grid-cols-4 gap-6">
