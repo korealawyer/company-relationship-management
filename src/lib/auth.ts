@@ -33,25 +33,6 @@ export const INVITE_CODES: Record<string, { companyId: string; companyName: stri
     'IBS-COUNSEL-2026':  { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'counselor' as RoleType, expires: '2026-12-31', isInternal: true },
     'IBS-HR-2026':       { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'hr',         expires: '2026-12-31', isInternal: true },
     'IBS-ADMIN-2026':    { companyId: 'ibs', companyName: 'IBS 법률사무소', role: 'admin',      expires: '2026-12-31', isInternal: true },
-    // ── 고객사 초대코드 ──
-    'GYOCHON-2026': { companyId: 'c2', companyName: '(주)교촌에프앤비', role: 'client_hr', expires: '2026-12-31' },
-    'NOLBOO-2026':  { companyId: 'c1', companyName: '(주)놀부NBG',     role: 'client_hr', expires: '2026-12-31' },
-    'PARIS-2026':   { companyId: 'c3', companyName: '(주)파리바게뜨',    role: 'client_hr', expires: '2026-12-31' },
-    'BHC-2026':     { companyId: 'c4', companyName: '(주)bhc치킨',     role: 'client_hr', expires: '2026-12-31' },
-    'BONJUK-2026':  { companyId: 'c5', companyName: '(주)본죽',        role: 'client_hr', expires: '2026-12-31' },
-};
-
-// ── 가맹점·임직원용 사업자번호 DB ────────────────────────────
-const FRANCHISE_BIZ_DB: Record<string, { companyId: string; companyName: string; type: '본사' | '가맹점' | '직영점' }> = {
-    '1234567890': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f', companyName: '(주)놀부NBG', type: '본사' },
-    '2345678901': { companyId: 'c2', companyName: '(주)교촌에프앤비', type: '본사' },
-    '3456789012': { companyId: 'c3', companyName: '(주)파리바게뜨', type: '본사' },
-    '4567890123': { companyId: 'c4', companyName: '(주)bhc치킨', type: '본사' },
-    '5678901234': { companyId: 'c5', companyName: '(주)본죽', type: '본사' },
-    // 가맹점 (본사 그룹으로 편입)
-    '9999001001': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f', companyName: '놀부NBG 강남점', type: '가맹점' },
-    '9999001002': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f', companyName: '놀부NBG 홍대점', type: '가맹점' },
-    '9999002001': { companyId: 'c2', companyName: '교촌 서초점', type: '가맹점' },
 };
 
 // ── 소속신청 인터페이스 ─────────────────────────────────────────
@@ -226,29 +207,24 @@ export async function signUpClientPortal(args: {
 
     // 사업자번호로 CRM 회사 조회
     const digits = args.bizNum.replace(/\D/g, '');
-    const bizEntry = (FRANCHISE_BIZ_DB as Record<string, { companyId: string; companyName: string; type: string }>)[digits];
-    const CRM_BIZ_MAP: Record<string, { companyId: string; companyName: string }> = {
-        '8901234567': { companyId: 'c8',  companyName: '(주)이디야커피' },
-        '9012345678': { companyId: 'c9',  companyName: '(주)메가MGC커피' },
-        '0123456789': { companyId: 'c10', companyName: '(주)써브웨이코리아' },
-        '1234567890': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f',  companyName: '(주)놀부NBG' },
-        '2345678901': { companyId: 'c2',  companyName: '(주)교촌에프앤비' },
-        '3456789012': { companyId: 'c3',  companyName: '(주)파리바게뜨' },
-        '4567890123': { companyId: 'c4',  companyName: '(주)bhc치킨' },
-        '5678901234': { companyId: 'c5',  companyName: '(주)본죽' },
-    };
-    const match = bizEntry
-        ? { companyId: bizEntry.companyId, companyName: bizEntry.companyName }
-        : CRM_BIZ_MAP[digits];
-    if (!match) {
-        return { success: false, error: '등록되지 않은 사업자번호입니다. IBS 영업팀에 문의해주세요.' };
-    }
-
+    
     if (!IS_SUPABASE_CONFIGURED) {
         return { success: false, error: 'Supabase가 설정되지 않았습니다.' };
     }
     const sb = getBrowserSupabase();
     if (!sb) return { success: false, error: 'Supabase 클라이언트를 초기화할 수 없습니다.' };
+
+    const { data: bgCompany, error: fetchErr } = await sb
+        .from('companies')
+        .select('id, name')
+        .eq('biz_num', digits)
+        .single();
+        
+    if (fetchErr || !bgCompany) {
+        return { success: false, error: '등록되지 않은 사업자번호입니다. IBS 영업팀에 문의해주세요.' };
+    }
+
+    const match = { companyId: bgCompany.id, companyName: bgCompany.name };
 
     const { data, error } = await sb.auth.signUp({
         email: args.email,
@@ -365,11 +341,22 @@ export function verifyInviteCode(code: string): { valid: true; companyId: string
 }
 
 // ── 사업자번호로 소속 찾기 ────────────────────────────────────
-export function lookupBizAffiliation(bizNum: string): { found: true; companyId: string; companyName: string; storeType: string } | { found: false; error: string } {
+export async function lookupBizAffiliation(bizNum: string): Promise<{ found: true; companyId: string; companyName: string; storeType: string } | { found: false; error: string }> {
     const digits = bizNum.replace(/\D/g, '');
-    const entry = (FRANCHISE_BIZ_DB as Record<string, { companyId: string; companyName: string; type: string }>)[digits];
-    if (!entry) return { found: false, error: '등록된 프랜차이즈 사업자번호가 아닙니다.' };
-    return { found: true, companyId: entry.companyId, companyName: entry.companyName, storeType: entry.type };
+    
+    if (!IS_SUPABASE_CONFIGURED) return { found: false, error: 'Supabase가 설정되지 않았습니다.' };
+    const sb = getBrowserSupabase();
+    if (!sb) return { found: false, error: 'Supabase 초기화 실패.' };
+    
+    const { data: bgCompany, error } = await sb
+        .from('companies')
+        .select('id, name')
+        .eq('biz_num', digits)
+        .single();
+        
+    if (error || !bgCompany) return { found: false, error: '등록된 사업자번호가 아닙니다.' };
+    
+    return { found: true, companyId: bgCompany.id, companyName: bgCompany.name, storeType: '본사' };
 }
 
 // ── 소속신청 (HR 승인 대기) — localStorage 유지 ──────────────

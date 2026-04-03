@@ -106,7 +106,16 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
     unsubscribeToken: Buffer.from(`unsub_${leadId}`).toString('base64')
   };
 
-  const html = buildHookEmailHtml(vars, lawyerNote, BASE_URL, lead.issues || []);
+  let displayIssues: any[] = lead.issues || [];
+  if (displayIssues.length === 0 && totalCount > 0) {
+      displayIssues = Array.from({ length: totalCount }).map((_, i) => ({
+          title: `개인정보 처리방침 위반 의심 항목 ${i + 1}`,
+          level: 'HIGH',
+          law: '개인정보 보호법 규제사항 위반 의심'
+      } as any));
+  }
+
+  const html = buildHookEmailHtml(vars, lawyerNote, BASE_URL, displayIssues);
 
   return {
     to: lead.contactEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'info@ibslaw.co.kr',

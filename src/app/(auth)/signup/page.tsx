@@ -13,14 +13,7 @@ import {
     requestAffiliation, updateSessionAffiliation, INVITE_CODES
 } from '@/lib/auth';
 
-// ── 회사 목록 (소속신청용) ────────────────────────────────────
-const COMPANY_LIST = [
-    { id: 'c1', name: '(주)놀부NBG' },
-    { id: 'c2', name: '(주)교촌에프앤비' },
-    { id: 'c3', name: '(주)파리바게뜨' },
-    { id: 'c4', name: '(주)bhc치킨' },
-    { id: 'c5', name: '(주)본죽' },
-];
+// ── 회사 목록 (소속신청용: 이제 useCompanies에서 동적으로 가져옵니다) ──
 
 type Step = 'info' | 'affiliation' | 'done';
 type AffMethod = 'code' | 'biz' | 'request' | null;
@@ -40,8 +33,13 @@ function StepDot({ n, current, done }: { n: number; current: number; done: boole
     );
 }
 
+import { useCompanies } from '@/hooks/useDataLayer';
+
 export default function SignupPage() {
     const router = useRouter();
+    const { companies } = useCompanies();
+    const dynamicCompanyList = companies ? companies.map(c => ({ id: c.id, name: c.name })) : [];
+    
     const [step, setStep] = useState<Step>('info');
 
     // Step 1 states
@@ -124,9 +122,9 @@ export default function SignupPage() {
     };
 
     // ── 사업자번호 인증 ──────────────────────────────────────────
-    const handleBiz = () => {
+    const handleBiz = async () => {
         setBizError('');
-        const result = lookupBizAffiliation(bizNum);
+        const result = await lookupBizAffiliation(bizNum);
         if (!result.found) { setBizError(result.error); return; }
         updateSessionAffiliation(result.companyId, result.companyName);
         setAffResult({ companyId: result.companyId, companyName: result.companyName });
@@ -136,7 +134,7 @@ export default function SignupPage() {
     // ── 소속 신청 ────────────────────────────────────────────────
     const handleRequest = async () => {
         if (!reqCompany) return;
-        const company = COMPANY_LIST.find(c => c.id === reqCompany);
+        const company = dynamicCompanyList.find(c => c.id === reqCompany);
         if (!company) return;
         setReqLoading(true);
         await new Promise(r => setTimeout(r, 600));
@@ -397,7 +395,7 @@ export default function SignupPage() {
                                                 className="w-full px-4 py-2.5 rounded-xl outline-none text-sm"
                                                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(52,211,153,0.2)', color: reqCompany ? '#f0f4ff' : 'rgba(240,244,255,0.3)' }}>
                                                 <option value="">-- 선택하세요 --</option>
-                                                {COMPANY_LIST.map(c => <option key={c.id} value={c.id} style={{ background: '#0f1c3f' }}>{c.name}</option>)}
+                                                {dynamicCompanyList.map(c => <option key={c.id} value={c.id} style={{ background: '#0f1c3f' }}>{c.name}</option>)}
                                             </select>
                                         </div>
                                         <div>
