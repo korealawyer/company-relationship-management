@@ -106,7 +106,7 @@ async function buildHookEmail(leadId: string, lawyerNote: string, repId?: string
     unsubscribeToken: Buffer.from(`unsub_${leadId}`).toString('base64')
   };
 
-  const html = buildHookEmailHtml(vars, lawyerNote, BASE_URL);
+  const html = buildHookEmailHtml(vars, lawyerNote, BASE_URL, lead.issues || []);
 
   return {
     to: lead.contactEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'info@ibslaw.co.kr',

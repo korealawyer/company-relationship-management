@@ -133,7 +133,7 @@ export function renderContractEmailTemplateHtml(company: Company, plan: 'starter
     `;
 }
 
-export function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, baseUrl: string = ''): string {
+export function buildHookEmailHtml(vars: Record<string, string>, customMsg: string, baseUrl: string = '', issues: any[] = []): string {
   const lawyerName = vars.lawyerName || '';
   const trackOpen = `${baseUrl}/api/track?lid=${vars.leadId}&type=open`;
   const reportUrl = `${baseUrl}/?claim=${vars.leadId}`;
@@ -185,7 +185,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
 
 
     <!-- 검토 결과 요약 -->
-    <p style="color:#1e293b;font-size:14px;font-weight:bold;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0">📋 주요 검토 결과 요약</p>
+    <p style="color:#1e293b;font-size:14px;font-weight:bold;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0">📋 주요 검토 결과 요약 ${issues.length > 3 ? '(최대 3건 표출)' : ''}</p>
     <table style="width:100%;border-collapse:collapse;margin:0 0 28px">
       <thead>
         <tr style="background:#f8fafc">
@@ -195,9 +195,15 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
         </tr>
       </thead>
       <tbody>
-        <tr><td style="padding:12px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">수집항목 과다수집</td><td style="padding:12px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">고위험</span></td><td style="padding:12px 14px;font-size:13px;color:#64748b;word-break:keep-all">개인정보보호법 제16조</td></tr>
-        <tr><td style="padding:12px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">제3자 제공 미명시</td><td style="padding:12px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fef2f2;color:#dc2626;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">고위험</span></td><td style="padding:12px 14px;font-size:13px;color:#64748b;word-break:keep-all">개인정보보호법 제17조</td></tr>
-        <tr><td style="padding:12px 14px;font-size:14px;color:#1e293b;word-break:keep-all">보유기간 일부 누락</td><td style="padding:12px;text-align:center;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;background:#fffbeb;color:#d97706;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">주의</span></td><td style="padding:12px 14px;font-size:13px;color:#64748b;word-break:keep-all">개인정보보호법 제21조</td></tr>
+        ${issues.length > 0 ? issues.slice(0, 3).map((issue: any) => {
+            const levelText = issue.level === 'HIGH' ? '고위험' : issue.level === 'MEDIUM' ? '주의' : '양호';
+            const badgeStyle = issue.level === 'HIGH' ? 'background:#fef2f2;color:#dc2626' : issue.level === 'MEDIUM' ? 'background:#fffbeb;color:#d97706' : 'background:#f0fdf4;color:#15803d';
+            return `<tr>
+              <td style="padding:12px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #f1f5f9;word-break:keep-all">${issue.title || '-'}</td>
+              <td style="padding:12px;text-align:center;border-bottom:1px solid #f1f5f9;white-space:nowrap"><span style="display:inline-block;white-space:nowrap;${badgeStyle};font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px">${levelText}</span></td>
+              <td style="padding:12px 14px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;word-break:keep-all">${issue.law || '-'}</td>
+            </tr>`;
+        }).join('') : `<tr><td colspan="3" style="padding:12px;text-align:center;color:#64748b;font-size:13px;">발견된 핵심 리스크 위반 사항이 없습니다. (상세 내용은 전문 보기 참조)</td></tr>`}
       </tbody>
     </table>
 
