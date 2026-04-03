@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
         if (!val || typeof val !== 'string') return false;
         const normalized = val.trim().replace(/\s+/g, '');
         if (normalized === '없음' || normalized === '미기재' || normalized === '방침없음' || normalized === '해당없음') return true;
+        if ((normalized.includes('없음') || normalized.includes('미기재') || normalized.includes('제공하지않음') || normalized.includes('미운영') || normalized.includes('확인불가')) && normalized.length < 20) return true;
         if (val.includes('해당 기업은 개인정보 처리방침이 없거나 확인되지 않습니다')) return true;
         return false;
     };
@@ -147,9 +148,9 @@ export async function POST(request: NextRequest) {
     try {
         // 분기 로직
         // Case 2-3: manualText가 최우선
-        if (manualText && manualText.trim().length > 50) {
+        if (manualText && manualText.trim().length > 0) {
             extractedText = manualText.trim();
-        } 
+        }
         // Case 2-2: privacyUrl이 있는 경우
         else if (privacyUrl && privacyUrl.startsWith('http')) {
             extractedText = await crawlUrl(privacyUrl);
@@ -211,8 +212,10 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 결과 검증
-        if (!extractedText || extractedText.length < 50) {
+        // 결과 검증 (manualText 우선)
+        const isMinLengthValid = (manualText && manualText.trim().length > 0) ? extractedText.length >= 5 : extractedText.length >= 50;
+        
+        if (!extractedText || !isMinLengthValid) {
             console.warn('[Analyze API] 크롤링 실패 또는 텍스트 불충분');
             return NextResponse.json(
                 { success: false, error: '웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },

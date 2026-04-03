@@ -190,8 +190,8 @@ export function useExcelImportExport(
 
             const biz = String(row['사업자번호'] || row['biz'] || '').trim();
             let memoContent = String(row['메모'] || row['memo'] || '').trim();
-            const privacyUrl = String(row['개인정보방침 URL'] || row['privacyUrl'] || '').trim();
-            const privacyPolicyText = String(row['개인정보방침 전문'] || row['privacyPolicyText'] || '').trim();
+            const privacyUrl = String(row['개인정보방침 URL'] || row['개인정보처리방침 URL'] || row['개인정보처리방침url'] || row['privacyUrl'] || '').trim();
+            const privacyPolicyText = String(row['개인정보방침 전문'] || row['개인정보처리방침 전문'] || row['개인정보처리방침전문'] || row['privacyPolicyText'] || '').trim();
 
             const salesNameInput = String(row['영업자'] || row['담당영업자'] || row['salesName'] || '').trim();
             let assignedSalesId = undefined;

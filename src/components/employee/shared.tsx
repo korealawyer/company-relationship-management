@@ -385,7 +385,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                     <div className="flex items-end justify-between mb-1.5 h-[18px]">
                                         <label className="text-xs font-bold leading-none" style={{ color: T.sub }}>홈페이지</label>
                                         {url && (
-                                            <a href={url.startsWith('http') ? url : `https://${url}`} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 rounded transition-colors font-medium flex items-center justify-center h-full" onClick={(e) => e.stopPropagation()}>
+                                            <a href={url.startsWith('http') ? url : `https://${url}`} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded transition-colors font-medium flex items-center justify-center leading-none h-[14px]" onClick={(e) => e.stopPropagation()}>
                                                 접속하기 ↗
                                             </a>
                                         )}
@@ -434,7 +434,14 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                         {/* 우측 렌더링 영역: 개인정보 처리방침 */}
                         <div className="col-span-2 md:col-span-1 space-y-4 border-slate-200 md:border-l md:pl-6">
                             <div>
-                                <label className="text-xs font-bold mb-1.5 block flex items-center gap-1.5" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
+                                <div className="flex items-end justify-between mb-1.5 h-[18px]">
+                                    <label className="text-xs font-bold leading-none flex items-center gap-1.5" style={{ color: T.sub }}>🔗 개인정보 처리방침 URL</label>
+                                    {privacyUrl && (
+                                        <a href={privacyUrl.startsWith('http') ? privacyUrl : `https://${privacyUrl}`} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded transition-colors font-medium flex items-center justify-center leading-none h-[14px]" onClick={(e) => e.stopPropagation()}>
+                                            접속하기 ↗
+                                        </a>
+                                    )}
+                                </div>
                                 <input
                                     value={privacyUrl}
                                     onChange={e => setPrivacyUrl(e.target.value)}
@@ -478,7 +485,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                className="flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                                 style={{
                                     background: saving ? '#dcfce7' : '#eef2ff',
                                     color: saving ? '#16a34a' : '#4f46e5',
@@ -490,26 +497,31 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                             </button>
                             {/* 2) AI 분석 트리거 버튼 */}
                             {errorMsg && !analyzing ? (
-                                <div className="flex-1 flex gap-2">
-                                    <button
-                                        onClick={handleAnalyze}
-                                        className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
-                                    >
-                                        <AlertTriangle className="w-4 h-4" /> 크롤링 오류 (재시도)
-                                    </button>
-                                    <button
-                                        onClick={() => setErrorMsg(null)}
-                                        className="px-4 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors bg-white hover:bg-slate-50 border border-slate-300 shadow-sm text-slate-700"
-                                    >
-                                        <RotateCcw className="w-4 h-4" /> 초기화
-                                    </button>
+                                <div className="flex-1 flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleAnalyze}
+                                            className="flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                                        >
+                                            <AlertTriangle className="w-4 h-4" /> 크롤링 오류 (재시도)
+                                        </button>
+                                        <button
+                                            onClick={() => setErrorMsg(null)}
+                                            className="px-4 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors bg-white hover:bg-slate-50 border border-slate-300 shadow-sm text-slate-700"
+                                        >
+                                            <RotateCcw className="w-4 h-4" /> 초기화
+                                        </button>
+                                    </div>
+                                    <div className="text-[11px] font-medium p-2 rounded bg-red-50 text-red-600 border border-red-100">
+                                        {errorMsg}
+                                    </div>
                                 </div>
                             ) : (
                                 <button
                                     onClick={handleAnalyze}
                                     disabled={analyzing || (!privacyUrl && !privacyText)}
-                                    className="flex-1 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                    className="flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                                     style={{
                                         background: analyzing ? '#fef3c7' : '#fffbeb',
                                         color: analyzing ? '#d97706' : '#b8960a',

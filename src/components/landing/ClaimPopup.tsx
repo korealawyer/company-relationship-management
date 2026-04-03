@@ -64,13 +64,13 @@ export default function ClaimPopup() {
                             </div>
                         </div>
 
-                        <h3 className="text-lg font-black text-center mb-2" style={{ color: '#f0f4ff' }}>
-                            🚨 우리 회사의 개인정보보호, 정말 안전할까요?
+                        <h3 className="text-lg font-black text-center mb-2 leading-snug" style={{ color: '#f0f4ff', wordBreak: 'keep-all' }}>
+                            🚨 우리 회사의 개인정보보호,<br/> 정말 안전할까요?
                         </h3>
-                        <p className="text-sm text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.6)' }}>
-                            사소한 법률 위반도 막대한 과징금으로 이어질 수 있습니다.<br/>
-                            귀사 홈페이지의 취약점을 분석한 프라이버시 리포트를 발급했습니다.<br/>
-                            로그인 후 상세 진단 결과를 즉시 점검하세요.
+                        <p className="text-sm text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.6)', wordBreak: 'keep-all' }}>
+                            사소한 법률 위반도 막대한 과징금으로<br/>이어질 수 있습니다.
+                            <span className="block mt-2.5">귀사 홈페이지의 취약점을 분석한<br/>프라이버시 리포트를 발급했습니다.</span>
+                            <span className="block mt-2.5 font-medium" style={{ color: '#e2e8f0' }}>로그인 후 상세 진단 결과를 즉시 점검하세요.</span>
                         </p>
 
                         <Button 
