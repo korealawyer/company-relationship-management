@@ -382,10 +382,10 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                     <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
                                 </div>
                                 <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <label className="text-xs font-bold" style={{ color: T.sub }}>홈페이지</label>
+                                    <div className="flex items-end justify-between mb-1.5 h-[18px]">
+                                        <label className="text-xs font-bold leading-none" style={{ color: T.sub }}>홈페이지</label>
                                         {url && (
-                                            <a href={url.startsWith('http') ? url : `https://${url}`} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded transition-colors font-medium flex items-center" onClick={(e) => e.stopPropagation()}>
+                                            <a href={url.startsWith('http') ? url : `https://${url}`} target="_blank" rel="noreferrer" className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 rounded transition-colors font-medium flex items-center justify-center h-full" onClick={(e) => e.stopPropagation()}>
                                                 접속하기 ↗
                                             </a>
                                         )}

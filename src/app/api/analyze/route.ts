@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     let extractedText = '';
     let extractedFooter: any = null;
 
-    async function crawlUrl(target: string, isPrivacyPolicy: boolean): Promise<string> {
+    async function crawlUrl(target: string): Promise<string> {
         let html = '';
         const fetchUrl = new URL(target);
         if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
@@ -98,14 +98,6 @@ export async function POST(request: NextRequest) {
             if (scrapeDoKey) {
                 console.log(`[Analyze API] Using scrape.do API for URL: ${target}`);
                 let sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&render=true`;
-                
-                if (isPrivacyPolicy) {
-                    const playWithBrowser = [
-                        {"Action": "Execute", "Execute": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
-                        {"Action": "Wait", "Timeout": 2500}
-                    ];
-                    sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&playWithBrowser=${encodeURIComponent(JSON.stringify(playWithBrowser))}&render=true`;
-                }
 
                 try {
                     res = await fetch(sdUrl, { signal: controller.signal });
@@ -122,16 +114,6 @@ export async function POST(request: NextRequest) {
             if (!res && scrapingBeeKey) {
                 console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${target}`);
                 let sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&render_js=true`;
-
-                if (isPrivacyPolicy) {
-                    const js_scenario = {
-                        "instructions": [
-                            {"evaluate": "var pBtn = Array.from(document.querySelectorAll('a, button, span, li, p, div')).find(e => e.innerText && e.innerText.includes('개인정보')); if(pBtn) pBtn.click();"},
-                            {"wait": 2500}
-                        ]
-                    };
-                    sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&js_scenario=${encodeURIComponent(JSON.stringify(js_scenario))}&render_js=true`;
-                }
 
                 try {
                     res = await fetch(sbUrl, { signal: controller.signal });
@@ -170,12 +152,12 @@ export async function POST(request: NextRequest) {
         } 
         // Case 2-2: privacyUrl이 있는 경우
         else if (privacyUrl && privacyUrl.startsWith('http')) {
-            extractedText = await crawlUrl(privacyUrl, true);
+            extractedText = await crawlUrl(privacyUrl);
         } 
         // Case 2-1: homepageUrl만 있는 경우
         else if (homepageUrl && homepageUrl.startsWith('http')) {
             console.log(`[Analyze API] 홈페이지에서 푸터 정보 추출 시도 중: ${homepageUrl}`);
-            const homeText = await crawlUrl(homepageUrl, false);
+            const homeText = await crawlUrl(homepageUrl);
             
             // OpenAI로 사업자번호, 전화번호, 개인정보취급방침 URL 추출
             const apiKey = process.env.OPENAI_API_KEY;
@@ -216,7 +198,7 @@ export async function POST(request: NextRequest) {
                         
                         // privacyUrl을 찾았으면 다시 크롤링 시도
                         if (extractedFooter.privacyUrl && extractedFooter.privacyUrl.startsWith('http')) {
-                           extractedText = await crawlUrl(extractedFooter.privacyUrl, true);
+                           extractedText = await crawlUrl(extractedFooter.privacyUrl);
                         } else {
                             throw new Error('푸터에서 개인정보처리방침 URL을 찾을 수 없습니다.');
                         }
