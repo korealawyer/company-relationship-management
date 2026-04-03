@@ -26,8 +26,19 @@ export async function POST(request: NextRequest) {
     // ── 필수 파라미터 검증 ──
     const paramUrl = Object.values(body).find(val => typeof val === 'string' && val.startsWith('http')) as string || '';
     const { companyId, manualText, systemPrompt, model } = body as any;
-    const homepageUrl = body.homepageUrl || paramUrl;
-    const privacyUrl = body.privacyUrl || '';
+    
+    // URL 정규화 함수 (`http`가 없으면 `https://` 붙이기)
+    const normalizeUrl = (url?: string) => {
+        if (!url || typeof url !== 'string') return '';
+        url = url.trim();
+        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            return `https://${url}`;
+        }
+        return url;
+    };
+
+    const homepageUrl = normalizeUrl(body.homepageUrl || paramUrl);
+    const privacyUrl = normalizeUrl(body.privacyUrl);
 
     if (!homepageUrl && !privacyUrl && !companyId && !manualText) {
         return NextResponse.json(
