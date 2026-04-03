@@ -13,7 +13,6 @@ const TRANSPARENT_GIF = Buffer.from(
 // ?lid=lead_001&type=click&url=... → 클릭 리다이렉트
 export async function GET(req: NextRequest) {
 
-
     const { searchParams } = new URL(req.url);
     const leadId = searchParams.get('lid');
     const type = searchParams.get('type') as 'open' | 'click';
