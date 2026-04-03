@@ -316,7 +316,7 @@ export const CallRecordingStore = {
         if (entry.transcriptSummary === '수동 통화 기록') {
             contentStr = `📞 [수동 통화 기록] 상태 변경: ${koRes}`;
         } else {
-            contentStr = `📞 [통화 결과] ${koRes}\n\n[AI 요약]\n${entry.transcriptSummary || '내용 없음'}\n\n[전문]\n${entry.transcript || '내용 없음'}`;
+            contentStr = `📞 [통화 결과] ${koRes}\n\n[통화내용 요약]\n${entry.transcriptSummary || '내용 없음'}\n\n[전문]\n${entry.transcript || '내용 없음'}`;
         }
 
         fetch('/api/memos', {
@@ -384,7 +384,7 @@ export const CallRecordingStore = {
             rec.transcript,
             '',
             rec.transcriptSummary
-                ? `📌 AI 요약: \n${rec.transcriptSummary}`
+                ? `📌 통화내용 요약: \n${rec.transcriptSummary}`
                 : '',
         ]
             .filter((line) => line !== undefined && line !== null)

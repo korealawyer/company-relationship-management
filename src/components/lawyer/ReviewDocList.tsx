@@ -139,7 +139,7 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
 
                                 {/* 검토 버튼 */}
                                 <div className="flex justify-end">
-                                    <Link href="/lawyer/privacy-review"
+                                    <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}`}
                                         className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all hover:shadow-md active:scale-95"
                                         style={{ background: isUrgent ? '#dc2626' : '#1e293b', color: '#ffffff' }}>
                                         <Scale className="w-3.5 h-3.5" />
@@ -177,7 +177,7 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
                                             </div>
                                         </div>
                                     </div>
-                                    <Link href="/lawyer/privacy-review"
+                                    <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}`}
                                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0"
                                         style={{ background: isUrgent ? '#dc2626' : '#1e293b', color: '#ffffff' }}>
                                         검토 <ChevronRight className="w-3 h-3" />

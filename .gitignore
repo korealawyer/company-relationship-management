@@ -24,3 +24,5 @@ out/
 # notion exports (long filenames cause vercel deploy error)
 franchise_notion_content/
 franchise_notion_export/
+.env.vercel
+.env.vercel.prod

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CheckCircle2, Clock, ArrowLeft, Scale, FileText, Loader2, Download, Lock, FilePlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import EditableText from '@/components/crm/EditableText';
 import { useRequireAuth } from '@/lib/AuthContext';
@@ -252,6 +252,7 @@ export default function PrivacyReviewPage() {
 
 function PrivacyReviewContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer', 'sales']);
     const { settings: autoSettings } = useAutoSettings();
     const company = searchParams?.get('company') || '(주)샐러디';
@@ -353,30 +354,77 @@ function PrivacyReviewContent() {
     // → 영업팀이 CRM에서 확인 후 이메일 미리보기 → 발송 (영업팀 역할)
     const handleFirstConfirm = async () => {
         setConfirming(true);
-        if (leadId) {
-            await supabaseCompanyStore.update(leadId, { lawyerConfirmed: true, lawyerConfirmedAt: new Date().toISOString() });
-            
-            if (autoSettings?.autoSendEmail) {
-                try {
-                    await fetch('/api/email', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ type: 'company_hook', leadId, customSubject: `[IBS 법률] ${company} 개인정보처리방침 리스크 진단 결과` }),
-                    });
-                    await supabaseCompanyStore.update(leadId, { status: 'emailed', emailSentAt: new Date().toISOString() });
-                } catch(e) {}
+        try {
+            if (leadId) {
+                console.log('[handleFirstConfirm] Updating Supabase row for lead:', leadId);
+                
+                const newIssues = clauses.filter(c => c.level !== 'OK').map(c => ({
+                    level: c.level as 'HIGH' | 'MEDIUM' | 'LOW',
+                    law: c.lawRef,
+                    title: c.title,
+                    originalText: c.original,
+                    riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
+                    customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
+                    lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
+                    reviewChecked: true,
+                    aiDraftGenerated: true
+                }));
+
+                await supabaseCompanyStore.update(leadId, { 
+                    lawyerConfirmed: true, 
+                    lawyerConfirmedAt: new Date().toISOString(),
+                    status: 'lawyer_confirmed',
+                    issues: newIssues as any
+                });
+                console.log('[handleFirstConfirm] Successfully updated lawyerConfirmed, status, and issues.');
+
+                if (autoSettings?.autoSendEmail) {
+                    try {
+                        const emailRes = await fetch('/api/email', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ type: 'company_hook', leadId, customSubject: `[IBS 법률] ${company} 개인정보처리방침 리스크 진단 결과` }),
+                        });
+                        console.log('[handleFirstConfirm] autoSendEmail response:', emailRes.status);
+                        await supabaseCompanyStore.update(leadId, { status: 'emailed', emailSentAt: new Date().toISOString() });
+                    } catch(e) {
+                         console.error('[handleFirstConfirm] Auto email send failed:', e);
+                    }
+                } else {
+                    try {
+                        const emailRes = await fetch('/api/email', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ type: 'clause_review_done', leadId, company, highRiskCount: highN, medRiskCount: medN }),
+                        });
+                        console.log('[handleFirstConfirm] clause_review_done email response:', emailRes.status);
+                    } catch(e) {
+                        console.error('[handleFirstConfirm] clause_review_done email failed:', e);
+                    }
+                }
+
+                alert('CRM 반영이 성공적으로 완료되었습니다.');
+                
+                // 다음 검토 대기 기업 확인
+                const allCompanies = await supabaseCompanyStore.getAll();
+                const nextPending = allCompanies.find((c: any) => 
+                    ['assigned', 'reviewing'].includes(c.status) && c.id !== leadId
+                );
+
+                if (nextPending) {
+                    router.push(`/lawyer/privacy-review?leadId=${nextPending.id}&company=${encodeURIComponent(nextPending.name)}`);
+                } else {
+                    router.push('/lawyer');
+                }
             } else {
-                try {
-                    await fetch('/api/email', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ type: 'clause_review_done', leadId, company, highRiskCount: highN, medRiskCount: medN }),
-                    });
-                } catch(e) {}
+                setConfirmedTab('first');
             }
+        } catch (error) {
+            console.error('[handleFirstConfirm] Critical Error updating Supabase:', error);
+            alert('데이터베이스 반영 중 오류가 발생했습니다. 개발자 콘솔을 확인해주세요.');
+        } finally {
+            setConfirming(false);
         }
-        setConfirmedTab('first');
-        setConfirming(false);
     };
 
     // ── 전체수정완본 컨펌 ────────────────────────────────────────
@@ -384,7 +432,25 @@ function PrivacyReviewContent() {
     const handleFullConfirm = async () => {
         setConfirming(true);
         try {
-            await fetch('/api/email', {
+            if (leadId) {
+                const newIssues = clauses.filter(c => c.level !== 'OK').map(c => ({
+                    level: c.level as 'HIGH' | 'MEDIUM' | 'LOW',
+                    law: c.lawRef,
+                    title: c.title,
+                    originalText: c.original,
+                    riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
+                    customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
+                    lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
+                    reviewChecked: true,
+                    aiDraftGenerated: true
+                }));
+
+                await supabaseCompanyStore.update(leadId, { 
+                    issues: newIssues as any
+                });
+            }
+
+            const res = await fetch('/api/email', {
                 method: 'POST', headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
                     type: 'full_revision_to_client',
@@ -395,9 +461,14 @@ function PrivacyReviewContent() {
                     documentNo: `IBS-PR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
                 }),
             });
+            console.log('[handleFullConfirm] Email response:', res.status);
             setConfirmedTab('full');
-        } catch { alert('오류가 발생했습니다. 다시 시도해주세요.'); }
-        setConfirming(false);
+        } catch(error) { 
+            console.error('[handleFullConfirm] Error:', error);
+            alert('오류가 발생했습니다. 다시 시도해주세요.'); 
+        } finally {
+            setConfirming(false);
+        }
     };
 
     // ── 컨펌 완료 화면 ───────────────────────────────────────────

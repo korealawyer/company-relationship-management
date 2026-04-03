@@ -54,7 +54,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                     ].map((i) => (
                         <div
                             key={i.l}
-                            className="px-2.5 py-2 rounded-lg"
+                            className="px-2.5 py-2 rounded-lg min-w-0"
                             style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}
                         >
                             <div className="text-[8px] font-bold" style={{ color: C.faint }}>{i.l}</div>

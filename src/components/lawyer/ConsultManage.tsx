@@ -1,22 +1,50 @@
 // @ts-nocheck
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Mail, DollarSign, ChevronLeft, ChevronRight, Plus, X, User, CheckCircle2 } from 'lucide-react';
-import { type ConsultRecord, STATUS_COLORS, SAMPLE_CONSULTS } from '@/lib/lawyerMockData';
+import { STATUS_COLORS } from '@/lib/lawyerMockData';
+import { useConsultations } from '@/hooks/useDataLayer';
 
 const LAWYERS = ['김수현', '이정재', '박은빈', '송중기'];
 
 export default function ConsultManage() {
-    const [records, setRecords] = useState<ConsultRecord[]>(SAMPLE_CONSULTS);
+    const { consultations, isLoading, updateConsultation, addConsultation } = useConsultations();
+    
+    // Map Supabase Consultation to the UI's expected ConsultRecord format
+    const records = (consultations || []).map(c => {
+        let mappedStatus = '상담';
+        if (c.status === '대기' || c.status === 'submitted') mappedStatus = '상담';
+        else if (c.status === '수임') mappedStatus = '수임';
+        else if (c.status === '거절') mappedStatus = '보류';
+        else if (c.status === '상담완료' || c.status === 'answered' || c.status === 'callback_done') mappedStatus = '완료';
+
+        return {
+            id: c.id,
+            status: mappedStatus as '상담' | '수임' | '보류' | '완료',
+            clientName: c.companyName || c.authorName || '이름 없음',
+            clientPhone: c.callbackPhone || '-',
+            clientEmail: '',
+            category: c.category || '기타',
+            content: c.body || c.title || '',
+            date: c.createdAt ? c.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+            lawyer: c.assignedLawyer || '',
+            fee: 0,
+            targetFee: 0,
+            note: c.callbackNote || '',
+            isPublic: !c.isPrivate,
+            _original: c
+        };
+    });
+
     const [activeTab, setActiveTab] = useState<'전체' | '상담' | '수임' | '보류' | '완료'>('전체');
-    const [selected, setSelected] = useState<ConsultRecord | null>(SAMPLE_CONSULTS[0]);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
     const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
-    const [editNote, setEditNote] = useState(SAMPLE_CONSULTS[0]?.note ?? '');
+    const [editNote, setEditNote] = useState('');
     const [showAdd, setShowAdd] = useState(false);
     const [showLawyerDropdown, setShowLawyerDropdown] = useState(false);
     const [toastMsg, setToastMsg] = useState('');
-    const [newForm, setNewForm] = useState({ clientName: '', clientPhone: '', category: '민사' as ConsultRecord['category'], content: '', targetFee: '' });
+    const [newForm, setNewForm] = useState({ clientName: '', clientPhone: '', category: '민사', content: '', targetFee: '' });
 
     const filtered = activeTab === '전체' ? records : records.filter(r => r.status === activeTab);
     const tabs = (['전체', '상담', '수임', '보류', '완료'] as const);
@@ -24,44 +52,65 @@ export default function ConsultManage() {
         ...a, [t]: t === '전체' ? records.length : records.filter(r => r.status === t).length
     }), {} as Record<string, number>);
 
-    const handleSelect = (r: ConsultRecord) => {
-        setSelected(r);
+    const selected = records.find(r => r.id === selectedId) || records[0];
+
+    useEffect(() => {
+        if (selected && editNote === '' && selected.note !== editNote) {
+            setEditNote(selected.note);
+        }
+    }, [selectedId, selected?.note]);
+
+    const handleSelect = (r: any) => {
+        setSelectedId(r.id);
         setEditNote(r.note ?? '');
         setMobileView('detail');
         setShowLawyerDropdown(false);
     };
 
-    const changeLawyer = (r: ConsultRecord, newLawyer: string) => {
-        setRecords(prev => prev.map(x => x.id === r.id ? { ...x, lawyer: newLawyer } : x));
-        if (selected?.id === r.id) setSelected({ ...r, lawyer: newLawyer });
+    const changeLawyer = async (r: any, newLawyer: string) => {
+        await updateConsultation(r.id, { assignedLawyer: newLawyer });
         setShowLawyerDropdown(false);
         setToastMsg(`담당자가 ${newLawyer} 변호사로 변경되었습니다.`);
         setTimeout(() => setToastMsg(''), 3000);
     };
 
-    const changeStatus = (r: ConsultRecord, status: ConsultRecord['status']) => {
-        setRecords(prev => prev.map(x => x.id === r.id ? { ...x, status } : x));
-        if (selected?.id === r.id) setSelected({ ...r, status });
+    const changeStatus = async (r: any, status: '상담' | '수임' | '보류' | '완료') => {
+        let mappedDbStatus = 'submitted';
+        if (status === '상담') mappedDbStatus = 'submitted';
+        if (status === '수임') mappedDbStatus = '수임'; // Assume '수임' exists in db
+        if (status === '보류') mappedDbStatus = '거절';
+        if (status === '완료') mappedDbStatus = 'answered';
+
+        await updateConsultation(r.id, { status: mappedDbStatus as any });
     };
 
-    const saveNote = () => {
+    const changeIsPublic = async (r: any, isPublic: boolean) => {
+        await updateConsultation(r.id, { isPrivate: !isPublic });
+    };
+
+    const saveNote = async () => {
         if (!selected) return;
-        setRecords(prev => prev.map(x => x.id === selected.id ? { ...x, note: editNote } : x));
-        setSelected({ ...selected, note: editNote });
+        await updateConsultation(selected.id, { callbackNote: editNote });
+        setToastMsg(`메모가 저장되었습니다.`);
+        setTimeout(() => setToastMsg(''), 3000);
     };
 
-    const addRecord = () => {
-        const rec: ConsultRecord = {
-            id: `c${Date.now()}`, status: '상담',
-            clientName: newForm.clientName, clientPhone: newForm.clientPhone,
-            clientEmail: '', category: newForm.category,
-            content: newForm.content, date: new Date().toISOString().slice(0, 10),
-            fee: 0, targetFee: parseInt(newForm.targetFee) || 0,
-            note: '', isPublic: false,
-        };
-        setRecords(prev => [rec, ...prev]);
+    const addRecord = async () => {
+        await addConsultation({
+            id: `c${Date.now()}`,
+            title: newForm.content.slice(0, 20),
+            body: newForm.content,
+            authorName: newForm.clientName,
+            callbackPhone: newForm.clientPhone,
+            category: newForm.category as any,
+            status: 'submitted',
+            createdAt: new Date().toISOString(),
+            isPrivate: true,
+        });
         setShowAdd(false);
         setNewForm({ clientName: '', clientPhone: '', category: '민사', content: '', targetFee: '' });
+        setToastMsg(`신규 상담이 등록되었습니다.`);
+        setTimeout(() => setToastMsg(''), 3000);
     };
 
     return (
@@ -93,9 +142,14 @@ export default function ConsultManage() {
                     </div>
                 </div>
                 {/* 목록 */}
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto flex-1 relative">
+                    {isLoading && records.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-sm text-gray-400 font-bold animate-pulse">데이터 로딩 중...</span>
+                        </div>
+                    )}
                     {filtered.map(r => {
-                        const sc = STATUS_COLORS[r.status];
+                        const sc = STATUS_COLORS[r.status] || STATUS_COLORS['상담'];
                         return (
                             <div key={r.id} onClick={() => handleSelect(r)}
                                 className="p-3.5 cursor-pointer transition-all"
@@ -152,7 +206,7 @@ export default function ConsultManage() {
                             <div>
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                        style={{ background: STATUS_COLORS[selected.status].bg, color: STATUS_COLORS[selected.status].text, border: `1px solid ${STATUS_COLORS[selected.status].border}` }}>
+                                        style={{ background: STATUS_COLORS[selected.status]?.bg || '#eff6ff', color: STATUS_COLORS[selected.status]?.text || '#2563eb', border: `1px solid ${STATUS_COLORS[selected.status]?.border || '#bfdbfe'}` }}>
                                         {selected.status}
                                     </span>
                                     <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
@@ -189,7 +243,7 @@ export default function ConsultManage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <span className="text-[10px] font-bold" style={{ color: '#94a3b8' }}>공개</span>
-                                    <button onClick={() => setSelected({ ...selected, isPublic: !selected.isPublic })}
+                                    <button onClick={() => changeIsPublic(selected, !selected.isPublic)}
                                         className="text-[10px] px-2 py-1.5 rounded-lg font-bold"
                                         style={{ background: selected.isPublic ? '#eff6ff' : '#f1f5f9', color: selected.isPublic ? '#2563eb' : '#94a3b8', border: `1px solid ${selected.isPublic ? '#bfdbfe' : '#e2e8f0'}` }}>
                                         {selected.isPublic ? '전체공개' : '개별공개'}
@@ -219,7 +273,7 @@ export default function ConsultManage() {
                     {/* 상담 내용 */}
                     <div className="rounded-xl p-4" style={{ background: '#ffffff', border: '1px solid #e5e7eb' }}>
                         <p className="text-xs font-bold mb-2" style={{ color: '#94a3b8' }}>📋 상담 내용</p>
-                        <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>{selected.content}</p>
+                        <p className="text-sm leading-relaxed" style={{ color: '#374151', whiteSpace: 'pre-wrap' }}>{selected.content}</p>
                     </div>
 
                     {/* 메모 & 답글 */}
@@ -295,7 +349,7 @@ export default function ConsultManage() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs font-bold mb-1 block" style={{ color: '#b8960a' }}>사건 분류</label>
-                                        <select value={newForm.category} onChange={e => setNewForm(p => ({ ...p, category: e.target.value as ConsultRecord['category'] }))}
+                                        <select value={newForm.category} onChange={e => setNewForm(p => ({ ...p, category: e.target.value }))}
                                             className="w-full px-3 py-2 rounded-lg text-sm"
                                             style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }}>
                                             {['민사', '형사', '가사', '부동산', '노무', '기업', '기타'].map(c => <option key={c}>{c}</option>)}

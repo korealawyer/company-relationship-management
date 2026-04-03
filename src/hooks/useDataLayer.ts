@@ -92,7 +92,17 @@ export function useConsultations() {
     { fallbackData: EMPTY_CONSULTATIONS, ...SWR_OPTS }
   );
 
-  return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate };
+  const addConsultation = async (consult: Partial<Consultation>) => {
+    await dataLayer.consult.create(consult);
+    mutate();
+  };
+
+  const updateConsultation = async (id: string, patch: Partial<Consultation>) => {
+    await dataLayer.consult.update(id, patch);
+    mutate();
+  };
+
+  return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate, addConsultation, updateConsultation };
 }
 
 export function useNotifications() {

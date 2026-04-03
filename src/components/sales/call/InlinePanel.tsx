@@ -201,7 +201,7 @@ export default function InlinePanel({
                     <div className="px-5 py-4" style={{ maxHeight: 800, overflowY: 'auto', background: C.bg }}>
                         <div className="grid grid-cols-3 gap-6 items-stretch">
                             {/* Col 1: 스마트 기업 상세정보, 위험도, 주요 이슈 */}
-                            <div className="flex flex-col gap-4 h-full">
+                            <div className="flex flex-col gap-4 h-full min-w-0">
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 shrink-0">
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📊 스마트 기업 상세정보</h3>
                                     <InfoTab co={co} onRefresh={onRefresh} setToast={setToast} />
@@ -242,7 +242,7 @@ export default function InlinePanel({
                                                             {iss.level}
                                                         </span>
                                                     </div>
-                                                    <span className="text-[11px] leading-relaxed" style={{ color: C.body }}>
+                                                    <span className="text-[11px] leading-relaxed break-words" style={{ color: C.body }}>
                                                         {iss.title}
                                                     </span>
                                                 </React.Fragment>
@@ -255,7 +255,7 @@ export default function InlinePanel({
                             </div>
 
                             {/* Col 2: 스크립트 & 통화 제어 (원래 Col 3) */}
-                            <div className="flex flex-col gap-4 h-full">
+                            <div className="flex flex-col gap-4 h-full min-w-0">
 
                                 {/* 통화 제어 내역 및 수동 기록 */}
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col shrink-0 min-h-[150px]">
@@ -360,7 +360,7 @@ export default function InlinePanel({
                             </div>
 
                             {/* Col 3: 메모 & AI 분석 (원래 Col 2) */}
-                            <div className="flex flex-col gap-4 h-full">
+                            <div className="flex flex-col gap-4 h-full min-w-0">
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모&요약</h3>
                                     <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />

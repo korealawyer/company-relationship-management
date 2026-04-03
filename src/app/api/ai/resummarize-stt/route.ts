@@ -37,9 +37,12 @@ Markdown 형식을 사용하여 짧고 직관적으로 작성해주세요.`
         }
 
         // Reconstruct content
-        const parts = memoContent.split('[AI 요약]');
+        let parts = memoContent.split('[통화내용 요약]');
+        if (parts.length === 1) {
+            parts = memoContent.split('[AI 요약]');
+        }
         const preamble = parts[0];
-        const newContent = `${preamble}[AI 요약]\n${summary}\n\n[전문]\n${transcript}`;
+        const newContent = `${preamble}[통화내용 요약]\n${summary}\n\n[전문]\n${transcript}`;
 
         const sb = getServiceSupabase();
         if (sb) {

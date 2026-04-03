@@ -313,7 +313,7 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                                         )}
                                     </div>
                                 </div>
-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: C.body }}>
+                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: C.body }}>
                                     {memo.content}
                                 </p>
                             </div>

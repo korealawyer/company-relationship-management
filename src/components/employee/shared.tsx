@@ -47,14 +47,115 @@ export function StepCell({ done, label, active }: { done: boolean; label: string
     return <span className="text-[10px] font-medium" style={{ color: T.faint }}>—</span>;
 }
 
+// ==========================================
+// 공통 AI 통합 분석 함수
+// ==========================================
+export async function executeAiAnalysis({
+    c, 
+    updateCompany, 
+    mutate, 
+    setErrorMsg, 
+    setAnalyzing,
+    privacyUrl,
+    privacyText,
+    additionalPayload = {},
+    onSuccess
+}: {
+    c: Company;
+    updateCompany: any;
+    mutate: any;
+    setErrorMsg: (msg: string | null) => void;
+    setAnalyzing: (val: boolean) => void;
+    privacyUrl: string;
+    privacyText: string;
+    additionalPayload?: Partial<Company>;
+    onSuccess?: (data: any) => void;
+}) {
+    setErrorMsg(null);
+    setAnalyzing(true);
+    try {
+        await updateCompany(c.id, { 
+            privacyUrl,
+            privacyPolicyText: privacyText,
+            ...additionalPayload,
+            status: 'crawling' 
+        });
+        await mutate();
+
+        const promptConfig = getPromptConfig();
+        const res = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                companyId: c.id, 
+                homepageUrl: c.url,
+                privacyUrl: privacyUrl, 
+                manualText: privacyText,
+                systemPrompt: promptConfig.analyzePrompt,
+                model: promptConfig.model
+            })
+        });
+        const data = await res.json();
+        
+        if (!res.ok || !data.success) {
+            setErrorMsg(data.error || '알 수 없는 오류');
+            await updateCompany(c.id, { status: 'pending' });
+            await dataLayer.auto.addLog({
+                type: 'ai_analysis',
+                label: '분석 실패',
+                companyName: c.name,
+                detail: data?.error || '알 수 없는 오류'
+            });
+        } else {
+            const payload: any = { 
+                status: 'analyzed',
+                issues: data.issues || [],
+                issueCount: data.issueCount || 0,
+                riskLevel: data.riskLevel || 'MEDIUM'
+            };
+            if (data.rawText) {
+                payload.privacyPolicyText = data.rawText;
+            }
+            if (data.extractedDetails) {
+                if (data.extractedDetails.businessNumber) payload.businessRegNumber = data.extractedDetails.businessNumber;
+                if (data.extractedDetails.phoneNumber) payload.supportPhone = data.extractedDetails.phoneNumber;
+                if (data.extractedDetails.privacyUrl) payload.privacyUrl = data.extractedDetails.privacyUrl;
+            }
+            await updateCompany(c.id, payload);
+            await dataLayer.auto.addLog({
+                type: 'ai_analysis',
+                label: '분석 완료',
+                companyName: c.name,
+                detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
+            });
+            
+            if (onSuccess) onSuccess(data);
+        }
+    } catch (err: any) {
+        setErrorMsg(`분석 중 에러 발생: ${err.message}`);
+        await updateCompany(c.id, { status: 'pending' });
+        await dataLayer.auto.addLog({
+            type: 'ai_analysis',
+            label: '분석 중단됨',
+            companyName: c.name,
+            detail: err.message || '네트워크 에러 발생'
+        });
+    } finally {
+        setAnalyzing(false);
+        await mutate();
+        globalMutate('auto-logs');
+    }
+}
+
 export function ActionButton({
     c, run, confirmingId, setConfirmingId, confirmRep, setConfirmRep,
-    loading, refresh,
+    loading, refresh, onRequireExpansion
 }: {
     c: Company; run: (k: string, fn: () => Promise<void> | void) => void;
     confirmingId: string | null; setConfirmingId: (v: string | null) => void;
     confirmRep: string; setConfirmRep: (v: string) => void;
     loading: string | null; refresh: () => void;
+    onRequireExpansion?: () => void;
 }) {
     const s = c.status;
     const selectStyle = { background: T.card, border: `1px solid ${T.border}`, color: T.body, borderRadius: 6, padding: '2px 6px', fontSize: 12 };
@@ -65,77 +166,25 @@ export function ActionButton({
     const [analyzing, setAnalyzing] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // 분석 실행 (run 래퍼 없이 독립 실행하여 경합 방지)
+    // 공통 로직으로 추출된 분석 함수 호출
     const triggerAnalysis = async () => {
         if (analyzing) return;
-        setErrorMsg(null);
-        setAnalyzing(true);
-        try {
-            await updateCompany(c.id, { status: 'crawling' });
-            await mutate(); // SWR 캐시 즉시 갱신
 
-            const promptConfig = getPromptConfig();
-            
-            const res = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    companyId: c.id, 
-                    homepageUrl: c.url,
-                    privacyUrl: c.privacyUrl, 
-                    manualText: c.privacyPolicyText,
-                    systemPrompt: promptConfig.analyzePrompt,
-                    model: promptConfig.model
-                })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                setErrorMsg(data.error || '알 수 없는 오류');
-                await updateCompany(c.id, { status: 'pending' });
-                await dataLayer.auto.addLog({
-                    type: 'ai_analysis',
-                    label: '분석 실패',
-                    companyName: c.name,
-                    detail: data?.error || '알 수 없는 오류'
-                });
-            } else {
-                // 성공 시 상태 변환과 데이터(데모 포함) 업데이트
-                const payload: any = { 
-                    status: 'analyzed',
-                    issues: data.issues || [],
-                    issueCount: data.issueCount || 0,
-                    riskLevel: data.riskLevel || 'MEDIUM'
-                };
-                if (data.rawText) {
-                    payload.privacyPolicyText = data.rawText;
-                }
-                if (data.extractedDetails) {
-                    if (data.extractedDetails.businessNumber) payload.businessRegNumber = data.extractedDetails.businessNumber;
-                    if (data.extractedDetails.phoneNumber) payload.supportPhone = data.extractedDetails.phoneNumber;
-                    if (data.extractedDetails.privacyUrl) payload.privacyUrl = data.extractedDetails.privacyUrl;
-                }
-                await updateCompany(c.id, payload);
-                await dataLayer.auto.addLog({
-                    type: 'ai_analysis',
-                    label: '분석 완료',
-                    companyName: c.name,
-                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
-                });
-            }
-        } catch (err: any) {
-            setErrorMsg(`분석 중 에러 발생: ${err.message}`);
-            await updateCompany(c.id, { status: 'pending' });
-            await dataLayer.auto.addLog({
-                type: 'ai_analysis',
-                label: '분석 중단됨',
-                companyName: c.name,
-                detail: err.message || '네트워크 에러 발생'
-            });
-        } finally {
-            setAnalyzing(false);
-            await mutate(); // 최종 상태 반영
-            globalMutate('auto-logs');
+        if (!c.privacyUrl && !c.privacyPolicyText) {
+            alert('개인정보처리방침 URL이나 전문 텍스트를 기입해야 합니다. 상세 보기에서 직접 입력해주세요.');
+            if (onRequireExpansion) onRequireExpansion();
+            return;
         }
+
+        await executeAiAnalysis({
+            c,
+            updateCompany,
+            mutate,
+            setErrorMsg,
+            setAnalyzing,
+            privacyUrl: c.privacyUrl || '',
+            privacyText: c.privacyPolicyText || ''
+        });
     };
 
     if (s === 'pending' || s === 'crawling') {
@@ -283,80 +332,28 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
         }
     };
 
-    // 분석 트리거 (별도 버튼)
+    // 분석 트리거 (공통 로직 사용)
     const handleAnalyze = async () => {
         if (analyzing) return;
-        // 먼저 현재 폼 데이터 저장
-        setErrorMsg(null);
-        setAnalyzing(true);
-        try {
-            await updateCompany(c.id, {
-                privacyUrl,
-                privacyPolicyText: privacyText,
+        await executeAiAnalysis({
+            c,
+            updateCompany,
+            mutate,
+            setErrorMsg,
+            setAnalyzing,
+            privacyUrl,
+            privacyText,
+            additionalPayload: {
                 callNote,
                 clientReplyNote,
-                status: 'crawling',
-            });
-            await mutate();
-
-            const promptConfig = getPromptConfig();
-
-            const res = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    companyId: c.id, 
-                    homepageUrl: c.url,
-                    privacyUrl: privacyUrl, 
-                    manualText: privacyText,
-                    systemPrompt: promptConfig.analyzePrompt,
-                    model: promptConfig.model
-                })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                setErrorMsg(data.error || '알 수 없는 오류');
-                await updateCompany(c.id, { status: 'pending' });
-                await dataLayer.auto.addLog({
-                    type: 'ai_analysis',
-                    label: '분석 실패',
-                    companyName: c.name,
-                    detail: data?.error || '알 수 없는 오류'
-                });
-            } else {
-                // 성공 시 데이터베이스에 리스크/이슈 저장 (데모 모드 포함)
-                const payload: any = { 
-                    status: 'analyzed',
-                    issues: data.issues || [],
-                    issueCount: data.issueCount || 0,
-                    riskLevel: data.riskLevel || 'MEDIUM'
-                };
+                // 현재 ExpandedRow 폼의 기본 정보도 같이 저장하려면 여기서 추가할 수 있습니다.
+            },
+            onSuccess: (data) => {
                 if (data.rawText) {
-                    payload.privacyPolicyText = data.rawText;
                     setPrivacyText(data.rawText); // 화면 즉시 업데이트
                 }
-                await updateCompany(c.id, payload);
-                await dataLayer.auto.addLog({
-                    type: 'ai_analysis',
-                    label: '분석 완료',
-                    companyName: c.name,
-                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
-                });
             }
-        } catch (e: any) {
-            setErrorMsg(`분석 요청 실패: ${e.message}`);
-            await updateCompany(c.id, { status: 'pending' });
-            await dataLayer.auto.addLog({
-                type: 'ai_analysis',
-                label: '분석 중단됨',
-                companyName: c.name,
-                detail: e.message || '네트워크 에러 발생'
-            });
-        } finally {
-            setAnalyzing(false);
-            await mutate();
-            globalMutate('auto-logs');
-        }
+        });
     };
 
     const inputStyle = {

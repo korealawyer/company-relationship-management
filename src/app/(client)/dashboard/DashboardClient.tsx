@@ -517,6 +517,65 @@ function RecentDocumentsWidget({ companyId }: { companyId?: string }) {
     );
 }
 
+function PrivacyReportWidget({ company }: { company: any }) {
+    if (!company) return null;
+
+    // Use riskLevel if present, otherwise default based on whether issues exist
+    const hasAnalysis = company.issues && company.issues.length > 0;
+    const effectiveRiskLevel = company.riskLevel || (hasAnalysis ? 'MEDIUM' : 'LOW');
+    const issueCount = company.issues ? company.issues.length : 0;
+
+    const riskColor = effectiveRiskLevel === 'HIGH' ? '#f87171' : effectiveRiskLevel === 'MEDIUM' ? '#fb923c' : '#4ade80';
+    const riskBg = effectiveRiskLevel === 'HIGH' ? '#fef2f2' : effectiveRiskLevel === 'MEDIUM' ? '#fffbeb' : '#f0fdf4';
+    const riskLabel = effectiveRiskLevel === 'HIGH' ? '고위험' : effectiveRiskLevel === 'MEDIUM' ? '주의' : '양호';
+
+    return (
+        <Card className="p-5 border-none shadow-md mb-6" style={{ background: '#fff' }}>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-black text-[15px] flex items-center gap-2" style={{ color: '#111827' }}>
+                    <Shield className="w-4 h-4" style={{ color: riskColor }} />
+                    법률 검토 리포트
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: riskBg, color: riskColor }}>
+                    {riskLabel}
+                </span>
+            </div>
+            <div className="space-y-3">
+                <div className="p-4 rounded-xl" style={{ background: '#f8f9fc', border: '1px solid #f1f5f9' }}>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-gray-500">발견된 보안·법률 리스크</span>
+                        <span className="text-sm font-black text-gray-900">{issueCount}건</span>
+                    </div>
+                    {/* 이슈 요약 */}
+                    {hasAnalysis ? (
+                        <div className="space-y-2 mt-3">
+                            {company.issues.slice(0, 2).map((issue: any, idx: number) => (
+                                <div key={idx} className="flex gap-2">
+                                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: issue.level === 'HIGH' ? '#f87171' : (issue.level === 'MEDIUM' ? '#fb923c' : '#4ade80') }} />
+                                    <span className="text-xs font-medium text-gray-700 truncate">{issue.title}</span>
+                                </div>
+                            ))}
+                            {issueCount > 2 && (
+                                <p className="text-[10px] text-gray-400 text-center mt-2">+ {issueCount - 2}건의 이슈가 더 있습니다.</p>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="mt-3 text-center py-2">
+                            <CheckCircle2 className="w-4 h-4 mx-auto mb-1 text-green-500" />
+                            <p className="text-xs text-gray-500">발견된 주요 취약점이 없습니다.</p>
+                        </div>
+                    )}
+                </div>
+                <Link href={`/privacy-analysis`}>
+                    <Button variant="outline" className="w-full gap-2 text-xs font-bold mt-2">
+                        상세 분석 결과 보기 <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                </Link>
+            </div>
+        </Card>
+    );
+}
+
 export function DashboardClient({ initialUser, initialCompany }: { initialUser: any, initialCompany: any }) {
     const session = initialUser;
     
@@ -532,7 +591,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
         } else if (session?.companyId && companies?.length) {
             const match = companies.find((c: any) => c.id === session.companyId);
             if (match) setCompany(match);
-            else setCompany(companies[0] || null);
+            else setCompany(null);
         }
     }, [initialCompany, session?.companyId, companies]);
 
@@ -568,7 +627,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
     // 비로그인 고객 처리는 이제 상위 Server Component에서 담당합니다.
 
     const isPaid = company?.plan === 'standard' || company?.plan === 'premium';
-    const displayName = session?.companyName || company?.name || '(주)놀부NBG';
+    const displayName = session?.companyName || company?.name || '고객';
 
     return (
         <div className="min-h-screen" style={{ background: '#f8f7f4' }}>
@@ -579,11 +638,15 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                 <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
+                            {company?.biz && (
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Building2 className="w-4 h-4" style={{ color: '#c9a84c' }} />
+                                    <span className="text-sm font-semibold" style={{ color: 'rgba(201,168,76,0.8)' }}>
+                                        {company.biz}
+                                    </span>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2 mb-2">
-                                <Building2 className="w-4 h-4" style={{ color: '#c9a84c' }} />
-                                <span className="text-sm font-semibold" style={{ color: 'rgba(201,168,76,0.8)' }}>
-                                    {company?.biz || '등록된 사업자번호'}
-                                </span>
                                 <span className="text-[10px] px-2.5 py-1 rounded-full font-black tracking-wide"
                                     style={{ background: isPaid ? 'rgba(34,197,94,0.15)' : 'rgba(248,113,113,0.12)', color: isPaid ? '#4ade80' : '#f87171' }}>
                                     {isPaid ? '✅ VIP 구독 활성' : 'FREE 플랜'}
@@ -682,6 +745,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
 
                     {/* ✨ 우측: 로펌 컨택 및 사이드바 ✨ */}
                     <div className="space-y-6">
+                        <PrivacyReportWidget company={company} />
                         <CalendarWidget companyId={company?.id} />
 
                         {/* IBS 로펌 전담 데스크 */}
@@ -766,21 +830,10 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                         <Bell className="w-4 h-4" style={{ color: '#111827' }} />
                                         <h3 className="font-bold text-sm" style={{ color: '#111827' }}>중요 알림</h3>
                                     </div>
-                                    <span className="bg-red-100 text-red-600 text-[10px] font-black px-2 py-0.5 rounded-full">1</span>
+                                    <span className="bg-gray-100 text-gray-600 text-[10px] font-black px-2 py-0.5 rounded-full">0</span>
                                 </div>
-                                <div className="p-3 rounded-xl border border-red-100 bg-red-50 mb-3 flex items-start gap-3">
-                                    <div className="mt-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                                    <div>
-                                        <p className="text-xs font-bold text-red-800 mb-1">구독 결제 실패 (재시도 필요)</p>
-                                        <p className="text-[10px] text-red-600">등록된 카드의 한도 초과 또는 유효기간 만료가 의심됩니다. 결제 정보를 업데이트해주세요.</p>
-                                    </div>
-                                </div>
-                                <div className="p-3 rounded-xl border border-gray-100 flex items-start gap-3">
-                                    <div className="mt-0.5 w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                    <div>
-                                        <p className="text-xs font-bold text-gray-800 mb-1">상반기 노무 정기 점검 예약 안내</p>
-                                        <p className="text-[10px] text-gray-500">다음 주 중으로 안내 메일이 발송될 예정입니다.</p>
-                                    </div>
+                                <div className="py-6 text-center">
+                                    <p className="text-sm text-gray-500">새로운 알림이 없습니다.</p>
                                 </div>
                             </Card>
                         </motion.div>

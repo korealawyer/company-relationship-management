@@ -143,7 +143,7 @@ export default function LawyerPage() {
                                         className="w-full pl-9 pr-4 py-2 rounded-xl text-sm border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all bg-white shadow-sm"
                                     />
                                 </div>
-                                <Link href="/lawyer/privacy-review"
+                                <Link href={assignedCases.length > 0 ? `/lawyer/privacy-review?leadId=${assignedCases[0].id}&company=${encodeURIComponent(assignedCases[0].name)}` : "/lawyer/privacy-review"}
                                     className="hidden sm:flex items-center gap-1.5 text-sm font-bold transition-colors text-slate-400 hover:text-violet-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:border-violet-200 shadow-sm"
                                 >
                                     전체 검토 시작 <ArrowRight className="w-4 h-4" />

@@ -43,14 +43,14 @@ export const INVITE_CODES: Record<string, { companyId: string; companyName: stri
 
 // ── 가맹점·임직원용 사업자번호 DB ────────────────────────────
 const FRANCHISE_BIZ_DB: Record<string, { companyId: string; companyName: string; type: '본사' | '가맹점' | '직영점' }> = {
-    '1234567890': { companyId: 'c1', companyName: '(주)놀부NBG', type: '본사' },
+    '1234567890': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f', companyName: '(주)놀부NBG', type: '본사' },
     '2345678901': { companyId: 'c2', companyName: '(주)교촌에프앤비', type: '본사' },
     '3456789012': { companyId: 'c3', companyName: '(주)파리바게뜨', type: '본사' },
     '4567890123': { companyId: 'c4', companyName: '(주)bhc치킨', type: '본사' },
     '5678901234': { companyId: 'c5', companyName: '(주)본죽', type: '본사' },
     // 가맹점 (본사 그룹으로 편입)
-    '9999001001': { companyId: 'c1', companyName: '놀부NBG 강남점', type: '가맹점' },
-    '9999001002': { companyId: 'c1', companyName: '놀부NBG 홍대점', type: '가맹점' },
+    '9999001001': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f', companyName: '놀부NBG 강남점', type: '가맹점' },
+    '9999001002': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f', companyName: '놀부NBG 홍대점', type: '가맹점' },
     '9999002001': { companyId: 'c2', companyName: '교촌 서초점', type: '가맹점' },
 };
 
@@ -231,7 +231,7 @@ export async function signUpClientPortal(args: {
         '8901234567': { companyId: 'c8',  companyName: '(주)이디야커피' },
         '9012345678': { companyId: 'c9',  companyName: '(주)메가MGC커피' },
         '0123456789': { companyId: 'c10', companyName: '(주)써브웨이코리아' },
-        '1234567890': { companyId: 'c1',  companyName: '(주)놀부NBG' },
+        '1234567890': { companyId: '7385d8b0-8408-4067-9280-e7d12449774f',  companyName: '(주)놀부NBG' },
         '2345678901': { companyId: 'c2',  companyName: '(주)교촌에프앤비' },
         '3456789012': { companyId: 'c3',  companyName: '(주)파리바게뜨' },
         '4567890123': { companyId: 'c4',  companyName: '(주)bhc치킨' },
