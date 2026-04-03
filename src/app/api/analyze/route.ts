@@ -27,6 +27,36 @@ export async function POST(request: NextRequest) {
     const paramUrl = Object.values(body).find(val => typeof val === 'string' && val.startsWith('http')) as string || '';
     const { companyId, manualText, systemPrompt, model } = body as any;
     
+    // "없음" 또는 "미기재" 예외 처리
+    const checkMissing = (val?: string) => {
+        if (!val || typeof val !== 'string') return false;
+        const normalized = val.trim().replace(/\s+/g, '');
+        return normalized === '없음' || normalized === '미기재';
+    };
+
+    if (checkMissing(body.privacyUrl) || checkMissing(manualText) || checkMissing(body.homepageUrl)) {
+        return NextResponse.json({
+            success: true,
+            isDemoMode: false,
+            message: '빠른 예외 처리 완료 (방침 없음)',
+            analysisId: `missing-${Date.now()}`,
+            analyzedUrl: null,
+            issueCount: 1,
+            issues: [{
+                id: crypto.randomUUID(),
+                type: 'Missing Policy',
+                description: '웹사이트 내 개인정보 처리방침이 공개되어 있지 않거나, 링크가 누락되어 있습니다. (관련 법령 위반 소지)',
+                suggestion: '개인정보보호법에 의거하여 즉각적인 개인정보 처리방침 제정 및 웹사이트 초기화면 게시 조치가 필요합니다.',
+                severity: 'CRITICAL',
+                originalText: '없음 / 미기재'
+            }],
+            riskLevel: 'CRITICAL',
+            rawText: '해당 기업은 개인정보 처리방침이 없거나 확인되지 않습니다 (데이터 상 "없음" 또는 "미기재" 상태).',
+            extractedDetails: { ceo: '', companyName: '', address: '', bizNumber: '', email: '' },
+            completedAt: new Date().toISOString(),
+        });
+    }
+
     // URL 정규화 함수 (`http`가 없으면 `https://` 붙이기)
     const normalizeUrl = (url?: string) => {
         if (!url || typeof url !== 'string') return '';
