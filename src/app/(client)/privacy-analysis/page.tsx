@@ -32,8 +32,8 @@ export default function PrivacyAnalysisClientPage() {
         );
     }
 
-    const { issues, riskLevel } = company;
-    const hasAnalysis = issues && issues.length > 0;
+    const { issues, riskLevel, lawyerConfirmed } = company;
+    const hasAnalysis = issues && issues.length > 0 && lawyerConfirmed;
     const effectiveRiskLevel = riskLevel || (hasAnalysis ? 'MEDIUM' : 'LOW');
 
     return (
