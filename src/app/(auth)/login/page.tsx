@@ -92,9 +92,9 @@ function LoginContent() {
                     // setCookie was moved to inside auth but let's do it safely
                     setCookie('ibs_session', session.id, 1);
                     setCookie('ibs_role', session.role, 1);
-                    router.replace(from || '/privacy-report');
+                    router.replace(from || '/privacy-analysis');
                 } else {
-                    router.replace(from || '/privacy-report'); // session might be slight delayed
+                    router.replace(from || '/privacy-analysis'); // session might be slight delayed
                 }
             } else {
                 throw new Error(result.error);

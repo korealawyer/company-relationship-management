@@ -28,7 +28,7 @@ export default function ClaimPopup() {
     const handleLoginRedirect = () => {
         setIsVisible(false);
         // 이동 시 url 파라미터 유지
-        router.push(`/login?claim=${claimId}&from=/privacy-report`);
+        router.push(`/login?claim=${claimId}&from=/privacy-analysis`);
     };
 
     return (

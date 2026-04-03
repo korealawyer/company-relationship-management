@@ -320,7 +320,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
         
         // 추가: 개인정보처리방침 (통합본) 은 프리뷰 모달 대신 전용 리포트 페이지로 바로 이동
         if (doc.name.includes('개인정보보호법 기반 위험 진단 리포트 (통합본)')) {
-            router.push('/privacy-report');
+            router.push('/privacy-analysis');
             return;
         }
 
