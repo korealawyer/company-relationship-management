@@ -41,62 +41,7 @@ interface UIDocument extends Document {
     starred?: boolean;
 }
 
-/* ── 데모 데이터 ────────────────────────────────────────── */
-const DEMO_DOCS: UIDocument[] = [
-    {
-        id: 'demo-1',
-        companyId: 'demo',
-        authorRole: 'lawyer',
-        name: '가맹계약서 독소조항 검토.pdf',
-        size: 1024 * 500,
-        type: 'application/pdf',
-        category: '계약서',
-        status: '검토 완료',
-        url: '#',
-        createdAt: '2026-03-10T10:00:00Z',
-        isNewForClient: false,
-        isNewForLawyer: false,
-        isDemo: true,
-        summary: '위약금 조항 불공정 거래 해당 가능성, 계약 해지 시 잔여 기간 수수료 청구 조항 주의.',
-        issueCount: 3,
-        highRiskCount: 1,
-    },
-    {
-        id: 'demo-2',
-        companyId: 'demo',
-        authorRole: 'lawyer',
-        name: '개인정보처리방침 법률 진단 리포트.pdf',
-        size: 1024 * 800,
-        type: 'application/pdf',
-        category: '리포트',
-        status: '검토 완료',
-        url: '#',
-        createdAt: '2026-03-16T10:00:00Z',
-        isNewForClient: false,
-        isNewForLawyer: false,
-        isDemo: true,
-        summary: '개인정보 과다수집, 제3자 제공 동의 절차 부재 등 4건의 법적 위험 발견. 즉시 시정 권고.',
-        riskScore: 78,
-        issueCount: 4,
-        highRiskCount: 2,
-    },
-    {
-        id: 'demo-3',
-        companyId: 'demo',
-        authorRole: 'lawyer',
-        name: '프랜차이즈 가맹사업법 법률 의견서.pdf',
-        size: 1024 * 600,
-        type: 'application/pdf',
-        category: '의견서',
-        status: '검토 대기',
-        url: '#',
-        createdAt: '2026-03-05T10:00:00Z',
-        isNewForClient: false,
-        isNewForLawyer: false,
-        isDemo: true,
-        summary: '정보공개서 등록 의무, 가맹금 예치 절차 적정성 검토 진행 중.',
-    }
-];
+/* ── 데모 데이터 제거 완료 ────────────────────────────────────────── */
 
 /* ── 통계 위젯 ─────────────────────────────────────────── */
 function StatsRow({ documents }: { documents: UIDocument[] }) {
@@ -256,12 +201,47 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
-        const load = () => {
+        const load = async () => {
             if (session?.companyId) {
-                // TODO: Supabase Storage 및 DB 테이블 구현 시 dataLayer로 전환
-                // const dbDocs = await dataLayer.documents.getByCompanyId(session.companyId);
-                // setDocs(dbDocs);
-                setDocs([]);
+                // TODO: Supabase Storage 및 DB 문서 테이블 구현 시 교체
+                const companyId = session.companyId;
+                
+                // dataLayer를 임포트 해야 함 (위에 추가 확인)
+                try {
+                    const dataLayer = (await import('@/lib/dataLayer')).default;
+                    const company = await dataLayer.companies.getById(companyId);
+                    
+                    const fetchedDocs: UIDocument[] = [];
+                    
+                    if (company && company.lawyerConfirmed) {
+                        fetchedDocs.push({
+                            id: `privacy-report-${company.id}`,
+                            companyId: company.id,
+                            authorRole: 'lawyer',
+                            name: '개인정보보호법 기반 위험 진단 리포트 (통합본).pdf',
+                            size: 1024 * 350,
+                            type: 'application/pdf',
+                            category: '리포트',
+                            status: '검토 완료',
+                            url: '#',
+                            createdAt: company.updatedAt || new Date().toISOString(),
+                            isNewForClient: false,
+                            isNewForLawyer: false,
+                            isDemo: false,
+                            summary: `발견된 법적 취약점 ${company.issues?.length || 0}건에 대한 상세 진단 결과 및 시정 조치 안내서입니다.`,
+                            issueCount: company.issues?.length || 0,
+                            highRiskCount: company.issues?.filter((i:any) => i.level === 'HIGH').length || 0,
+                            riskScore: company.issues?.length ? 100 - (company.issues.length * 5) : 100
+                        });
+                    }
+                    
+                    const dbDocs = await dataLayer.documents.getAll(companyId);
+                    
+                    setDocs([...fetchedDocs, ...dbDocs]);
+                } catch(e) {
+                    console.error(e);
+                    setDocs([]);
+                }
             }
         };
         load();
@@ -329,7 +309,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
 
     // Auth checking is now handled by the Server Component
 
-    const allDocs = [...docs, ...DEMO_DOCS];
+    const allDocs = [...docs];
     const filteredDocs = allDocs.filter(doc => {
         if (filterCategory !== 'all' && doc.category !== filterCategory) return false;
         if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
@@ -496,11 +476,27 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button 
-                                        onClick={() => {
-                                            const a = document.createElement('a');
-                                            a.href = previewDoc.url;
-                                            a.download = previewDoc.name;
-                                            a.click();
+                                        onClick={async () => {
+                                            if (previewDoc.isDemo || previewDoc.url === '#') {
+                                                alert("샘플 문서는 안내용 텍스트만 존재하며 실제 다운로드를 지원하지 않습니다.");
+                                                return;
+                                            }
+                                            try {
+                                                const res = await fetch(previewDoc.url);
+                                                const blob = await res.blob();
+                                                const objectUrl = window.URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.style.display = 'none';
+                                                a.href = objectUrl;
+                                                a.download = previewDoc.name || 'document';
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                window.URL.revokeObjectURL(objectUrl);
+                                                document.body.removeChild(a);
+                                            } catch (e) {
+                                                console.error("다운로드 실패 (CORS 등):", e);
+                                                window.open(previewDoc.url, '_blank');
+                                            }
                                         }}
                                         className="p-2 text-gray-500 hover:text-gray-900 transition-colors bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center gap-2 text-sm font-semibold"
                                     >

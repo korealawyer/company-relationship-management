@@ -217,7 +217,7 @@ export async function signUpClientPortal(args: {
     const { data: bgCompany, error: fetchErr } = await sb
         .from('companies')
         .select('id, name')
-        .eq('biz_num', digits)
+        .eq('biz_no', digits)
         .single();
         
     if (fetchErr || !bgCompany) {
@@ -351,7 +351,7 @@ export async function lookupBizAffiliation(bizNum: string): Promise<{ found: tru
     const { data: bgCompany, error } = await sb
         .from('companies')
         .select('id, name')
-        .eq('biz_num', digits)
+        .eq('biz_no', digits)
         .single();
         
     if (error || !bgCompany) return { found: false, error: '등록된 사업자번호가 아닙니다.' };

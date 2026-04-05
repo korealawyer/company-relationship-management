@@ -3,13 +3,16 @@ import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { store, Company, STATUS_LABEL } from '@/lib/mockStore';
 import { useUsers } from '@/hooks/useDataLayer';
+import { idbGet, idbSet, idbDel } from '@/lib/idb';
+import { useEffect } from 'react';
 
 export function useExcelImportExport(
     companies: Company[],
     refresh: () => void,
     showToast: (msg: string) => void,
     importBulk: (data: Partial<Company>[]) => Promise<{ success: number; skipped: number }>,
-    updateCompany: (id: string, payload: Partial<Company>) => Promise<void>
+    updateCompany: (id: string, payload: Partial<Company>) => Promise<void>,
+    updateBulk: (data: Partial<Company>[]) => Promise<{ success: number; skipped: number }>
 ) {
     const { users } = useUsers();
     const [importMode, setImportMode] = useState<'create_leads' | 'update_privacy'>('create_leads');
@@ -20,6 +23,22 @@ export function useExcelImportExport(
     const [importSuccess, setImportSuccess] = useState(0);
     const [importSkipped, setImportSkipped] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // IndexedDB에서 진행중인 작업 복구 (중간저장소)
+    useEffect(() => {
+        idbGet('pending_excel_upload').then(saved => {
+            if (saved && saved.data && saved.data.length > 0) {
+                if (window.confirm(`이전에 저장하지 못한 ${saved.data.length}건의 [${saved.mode === 'update_privacy' ? '방침 업로드' : '대량 업로드'}] 엑셀 데이터가 있습니다. 임시저장소에서 이어서 작업하시겠습니까?`)) {
+                    setImportMode(saved.mode);
+                    setExcelData(saved.data);
+                    setExcelPreview(saved.data.slice(0, 20));
+                    setShowExcelUpload(true);
+                } else {
+                    idbDel('pending_excel_upload');
+                }
+            }
+        }).catch(console.error);
+    }, []);
 
     const handleExcelDownload = () => {
         const data = companies.map(c => ({
@@ -34,7 +53,10 @@ export function useExcelImportExport(
             '담당자 전화': c.contactPhone || '',
             '가맹점수': c.storeCount,
             '상태': STATUS_LABEL[c.status] || c.status,
-            '위험도': c.riskLevel || '',
+            '위험도등급': c.riskLevel || '미분석',
+            '발견된 법률이슈(건)': c.issueCount || 0,
+            'AI 분석여부': c.status === 'analyzed' || c.status === 'client_replied' ? '완료' : '진행전',
+            '설정된 방침 URL': c.privacyUrl || '',
             '배정 변호사': c.assignedLawyer || '',
             '영업자': c.assignedSalesName || '',
             '통화 메모': c.callNote || '',
@@ -45,10 +67,11 @@ export function useExcelImportExport(
         XLSX.utils.book_append_sheet(wb, ws, 'CRM 기업목록');
         
         ws['!cols'] = [
-            { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 30 },
-            { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 },
-            { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 12 },
-            { wch: 30 }, { wch: 15 }, { wch: 10 },
+            { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, // 업종, 구분 추가로 늘어남
+            { wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 10 },
+            { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+            { wch: 18 }, { wch: 12 }, { wch: 40 }, { wch: 12 },
+            { wch: 15 }, { wch: 30 }, { wch: 10 },
         ];
         XLSX.writeFile(wb, `IBS_CRM_기업목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
         showToast('📥 Excel 파일이 다운로드되었습니다');
@@ -113,6 +136,8 @@ export function useExcelImportExport(
                 setExcelData(raw);
                 setExcelPreview(raw.slice(0, 20)); // UI에는 20건만 표시
                 setShowExcelUpload(true);
+                // 바로 로컬 저장소에 백업 (중간저장소)
+                idbSet('pending_excel_upload', { mode: importMode, data: raw }).catch(console.error);
             } catch (err) {
                 console.error('Excel parse error:', err);
                 showToast('❌ Excel 파일 파싱에 실패했습니다');
@@ -126,33 +151,27 @@ export function useExcelImportExport(
         setExcelUploading(true);
 
         if (importMode === 'update_privacy') {
-            let success = 0;
+            const mappedUpdates: Partial<Company>[] = [];
             let skipped = 0;
             
             for (const row of excelData) {
                 const values = Object.values(row);
-                // 요구사항 반영: a열, b열, c열 (기업명 개인정보처리방침url 개인정보처리방침전문) 지원
                 const nameStr = String(row['기업명'] || row['회사명'] || values[0] || '').trim();
                 const privacyUrl = String(row['개인정보처리방침url'] || row['개인정보처리방침 URL'] || values[1] || '').trim();
                 const privacyText = String(row['개인정보처리방침전문'] || row['개인정보처리방침 전문'] || values[2] || '').trim();
                 
-                if (!nameStr) continue;
+                if (!nameStr) {
+                    skipped++;
+                    continue;
+                }
 
-                // 기업명으로 매칭
                 const matchedCompany = companies.find(c => c.name === nameStr);
                 if (matchedCompany) {
-                    const updates: Partial<Company> = {};
-                    if (privacyUrl) updates.privacyUrl = privacyUrl;
-                    if (privacyText) updates.privacyPolicyText = privacyText;
-                    
-                    if (Object.keys(updates).length > 0) {
-                        try {
-                            await updateCompany(matchedCompany.id, updates);
-                            success++;
-                        } catch (err) {
-                            console.error('Update error:', err);
-                            skipped++;
-                        }
+                    if (privacyUrl || privacyText) {
+                        const payload = { ...matchedCompany };
+                        if (privacyUrl) payload.privacyUrl = privacyUrl;
+                        if (privacyText) payload.privacyPolicyText = privacyText;
+                        mappedUpdates.push(payload);
                     } else {
                         skipped++;
                     }
@@ -161,14 +180,33 @@ export function useExcelImportExport(
                 }
             }
             
-            showToast(success > 0 
-                ? `✅ 기업명 매칭 성공: ${success}건의 개인정보 데이터가 삽입되었습니다. (스킵/실패: ${skipped}건)` 
-                : `❌ 매칭된 기업이 없거나 업데이트할 데이터가 없습니다. (스킵 ${skipped}건)`
-            );
+            if (mappedUpdates.length === 0) {
+                showToast(`❌ 매칭된 기업이 없거나 업데이트할 데이터가 없습니다. (스킵 ${skipped}건)`);
+                setExcelUploading(false);
+                setShowExcelUpload(false);
+                setExcelData([]);
+                setExcelPreview([]);
+                await idbDel('pending_excel_upload');
+                refresh();
+                return;
+            }
+
+            try {
+                const result = await updateBulk(mappedUpdates);
+                showToast(result.success > 0 
+                    ? `✅ 대량 업데이트 성공: ${result.success}건 완료. (스킵/실패: ${result.skipped + skipped}건)` 
+                    : `❌ 업데이트할 데이터가 없습니다. (스킵 ${skipped}건)`
+                );
+            } catch (err) {
+                console.error('Bulk update error:', err);
+                showToast('❌ 대량 업데이트 중 오류가 발생했습니다.');
+            }
+            
             setExcelUploading(false);
             setShowExcelUpload(false);
             setExcelData([]);
             setExcelPreview([]);
+            await idbDel('pending_excel_upload'); // 완료 시 중간저장소 초기화
             refresh();
             return;
         }
@@ -262,8 +300,10 @@ export function useExcelImportExport(
             } else {
                 showToast(`📤 신규 ${result.success}건 추가, 중복/에러 ${result.skipped}건 스킵 완료됨`);
             }
+            await idbDel('pending_excel_upload'); // 완료 후 백업 지우기
         } catch (err) {
             console.error('Import Error:', err);
+            showToast('❌ 엑셀 등록에 실패했습니다');
             showToast('❌ Excel 데이터 등록 중 내부 오류가 발생했습니다');
         }
 
@@ -271,6 +311,7 @@ export function useExcelImportExport(
         setShowExcelUpload(false);
         setExcelData([]);
         setExcelPreview([]);
+        await idbDel('pending_excel_upload'); // 완료 시 중간저장소 초기화
         refresh();
     };
 

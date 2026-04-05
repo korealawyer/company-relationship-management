@@ -11,7 +11,7 @@ export function useEmployeeCRM() {
     }, []);
     const isAdmin = role === 'admin' || role === 'super_admin';
 
-    const { companies: dbCompanies, updateCompany, addCompany, importBulk, mutate: mutateCompanies } = useCompanies();
+    const { companies: dbCompanies, updateCompany, updateBulk, addCompany, importBulk, mutate: mutateCompanies } = useCompanies();
     const { settings: dbSettings, updateSettings, mutate: mutateSettings } = useAutoSettings();
     const { logs: dbLogs, mutate: mutateLogs } = useAutoLogs(); 
 
@@ -64,6 +64,6 @@ export function useEmployeeCRM() {
         autoSettings, autoLogs, updateAuto, clearLogs,
         viewMode, setViewMode,
         toast, showToast,
-        refresh, updateCompany, addCompany, importBulk
+        refresh, updateCompany, updateBulk, addCompany, importBulk
     };
 }

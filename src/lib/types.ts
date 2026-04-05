@@ -51,7 +51,8 @@ export type CaseStatus =
     | 'pilot_offer'       // 파일럿 제안(할인)
     | 'subscribed'        // 구독 완료 (정식 계약/구독 중)
     | 'upsell'            // 업셀링 대상
-    | 'churn_risk';       // 이탈 위험(Churn)
+    | 'churn_risk'        // 이탈 위험(Churn)
+    | 're_investigation'; // 재조사
 
 export interface Issue {
     id: string;
@@ -60,6 +61,9 @@ export interface Issue {
     title: string;
     originalText: string;
     riskDesc: string;
+    scenario?: string;      // AI generated scenario
+    penalty?: string;       // AI generated penalty
+    recommendation?: string; // AI generated recommendation
     customDraft: string;   // AI 초안 → 변호사 수정
     lawyerNote: string;
     reviewChecked: boolean;
@@ -482,4 +486,3 @@ export interface FinanceExpense {
 
 // ── 영업팀 콜 락 시스템 (Sales Call Locks) ────────────────────────
 // (Merged with earlier definition at the top)
-

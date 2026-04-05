@@ -12,7 +12,7 @@ import type {
   PersonalClient, PersonalLitigation, PersonalLitDeadline,
   PersonalLitDocument, AutoSettings, AutoLog,
 } from './mockStore';
-import type { AppNotification } from './types';
+import type { AppNotification, Document, DbContract } from './types';
 import { LAWYERS } from './mockStore';
 
 // ── snake_case ↔ camelCase 변환 유틸 ──────────────────────────
@@ -241,6 +241,31 @@ export const supabaseCompanyStore = {
     }
   },
 
+  updateBulk: async (companies: Partial<Company>[]): Promise<{ success: number; skipped: number }> => {
+    const sb = getSupabase();
+    if (!sb) return { success: 0, skipped: companies.length };
+
+    const rows = companies.map(company => cleanCompanyRow(company, false));
+    let successCount = 0;
+    
+    // Chunk items by 500
+    for (let i = 0; i < rows.length; i += 500) {
+      const chunk = rows.slice(i, i + 500);
+      try {
+        const { data, error } = await sb.from('companies').upsert(chunk, { onConflict: 'id', ignoreDuplicates: false });
+        if (error) {
+          console.error('Bulk update error mapped chunk:', error);
+        } else {
+          successCount += chunk.length;
+        }
+      } catch (err) {
+        console.error('Bulk update exception chunk:', err);
+      }
+    }
+    
+    return { success: successCount, skipped: companies.length - successCount };
+  },
+
   importBulk: async (companies: Partial<Company>[]): Promise<{ success: number; skipped: number }> => {
     const sb = getSupabase();
     if (!sb) return { success: 0, skipped: companies.length };
@@ -252,10 +277,10 @@ export const supabaseCompanyStore = {
 
     let successCount = 0;
     
-    // 500건씩 쪼개서 Bulk Insert
-    for (let i = 0; i < rows.length; i += 500) {
-      const chunk = rows.slice(i, i + 500);
-      const originalChunk = companies.slice(i, i + 500);
+    // 100건씩 쪼개서 Bulk Insert (GET 파라미터 URL 길이 제한 회피)
+    for (let i = 0; i < rows.length; i += 100) {
+      const chunk = rows.slice(i, i + 100);
+      const originalChunk = companies.slice(i, i + 100);
 
       // (1) 청크 내 중복 및 기존 DB 중복 검증 로직 추가 (UNIQUE 제약조건 부재 시 upsert 에러 방지)
       const validBizNos = chunk.map(c => c.biz_no).filter(b => b && !b.startsWith('T'));
@@ -698,6 +723,110 @@ export const supabaseNotificationStore = {
     const sb = getSupabase();
     if (!sb) return;
     await sb.from('notifications').delete().eq('id', id);
+  }
+};
+
+// ── Document CRUD ────────────────────────────────────────────
+export const supabaseDocumentStore = {
+  getAll: async (tenantId?: string): Promise<Document[]> => {
+    const sb = getSupabase();
+    if (!sb) return [];
+    
+    let query = sb.from('documents').select('*').order('created_at', { ascending: false });
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+    
+    const { data: rows } = await query;
+    if (!rows) return [];
+    
+    return rows.map(r => ({
+      id: r.id,
+      companyId: r.tenant_id,
+      authorRole: r.doc_source === 'internal' ? 'lawyer' : 'client',
+      name: r.title,
+      size: r.file_size || 0,
+      type: r.file_type || 'application/pdf',
+      category: (r.doc_type === 'contract' ? '계약서' :
+                 r.doc_type === 'opinion' ? '의견서' :
+                 r.doc_type === 'compliance_report' ? '리포트' :
+                 r.doc_type === 'court_filing' ? '소장' :
+                 r.doc_type === 'timecost_invoice' ? '영수증' : '기타') as unknown as Document['category'],
+      status: (r.status === 'draft' ? '검토 대기' :
+               r.status === 'reviewing' ? '검토 중' :
+               r.status === 'approved' ? '검토 완료' : '검토 중') as unknown as Document['status'],
+      createdBy: r.uploaded_by || '',
+      url: r.file_url || '#',
+      createdAt: r.created_at,
+      isNewForClient: false,
+      isNewForLawyer: false
+    }));
+  },
+
+  getById: async (id: string): Promise<Document | null> => {
+    const sb = getSupabase();
+    if (!sb) return null;
+    const { data: r } = await sb.from('documents').select('*').eq('id', id).single();
+    if (!r) return null;
+    return {
+      id: r.id,
+      companyId: r.tenant_id,
+      authorRole: r.doc_source === 'internal' ? 'lawyer' : 'client',
+      name: r.title,
+      size: r.file_size || 0,
+      type: r.file_type || 'application/pdf',
+      category: (r.doc_type === 'contract' ? '계약서' :
+                 r.doc_type === 'opinion' ? '의견서' :
+                 r.doc_type === 'compliance_report' ? '리포트' :
+                 r.doc_type === 'court_filing' ? '소장' :
+                 r.doc_type === 'timecost_invoice' ? '영수증' : '기타') as unknown as Document['category'],
+      status: (r.status === 'draft' ? '검토 대기' :
+               r.status === 'reviewing' ? '검토 중' :
+               r.status === 'approved' ? '검토 완료' : '검토 중') as unknown as Document['status'],
+      createdBy: r.uploaded_by || '',
+      url: r.file_url || '#',
+      createdAt: r.created_at,
+      isNewForClient: false,
+      isNewForLawyer: false
+    };
+  }
+};
+
+// ── Contract CRUD ────────────────────────────────────────────
+export const supabaseContractStore = {
+  getAll: async (): Promise<DbContract[]> => {
+    const sb = getSupabase();
+    if (!sb) return [];
+    const { data: rows } = await sb.from('contracts').select('*').order('created_at', { ascending: false });
+    return rows ? rows.map(r => rowToObj<DbContract>(r)) : [];
+  },
+
+  getById: async (id: string): Promise<DbContract | null> => {
+    const sb = getSupabase();
+    if (!sb) return null;
+    const { data: row } = await sb.from('contracts').select('*').eq('id', id).single();
+    return row ? rowToObj<DbContract>(row) : null;
+  },
+
+  create: async (contract: Partial<DbContract>): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) return;
+    if (!contract.id) contract.id = crypto.randomUUID();
+    await sb.from('contracts').insert(objToRow(contract as Record<string, unknown>));
+  },
+
+  update: async (id: string, updates: Partial<DbContract>): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) return;
+    const row = objToRow(updates as Record<string, unknown>);
+    row.updated_at = new Date().toISOString();
+    await sb.from('contracts').update(row).eq('id', id);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) return;
+    await sb.from('contracts').delete().eq('id', id);
   }
 };
 

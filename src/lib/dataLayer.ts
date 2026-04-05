@@ -8,7 +8,7 @@
 // 이제 영구적으로 Supabase 데이터만 바라보도록 고정되었습니다. (Zero-Mockup)
 // ================================================================
 
-import type { Company, LitigationCase, Consultation, AutoSettings, AutoLog, PersonalClient, PersonalLitigation, AppNotification } from './types';
+import type { Company, LitigationCase, Consultation, AutoSettings, AutoLog, PersonalClient, PersonalLitigation, AppNotification, DbContract, Document } from './types';
 
 import {
   supabaseCompanyStore,
@@ -18,6 +18,8 @@ import {
   supabaseAutoStore,
   supabaseUserStore,
   supabaseNotificationStore,
+  supabaseContractStore,
+  supabaseDocumentStore
 } from './supabaseStore';
 
 // ── 타입 ──────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ export interface CompanyDataSource {
   getAll(): Promise<Company[]>;
   getById(id: string): Promise<Company | undefined>;
   update(id: string, patch: Partial<Company>): Promise<void>;
+  updateBulk(companies: Partial<Company>[]): Promise<{ success: number; skipped: number }>;
   create(company: Partial<Company>): Promise<void>;
   importBulk(companies: Partial<Company>[]): Promise<{ success: number; skipped: number }>;
   delete(id: string): Promise<void>;
@@ -65,12 +68,26 @@ export interface NotificationDataSource {
   delete(id: string): Promise<void>;
 }
 
+export interface ContractDataSource {
+  getAll(): Promise<DbContract[]>;
+  getById(id: string): Promise<DbContract | null>;
+  create(contract: Partial<DbContract>): Promise<void>;
+  update(id: string, patch: Partial<DbContract>): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+
+export interface DocumentDataSource {
+  getAll(tenantId?: string): Promise<Document[]>;
+  getById(id: string): Promise<Document | null>;
+}
+
 // ── Supabase 래퍼 ────────────────────────────────────────────
 
 const sbCompanies: CompanyDataSource = {
   getAll: supabaseCompanyStore.getAll,
   getById: async (id) => (await supabaseCompanyStore.getById(id)) ?? undefined,
   update: supabaseCompanyStore.update,
+  updateBulk: supabaseCompanyStore.updateBulk,
   create: supabaseCompanyStore.create,
   importBulk: supabaseCompanyStore.importBulk,
   delete: supabaseCompanyStore.delete,
@@ -110,6 +127,19 @@ const sbNotifications: NotificationDataSource = {
   delete: supabaseNotificationStore.delete,
 };
 
+const sbContracts: ContractDataSource = {
+  getAll: supabaseContractStore.getAll,
+  getById: supabaseContractStore.getById,
+  create: supabaseContractStore.create,
+  update: supabaseContractStore.update,
+  delete: supabaseContractStore.delete,
+};
+
+const sbDocuments: DocumentDataSource = {
+  getAll: supabaseDocumentStore.getAll,
+  getById: supabaseDocumentStore.getById,
+};
+
 // ── 통합 Export ──────────────────────────────────────────────
 
 export const dataLayer = {
@@ -136,6 +166,12 @@ export const dataLayer = {
 
   /** 알림 */
   notifications: sbNotifications,
+
+  /** 계약서 */
+  contracts: sbContracts,
+
+  /** 문서함 */
+  documents: sbDocuments,
 };
 
 export default dataLayer;

@@ -36,20 +36,8 @@ export default function PrivacyAnalysisClientPage() {
     // 변호사 컨펌이 완료되었거나, (현재 CRM에서 직접 보냈을 수 있으므로) 이슈가 있는 경우
     const hasAnalysis = !!lawyerConfirmed || (issues && issues.length > 0) || issueCount > 0;
     
-    // DB의 issues 배열이 비어있지만 issueCount가 0보다 큰 경우 (엑셀 임포트 등)
-    // 화면에 보여주기 위해 더미 이슈를 생성합니다.
-    let displayIssues = issues || [];
-    if (displayIssues.length === 0 && issueCount > 0) {
-        displayIssues = Array.from({ length: issueCount }).map((_, i) => ({
-            title: `개인정보 처리방침 위반 의심 항목 ${i + 1}`,
-            level: 'HIGH',
-            law: '개인정보 보호법 제30조(개인정보 처리방침의 수립 및 공개)',
-            riskDesc: '기재된 개인정보 처리방침 내 필수 기재 사항이 누락되었거나 불분명하여 법적 분쟁의 소지가 있습니다.',
-            customDraft: '관련 법령 법률 요건에 맞춘 필수 항목 명시 및 명확한 문구로 개정 필요',
-            lawyerNote: '제공하신 정보 및 기본 분석을 바탕으로 식별된 리스크 개수입니다. 상세 분석은 추가 검토가 필요합니다.',
-            originalText: '내용 확인 불가 (상세 시스템 연동 필요)'
-        }));
-    }
+    // 실제 DB의 이슈 데이터만 사용하도록 수정 (더미 데이터 생성 로직 제거)
+    const displayIssues = issues || [];
 
     const hasIssues = displayIssues.length > 0;
     
@@ -201,7 +189,7 @@ export default function PrivacyAnalysisClientPage() {
                                 개선 작업을 맡기시려면 아래 버튼을 눌러 법률 자문 계약서 서명을 진행해 주세요.
                             </p>
                             <button
-                                onClick={() => router.push('/contracts/sign/mock-token-privacy-fix')}
+                                onClick={() => router.push(`/contracts/sign/${company.id}`)}
                                 className="px-8 py-4 rounded-xl font-black text-sm flex items-center justify-center mx-auto gap-2 transition-transform hover:scale-105"
                                 style={{ background: 'linear-gradient(135deg, #e8c87a, #c9a84c)', color: '#0f172a', boxShadow: '0 4px 15px rgba(201,168,76,0.3)' }}>
                                 <AlertTriangle className="w-4 h-4" /> 리스크 개선 계약 전자서명하기

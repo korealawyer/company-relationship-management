@@ -126,22 +126,6 @@ function FirstReviewRow({ c, data, onChange, categories }: {
 
             {hasIssue && (
                 <>
-                    {/* 이슈 카테고리 태그 */}
-                    {scenarioCats.length > 0 && (
-                        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-                            {scenarioCats.map(cat => (
-                                <span key={cat.id} style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: `${cat.color}15`, color: cat.color, border: `1px solid ${cat.color}30` }}>
-                                    {cat.icon} {cat.label}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* 위험 요약 */}
-                    <div style={{ fontSize: 10, fontWeight: 700, color: col.text, marginBottom: 4 }}>⚠ {c.lawRef} 위반 가능</div>
-                    <div style={{ fontSize: 12, color: col.text, background: col.tag, borderRadius: 5, padding: '6px 10px', lineHeight: 1.6, fontWeight: 600, marginBottom: 12 }}>
-                        {data[`${c.num}_risk`] ?? c.riskSummary}
-                    </div>
 
 
 
@@ -154,7 +138,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                     />
 
                     {/* 예상 제재 + 수정 권고 */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 10px' }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 2 }}>💰 예상 제재</div>
                             <div style={{ fontSize: 12, fontWeight: 800, color: '#991b1b' }}>{c.penalty}</div>
@@ -167,20 +151,6 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                 </>
             )}
 
-            {/* 내부 비공개 메모 (고객 전송 제외) */}
-            <div className="no-print" style={{ marginTop: 16, background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, padding: '12px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Lock size={14} color="#475569" />
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#475569' }}>내부 비공개 메모 (고객 전송 제외)</span>
-                </div>
-                <EditableText
-                    value={data[`${c.num}_internal_memo`] ?? ''}
-                    onChange={v => onChange(`${c.num}_internal_memo`, v)}
-                    style={{ background: '#ffffff', borderColor: '#e2e8f0', fontSize: 13, color: '#1e293b' }}
-                    minRows={2}
-                    placeholder="로펌 내부에서만 공유할 메모를 입력하세요..."
-                />
-            </div>
         </div>
     );
 }
@@ -219,20 +189,6 @@ function FullRevisionRow({ c, data, onChange }: {
                 {c.legalBasis.map((b, i) => <div key={i}>· {b}</div>)}
             </div>
 
-            {/* 내부 비공개 메모 (고객 전송 제외) */}
-            <div className="no-print" style={{ marginTop: 16, background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 8, padding: '12px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Lock size={14} color="#475569" />
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#475569' }}>내부 비공개 메모 (고객 전송 제외)</span>
-                </div>
-                <EditableText
-                    value={data[`${c.num}_internal_memo`] ?? ''}
-                    onChange={v => onChange(`${c.num}_internal_memo`, v)}
-                    style={{ background: '#ffffff', borderColor: '#e2e8f0', fontSize: 13, color: '#1e293b' }}
-                    minRows={2}
-                    placeholder="로펌 내부에서만 공유할 메모를 입력하세요..."
-                />
-            </div>
         </div>
     );
 }
@@ -274,6 +230,33 @@ function PrivacyReviewContent() {
     const [fetching, setFetching] = useState(true);
     const t0 = useRef(Date.now());
 
+    // ── 레거시 데이터를 위한 법조문 원문 폴백 (PDF 내용 기반) ───────────────────────
+    const getFallbackLawText = (lawRef: string = ''): string => {
+        if (!lawRef) return '알 수 없는 법령 참조입니다.';
+        if (lawRef.includes('§15') || lawRef.includes('제15조')) {
+            return '개인정보보호법 제15조(개인정보의 수집·이용) ① 개인정보처리자는 다음 각 호의 어느 하나에 해당하는 경우에는 그 목적에 필요한 최소한의 개인정보를 수집할 수 있으며, 수집한 목적의 범위에서 이용할 수 있다. 1. 정보주체의 동의를 받은 경우 ...';
+        }
+        if (lawRef.includes('§16') || lawRef.includes('제16조')) {
+            return '개인정보보호법 제16조(개인정보의 수집 제한) ① 개인정보처리자는 제15조제1항 각 호의 어느 하나에 해당하여 개인정보를 수집하는 경우에는 그 목적에 필요한 최소한의 개인정보를 수집하여야 한다. 이 경우 최소한의 개인정보 수집이라는 입증책임은 개인정보처리자가 부담한다.';
+        }
+        if (lawRef.includes('§17') || lawRef.includes('제17조')) {
+            return '개인정보보호법 제17조(개인정보의 제공) ① 개인정보처리자는 다음 각 호의 어느 하나에 해당하는 경우에는 정보주체의 개인정보를 제3자에게 제공(공유를 포함한다. 이하 같다)할 수 있다. 1. 정보주체의 동의를 받은 경우 ...';
+        }
+        if (lawRef.includes('§21') || lawRef.includes('제21조')) {
+            return '개인정보보호법 제21조(개인정보의 파기) ① 개인정보처리자는 보유기간의 경과, 개인정보의 처리 목적 달성 등 그 개인정보가 불필요하게 되었을 때에는 지체 없이 그 개인정보를 파기하여야 한다. 다만, 다른 법령에 따라 보존하여야 하는 경우에는 그러하지 아니하다.';
+        }
+        if (lawRef.includes('§22') || lawRef.includes('제22조')) {
+            return '개인정보보호법 제22조(동의를 받는 방법) ④ 개인정보처리자는 정보주체에게 재화 또는 서비스를 홍보하거나 판매를 권유하기 위하여 개인정보의 처리에 대한 동의를 받으려는 때에는 정보주체가 이를 명확하게 인지할 수 있도록 알리고 동의를 받아야 한다.';
+        }
+        if (lawRef.includes('§29') || lawRef.includes('제29조')) {
+            return '개인정보보호법 제29조(안전조치의무) 개인정보처리자는 개인정보가 분실·도난·유출·위조·변조 또는 훼손되지 아니하도록 내부 관리계획 수립, 접속기록 보관 등 대통령령으로 정하는 바에 따라 안전성 확보에 필요한 기술적·관리적 및 물리적 조치를 하여야 한다.';
+        }
+        if (lawRef.includes('§3') || lawRef.includes('제3조')) {
+            return '개인정보보호법 제3조(개인정보 보호 원칙) ① 개인정보처리자는 개인정보의 처리 목적을 명확하게 하여야 하고, 그 목적에 필요한 최소한의 개인정보만을 적법하고 정당하게 수집하여야 한다.';
+        }
+        return `해당 조항(${lawRef})의 구체적인 제정 내용은 개인정보보호법 원문을 참고하시기 바랍니다.`;
+    };
+
     useEffect(() => {
         setCategories(getScenarioCategories());
         
@@ -282,14 +265,15 @@ function PrivacyReviewContent() {
                 if (data && data.issues && data.issues.length > 0) {
                     const mapped = data.issues.map((iss: any, i: number) => {
                         const anyIss = iss;
+                        const lawRef = iss.law || anyIss.lawRef || '';
                         return {
                             num: `조항 ${i + 1}`,
                             title: anyIss.title || anyIss.lawTitle || iss.law || '이슈',
                             original: anyIss.originalText || anyIss.originalContent || '',
                             riskSummary: anyIss.riskDesc || anyIss.riskSummary || '',
                             level: (anyIss.level || anyIss.riskLevel || 'LOW') as any,
-                            lawRef: iss.law || anyIss.lawRef || '',
-                            lawText: anyIss.lawText || '',
+                            lawRef: lawRef,
+                            lawText: anyIss.lawText || getFallbackLawText(lawRef),
                             scenario: anyIss.scenario || '',
                             penalty: anyIss.penalty || '',
                             lawyerOpinion: anyIss.lawyerNote || anyIss.revisionOpinion || '',
@@ -639,22 +623,42 @@ function PrivacyReviewContent() {
                     return (
                         <div key={i} className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
                             {/* 좌: 원문 */}
-                            <div style={{ padding: '16px 18px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa' }}>
-                                {/* 법조문 */}
-                                <div style={{ fontSize: 13, color: '#374151', background: '#f8f5f0', borderRadius: 8, padding: '12px 16px', marginBottom: 12, lineHeight: 1.8, borderLeft: '4px solid #92400e' }}>
-                                    <div style={{ fontWeight: 800, fontSize: 13, color: '#92400e', marginBottom: 4 }}>📖 {c.lawRef}</div>
-                                    <div style={{ color: '#44403c' }}>{c.lawText}</div>
+                            <div style={{ padding: '20px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                {/* 1. 위반 기준 (법령) */}
+                                <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                    <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Scale size={15} color="#d97706" />
+                                        <span style={{ fontWeight: 800, fontSize: 13, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
+                                    </div>
+                                    <div style={{ padding: '14px 16px', fontSize: 12, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
+                                        {c.lawText || '법조문 텍스트가 전달되지 않았습니다.'}
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                    <span style={{ fontWeight: 800, fontSize: 11, background: '#f3f4f6', color: '#374151', borderRadius: 4, padding: '2px 8px' }}>{c.num}</span>
-                                    <span style={{ fontWeight: 900, fontSize: 13, color: '#111827' }}>{c.title}</span>
-                                    <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col.tag, color: col.text }}>{col.label}</span>
+                                
+                                {/* 2. 회사 원문 (비교 대상) */}
+                                <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                    <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <FileText size={15} color="#475569" />
+                                            <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>고객사 방침 원문</span>
+                                        </div>
+                                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
+                                            {c.title || c.num}
+                                        </span>
+                                    </div>
+                                    <div style={{ padding: '14px 16px', fontSize: 13, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                                        {c.original || '회사 방침 원본 데이터가 전달되지 않았습니다.'}
+                                    </div>
                                 </div>
-                                <div style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#ffffff', borderRadius: 6, padding: '10px 14px', border: '1px solid #e5e7eb' }}>{c.original}</div>
+
+                                {/* 3. 진단 요약 */}
                                 {hasIssue && (
-                                    <div style={{ paddingTop: 8 }}>
-                                        <div style={{ fontSize: 10, fontWeight: 700, color: col.text }}>⚠ {c.lawRef} 위반 가능</div>
-                                        <div style={{ fontSize: 12, color: col.text, background: col.tag, borderRadius: 5, padding: '6px 10px', lineHeight: 1.6, fontWeight: 600, marginTop: 4 }}>{c.riskSummary}</div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: col.tag, border: `1px solid ${col.border}40`, borderRadius: 8, padding: '12px 16px' }}>
+                                        <div style={{ fontSize: 16 }}>🎯</div>
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 800, color: col.text, marginBottom: 4 }}>위반 쟁점 요약</div>
+                                            <div style={{ fontSize: 12, color: col.text, lineHeight: 1.6, fontWeight: 600 }}>{c.riskSummary}</div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -688,17 +692,33 @@ function PrivacyReviewContent() {
                         return (
                             <div key={i} className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
                                 {/* 좌: 원문 + 법조문 (1차조문검토와 동일) */}
-                                <div style={{ padding: '16px 18px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa' }}>
-                                    <div style={{ fontSize: 13, color: '#374151', background: '#f8f5f0', borderRadius: 8, padding: '12px 16px', marginBottom: 12, lineHeight: 1.8, borderLeft: '4px solid #92400e' }}>
-                                        <div style={{ fontWeight: 800, fontSize: 13, color: '#92400e', marginBottom: 4 }}>📖 {c.lawRef}</div>
-                                        <div style={{ color: '#44403c' }}>{c.lawText}</div>
+                                <div style={{ padding: '20px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    {/* 1. 위반 기준 (법령) */}
+                                    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                        <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Scale size={15} color="#d97706" />
+                                            <span style={{ fontWeight: 800, fontSize: 13, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
+                                        </div>
+                                        <div style={{ padding: '14px 16px', fontSize: 12, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
+                                            {c.lawText || '법조문 텍스트가 전달되지 않았습니다.'}
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                        <span style={{ fontWeight: 800, fontSize: 11, background: '#f3f4f6', color: '#374151', borderRadius: 4, padding: '2px 8px' }}>{c.num}</span>
-                                        <span style={{ fontWeight: 900, fontSize: 13, color: '#111827' }}>{c.title}</span>
-                                        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col.tag, color: col.text }}>{col.label}</span>
+                                    
+                                    {/* 2. 회사 원문 (비교 대상) */}
+                                    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                        <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <FileText size={15} color="#475569" />
+                                                <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>고객사 방침 원문</span>
+                                            </div>
+                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
+                                                {c.title || c.num}
+                                            </span>
+                                        </div>
+                                        <div style={{ padding: '14px 16px', fontSize: 13, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                                            {c.original || '회사 방침 원본 데이터가 전달되지 않았습니다.'}
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#ffffff', borderRadius: 6, padding: '10px 14px', border: '1px solid #e5e7eb' }}>{c.original}</div>
                                 </div>
                                 {/* 우: 수정완본 (의견서 스타일) */}
                                 <div style={{ background: '#f9fafb' }}>

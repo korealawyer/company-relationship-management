@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useLitigations, useCompanies, useConsultations } from '@/hooks/useDataLayer';
+import { useLitigations, useCompanies, useConsultations, useDocuments, useContracts } from '@/hooks/useDataLayer';
 import dataLayer from '@/lib/dataLayer';
 
 const ServiceRequestModal = dynamic(() => import('@/components/ServiceRequestModal').then(mod => mod.ServiceRequestModal), { ssr: false });
@@ -218,12 +218,14 @@ const TYPE_META: Record<ItemType, { label: string; color: string; gradFrom: stri
 function ServiceProgressPanel({ companyId }: { companyId?: string }) {
     const { litigations, isLoading: isLitLoading } = useLitigations();
     const { consultations, isLoading: isConLoading } = useConsultations();
+    const { documents, isLoading: isDocLoading } = useDocuments();
 
     const items = React.useMemo(() => {
-        if (!companyId || isLitLoading || isConLoading) return [];
+        if (!companyId || isLitLoading || isConLoading || isDocLoading) return [];
         
         const myLitigations = (litigations || []).filter((l: any) => l.companyId === companyId);
         const myConsultations = (consultations || []).filter((c: any) => c.companyId === companyId);
+        const myDocuments = (documents || []).filter((d: any) => d.companyId === companyId);
 
         // Convert to ServiceItem
         const lits: ServiceItem[] = myLitigations.map((l: any) => ({
@@ -231,16 +233,16 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
             type: 'case',
             title: l.caseName || `${l.opponent} 관련 소송`,
             date: new Date(l.createdAt).toLocaleDateString() + ' 접수',
-            status: l.status === 'completed' ? 'completed' : 'reviewing',
+            status: l.status === 'closed' ? 'completed' : 'reviewing',
             steps: ['사건 접수', '증거 수집', '답변서 작성', '조정·소송'],
-            currentStep: l.status === 'completed' ? 3 : 1,
+            currentStep: l.status === 'closed' ? 3 : 1,
             href: `/cases/${l.id}`,
             urgent: false
         }));
 
         const cons: ServiceItem[] = myConsultations.map((c: any) => ({
              id: c.id,
-             type: c.category === 'contract' ? 'document' : 'consultation',
+             type: 'consultation',
              title: c.title,
              date: new Date(c.createdAt).toLocaleDateString() + ' 접수',
              status: c.status === 'completed' ? 'completed' : (c.status === 'in_progress' ? 'reviewing' : 'received'),
@@ -248,9 +250,22 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
              currentStep: c.status === 'completed' ? 3 : (c.status === 'in_progress' ? 2 : 0),
              href: `/consultation-history`
         }));
+        
+        const docs: ServiceItem[] = myDocuments.map((d: any) => ({
+             id: d.id,
+             type: 'document',
+             title: d.name,
+             date: new Date(d.createdAt).toLocaleDateString() + ' 업로드',
+             status: d.status === '검토 완료' || d.status === '변호사 열람 완료' ? 'completed' : 'reviewing',
+             steps: ['문서 접수', '변호사 배정', '검토 중', '검토 완료'],
+             currentStep: d.status === '검토 완료' ? 3 : (d.status === '검토 중' ? 2 : 1),
+             href: `/documents`
+        }));
 
-        return [...lits, ...cons].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-    }, [companyId, litigations, consultations, isLitLoading, isConLoading]);
+        return [...lits, ...cons, ...docs]
+            .sort((a, b) => new Date(b.date.split(' ')[0]).getTime() - new Date(a.date.split(' ')[0]).getTime())
+            .slice(0, 5);
+    }, [companyId, litigations, consultations, documents, isLitLoading, isConLoading, isDocLoading]);
 
     const inProgress = items.filter(i => i.status !== 'completed').length;
     const doneItems  = items.filter(i => i.status === 'completed').length;
@@ -373,8 +388,7 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
 
 // ── 서비스 퀵 링크 ─────────────────────────────────────────────
 const SERVICE_LINKS = [
-    { href: '/consultation', icon: HeartHandshake, label: '법률 상담', desc: '분야별 전문 변호사 상담 요청', color: '#818cf8', badge: null },
-    { href: '/chat', icon: Bot, label: '24시간 법률 상담', desc: '24시간 무제한 법률 질의·응답', color: '#4ade80', badge: 'NEW' },
+    { href: '/chat', icon: HeartHandshake, label: '법률 상담', desc: '분야별 전문 변호사 상담 요청', color: '#818cf8', badge: null },
     { href: '/cases', icon: Briefcase, label: '사건 관리', desc: '진행 중인 모든 사건 현황', color: '#fb923c', badge: null },
     { href: '/documents', icon: FolderOpen, label: '문서 보관함', desc: '계약서·의견서·리포트 관리', color: '#60a5fa', badge: null },
     { href: '/company-hr', icon: Users, label: 'HR·가맹점', desc: '임직원 및 가맹점 법무 관리', color: '#f472b6', badge: null },
@@ -456,29 +470,29 @@ function CalendarWidget({ companyId }: { companyId?: string }) {
 }
 
 function RecentDocumentsWidget({ companyId }: { companyId?: string }) {
-    const { consultations } = useConsultations();
+    const { documents } = useDocuments();
     
     const recentDocs = React.useMemo(() => {
-        if (!companyId || !consultations) return [];
-        const myDocs = consultations
-            .filter((c: any) => c.companyId === companyId)
+        if (!companyId || !documents) return [];
+        const myDocs = documents
+            .filter((d: any) => d.companyId === companyId)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 3);
             
         if (myDocs.length === 0) return [];
 
         return myDocs.map((doc: any) => {
-            const isCompleted = doc.status === 'completed';
+            const isCompleted = ['검토 완료', '변호사 열람 완료'].includes(doc.status);
             return {
-                title: doc.title,
+                title: doc.name,
                 date: new Date(doc.createdAt).toLocaleDateString(),
-                type: doc.category === 'contract' ? '계약서' : (doc.category === 'legal_advice' ? '의견서' : '자문'),
-                icon: isCompleted ? CheckCircle2 : (doc.category === 'contract' ? FileText : Zap),
-                iconColor: isCompleted ? '#4ade80' : (doc.category === 'contract' ? '#60a5fa' : '#f59e0b'),
-                href: '/consultation-history'
+                type: doc.category,
+                icon: isCompleted ? CheckCircle2 : (doc.category === '계약서' ? FileText : Zap),
+                iconColor: isCompleted ? '#4ade80' : (doc.category === '계약서' ? '#60a5fa' : '#f59e0b'),
+                href: '/documents'
             };
         });
-    }, [companyId, consultations]);
+    }, [companyId, documents]);
 
     if (recentDocs.length === 0) {
         return (
@@ -735,9 +749,6 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                     <FileText className="w-5 h-5" style={{ color: '#111827' }} />
                                     <h2 className="font-black text-lg" style={{ color: '#111827' }}>최근 업데이트 문서</h2>
                                 </div>
-                                <button className="text-xs font-bold transition-colors hover:opacity-70" style={{ color: '#c9a84c' }}>
-                                    문서 보관함 가기 →
-                                </button>
                             </div>
                             <RecentDocumentsWidget companyId={company?.id} />
                         </div>
@@ -745,7 +756,6 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
 
                     {/* ✨ 우측: 로펌 컨택 및 사이드바 ✨ */}
                     <div className="space-y-6">
-                        <PrivacyReportWidget company={company} />
                         <CalendarWidget companyId={company?.id} />
 
                         {/* IBS 로펌 전담 데스크 */}

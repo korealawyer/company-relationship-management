@@ -8,8 +8,8 @@ interface Message { role: 'user' | 'assistant'; content: string; }
 
 const CONSULT_TYPES = [
     { id: 'legal', icon: Scale, label: '법률 상담', color: '#b8860b', bg: '#fef3c7', desc: '계약·가맹·노동·형사' },
-    { id: 'eap', icon: Brain, label: '심리/EAP', color: '#7c3aed', bg: '#ede9fe', desc: '스트레스·감정·위기' },
-    { id: 'business', icon: Briefcase, label: '경영 자문', color: '#059669', bg: '#d1fae5', desc: '노무·공정거래·내규' },
+    // { id: 'eap', icon: Brain, label: '심리/EAP', color: '#7c3aed', bg: '#ede9fe', desc: '스트레스·감정·위기' },
+    // { id: 'business', icon: Briefcase, label: '경영 자문', color: '#059669', bg: '#d1fae5', desc: '노무·공정거래·내규' },
 ];
 
 export default function ChatPage() {
@@ -77,7 +77,7 @@ export default function ChatPage() {
                         <span className="text-xs font-bold" style={{ color: '#92400e' }}>법률 어시스턴트</span>
                     </div>
                     <h1 className="text-3xl font-black mb-2" style={{ color: '#111827' }}>
-                        법률·심리·경영 통합 상담
+                        법률 상담
                     </h1>
                     <p className="text-sm" style={{ color: '#6b7280' }}>
                         접수번호: <span className="font-mono font-bold" style={{ color: '#b8860b' }}>{caseId}</span>

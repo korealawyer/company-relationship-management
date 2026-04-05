@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { FileText, Plus, CheckCircle2, Clock, AlertTriangle, Eye, Edit3, Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { getBrowserSupabase } from '@/lib/supabase';
+import { dataLayer } from '@/lib/dataLayer';
 import { createContract, sendContractEmail } from '@/actions/contractActions';
 
 // ── BlockNote 에디터 (SSR 비활성화) ──────────────────────────────
@@ -59,26 +59,15 @@ export default function ContractsPage() {
 
     // ── 데이터 페칭 ────────────────────────────────
     const fetchContracts = async () => {
-        const supabase = getBrowserSupabase();
-        if (!supabase) {
-            // Mock 모드: localStorage에서 읽기
-            try {
-                const raw = localStorage.getItem('ibs_mock_contracts');
-                setContracts(raw ? JSON.parse(raw) : []);
-            } catch { setContracts([]); }
-            setLoading(false);
-            return;
-        }
-        
-        const { data, error } = await supabase
-            .from('contracts')
-            .select('*')
-            .order('created_at', { ascending: false });
-            
-        if (!error && data) {
+        try {
+            const data = await dataLayer.contracts.getAll();
             setContracts(data);
+        } catch (err) {
+            console.error('Failed to fetch contracts', err);
+            setContracts([]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -121,28 +110,6 @@ export default function ContractsPage() {
                 content: content
             });
             setCreatedContractId(id);
-            // Mock 모드: localStorage에도 저장해 목록 갱신 시 표시
-            if (id.startsWith('mock_')) {
-                try {
-                    const raw = localStorage.getItem('ibs_mock_contracts');
-                    const list = raw ? JSON.parse(raw) : [];
-                    const newContract = {
-                        id,
-                        title: contractTitle,
-                        template: selectedTemplate,
-                        party_a_name: companyName || '(주)기업명',
-                        party_a_signed: true,
-                        party_b_email: partyEmail || null,
-                        party_b_name: partyEmail ? partyEmail.split('@')[0] : '의뢰인',
-                        party_b_signed: false,
-                        status: 'draft',
-                        content: content,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                    };
-                    localStorage.setItem('ibs_mock_contracts', JSON.stringify([newContract, ...list]));
-                } catch { /* ignore */ }
-            }
             fetchContracts();
             showToast('계약서가 생성되었습니다.');
         } catch (err: any) {

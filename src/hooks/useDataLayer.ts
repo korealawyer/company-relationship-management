@@ -10,7 +10,9 @@ import type {
   PersonalLitigation,
   AutoSettings,
   AutoLog,
-  AppNotification
+  AppNotification,
+  DbContract,
+  Document
 } from '@/lib/types';
 
 // =========================================================================
@@ -32,6 +34,8 @@ const EMPTY_CONSULTATIONS: Consultation[] = [];
 const EMPTY_NOTIFICATIONS: AppNotification[] = [];
 const EMPTY_PERSONAL_LITIGATIONS: PersonalLitigation[] = [];
 const EMPTY_AUTO_LOGS: AutoLog[] = [];
+const EMPTY_DOCUMENTS: Document[] = [];
+const EMPTY_CONTRACTS: DbContract[] = [];
 
 export function useCompanies() {
   const { data, error, isLoading, mutate } = useSWR<Company[]>(
@@ -56,13 +60,19 @@ export function useCompanies() {
     mutate();
   };
 
+  const updateBulk = async (companiesList: Partial<Company>[]) => {
+    const result = await dataLayer.companies.updateBulk(companiesList);
+    mutate();
+    return result;
+  };
+
   const importBulk = async (companiesList: Partial<Company>[]) => {
     const result = await dataLayer.companies.importBulk(companiesList);
     mutate();
     return result;
   };
 
-  return { companies: data || EMPTY_COMPANIES, isLoading, error, mutate, addCompany, updateCompany, deleteCompany, importBulk };
+  return { companies: data || EMPTY_COMPANIES, isLoading, error, mutate, addCompany, updateCompany, updateBulk, deleteCompany, importBulk };
 }
 
 export function useLitigations() {
@@ -103,6 +113,26 @@ export function useConsultations() {
   };
 
   return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate, addConsultation, updateConsultation };
+}
+
+export function useDocuments() {
+  const { data, error, isLoading, mutate } = useSWR<Document[]>(
+    'documents',
+    async () => await dataLayer.documents.getAll(),
+    { fallbackData: EMPTY_DOCUMENTS, ...SWR_OPTS }
+  );
+
+  return { documents: data || EMPTY_DOCUMENTS, isLoading, error, mutate };
+}
+
+export function useContracts() {
+  const { data, error, isLoading, mutate } = useSWR<DbContract[]>(
+    'contracts',
+    async () => await dataLayer.contracts.getAll(),
+    { fallbackData: EMPTY_CONTRACTS, ...SWR_OPTS }
+  );
+
+  return { contracts: data || EMPTY_CONTRACTS, isLoading, error, mutate };
 }
 
 export function useNotifications() {
