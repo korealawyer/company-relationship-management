@@ -266,6 +266,7 @@ function PrivacyReviewContent() {
                     const mapped = data.issues.map((iss: any, i: number) => {
                         const anyIss = iss;
                         const lawRef = iss.law || anyIss.lawRef || '';
+                        const isMissing = anyIss.title === '개인정보처리방침 누락 (매우 심각)';
                         return {
                             num: `조항 ${i + 1}`,
                             title: anyIss.title || anyIss.lawTitle || iss.law || '이슈',
@@ -273,14 +274,14 @@ function PrivacyReviewContent() {
                             riskSummary: anyIss.riskDesc || anyIss.riskSummary || '',
                             level: (anyIss.level || anyIss.riskLevel || 'LOW') as any,
                             lawRef: lawRef,
-                            lawText: anyIss.lawText || getFallbackLawText(lawRef),
+                            lawText: anyIss.lawText || (isMissing ? '제30조(개인정보 처리방침의 수립 및 공개) ① 개인정보처리자는 개인정보를 처리하는 경우에는 개인정보 처리방침을 정하여야 한다. ② 제1항에 따른 개인정보 처리방침을 수립하거나 변경하는 경우에는 정보주체가 쉽게 확인할 수 있도록 공개하여야 한다.' : getFallbackLawText(lawRef)),
                             scenario: anyIss.scenario || '',
-                            penalty: anyIss.penalty || '',
+                            penalty: anyIss.penalty || (isMissing ? '과태료 1천만원 이하 부과, 시정명령, 위반사실 공표 등 강력한 행정처분' : ''),
                             lawyerOpinion: anyIss.lawyerNote || anyIss.revisionOpinion || '',
-                            recommendation: anyIss.recommendation || iss.customDraft || '',
+                            recommendation: anyIss.recommendation || iss.customDraft || (isMissing ? '[긴급 조치 요망] 지체할 시간이 없습니다. 당장 회사 실정에 맞는 개인정보 처리방침을 제정하여 웹사이트 초기 화면 최하단에 명확한 하이퍼링크로 식별 가능하게 게시해야 합니다.' : ''),
                             aiFixed: anyIss.aiFixed || iss.customDraft || '',
-                            revisionOpinion: anyIss.revisionOpinion || '',
-                            legalBasis: Array.isArray(anyIss.legalBasis) ? anyIss.legalBasis : [anyIss.legalBasis || iss.law || ''],
+                            revisionOpinion: anyIss.revisionOpinion || (isMissing ? '사업을 영위함에 있어 가장 기초적이고 절대로 누락되어서는 안 될 핵심 법적 의무를 위반하고 있는 "매우 치명적인 상황"입니다. 처벌 리스크 방어를 위해 오늘 당장 제정안을 마련해야 합니다.' : ''),
+                            legalBasis: Array.isArray(anyIss.legalBasis) ? anyIss.legalBasis : (isMissing ? ['개인정보 보호법 제30조 (개인정보 처리방침의 수립 및 공개)', '개인정보 보호법 제75조 (과태료)'] : [anyIss.legalBasis || iss.law || '']),
                         } as Clause;
                     });
                     setClauses(mapped);
@@ -610,7 +611,11 @@ function PrivacyReviewContent() {
                                 <span style={{ fontSize: 10, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 20 }}>프라이버시 리포트 반영</span>
                             </div>
                             <EditableText
-                                value={data['summary_opinion'] ?? `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${CLAUSES.filter(c => c.level === 'HIGH').length + CLAUSES.filter(c => c.level === 'MEDIUM').length}건이 확인되었습니다. 특히 개인정보 수집 항목의 과다수집(제16조 위반), 제3자 제공 현황 미명시(제17조 위반) 등 고위험 사항 ${CLAUSES.filter(c => c.level === 'HIGH').length}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 쿠팡 55억원, 인터파크 44억원 등 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`}
+                                value={data['summary_opinion'] ?? (
+                                    clauses.length === 1 && clauses[0].title === '개인정보처리방침 누락 (매우 심각)'
+                                    ? '현재 귀사에 개인정보 처리방침이 존재하지 않거나 공개되어 있지 않습니다. 이는 개인정보보호법상 가장 치명적인 위반 사항 중 하나로, 민원 발생이나 당국 감사 시 즉각적인 처벌 대상이 되는 "매우 위험한 무방비 상태"입니다.\n\n즉시 과태료 1천만원 이하 처분은 물론 위반사실 공표, 시정명령 등 막대한 금전적·기업 이미지 손실이 우려됩니다. 당장 내일이라도 점검이 나올 수 있으므로, 지체 없이 적법하게 제정된 처리방침을 회사 웹사이트 초기화면에 공개하여야 합니다. 모든 업무에 최우선하여 즉결 처리할 것을 강력히 양지하시기 바랍니다.'
+                                    : `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${CLAUSES.filter(c => c.level === 'HIGH').length + CLAUSES.filter(c => c.level === 'MEDIUM').length}건이 확인되었습니다. 특히 개인정보 수집 항목의 과다수집(제16조 위반), 제3자 제공 현황 미명시(제17조 위반) 등 고위험 사항 ${CLAUSES.filter(c => c.level === 'HIGH').length}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 쿠팡 55억원, 인터파크 44억원 등 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`
+                                )}
                                 onChange={v => upd('summary_opinion', v)}
                                 style={{ background: '#ffffff', borderColor: '#fde68a', fontSize: 13 }}
                                 minRows={2}
