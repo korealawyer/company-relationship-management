@@ -1,13 +1,161 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers, ChevronUp, ChevronDown, BookOpen } from 'lucide-react';
+import { Phone, Search, LayoutDashboard, Headphones, Mic, Calculator, ArrowUpDown, Layers, ChevronUp, ChevronDown, BookOpen, Filter, Check, Square, CheckSquare } from 'lucide-react';
 import { useCallPage } from '@/components/sales/call/useCallPage';
 import { useAuth } from '@/lib/AuthContext';
 import { useCallLocks } from '@/hooks/useCallLocks';
 import { C, CALLABLE } from '@/lib/callPageUtils';
 import { CaseStatus, Company } from '@/lib/types';
+import { ConversionPredictionService } from '@/lib/salesAutomation';
 import Link from 'next/link';
+
+// Excel-like Filter Header
+const ExcelFilterHeader = ({ 
+    label, k, w, sortKey, sortAsc, toggleSort, columnFilters, setColumnFilter, allValues 
+}: { 
+    label: string; 
+    k?: any; 
+    w?: string;
+    sortKey: string;
+    sortAsc: boolean;
+    toggleSort: (k: any) => void;
+    columnFilters: Record<string, string[]>;
+    setColumnFilter: (k: string, values: string[]) => void;
+    allValues: string[];
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchQ, setSearchQ] = useState('');
+    const ref = useRef<HTMLTableCellElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    if (!k) {
+        return <th className={`text-left py-3 px-3 align-middle ${w || ''}`}><div className="text-[14px] font-bold text-slate-600">{label}</div></th>;
+    }
+
+    const selectedValues = columnFilters[k] || [];
+    const isFiltered = selectedValues.length > 0;
+    
+    // Sort all values alphabetically and filter by search query
+    const displayValues = Array.from(new Set(allValues.map(v => (v === undefined || v === null) ? '' : String(v))))
+        .sort((a, b) => {
+            if (a === '') return 1; // empty at bottom
+            if (b === '') return -1;
+            return a.localeCompare(b);
+        })
+        .filter(v => {
+            const displayLabel = v || '(비어있음)';
+            return displayLabel.toLowerCase().includes(searchQ.toLowerCase());
+        });
+
+    const isAllSelected = selectedValues.length === 0 || selectedValues.length === displayValues.length; // 0 means no filter -> all selected
+
+    const handleToggleAll = () => {
+        if (isAllSelected) setColumnFilter(k, displayValues); // If all selected, select none? Usually deselecting "All" unchecks everything. Wait! If length === 0, all shown.
+        else setColumnFilter(k, []); // If not all selected, reset to empty = all
+    };
+
+    const handleToggleOne = (val: string) => {
+        if (selectedValues.length === 0) {
+            // If currently showing all, unchecking one means selecting everything EXCEPT this one
+            setColumnFilter(k, displayValues.filter(v => v !== val));
+        } else {
+            if (selectedValues.includes(val)) {
+                const next = selectedValues.filter(v => v !== val);
+                // if it becomes empty, that means no filter? Wait, if we uncheck the last one, it becomes empty. 
+                // In Excel, you can't uncheck all. But we can just pass an impossible value or empty.
+                // Let's handle: if unchecked, remove.
+                setColumnFilter(k, next.length === 0 ? ['__NONE__'] : next);
+            } else {
+                const next = [...selectedValues, val].filter(v => v !== '__NONE__');
+                setColumnFilter(k, next.length === displayValues.length ? [] : next); // if all selected, reset to [] (all)
+            }
+        }
+    };
+
+    return (
+        <th className={`relative py-3 px-3 align-middle transition-colors whitespace-nowrap ${w || ''}`} ref={ref}>
+            <div className={`flex items-center justify-between gap-0.5 select-none text-[13px] font-bold ${sortKey === k || isFiltered ? 'text-indigo-700' : 'text-slate-600'}`}>
+                <div className="flex items-center gap-1 cursor-pointer hover:opacity-70 flex-1" onClick={() => toggleSort(k)}>
+                    {label}
+                    <span className="flex flex-col">
+                        {sortKey === k ? (
+                            sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
+                        ) : (
+                            <ArrowUpDown className="w-3 h-3 text-slate-300" />
+                        )}
+                    </span>
+                </div>
+                
+                <button onClick={() => setIsOpen(!isOpen)} className={`px-0 py-0.5 w-4 flex items-center justify-center rounded hover:bg-slate-200 transition-colors ${isFiltered ? 'bg-indigo-100 text-indigo-700' : 'text-slate-400'}`}>
+                    <Filter className="w-2.5 h-2.5" />
+                </button>
+            </div>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} transition={{ duration: 0.15 }}
+                        className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden font-normal"
+                    >
+                        <div className="p-1">
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] hover:bg-slate-50 text-slate-700 rounded-md" onClick={() => { toggleSort(k); setIsOpen(false); }}>
+                                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                                {sortKey === k && sortAsc ? '텍스트 내림차순 정렬(O)' : '텍스트 오름차순 정렬(S)'}
+                            </button>
+                            <div className="h-px bg-slate-100 my-1 mx-2" />
+                            <div className="px-2 py-1.5">
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="검색" 
+                                        value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-1.5 text-[13px] bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-indigo-500 transition-colors"
+                                    />
+                                </div>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto p-2 scrollbar-thin">
+                                <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer group">
+                                    <div className="relative flex items-center justify-center w-4 h-4 rounded border border-slate-300">
+                                        <input type="checkbox" checked={isAllSelected} onChange={handleToggleAll} className="peer sr-only" />
+                                        {(isAllSelected || searchQ) ? <Check className={`w-3 h-3 ${isAllSelected ? 'text-indigo-600' : 'text-slate-200'}`} /> : <Square className="w-3 h-3 text-indigo-600" fill="currentColor" />}
+                                    </div>
+                                    <span className="text-[13px] text-slate-700 group-hover:text-slate-900 select-none">(모두 선택)</span>
+                                </label>
+                                {displayValues.map(v => {
+                                    const checked = selectedValues.length === 0 || selectedValues.includes(v);
+                                    return (
+                                        <label key={v || 'empty'} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded cursor-pointer group">
+                                            <div className="relative flex items-center justify-center w-4 h-4 rounded border border-slate-300">
+                                                <input type="checkbox" checked={checked} onChange={() => handleToggleOne(v)} className="peer sr-only" />
+                                                {checked && <Check className="w-3 h-3 text-indigo-600" />}
+                                            </div>
+                                            <span className="text-[13px] text-slate-700 group-hover:text-slate-900 select-none truncate">
+                                                {v || '(비어있음)'}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="p-2 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+                            <button onClick={() => setColumnFilter(k, [])} className="px-3 py-1 text-[12px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded transition-colors">초기화</button>
+                            <button onClick={() => setIsOpen(false)} className="px-3 py-1 text-[12px] font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">확인</button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </th>
+    );
+};
 
 import CallbackModal from '@/components/sales/call/CallbackModal';
 import KakaoModal from '@/components/sales/call/KakaoModal';
@@ -26,28 +174,23 @@ export default function SalesCallPage() {
         kakaoTemplate, setKakaoTemplate, kakaoSending, setKakaoSending, kakaoStatuses, autoSettings,
         contractPreviewTarget, setContractPreviewTarget, timer, isRecording, sttStatus, waveformData,
         filtered, statusCounts, selected, calledCount, highRiskCount, todayStats, newsItems,
-        selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh
+        selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh,
+        columnFilters, setColumnFilter
     } = useCallPage(user?.name || '');
 
-    const SortHeader = ({ label, k, w }: { label: string; k?: typeof sortKey; w?: string }) => (
-        <th 
-            className={`text-left py-3 px-3 align-middle transition-colors ${k ? 'cursor-pointer hover:bg-slate-50' : ''} ${w || ''}`}
-            onClick={() => k && toggleSort(k)}
-        >
-            <div className={`flex items-center gap-1.5 select-none text-[14px] font-bold ${k && sortKey === k ? 'text-indigo-700' : 'text-slate-600'}`}>
-                {label}
-                {k && (
-                    <span className="flex flex-col">
-                        {sortKey === k ? (
-                            sortAsc ? <ChevronUp className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
-                        ) : (
-                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-300" />
-                        )}
-                    </span>
-                )}
-            </div>
-        </th>
-    );
+    const getVal = (c: Company, k: string) => {
+        if (k === 'name') return c.name;
+        if (k === 'franchiseType') return c.franchiseType?.trim() || '';
+        if (k === 'status') return c.status;
+        if (k === 'risk') return String(c.riskScore || 0);
+        if (k === 'contactName') return c.contactName || '';
+        if (k === 'salesRep') return c.lastCalledBy || '';
+        if (k === 'phone') return c.contactPhone || c.phone || '';
+        if (k === 'conversion') return String(ConversionPredictionService.predict(c).score || 0);
+        return '';
+    };
+
+    const getColumnValues = (k: string) => companies.map(c => getVal(c, k));
 
     const FILTERS: { key: CaseStatus | 'all' | 'my_calls_today'; label: string; icon: string }[] = [
         { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, { key: 'analyzed', label: '분석완료', icon: '🔍' },
@@ -140,18 +283,18 @@ export default function SalesCallPage() {
                 <table className="w-full min-w-[1250px]">
                     <thead className="sticky top-0 z-10 bg-white shadow-sm ring-1 ring-slate-200">
                         <tr>
-                            <th className="w-8 py-3 px-3 align-middle bg-slate-50" />
-                            <SortHeader label="기업명" k="name" w="min-w-[110px] max-w-[130px] bg-slate-50 outline outline-1 outline-slate-200" />
-                            <SortHeader label="구분" k="franchiseType" w="min-w-[80px] max-w-[90px] bg-slate-50 border-x border-slate-200/60" />
-                            <SortHeader label="상태" k="status" w="min-w-[100px] max-w-[120px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="위험도" k="risk" w="min-w-[80px] max-w-[100px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="업체담당" k="contactName" w="min-w-[80px] max-w-[100px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="영업자" k="salesRep" w="min-w-[80px] max-w-[90px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="전화번호" k="phone" w="min-w-[130px] max-w-[150px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="전환율" k="conversion" w="min-w-[80px] max-w-[90px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="이슈" k="issue" w="min-w-[70px] max-w-[80px] bg-slate-50 border-r border-slate-200/60" />
-                            <SortHeader label="최근 메모" k="memo" w="w-[250px] min-w-[250px] max-w-[250px] bg-slate-50 border-r border-slate-200/60" />
-                            <th className="text-left text-[14px] font-bold py-3 px-3 align-middle text-slate-600 min-w-[160px] max-w-[160px] bg-slate-50 outline outline-1 outline-slate-200">바로가기</th>
+                            <th className="w-10 py-3 px-3 align-middle bg-slate-50" />
+                            <ExcelFilterHeader label="기업명" k="name" w="w-[180px] min-w-[150px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('name')} />
+                            <ExcelFilterHeader label="구분" k="franchiseType" w="w-[110px] min-w-[100px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('franchiseType')} />
+                            <ExcelFilterHeader label="상태" k="status" w="w-[120px] min-w-[110px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('status')} />
+                            <ExcelFilterHeader label="위험도" k="risk" w="w-[90px] min-w-[80px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('risk')} />
+                            <ExcelFilterHeader label="업체담당" k="contactName" w="w-[100px] min-w-[90px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('contactName')} />
+                            <ExcelFilterHeader label="영업자" k="salesRep" w="w-[100px] min-w-[90px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('salesRep')} />
+                            <ExcelFilterHeader label="전화번호" k="phone" w="w-[110px] min-w-[100px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('phone')} />
+                            <ExcelFilterHeader label="전환율" k="conversion" w="w-[100px] min-w-[90px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('conversion')} />
+                            <ExcelFilterHeader label="이슈" k="issue" w="w-[100px] min-w-[90px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={[]} />
+                            <ExcelFilterHeader label="최근 메모" k="memo" w="w-[260px] min-w-[220px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={[]} />
+                            <th className="text-left text-[13px] font-bold py-3 px-3 align-middle text-slate-600 w-[130px] min-w-[130px] bg-slate-50 border-l border-slate-200/60 whitespace-nowrap">바로가기</th>
                         </tr>
                     </thead>
                     <tbody>

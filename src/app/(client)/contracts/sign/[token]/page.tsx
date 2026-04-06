@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import confetti from 'canvas-confetti';
+import { getSession } from '@/lib/auth';
+import { dataLayer } from '@/lib/dataLayer';
 
 // 라이트 테마 색상 (로그인 페이지와 동일)
 const L = {
@@ -144,17 +146,50 @@ export default function ContractSignPage({ params }: { params: { token: string }
     const handleSubmit = async () => {
         if (!agreed || !hasSignature) return;
         setSubmitting(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#b8960a', '#e8c87a', '#22c55e', '#3b82f6']
-        });
+        try {
+            const session = getSession();
+            if (session?.companyId) {
+                // 1. 계약 기록을 저장 (Mock 계약 번호 포함)
+                await dataLayer.contracts.create({
+                    id: crypto.randomUUID(), // 임의 ID
+                    title: '법률자문 계약 (Pro 플랜)',
+                    template: '자문 계약서',
+                    party_a_name: 'test_ibs',
+                    party_a_signed: true,
+                    party_b_name: session.companyName || '고객사',
+                    party_b_email: session.email || '',
+                    party_b_signed: true,
+                    status: 'both_signed',
+                    content: MOCK_CONTRACT_TEXT,
+                });
 
-        setStep('done');
-        setSubmitting(false);
+                // 2. 회사 상태를 'contract_signed' (서명 완료, 입금/승인 대기)로 변경. 
+                //    플랜은 결제 확인 후 영업/관리자가 수동으로 변경하도록 합니다.
+                await dataLayer.companies.update(session.companyId, {
+                    status: 'contract_signed',
+                    contract_signed_at: new Date().toISOString()
+                } as any);
+            } else {
+                console.warn('세션(회사 ID)이 없어 DB에 반영되지 않았습니다. 테스트 모드입니다.');
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#b8960a', '#e8c87a', '#22c55e', '#3b82f6']
+            });
+
+            setStep('done');
+        } catch (error) {
+            console.error('계약 저장 오류:', error);
+            alert('계약 처리 중 오류가 발생했습니다.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     if (step === 'done') {

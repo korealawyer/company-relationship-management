@@ -132,23 +132,7 @@ export default function PrivacyAnalysisClientPage() {
     }
 
     const { issues, riskLevel, lawyerConfirmed, issueCount = 0 } = company;
-    
-    // DB의 issues 배열은 비어있지만 issueCount가 0보다 큰 경우 (최초 스캐너 등급만 받은 상태)
-    // 고객에게 심각성을 인지시키기 위해 더미 이슈(설득 요소)를 생성합니다.
-    const displayIssues = [...(issues || [])];
-    if (displayIssues.length === 0 && issueCount > 0) {
-        Array.from({ length: issueCount }).forEach((_, i) => {
-            displayIssues.push({
-                title: `개인정보 처리방침 위반 소지 항목 ${i + 1}`,
-                level: i === 0 ? 'HIGH' : 'MEDIUM',
-                law: '개인정보보호법 등 관련 가이드라인 위반 지적',
-                riskDesc: '현재 조항은 방통위 및 개보위의 최신 제재 기조에 어긋나며, 고객 민원 발생 또는 관계 당국 조사 시 과태료 처분(최대 매출액 3%) 및 형사 고발 대상이 될 수 있는 심각한 리스크를 내포하고 있습니다.',
-                customDraft: '현업 비즈니스 모델을 해치지 않는 선에서, 최신 법령에 완벽히 부합하는 방어적이고 적법한 내용으로 조항 전면 개정을 권고합니다.',
-                originalText: '회사 내부 정책에 따라 임의 처리함 (상세 수집항목 및 파기절차 누락)',
-                lawyerNote: '초기 스캐너 진단 결과, 구조적인 법적 결함이 다수 발견되었습니다. 당소의 전문 변호사가 귀사의 비즈니스에 맞춰 약관을 전면 재작성해 드리는 자문을 반드시 받으셔야 합니다.'
-            });
-        });
-    }
+    const displayIssues = issues || [];
     
     // 화면에 보여줄 확정 메트릭 (DB 컬럼 최우선 활용)
     const effectiveTotalIssues = displayIssues.length > 0 ? displayIssues.length : issueCount;
@@ -158,11 +142,8 @@ export default function PrivacyAnalysisClientPage() {
     // riskLevel이 없으면 'LOW', 문제 건수가 있으면 기본적으로 'HIGH' 취급
     const effectiveRiskLevel = riskLevel || (hasIssues ? 'HIGH' : 'LOW');
     
-    // 고위험 건수: 상세 내역 있으면 필터, 없는데 riskLevel이 HIGH면 일단 전체의 절반 정도로 어림잡아 표시
+    // 고위험 건수
     let highRiskCount = displayIssues.filter((i: any) => i.level === 'HIGH').length;
-    if (displayIssues.length === 0 && effectiveTotalIssues > 0 && effectiveRiskLevel === 'HIGH') {
-        highRiskCount = Math.max(1, Math.floor(effectiveTotalIssues * 0.4));
-    }
     
     const isCritical = highRiskCount > 0 || effectiveRiskLevel === 'HIGH';
 

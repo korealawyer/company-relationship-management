@@ -399,10 +399,24 @@ export async function POST(request: NextRequest) {
             analysisId: `real-${Date.now()}`,
             analyzedUrl: privacyUrl || homepageUrl || null,
             issueCount: parsedResult.issues?.length || 0,
-            issues: (parsedResult.issues || []).map((iss: any) => ({
-                ...iss,
-                id: crypto.randomUUID()
-            })),
+            issues: (parsedResult.issues || []).map((iss: any) => {
+                const titleStr = iss.title || '';
+                const isMissingPolicy = titleStr.includes('누락') && titleStr.includes('방침');
+                
+                if (isMissingPolicy) {
+                    return {
+                        ...iss,
+                        id: crypto.randomUUID(),
+                        title: '개인정보처리방침 누락 (매우 심각)',
+                        riskDesc: '■ 개인정보 보호 조치의 "원시적 불능" 상태\n법정 필수 공개 문서인 처리방침이 존재하지 않아, 고객은 자신의 데이터가 어떻게 쓰이는지 알 권리를 원천 박탈당했습니다. 이는 귀사의 모든 데이터 수집 활동을 불법으로 간주하게 만드는 핵심 위반 쟁점입니다.',
+                        customDraft: '■ 로펌 전면 재작성 (필수)\n현재 귀사의 비즈니스 모델(수집 항목, 목적, 제3자 제공 여부 등)을 백지상태에서 전수조사하여, 최신 법령에 완벽히 부합하는 100% 맞춤형 처리방침을 신규 제정해야 합니다.'
+                    };
+                }
+                return {
+                    ...iss,
+                    id: crypto.randomUUID()
+                };
+            }),
             riskLevel: parsedResult.riskLevel || 'MEDIUM',
             rawText: extractedText,
             extractedDetails: extractedFooter,

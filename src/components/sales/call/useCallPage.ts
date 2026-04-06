@@ -24,6 +24,8 @@ export interface UseCallPageReturn {
     companies: Company[];
     search: string;
     setSearch: (v: string) => void;
+    columnFilters: Record<string, string[]>;
+    setColumnFilter: (k: string, values: string[]) => void;
     selectedId: string | null;
     toast: string;
     setToast: (v: string) => void;
@@ -85,6 +87,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
     const { settings: dbSettings } = useAutoSettings();
     const [companies, setCompanies] = useState<Company[]>([]);
     const [search, setSearch] = useState('');
+    const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [toast, setToast] = useState('');
     const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | ''>('');
@@ -203,11 +206,35 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
 
     const filtered = companies.filter(c => {
         if (statusFilter === 'my_calls_today') {
-            return isToday(c.lastCallAt) && c.lastCalledBy === userName;
+            if (!(isToday(c.lastCallAt) && c.lastCalledBy === userName)) return false;
+        } else if (statusFilter !== 'all' && c.status !== statusFilter) {
+            return false;
         }
-        if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+        
         const q = search.toLowerCase();
-        return c.name.toLowerCase().includes(q) || c.biz.includes(q) || (c.contactName || '').includes(q);
+        if (q && !(c.name.toLowerCase().includes(q) || c.biz.includes(q) || (c.contactName || '').includes(q))) {
+            return false;
+        }
+
+        // Column filters
+        for (const [key, selectedValues] of Object.entries(columnFilters)) {
+            if (!selectedValues || selectedValues.length === 0) continue;
+            
+            let val = '';
+            // Match the keys passed by the header
+            if (key === 'franchiseType') val = c.franchiseType?.trim() || '';
+            else if (key === 'status') val = c.status || '';
+            else if (key === 'risk') val = String(c.riskScore || 0); // Need to parse risk levels if you format it
+            else if (key === 'contactName') val = c.contactName || '';
+            else if (key === 'salesRep') val = c.lastCalledBy || '';
+            else if (key === 'phone') val = c.contactPhone || c.phone || '';
+            else if (key === 'name') val = c.name || '';
+            else if (key === 'conversion') val = String(ConversionPredictionService.predict(c).score || 0);
+            
+            if (!selectedValues.includes(val)) return false;
+        }
+        
+        return true;
     }).sort((a, b) => {
         let d = 0;
         if (sortKey === 'risk') d = (b.riskScore || 0) - (a.riskScore || 0);
@@ -369,10 +396,15 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         else { setSortKey(k); setSortAsc(false); }
     };
 
+    const setColumnFilter = (k: string, values: string[]) => {
+        setColumnFilters(prev => ({ ...prev, [k]: values }));
+    };
+
     return {
         // state
         companies,
         search, setSearch,
+        columnFilters, setColumnFilter,
         selectedId,
         toast, setToast,
         callResult,

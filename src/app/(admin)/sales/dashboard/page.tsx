@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { leadStore, Lead, LeadStatus } from '@/lib/leadStore';
+import { dataLayer } from '@/lib/dataLayer';
+import { Company } from '@/lib/types';
 
 const PIPELINE_STAGES: { status: LeadStatus; label: string; color: string; bg: string }[] = [
     { status: 'pending', label: '미분석', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -28,10 +30,38 @@ const QUICK_LINKS = [
 
 export default function SalesDashboardPage() {
     const [leads, setLeads] = useState<Lead[]>([]);
+    const [pendingCompanies, setPendingCompanies] = useState<Company[]>([]);
 
     useEffect(() => {
         setLeads(leadStore.getAll());
+        
+        const fetchPendingCompanies = async () => {
+            try {
+                const companies = await dataLayer.companies.getAll();
+                const pending = companies.filter(c => c.status === 'contract_signed');
+                setPendingCompanies(pending);
+            } catch (error) {
+                console.error("Failed to fetch pending companies:", error);
+            }
+        };
+        fetchPendingCompanies();
     }, []);
+
+    const handleApprove = async (companyId: string) => {
+        if (!confirm('입금 내역을 확인하셨습니까? Pro 플랜으로 승급합니다.')) return;
+        
+        try {
+            await dataLayer.companies.update(companyId, {
+                plan: 'premium',
+                status: 'subscribed'
+            });
+            setPendingCompanies(prev => prev.filter(c => c.id !== companyId));
+            alert('승급이 완료되었습니다.');
+        } catch (error) {
+            console.error("Failed to approve company:", error);
+            alert('승급 처리 중 오류가 발생했습니다.');
+        }
+    };
 
     const total = leads.length;
     const emailed = leads.filter(l => l.emailSentAt).length;
@@ -251,6 +281,47 @@ export default function SalesDashboardPage() {
                         })}
                     </div>
                 </motion.div>
+
+                {/* 🚨 결제/승인 대기열 (contract_signed 상태의 회사들) */}
+                {pendingCompanies.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }}
+                        className="rounded-2xl p-6"
+                        style={{ background: 'linear-gradient(135deg, rgba(248,113,113,0.06), rgba(4,9,26,0))', border: '1px solid rgba(248,113,113,0.2)' }}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <AlertCircle className="w-5 h-5" style={{ color: '#f87171' }} />
+                            <h2 className="font-black text-base" style={{ color: '#f87171' }}>입금 및 승인 대기열</h2>
+                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#f8717120', color: '#f87171' }}>
+                                {pendingCompanies.length}건
+                            </span>
+                        </div>
+                        <div className="space-y-3">
+                            {pendingCompanies.map(company => (
+                                <div key={company.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 rounded-xl"
+                                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div className="flex items-start gap-3 mb-3 md:mb-0">
+                                        <div className="p-2 flex-shrink-0 rounded-lg" style={{ background: 'rgba(248,113,113,0.1)' }}>
+                                            <FileText className="w-4 h-4" style={{ color: '#f87171' }} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-sm" style={{ color: '#f0f4ff' }}>{company.name}</h3>
+                                            <p className="text-xs mt-1" style={{ color: 'rgba(240,244,255,0.5)' }}>
+                                                서명 일시: {company.contractSignedAt ? new Date(company.contractSignedAt).toLocaleString() : '확인 불가'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleApprove(company.id)}
+                                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 mt-2 md:mt-0 rounded-lg font-bold text-xs hover:bg-opacity-90 transition-colors"
+                                        style={{ background: '#f87171', color: '#04091a' }}
+                                    >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        입금 확인 및 Pro 승급
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
             </div>
         </div>
     );

@@ -359,6 +359,10 @@ function PrivacyReviewContent() {
                     riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
                     customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
                     lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
+                    scenario: c.scenario,
+                    penalty: c.penalty,
+                    recommendation: c.recommendation,
+                    lawText: c.lawText,
                     reviewChecked: true,
                     aiDraftGenerated: true
                 }));
@@ -434,6 +438,10 @@ function PrivacyReviewContent() {
                     riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
                     customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
                     lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
+                    scenario: c.scenario,
+                    penalty: c.penalty,
+                    recommendation: c.recommendation,
+                    lawText: c.lawText,
                     reviewChecked: true,
                     aiDraftGenerated: true
                 }));

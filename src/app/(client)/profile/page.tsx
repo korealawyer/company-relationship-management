@@ -105,10 +105,18 @@ export default function ProfilePage() {
                             </div>
                             <h2 className="font-black text-lg" style={{ color: '#111827' }}>{session?.name || '사용자'}</h2>
                             <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>{department}</p>
-                            <div className="flex items-center justify-center gap-1.5 mt-2">
-                                <Crown className="w-3.5 h-3.5" style={{ color: '#c9a84c' }} />
-                                <span className="text-xs font-bold" style={{ color: '#c9a84c' }}>Pro 플랜</span>
-                            </div>
+                            {company?.plan && company.plan !== 'none' ? (
+                                <div className="flex items-center justify-center gap-1.5 mt-2">
+                                    <Crown className="w-3.5 h-3.5" style={{ color: '#c9a84c' }} />
+                                    <span className="text-xs font-bold" style={{ color: '#c9a84c' }}>
+                                        {company.plan.charAt(0).toUpperCase() + company.plan.slice(1)} 플랜
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center gap-1.5 mt-2">
+                                    <span className="text-xs font-bold" style={{ color: '#6b7280' }}>Free 플랜</span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-3 pt-4" style={{ borderTop: '1px solid #f0ede6' }}>

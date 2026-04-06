@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, TrendingUp, Bot, Phone, LayoutGrid, Ticket, Download, Upload, AlertTriangle, Send, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
-import { Company } from '@/lib/types';
+import { Company, CaseStatus } from '@/lib/types';
 import KanbanBoard from '@/components/crm/KanbanBoard';
 import SalesDashboard from '@/components/crm/SalesDashboard';
 import ContractEmailTemplate from '@/components/crm/ContractEmailTemplate';
@@ -131,7 +131,8 @@ export default function EmployeePage() {
         return (c.name.includes(q) || c.biz.includes(q) || c.email.includes(q) || c.phone.includes(q))
             && (crm.filterStatus === 'all' || c.status === crm.filterStatus);
     });
-    const counts = Object.fromEntries(PIPELINE.map(s => [s, crm.companies.filter(c => c.status === s).length]));
+    const ALL_STATUSES = Object.keys(STATUS_LABEL) as CaseStatus[];
+    const counts = Object.fromEntries(ALL_STATUSES.map(s => [s, crm.companies.filter(c => c.status === s).length]));
     const needsAction = crm.companies.filter(c => ['analyzed', 'lawyer_confirmed', 'client_replied'].includes(c.status));
 
     return (
@@ -244,16 +245,29 @@ export default function EmployeePage() {
                 <div className="flex gap-2 min-w-max">
                     <button onClick={() => crm.setFilterStatus('all')}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                        style={{ background: crm.filterStatus === 'all' ? '#fffbeb' : T.card, border: `1px solid ${crm.filterStatus === 'all' ? '#fde68a' : T.border}`, color: crm.filterStatus === 'all' ? '#b8960a' : T.sub }}>
+                        style={{ 
+                            background: crm.filterStatus === 'all' ? '#fffbeb' : 'transparent', 
+                            border: `1px solid ${crm.filterStatus === 'all' ? '#fde68a' : '#fde68a60'}`, 
+                            color: '#b8960a',
+                            opacity: crm.filterStatus === 'all' ? 1 : 0.6 
+                        }}>
                         전체 <span>{crm.companies.length}</span>
                     </button>
-                    {PIPELINE.map(s => (
-                        <button key={s} onClick={() => crm.setFilterStatus(s)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                            style={{ background: crm.filterStatus === s ? STATUS_COLOR[s] : T.card, border: `1px solid ${crm.filterStatus === s ? STATUS_TEXT[s] + '60' : T.border}`, color: crm.filterStatus === s ? STATUS_TEXT[s] : T.sub }}>
-                            {STATUS_LABEL[s]} <span>{counts[s] ?? 0}</span>
-                        </button>
-                    ))}
+                    {ALL_STATUSES.map(s => {
+                        const isSelected = crm.filterStatus === s;
+                        return (
+                            <button key={s} onClick={() => crm.setFilterStatus(s)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                                style={{ 
+                                    background: isSelected ? STATUS_COLOR[s] : 'transparent', 
+                                    border: `1px solid ${isSelected ? STATUS_TEXT[s] : STATUS_TEXT[s] + '40'}`, 
+                                    color: STATUS_TEXT[s],
+                                    opacity: isSelected ? 1 : 0.5
+                                }}>
+                                {STATUS_LABEL[s]} <span>{counts[s] ?? 0}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 

@@ -418,10 +418,8 @@ export const supabaseCompanyStore = {
 
       if (updates.issues.length > 0) {
         const issueRows = updates.issues.map(iss => {
-          // aiDraftGenerated, lawText, penalty, recommendation, legalBasis, revisionOpinion는 
-          // 현재 로컬 환경 또는 리모트 Supabase DB 테이블에 존재하지 않아서 삽입 시 매칭 오류를 유발합니다.
-          // DB에 해당 컬럼 추가 (022 SQL 마이그레이션 실행) 완료 후 여기서 제거해야 정상 저장됩니다.
-          const { aiDraftGenerated, lawText, penalty, recommendation, law, legalBasis, revisionOpinion, ...safeIss } = iss as Record<string, any>;
+          // DB 컬럼 추가 마이그레이션이 완료되었으므로, 해당 필드들도 정상 매칭되어 저장됩니다.
+          const { law, ...safeIss } = iss as Record<string, any>;
           const row = objToRow(safeIss);
           if (law) row.law_ref = law;
           if (!row.id) row.id = crypto.randomUUID();
