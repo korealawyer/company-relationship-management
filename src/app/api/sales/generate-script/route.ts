@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Anthropic API 키가 설정되지 않았습니다.' }, { status: 500 });
         }
     } else if (targetModel.includes('gemini')) {
-        resolvedApiKey = apiKeyFromBody || process.env.GEMINI_API_KEY || '';
+        resolvedApiKey = apiKeyFromBody || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '';
         if (!resolvedApiKey) {
             return NextResponse.json({ success: false, error: 'Gemini API 키가 설정되지 않았습니다.' }, { status: 500 });
         }

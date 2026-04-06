@@ -310,7 +310,7 @@ export async function POST(request: NextRequest) {
             content = aiData.content?.[0]?.text || '';
         } else if (targetModel.includes('gemini')) {
             // Google Gemini API 호출
-            const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+            const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
             if (!geminiKey) {
                  return NextResponse.json({ success: false, error: 'GEMINI_API_KEY가 서버 환경 변수에 설정되지 않았습니다.' }, { status: 500 });
             }

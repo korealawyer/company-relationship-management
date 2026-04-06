@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         if (targetModel.includes('claude')) {
             resolvedApiKey = clientApiKey || process.env.ANTHROPIC_API_KEY;
         } else if (targetModel.includes('gemini')) {
-            resolvedApiKey = clientApiKey || process.env.GEMINI_API_KEY;
+            resolvedApiKey = clientApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
         } else {
             resolvedApiKey = clientApiKey || process.env.OPENAI_API_KEY;
         }
