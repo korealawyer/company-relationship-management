@@ -204,6 +204,7 @@ export interface LitigationCase {
     id: string;
     companyId: string;   // 연결된 의뢰인
     companyName: string;
+    title: string;       // 사건명 (DB의 title)
     caseNo: string;      // 사건번호
     court: string;       // 법원
     type: string;        // 소송 유형

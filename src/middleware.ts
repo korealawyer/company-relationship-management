@@ -105,7 +105,9 @@ export async function middleware(request: NextRequest) {
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
                         request.cookies.set(name, value);
-                        response.cookies.set(name, value, options);
+                        // Force session cookies to prevent auto-login after browser restart
+                        const { maxAge, expires, ...restOptions } = options;
+                        response.cookies.set(name, value, restOptions);
                     });
                 },
             },
@@ -126,7 +128,11 @@ export async function middleware(request: NextRequest) {
                           mockRole === 'litigation' ? '/litigation' : 
                           mockRole === 'counselor' ? '/counselor' : 
                           mockRole === 'personal_client' ? '/personal-litigation' : '/dashboard';
-            return NextResponse.redirect(homeUrl);
+            const redirectRes = NextResponse.redirect(homeUrl);
+            response.cookies.getAll().forEach(cookie => {
+                redirectRes.cookies.set(cookie.name, cookie.value, cookie);
+            });
+            return redirectRes;
         }
         return response;
     }
@@ -138,7 +144,11 @@ export async function middleware(request: NextRequest) {
         const url = request.nextUrl.clone();
         url.pathname = '/login';
         url.searchParams.set('next', pathname);
-        return NextResponse.redirect(url);
+        const redirectRes = NextResponse.redirect(url);
+        response.cookies.getAll().forEach(cookie => {
+            redirectRes.cookies.set(cookie.name, cookie.value, cookie);
+        });
+        return redirectRes;
     }
 
     // 권한(Role) 확인 - RBAC 적용
@@ -153,7 +163,11 @@ export async function middleware(request: NextRequest) {
                           role === 'litigation' ? '/litigation' : 
                           role === 'counselor' ? '/counselor' : 
                           role === 'personal_client' ? '/personal-litigation' : '/dashboard';
-        return NextResponse.redirect(homeUrl);
+        const redirectRes = NextResponse.redirect(homeUrl);
+        response.cookies.getAll().forEach(cookie => {
+            redirectRes.cookies.set(cookie.name, cookie.value, cookie);
+        });
+        return redirectRes;
     }
 
     // 인가 후 최종 응답에 보안 유지 및 크롤링 방지 헤더 설정

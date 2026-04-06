@@ -10,10 +10,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ROLE_HOME, getSession } from '@/lib/auth';
 import { useAuth } from '@/lib/AuthContext';
 
-function setCookie(name: string, value: string, days: number) {
-    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+function setCookie(name: string, value: string) {
     if (typeof document !== 'undefined') {
-        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+        document.cookie = `${name}=${encodeURIComponent(value)}; path=/`;
     }
 }
 
@@ -90,8 +89,8 @@ function LoginContent() {
                 const session = getSession();
                 if (session) {
                     // setCookie was moved to inside auth but let's do it safely
-                    setCookie('ibs_session', session.id, 1);
-                    setCookie('ibs_role', session.role, 1);
+                    setCookie('ibs_session', session.id);
+                    setCookie('ibs_role', session.role);
                     router.replace(from || '/privacy-analysis');
                 } else {
                     router.replace(from || '/privacy-analysis'); // session might be slight delayed
@@ -149,8 +148,8 @@ function LoginContent() {
         if (!result.error) {
             const session = getSession();
             if (session) {
-                setCookie('ibs_session', session.id, 1);
-                setCookie('ibs_role', session.role, 1);
+                setCookie('ibs_session', session.id);
+                setCookie('ibs_role', session.role);
                 const dest = from || ROLE_HOME[session.role] || '/';
                 setLoading(false);
                 router.replace(dest);
@@ -169,8 +168,8 @@ function LoginContent() {
         if (!result.error) {
             const session = getSession();
             if (session) {
-                setCookie('ibs_session', session.id, 1);
-                setCookie('ibs_role', session.role, 1);
+                setCookie('ibs_session', session.id);
+                setCookie('ibs_role', session.role);
                 setBizLoading(false);
                 router.replace(from || '/dashboard');
             }
@@ -188,8 +187,8 @@ function LoginContent() {
         if (!result.error) {
             const session = getSession();
             if (session) {
-                setCookie('ibs_session', session.id, 1);
-                setCookie('ibs_role', session.role, 1);
+                setCookie('ibs_session', session.id);
+                setCookie('ibs_role', session.role);
                 setPersonalLoading(false);
                 router.replace(from || '/personal-litigation');
             }

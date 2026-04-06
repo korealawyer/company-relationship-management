@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-    Scale, Briefcase, CheckCircle2, TrendingUp, Calendar, Globe, Search
+    Scale, Briefcase, CheckCircle2, TrendingUp, Calendar, Globe, Search, Plus
 } from 'lucide-react';
 
 import { LawCase, CaseStatus } from '@/types/cases';
@@ -14,6 +14,7 @@ import CourtSearchPanel from '@/components/cases/CourtSearchPanel';
 import KpiCard from '@/components/cases/KpiCard';
 import CaseList from '@/components/cases/CaseList';
 import CaseDetailPanel from '@/components/cases/CaseDetailPanel';
+import { ServiceRequestModal } from '@/components/ServiceRequestModal';
 
 export function CasesClient({ initialUser }: { initialUser: any }) {
     const [selectedCase, setSelectedCase] = useState<LawCase | null>(null);
@@ -25,6 +26,7 @@ export function CasesClient({ initialUser }: { initialUser: any }) {
 
     const { litigations, isLoading } = useLitigations();
     const [courtSearchOpen, setCourtSearchOpen] = useState(false);
+    const [requestModalOpen, setRequestModalOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 8;
@@ -86,24 +88,34 @@ export function CasesClient({ initialUser }: { initialUser: any }) {
                                 진행 중 {activeCount}건 · 총 {CASES.length}건 · 담당: 김수현·박준호 변호사
                             </p>
                         </div>
-                        <button onClick={() => setCourtSearchOpen(!courtSearchOpen)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-md"
-                            style={courtSearchOpen
-                                ? { background: '#111827', color: '#fff' }
-                                : { background: '#fff', color: '#111827', border: '1px solid #e8e5de' }
-                            }>
-                            <Globe className="w-4 h-4" style={{ color: courtSearchOpen ? '#c9a84c' : '#3b82f6' }} />
-                            대법원 사건검색
-                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={() => setCourtSearchOpen(!courtSearchOpen)}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-md"
+                                style={courtSearchOpen
+                                    ? { background: '#111827', color: '#fff' }
+                                    : { background: '#fff', color: '#111827', border: '1px solid #e8e5de' }
+                                }>
+                                <Globe className="w-4 h-4" style={{ color: courtSearchOpen ? '#c9a84c' : '#3b82f6' }} />
+                                대법원 사건검색
+                            </button>
+                            <button
+                                onClick={() => setRequestModalOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-md"
+                                style={{ background: '#111827', color: '#fff' }}
+                            >
+                                <Plus className="w-4 h-4" style={{ color: '#c9a84c' }} />
+                                사건 의뢰하기
+                            </button>
+                        </div>
                     </div>
                 </motion.div>
 
                 {/* KPI */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <KpiCard icon={Briefcase} label="진행 중 소송" value={activeCount} sub="변론기일 예정 2건" color="#3b82f6" />
-                    <KpiCard icon={CheckCircle2} label="승소/합의" value={`${wonCount + 1}건`} sub="승소율 66.7%" color="#22c55e" />
-                    <KpiCard icon={TrendingUp} label="청구/회수 총액" value={totalAmount} sub="확정 회수 8,700만원" color="#c9a84c" />
-                    <KpiCard icon={Calendar} label="다음 기일" value="3/25" sub="행정법원 증인신문" color="#f59e0b" />
+                    <KpiCard icon={Briefcase} label="진행 중 소송" value={activeCount} sub="전체 진행 사건" color="#3b82f6" />
+                    <KpiCard icon={CheckCircle2} label="승소/합의" value={`${wonCount}건`} sub="긍정적 종결 건수" color="#22c55e" />
+                    <KpiCard icon={TrendingUp} label="청구/회수 총액" value={totalAmount} sub="총 예상 금액" color="#c9a84c" />
+                    <KpiCard icon={Calendar} label="다음 기일" value={CASES.map(c => c.nextDate).filter(Boolean).sort()[0] || "없음"} sub="가장 빠른 일정" color="#f59e0b" />
                 </div>
 
                 {/* 대법원 나의사건검색 패널 */}
@@ -156,6 +168,13 @@ export function CasesClient({ initialUser }: { initialUser: any }) {
                     <CaseDetailPanel selectedCase={selectedCase} />
                 </div>
             </div>
+
+            {/* 사건 의뢰 모달 */}
+            <ServiceRequestModal 
+                isOpen={requestModalOpen} 
+                onClose={() => setRequestModalOpen(false)} 
+                defaultType="case" 
+            />
         </div>
     );
 }

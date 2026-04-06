@@ -64,7 +64,7 @@ export default function DashboardSidebar({
   return (
     <aside
       className={`hidden md:flex flex-col bg-[#0f172a] text-slate-400 transition-all duration-300 ease-in-out z-20 shadow-xl ${
-        isOpen ? 'w-64' : 'w-20'
+        isOpen ? 'w-72' : 'w-20'
       }`}
     >
       {/* Brand Header */}

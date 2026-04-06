@@ -49,11 +49,17 @@ export async function POST(request: NextRequest) {
                 id: crypto.randomUUID(),
                 title: '개인정보처리방침 누락',
                 riskDesc: '웹사이트 내 개인정보 처리방침이 공개되어 있지 않거나, 링크가 누락되어 있습니다. (관련 법령 위반 소지)',
-                customDraft: '개인정보보호법에 의거하여 즉각적인 개인정보 처리방침 제정 및 웹사이트 초기화면 게시 조치가 필요합니다.',
+                customDraft: '가장 기본적인 형태의 개인정보처리방침 초안 가이드라인 적용 권고.',
                 level: 'HIGH',
                 originalText: '없음 / 미기재',
-                law: '개인정보 보호법',
-                lawyerNote: '',
+                law: '개인정보 보호법 제30조',
+                lawText: '제30조(개인정보 처리방침의 수립 및 공개) ① 개인정보처리자는 개인정보를 처리하는 경우에는 개인정보 처리방침을 정하여야 한다. ② 제1항에 따른 개인정보 처리방침을 수립하거나 변경하는 경우에는 정보주체가 쉽게 확인할 수 있도록 공개하여야 한다.',
+                scenario: '웹사이트나 앱에 개인정보 처리방침이 없거나 확인이 불가능할 경우, 정보주체의 알 권리 침해로 간주되며, 개인정보보호위원회 정기 감사 시 즉각적인 시정명령 및 과태료 부과 대상이 됩니다.',
+                penalty: '과태료 1천만원 이하 및 시정명령',
+                recommendation: '개인정보보호법에 의거하여 즉각적인 개인정보 처리방침을 제정하고, 웹사이트 초기 화면 하단에 연결 링크를 명확히 표시하여 게시해야 합니다.',
+                revisionOpinion: '개인정보보호법 제30조 위반 소지를 해소하기 위해, 표준 가이드라인에 따른 개인정보 처리방침 제정안을 긴급히 마련하여야 함을 명시하였습니다.',
+                legalBasis: ['개인정보 보호법 제30조 (개인정보 처리방침의 수립 및 공개)', '개인정보 보호법 제75조 (과태료)'],
+                lawyerNote: '개인정보처리방침을 수립하고 공개하는 것은 개인정보보호법 상 가장 기초적이고 핵심적인 의무입니다. 이를 누락할 경우 과태료뿐만 아니라 향후 정보주체와의 분쟁 시 불리하게 작용할 수 있으므로 즉각적인 제정 및 홈페이지 공개 조치가 필요합니다.',
                 reviewChecked: false,
                 aiDraftGenerated: true
             }],
@@ -272,7 +278,10 @@ export async function POST(request: NextRequest) {
 
         if (targetModel.includes('claude')) {
             // Anthropic API 호출
-            const anthropicKey = process.env.ANTHROPIC_API_KEY || apiKey; // 폴백용
+            const anthropicKey = process.env.ANTHROPIC_API_KEY;
+            if (!anthropicKey) {
+                return NextResponse.json({ success: false, error: 'ANTHROPIC_API_KEY가 서버 환경 변수에 설정되지 않았습니다.' }, { status: 500 });
+            }
             const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
@@ -299,6 +308,35 @@ export async function POST(request: NextRequest) {
             }
             const aiData = await response.json();
             content = aiData.content?.[0]?.text || '';
+        } else if (targetModel.includes('gemini')) {
+            // Google Gemini API 호출
+            const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+            if (!geminiKey) {
+                 return NextResponse.json({ success: false, error: 'GEMINI_API_KEY가 서버 환경 변수에 설정되지 않았습니다.' }, { status: 500 });
+            }
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${geminiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemInstruction: {
+                        parts: [{ text: '반드시 순수 JSON 형식({ "riskLevel": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.' }]
+                    },
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        responseMimeType: "application/json"
+                    }
+                }),
+                signal: aiController.signal
+            });
+            clearTimeout(aiTimeoutId);
+
+            if (!response.ok) {
+                console.error('[Analyze API] Gemini Failure:', await response.text());
+                return NextResponse.json({ success: false, error: 'AI 모델(Gemini) 호출에 실패했습니다. 관리자에게 문의하세요.' }, { status: 502 });
+            }
+            const aiData = await response.json();
+            content = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
             // 기본 OpenAI API 호출 (gpt-4o, gpt-4o-mini 등)
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -310,7 +348,11 @@ export async function POST(request: NextRequest) {
                 body: JSON.stringify({
                     model: targetModel,
                     temperature: 0.1,
-                    messages: [{ role: 'user', content: prompt }]
+                    response_format: { type: "json_object" },
+                    messages: [
+                        { role: 'system', content: '반드시 JSON 형식의 객체({ "riskLevel": ..., "issues": [...] })만 반환해야 합니다.' },
+                        { role: 'user', content: prompt }
+                    ]
                 }),
                 signal: aiController.signal
             });
@@ -329,8 +371,18 @@ export async function POST(request: NextRequest) {
         }
         
         // 마크다운 JSON 오류 방어 파싱
-        const cleanJson = content.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const parsedResult = JSON.parse(cleanJson);
+        let parsedResult;
+        try {
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            const cleanJson = jsonMatch ? jsonMatch[0] : content.replace(/```json/gi, '').replace(/```/g, '').trim();
+            parsedResult = JSON.parse(cleanJson);
+        } catch (e) {
+            console.error('[Analyze API] JSON Parse Error:', e, 'Raw Content was:', content);
+            return NextResponse.json(
+                { success: false, error: 'AI가 반환한 결과를 파싱할 수 없습니다. 재조사를 시도해 주세요.' },
+                { status: 502 }
+            );
+        }
 
         if (parsedResult.riskLevel === 'UNKNOWN' || parsedResult.error) {
             console.warn('[Analyze API] OpenAI가 원문을 식별할 수 없음.');

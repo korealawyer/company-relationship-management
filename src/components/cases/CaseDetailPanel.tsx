@@ -114,68 +114,6 @@ export default function CaseDetailPanel({ selectedCase }: CaseDetailPanelProps) 
                         </div>
                     </div>
 
-                    {/* ── 담당 변호사 & 자동 진행 알림 ── */}
-                    <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1px solid #e8e5de' }}>
-                        {/* 변호사 헤더 */}
-                        <div className="p-4 flex items-center gap-3" style={{ background: '#111827' }}>
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-black tracking-tight"
-                                style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#111827' }}>
-                                IBS
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-sm font-black text-white">IBS 법률사무소</p>
-                                <p className="text-[10px]" style={{ color: '#9ca3af' }}>사건 진행 자동 알림 · 02-598-8518</p>
-                            </div>
-                            <div className="px-2.5 py-1 rounded-lg flex items-center gap-1" style={{ background: 'rgba(34,197,94,0.15)' }}>
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#22c55e' }} />
-                                <span className="text-[10px] font-bold" style={{ color: '#22c55e' }}>자동 알림 ON</span>
-                            </div>
-                        </div>
-
-                        {/* 자동 진행 알림 목록 */}
-                        <div className="p-4 space-y-2.5">
-                            <p className="text-[10px] font-bold mb-3" style={{ color: '#9ca3af' }}>
-                                🔔 최근 자동 알림 (변호사 → 의뢰인)
-                            </p>
-                            {[
-                                { time: '오늘 09:00', type: 'action', icon: '📋',
-                                  text: '다음 변론기일(4/8) 준비를 위해 관련 판례 3건을 추가 분석 중입니다.' },
-                                { time: '03.15 17:30', type: 'doc', icon: '📎',
-                                  text: '상대방 의견서 접수. 검토 후 대응 준비서면 초안을 문서함에 공유드릴 예정입니다.' },
-                                { time: '03.12 14:00', type: 'alert', icon: '⚡',
-                                  text: '피고 측 답변서 제출 완료. 핵심 쟁점: 경업금지 조항 유효성 — 우리 입장 유리합니다.' },
-                                { time: '03.10 10:00', type: 'schedule', icon: '📅',
-                                  text: '제3차 변론기일이 2026-04-08로 지정되었습니다. 별도 출석은 불필요합니다.' },
-                            ].map((n, i) => (
-                                <motion.div key={i}
-                                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.08 }}
-                                    className="p-3 rounded-xl flex gap-2.5"
-                                    style={{ background: i === 0 ? '#fffbeb' : '#f9fafb', border: `1px solid ${i === 0 ? '#fde68a' : '#f3f4f6'}` }}>
-                                    <span className="text-sm mt-0.5">{n.icon}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs leading-relaxed" style={{ color: '#374151' }}>{n.text}</p>
-                                        <p className="text-[9px] mt-1" style={{ color: '#9ca3af' }}>{n.time}</p>
-                                    </div>
-                                    {i === 0 && (
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md h-fit flex-shrink-0"
-                                            style={{ background: '#fef3c7', color: '#92400e' }}>NEW</span>
-                                    )}
-                                </motion.div>
-                            ))}
-                        </div>
-
-                        {/* 하단 안내 */}
-                        <div className="px-4 py-3 flex items-center justify-between" style={{ borderTop: '1px solid #f3f4f6', background: '#fafaf8' }}>
-                            <p className="text-[10px]" style={{ color: '#9ca3af' }}>
-                                진행 상황이 변경되면 자동으로 알림을 보내드립니다
-                            </p>
-                            <a href="tel:025551234" className="px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1"
-                                style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #e8e5de' }}>
-                                📞 긴급 연락
-                            </a>
-                        </div>
-                    </div>
                 </motion.div>
             )}
         </AnimatePresence>

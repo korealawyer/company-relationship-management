@@ -7,9 +7,10 @@ import {
     CheckCircle2
 } from 'lucide-react';
 import { getSession } from '@/lib/auth';
-import { leadStore } from '@/lib/leadStore';
-import { DocumentCategory } from '@/lib/types';
-import { documentStore } from '@/lib/store';
+import { dataLayer } from '@/lib/dataLayer';
+import { getBrowserSupabase } from '@/lib/supabase';
+import { Consultation } from '@/lib/types';
+import { useConsultations, useLitigations } from '@/hooks/useDataLayer';
 
 export type RequestType = 'consultation' | 'document' | 'contract_draft' | 'case' | 'general';
 export type FormRequestType = Exclude<RequestType, 'general'>;
@@ -31,14 +32,19 @@ function resolveType(t: RequestType): FormRequestType {
 }
 
 export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }: ServiceRequestModalProps) {
+    const { mutate: mutateConsultations } = useConsultations();
+    const { mutate: mutateLitigations } = useLitigations();
     const session = typeof window !== 'undefined' ? getSession() : null;
 
     const [step, setStep] = useState(1);
     const [selectedType, setSelectedType] = useState<FormRequestType>(resolveType(defaultType));
     const [title, setTitle] = useState('');
     const [detail, setDetail] = useState('');
-    const [privacyUrl, setPrivacyUrl] = useState('');
-    const [privacyPolicyText, setPrivacyPolicyText] = useState('');
+
+    const [opponent, setOpponent] = useState('');
+    const [caseType, setCaseType] = useState('민사');
+    const [claimAmount, setClaimAmount] = useState('');
+    const [court, setCourt] = useState('');
 
     const [files, setFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -52,8 +58,10 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
             setSelectedType(resolveType(defaultType));
             setTitle('');
             setDetail('');
-            setPrivacyUrl('');
-            setPrivacyPolicyText('');
+            setOpponent('');
+            setCaseType('민사');
+            setClaimAmount('');
+            setCourt('');
             setFiles([]);
             setSubmitted(false);
         }
@@ -68,49 +76,90 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
         setFiles(prev => [...prev, ...valid]);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!title.trim()) { alert('의뢰 제목을 입력해주세요.'); return; }
         const companyId = session?.companyId || 'org-123';
         const userName  = session?.name  || 'Client';
 
         setIsSubmitting(true);
-        setTimeout(() => {
-            const tags = [
-                selectedType === 'document' ? '문서검토' : selectedType === 'case' ? '소송대리' : '법률자문',
-            ];
-            const newLeads = leadStore.add([{
-                companyName: session?.companyName || '새로운 고객사',
-                domain: '', privacyUrl: privacyUrl, privacyPolicyText: privacyPolicyText,
-                contactName: session?.name || 'Client',
-                contactEmail: session?.email || 'client@example.com',
-                contactPhone: '', storeCount: 1,
-                bizType: '기타 (포털 의뢰)',
-                riskScore: 50,
-                riskLevel: 'LOW' as const,
-                issueCount: 1, status: 'pending', source: 'manual',
-            } as any]);
+        try {
+            const sb = getBrowserSupabase();
+            const attachedFiles = [];
 
-            const newLeadId = newLeads[0].id;
-            let memo = `[신규 의뢰] ${title}\n${detail}`;
-            if (files.length > 0) memo += `\n\n📌 첨부파일 ${files.length}건: ${files.map(f => f.name).join(', ')}`;
-            leadStore.addMemo(newLeadId, { author: userName, content: memo });
+            // 1. 첨부파일이 있다면 Supabase Storage('documents' 버킷)에 업로드
+            if (files.length > 0 && sb) {
+                for (const file of files) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${companyId}/consult/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+                    const { data, error } = await sb.storage.from('documents').upload(fileName, file);
+                    
+                    if (!error && data) {
+                        const { data: { publicUrl } } = sb.storage.from('documents').getPublicUrl(fileName);
+                        attachedFiles.push({
+                            name: file.name,
+                            url: publicUrl,
+                            size: file.size,
+                            type: file.type
+                        });
+                    } else {
+                        console.error('File upload error:', error);
+                        // 에러 로그만 남기고 계속 진행하거나 에러 처리
+                    }
+                }
+            }
 
-            if (files.length > 0) {
-                let cat: DocumentCategory = '기타';
-                if (selectedType === 'document' || selectedType === 'contract_draft') cat = '계약서';
-                else if (selectedType === 'case') cat = '소장';
-                files.forEach(file => documentStore.upload({
-                    companyId, authorRole: 'client', name: file.name,
-                    size: file.size, type: file.type || 'application/octet-stream',
-                    category: cat, status: '검토 대기',
-                    url: URL.createObjectURL(file), isNewForClient: false, isNewForLawyer: true,
-                }));
+            // 2. 추가 정보(첨부파일)를 본문에 합침
+            let fullBody = detail;
+            if (attachedFiles.length > 0) {
+                fullBody += `\n\n[첨부파일 링크]`;
+                attachedFiles.forEach((file, index) => {
+                    fullBody += `\n${index + 1}. ${file.name} : ${file.url}`;
+                });
+            }
+
+            if (selectedType === 'case') {
+                const parsedAmount = parseInt(claimAmount.replace(/[^0-9]/g, ''), 10) || 0;
+                
+                await dataLayer.litigation.create({
+                    companyId: companyId as any,
+                    title,
+                    type: caseType as any,
+                    opponent: opponent || '미상',
+                    claimAmount: parsedAmount,
+                    court: court,
+                    notes: fullBody,
+                    status: 'preparing' as any
+                });
+                await mutateLitigations();
+            } else {
+                // 3. 실제 Consult 데이터 삽입 (일반 법률 자문, 문서 검토 등)
+                const payload: Partial<Consultation> = {
+                    companyId,
+                    companyName: session?.companyName || '새로운 고객사',
+                    branchName: '본사',
+                    authorName: userName,
+                    authorRole: '임직원',
+                    category: selectedType === 'document' || selectedType === 'contract_draft' ? '가맹계약' : '기타',
+                    urgency: 'normal',
+                    title,
+                    body: fullBody,
+                    status: 'submitted',
+                    isPrivate: false
+                };
+
+                await dataLayer.consult.create(payload);
+                await mutateConsultations();
             }
 
             setIsSubmitting(false);
             setSubmitted(true);
             setStep(3);
-        }, 900);
+
+        } catch (error) {
+            console.error('Failed to submit consultation:', error);
+            alert('의뢰 제출 중 오류가 발생했습니다.');
+            setIsSubmitting(false);
+        }
     };
 
     const STEPS = ['서비스 선택', '상세 내용', '접수 완료'];
@@ -218,26 +267,54 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                                             />
                                         </div>
 
-                                        {/* Privacy URL */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1.5">개인정보처리방침 URL <span className="text-gray-400 font-normal">(선택)</span></label>
-                                            <input
-                                                type="url"
-                                                placeholder="https://example.com/privacy"
-                                                value={privacyUrl} onChange={e => setPrivacyUrl(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
-                                            />
-                                        </div>
+                                        {selectedType === 'consultation' && (
+                                            <div className="space-y-4">
+                                                <div className="bg-blue-50 text-blue-800 p-4 rounded-xl text-sm leading-relaxed">
+                                                    <span className="font-semibold block mb-1">법률 자문 신청 가이드</span>
+                                                    계약서 외의 일반적인 법률 질의, 노무/세무 이슈, 형사 고소 절차 등 변호사의 조언이 필요한 모든 사항을 자유롭게 남겨주세요.
+                                                </div>
+                                            </div>
+                                        )}
 
-                                        {/* Privacy Policy Text */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1.5">개인정보처리방침 원문 <span className="text-gray-400 font-normal">(선택)</span></label>
-                                            <textarea
-                                                rows={5} placeholder="개인정보처리방침 전체 내용을 여기에 붙여넣기 할 수 있습니다."
-                                                value={privacyPolicyText} onChange={e => setPrivacyPolicyText(e.target.value)}
-                                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400 resize-y"
-                                            />
-                                        </div>
+                                        {selectedType === 'case' && (
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="col-span-2 sm:col-span-1">
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1.5">사건 종류 <span className="text-red-500">*</span></label>
+                                                    <select
+                                                        value={caseType} onChange={e => setCaseType(e.target.value)}
+                                                        className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900"
+                                                    >
+                                                        {['민사', '형사', '행정', '가처분/신청', '기타'].map(ct => (
+                                                            <option key={ct} value={ct}>{ct}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="col-span-2 sm:col-span-1">
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1.5">상대방 이름/법인명 <span className="text-red-500">*</span></label>
+                                                    <input
+                                                        type="text" placeholder="예: 주식회사 홍길동"
+                                                        value={opponent} onChange={e => setOpponent(e.target.value)}
+                                                        className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 sm:col-span-1">
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1.5">청구 금액 / 소가 <span className="text-gray-400 font-normal">(선택)</span></label>
+                                                    <input
+                                                        type="text" placeholder="예: 50,000,000 (숫자만)"
+                                                        value={claimAmount} onChange={e => setClaimAmount(e.target.value)}
+                                                        className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 sm:col-span-1">
+                                                    <label className="block text-xs font-bold text-gray-700 mb-1.5">관할 법원 <span className="text-gray-400 font-normal">(선택)</span></label>
+                                                    <input
+                                                        type="text" placeholder="예: 서울중앙지방법원"
+                                                        value={court} onChange={e => setCourt(e.target.value)}
+                                                        className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 outline-none focus:border-gray-800 transition-colors text-sm text-gray-900 placeholder:text-gray-400"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Detail */}
                                         <div>

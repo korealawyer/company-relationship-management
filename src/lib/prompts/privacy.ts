@@ -185,13 +185,13 @@ JSON 배열로 출력하세요.`,
 {{extractedText}}
 
 **중요 지시사항**:
-제공된 텍스트가 식당/쇼핑몰의 '일반 상품 홍보글', '메인 화면 소개', '안내 팝업' 등에 불과하며 실제 <개인정보처리방침> 내용이 현저히 불충분하다고 판단될 경우, 억지 분석을 멈추고 즉시 아래 JSON 구조를 반환하세요.
+제공된 텍스트가 일반 상품 홍보글 등 전혀 무관한 내용만 있어 개인정보 관련 조항을 아예 식별할 수 없는 최악의 경우에만 아래 JSON 구조를 반환하세요.
 {
   "riskLevel": "UNKNOWN",
   "error": "원문에서 개인정보처리방침 내용을 식별할 수 없습니다. (메인 페이지 등 잘못된 URL 수집) 정확한 방침 URL을 기입하거나 전문을 복사하여 재조사해 주세요."
 }
 
-정상적인 처리방침 내용일 경우, 다음의 순수 JSON 구조만을 반환하세요. 앞뒤로 백틱(\`\`\`)이나 추가 설명을 포함하지 마세요.
+단, [개인정보 수집 및 이용 동의서]이거나 분량이 짧더라도 개인정보 수집/이용/제공과 관련된 내용이 조금이라도 포함되어 있다면 정상적으로 법률 위반 및 고위험/주의 사항을 꼼꼼히 분석하여 다음의 순수 JSON 구조만을 반환하세요. 앞뒤로 백틱(\`\`\`)이나 추가 설명을 포함하지 마세요.
 {
   "riskLevel": "HIGH" | "MEDIUM" | "LOW",
   "issues": [
@@ -273,7 +273,7 @@ JSON 배열로 출력하세요.`,
 };
 
 // ── localStorage 기반 설정 저장/로드 ───────────────────────────
-const STORAGE_KEY = 'ibs_privacy_prompts';
+const STORAGE_KEY = 'ibs_privacy_prompts_v2';
 const SCENARIO_STORAGE_KEY = 'ibs_scenario_categories';
 
 export function getPromptConfig(): PrivacyPromptConfig {

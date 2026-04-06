@@ -191,12 +191,17 @@ export function ActionButton({
         if (s === 'pending' && errorMsg) {
             return (
                 <div className="flex flex-col items-center gap-1.5">
-                    <span className="text-[11px] font-bold flex items-center" style={{ color: '#dc2626' }}>
-                        <AlertTriangle className="w-3.5 h-3.5 mr-1" />크롤링 오류
+                    <span 
+                        className="text-[11px] font-bold flex text-center flex-col items-center max-w-[120px]" 
+                        style={{ color: '#dc2626' }}
+                        title={errorMsg}
+                    >
+                        <div className="flex items-center"><AlertTriangle className="w-3.5 h-3.5 mr-1" />분석 실패</div>
+                        <span className="text-[9px] font-normal mt-0.5 truncate w-full" title={errorMsg}>{errorMsg}</span>
                     </span>
                     <button
                         onClick={() => setErrorMsg(null)}
-                        className="text-[10px] px-2 py-0.5 rounded font-bold transition-colors"
+                        className="text-[10px] px-2 py-0.5 rounded font-bold transition-colors w-full"
                         style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca' }}
                     >
                         <RotateCcw className="w-3 h-3 inline mr-0.5" />초기화
@@ -501,7 +506,8 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
                                             className="flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                                             style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
                                         >
-                                            <AlertTriangle className="w-4 h-4" /> 크롤링 오류 (재시도)
+                                            <AlertTriangle className="w-4 h-4" /> 
+                                            {errorMsg.includes('크롤링') ? '크롤링 오류 (재시도)' : errorMsg.includes('AI') ? 'AI 분석 오류 (재시도)' : '분석 오류 (재시도)'}
                                         </button>
                                         <button
                                             onClick={() => setErrorMsg(null)}
