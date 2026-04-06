@@ -13,53 +13,49 @@ export const IS_SUPABASE_CONFIGURED = !!(
 );
 
 // ── Supabase 클라이언트 (싱글턴) ──────────────────────────────
-let _supabase: SupabaseClient | null = null;
+// HMR 환경에서 모듈 재평가 시 인스턴스 소실을 방지하기 위해 globalThis 사용
+const globalForSupabase = globalThis as unknown as {
+  _supabase_singleton: ReturnType<typeof createBrowserClient> | null;
+};
 
-export function getSupabase(): SupabaseClient | null {
-  if (!IS_SUPABASE_CONFIGURED) return null;
-  if (_supabase) return _supabase;
-  _supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
-      }
-    }
-  );
-  return _supabase;
+if (!globalForSupabase._supabase_singleton) {
+  globalForSupabase._supabase_singleton = null;
 }
 
-// 편의 export — null 가능
-export const supabase = IS_SUPABASE_CONFIGURED
-  ? createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
-        }
-      }
-    )
-  : null;
-
-// ── CSR용 Supabase 클라이언트 (Auth 전용) ────────────────────
-// @supabase/ssr의 createBrowserClient — 쿠키 자동 관리
-let _browserClient: ReturnType<typeof createBrowserClient> | null = null;
+// CSR 전용 Supabase 클라이언트 (SSR 쿠키 연동 지원 - 기본 싱글턴)
 export function getBrowserSupabase() {
   if (!IS_SUPABASE_CONFIGURED) return null;
-  if (_browserClient) return _browserClient;
-  _browserClient = createBrowserClient(
+  if (typeof window === 'undefined') return null; // 방어 로직 (SSR에선 사용 안함)
+
+  if (globalForSupabase._supabase_singleton) return globalForSupabase._supabase_singleton;
+
+  globalForSupabase._supabase_singleton = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions: {
-        maxAge: undefined,
-      }
+        maxAge: undefined, // 세션 만료 위임
+      },
+      isSingleton: true, // HMR 시 중복 방지
     }
   );
-  return _browserClient;
+  return globalForSupabase._supabase_singleton;
 }
+
+// 구 버전 호환성 유지용 (getBrowserSupabase와 동일한 인스턴스 반환)
+export function getSupabase() {
+  return getBrowserSupabase();
+}
+
+// 편의 Export (동적 Getter로 변경하여 파일 로드시 중복 생성 방지)
+export const supabase = new Proxy({} as SupabaseClient, {
+  get: (target, prop) => {
+    const client = getBrowserSupabase();
+    if (!client) return undefined;
+    const val = Reflect.get(client, prop);
+    return typeof val === 'function' ? val.bind(client) : val;
+  }
+});
 
 // ── 서버사이드 전용 Service Role 클라이언트 ───────────────────
 export function getServiceSupabase(): SupabaseClient | null {

@@ -139,13 +139,21 @@ function FirstReviewRow({ c, data, onChange, categories }: {
 
                     {/* 예상 제재 + 수정 권고 */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 10px' }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 2 }}>💰 예상 제재</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: '#991b1b' }}>{c.penalty}</div>
+                        <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>💰 예상 제재</div>
+                            <EditableText
+                                value={data[`${c.num}_penalty`] ?? c.penalty}
+                                onChange={v => onChange(`${c.num}_penalty`, v)}
+                                style={{ background: '#fef2f2', borderColor: '#fecaca', fontWeight: 800, color: '#991b1b' }}
+                            />
                         </div>
-                        <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '8px 10px' }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', marginBottom: 2 }}>📌 수정 권고</div>
-                            <div style={{ fontSize: 12, color: '#0c4a6e' }}>{c.recommendation}</div>
+                        <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>📌 수정 권고</div>
+                            <EditableText
+                                value={data[`${c.num}_recommendation`] ?? c.recommendation}
+                                onChange={v => onChange(`${c.num}_recommendation`, v)}
+                                style={{ background: '#f0f9ff', borderColor: '#bae6fd', color: '#0c4a6e' }}
+                            />
                         </div>
                     </div>
                 </>

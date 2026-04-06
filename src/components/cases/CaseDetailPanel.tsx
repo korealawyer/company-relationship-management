@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Gavel, User, Calendar, TrendingUp } from 'lucide-react';
+import { MapPin, Gavel, User, Calendar, TrendingUp, MessageSquare, AlertCircle } from 'lucide-react';
+import { useNotifications } from '@/hooks/useDataLayer';
 
 export type CaseStatus = 'active' | 'pending' | 'won' | 'settled' | 'closed';
 
@@ -39,6 +40,36 @@ interface CaseDetailPanelProps {
 }
 
 export default function CaseDetailPanel({ selectedCase }: CaseDetailPanelProps) {
+    const { notifications } = useNotifications();
+
+    // 1. 해당 사건 연관 알림 필터링
+    const caseNotifications = React.useMemo(() => {
+        if (!selectedCase) return [];
+        return notifications.filter(n =>
+            n.href?.includes(selectedCase.id) ||
+            n.message?.includes(selectedCase.title)
+        );
+    }, [notifications, selectedCase]);
+
+    // 2. 임박 기일 알림 자동 생성 (7일 이내 기일)
+    const upcomingAlerts = React.useMemo(() => {
+        if (!selectedCase || !selectedCase.nextDate) return [];
+        const today = new Date();
+        const nextDt = new Date(selectedCase.nextDate);
+        const diffDays = Math.ceil((nextDt.getTime() - today.getTime()) / (1000 * 3600 * 24));
+        
+        if (diffDays >= 0 && diffDays <= 7) {
+            return [{
+                type: 'urgent_deadline',
+                title: `[기일 임박] ${selectedCase.nextEvent} D-${diffDays}`,
+                desc: `다음 기일(${selectedCase.nextDate})이 임박했습니다. 담당 변호사와 긴밀히 소통 부탁드립니다.`
+            }];
+        }
+        return [];
+    }, [selectedCase]);
+
+    const hasAlerts = caseNotifications.length > 0 || upcomingAlerts.length > 0;
+
     return (
         <AnimatePresence>
             {selectedCase && (
@@ -88,6 +119,38 @@ export default function CaseDetailPanel({ selectedCase }: CaseDetailPanelProps) 
                                 <p className="text-xs font-bold" style={{ color: '#92400e' }}>다음 기일</p>
                                 <p className="text-sm font-black" style={{ color: '#111827' }}>{selectedCase.nextDate}</p>
                                 <p className="text-xs" style={{ color: '#92400e' }}>{selectedCase.nextEvent}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 실시간 알림 패널 */}
+                    {hasAlerts && (
+                        <div className="p-6 rounded-2xl" style={{ background: '#fff', border: '1px solid #e8e5de' }}>
+                            <h3 className="font-black text-sm mb-4" style={{ color: '#111827' }}>🔔 자동 진행 알림</h3>
+                            <div className="space-y-3">
+                                {upcomingAlerts.map((alert, idx) => (
+                                    <div key={`alert-${idx}`} className="p-3 rounded-xl border flex items-start gap-3 bg-amber-50 border-amber-100">
+                                        <div className="p-2 bg-amber-100 rounded-lg shrink-0">
+                                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-900 mb-0.5">{alert.title}</p>
+                                            <p className="text-xs text-amber-700">{alert.desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {caseNotifications.map((n) => (
+                                    <div key={n.id} className="p-3 rounded-xl border flex items-start gap-3 bg-blue-50 border-blue-100">
+                                        <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                                            <MessageSquare className="w-4 h-4 text-blue-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-900 mb-0.5">{n.title}</p>
+                                            <p className="text-xs text-gray-600">{n.message}</p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

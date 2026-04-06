@@ -119,7 +119,11 @@ export function CasesClient({ initialUser }: { initialUser: any }) {
                 </div>
 
                 {/* 대법원 나의사건검색 패널 */}
-                <CourtSearchPanel isOpen={courtSearchOpen} onClose={() => setCourtSearchOpen(false)} />
+                <CourtSearchPanel 
+                    isOpen={courtSearchOpen} 
+                    onClose={() => setCourtSearchOpen(false)} 
+                    registeredCases={CASES.filter(c => c.caseNumber !== '-').map(c => ({ caseNumber: c.caseNumber }))}
+                />
 
                 {/* 필터 + 검색 */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-5">

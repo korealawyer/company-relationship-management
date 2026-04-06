@@ -8,9 +8,10 @@ import { CourtCaseResult } from '@/types/cases';
 interface CourtSearchPanelProps {
     isOpen: boolean;
     onClose: () => void;
+    registeredCases?: { caseNumber: string }[];
 }
 
-export default function CourtSearchPanel({ isOpen, onClose }: CourtSearchPanelProps) {
+export default function CourtSearchPanel({ isOpen, onClose, registeredCases = [] }: CourtSearchPanelProps) {
     const [courtQuery, setCourtQuery] = useState('');
     const [courtLoading, setCourtLoading] = useState(false);
     const [courtResult, setCourtResult] = useState<CourtCaseResult | null>(null);
@@ -85,16 +86,18 @@ export default function CourtSearchPanel({ isOpen, onClose }: CourtSearchPanelPr
                         </div>
 
                         {/* 빠른 검색 칩 */}
-                        <div className="flex flex-wrap gap-1.5 mb-4">
-                            <span className="text-[10px] font-bold" style={{ color: '#9ca3af' }}>등록 사건:</span>
-                            {['2026가합12345', '2025나67890', '2026가단34567', '2025가합78901'].map(cn => (
-                                <button key={cn} onClick={() => { setCourtQuery(cn); }}
-                                    className="text-[10px] px-2 py-0.5 rounded-lg font-mono transition-all hover:opacity-80"
-                                    style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #dbeafe' }}>
-                                    {cn}
-                                </button>
-                            ))}
-                        </div>
+                        {registeredCases.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-4">
+                                <span className="text-[10px] font-bold" style={{ color: '#9ca3af' }}>등록 사건:</span>
+                                {registeredCases.map(rc => (
+                                    <button key={rc.caseNumber} onClick={() => { setCourtQuery(rc.caseNumber); }}
+                                        className="text-[10px] px-2 py-0.5 rounded-lg font-mono transition-all hover:opacity-80"
+                                        style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #dbeafe' }}>
+                                        {rc.caseNumber}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
 
                         {/* 에러 */}
                         {courtError && (
