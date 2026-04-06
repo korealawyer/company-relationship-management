@@ -266,7 +266,7 @@ function PrivacyReviewContent() {
                     const mapped = data.issues.map((iss: any, i: number) => {
                         const anyIss = iss;
                         const lawRef = iss.law || anyIss.lawRef || '';
-                        const isMissing = anyIss.title === '개인정보처리방침 누락 (매우 심각)';
+                        const isMissing = anyIss.title === '개인정보처리방침 누락 (매우 심각)' || anyIss.title?.includes('방침 누락') || anyIss.title?.includes('방침 부재') || anyIss.originalText?.includes('없음 / 미기재');
                         return {
                             num: `조항 ${i + 1}`,
                             title: anyIss.title || anyIss.lawTitle || iss.law || '이슈',
@@ -612,7 +612,7 @@ function PrivacyReviewContent() {
                             </div>
                             <EditableText
                                 value={data['summary_opinion'] ?? (
-                                    clauses.length === 1 && clauses[0].title === '개인정보처리방침 누락 (매우 심각)'
+                                    clauses.length === 1 && (clauses[0].title === '개인정보처리방침 누락 (매우 심각)' || clauses[0].title?.includes('방침 누락') || clauses[0].title?.includes('방침 부재') || clauses[0].original?.includes('없음 / 미기재'))
                                     ? '[긴급 법무 검토 요망] 귀사는 고객의 개인정보를 수집·처리하고 있음에도 불구하고, 이를 규제하는 "개인정보 처리방침" 자체가 전면 누락되어 있습니다. 이는 단순한 행정적 절차 누락이 아닌, 기업의 준법 경영 의지가 전혀 없는 것으로 간주되는 최고 수준의 리스크입니다.\n\n단 한 건의 해킹 사고나 악성 고객의 피싱/신고만으로도 귀사의 수집 행위 전체가 즉시 탈법으로 간주되며, 어떠한 법리적 방어권도 행사할 수 없습니다. 대표이사 형사고발, 막대한 징벌적 과징금 타격, 언론 보도로 인한 기업 신뢰도 추락을 막기 위해 오늘 당장 KISA 가이드라인에 부합하는 방침 제정 및 적용이 필수적입니다.'
                                     : `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${CLAUSES.filter(c => c.level === 'HIGH').length + CLAUSES.filter(c => c.level === 'MEDIUM').length}건이 확인되었습니다. 특히 개인정보 수집 항목의 과다수집(제16조 위반), 제3자 제공 현황 미명시(제17조 위반) 등 고위험 사항 ${CLAUSES.filter(c => c.level === 'HIGH').length}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 쿠팡 55억원, 인터파크 44억원 등 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`
                                 )}
