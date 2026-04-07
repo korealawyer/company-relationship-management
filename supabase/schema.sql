@@ -85,7 +85,13 @@ CREATE TABLE IF NOT EXISTS issues (
     custom_draft    text,
     lawyer_note     text,
     scenario        text,
+    penalty         text,
+    recommendation  text,
+    revision_opinion text,
     review_checked  boolean DEFAULT false,
+    ai_draft_generated boolean DEFAULT false,
+    law_text        text,
+    legal_basis     jsonb,
     created_at      timestamptz DEFAULT now()
 );
 
