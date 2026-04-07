@@ -1,0 +1,15 @@
+{
+  "id": "statute-형법-183",
+  "category": "형사",
+  "sub_category": "일수와 수리에 관한 죄",
+  "type": "statute",
+  "title": "형법 제183조(예비, 음모)",
+  "content": "제177조 내지 제179조제1항의 죄를 범할 목적으로 예비 또는 음모한 자는 3년 이하의 징역에 처한다.",
+  "metadata": {
+    "law_name": "형법",
+    "article_number": "183",
+    "topics": ["예비", "음모", "예비 처벌", "음모 처벌", "제183조"],
+    "source": "법제처",
+    "updated_at": "2025-04-08"
+  }
+}

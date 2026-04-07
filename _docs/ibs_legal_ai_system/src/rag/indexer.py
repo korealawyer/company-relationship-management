@@ -1,0 +1,379 @@
+"""벡터 DB 인덱싱 파이프라인"""
+
+import json
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+import logging
+import asyncio
+
+from ..models import BaseDocument
+from ..processors.validator import DocumentValidator
+from .vector_store import VectorStore
+from .embedding import EmbeddingGenerator
+from .chunker import TextChunker
+
+logger = logging.getLogger(__name__)
+
+
+class DocumentIndexer:
+    """문서 인덱싱 파이프라인"""
+    
+    def __init__(
+        self,
+        collection_name: str = "legal_documents",
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200,
+        split_statute_by_items: bool = True,
+    ):
+        self.validator = DocumentValidator()
+        self.vector_store = VectorStore(collection_name=collection_name)
+        self.embedding_generator = EmbeddingGenerator()
+        self.chunker = TextChunker(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        )
+        self.split_statute_by_items = split_statute_by_items
+    
+    def index_document(self, document: BaseDocument, chunk: bool = True) -> Dict[str, Any]:
+        """
+        단일 문서를 인덱싱합니다.
+        
+        Args:
+            document: 인덱싱할 문서
+            chunk: 청킹 여부
+            
+        Returns:
+            인덱싱 결과
+        """
+        try:
+            # 청킹
+            if chunk:
+                chunks = self.chunker.chunk_document(
+                    document,
+                    split_statute_by_items=self.split_statute_by_items
+                )
+            else:
+                # 청킹 없이 전체 문서를 하나의 청크로
+                if isinstance(document.content, str):
+                    text = document.content
+                elif isinstance(document.content, list):
+                    text = "\n".join(document.content)
+                else:
+                    text = str(document.content)
+                
+                chunks = [{
+                    "text": text,
+                    "metadata": {
+                        "chunk_index": 0,
+                        "document_id": document.id,
+                        "document_type": document.type,
+                    }
+                }]
+            
+            # 빈 텍스트 필터링 (빈 임베딩 오류 방지)
+            valid_chunks = []
+            for chunk in chunks:
+                text = chunk.get("text", "")
+                if isinstance(text, str):
+                    text = text.strip()
+                else:
+                    text = str(text).strip()
+                
+                if text:  # 빈 문자열이 아닌 경우만 포함
+                    # strip된 텍스트를 청크에 반영
+                    chunk["text"] = text
+                    valid_chunks.append(chunk)
+                else:
+                    logger.debug(f"빈 텍스트 청크 제외: {chunk.get('metadata', {}).get('chunk_index', 'unknown')}")
+            
+            if not valid_chunks:
+                logger.warning(f"문서 {document.id}에 유효한 텍스트 청크가 없습니다.")
+                return {
+                    "success": False,
+                    "document_id": document.id,
+                    "error": "유효한 텍스트 청크가 없습니다.",
+                }
+            
+            # 임베딩 생성 (비동기 메서드를 동기적으로 실행)
+            # 텍스트 추출 및 추가 필터링 (valid_chunks와 동기화)
+            filtered_chunks = []
+            texts = []
+            for chunk in valid_chunks:
+                text = chunk.get("text", "").strip() if isinstance(chunk.get("text"), str) else str(chunk.get("text", "")).strip()
+                if text:  # 빈 텍스트 제외
+                    filtered_chunks.append(chunk)
+                    texts.append(text)
+            
+            if not texts:
+                logger.warning(f"문서 {document.id}에 유효한 텍스트가 없습니다.")
+                return {
+                    "success": False,
+                    "document_id": document.id,
+                    "error": "유효한 텍스트가 없습니다.",
+                }
+            
+            # valid_chunks를 필터링된 청크로 업데이트
+            valid_chunks = filtered_chunks
+            
+            try:
+                # 비동기 임베딩 생성을 동기적으로 실행
+                # 이미 실행 중인 이벤트 루프가 있는지 확인
+                try:
+                    loop = asyncio.get_running_loop()
+                    # 실행 중인 루프가 있으면 새 스레드에서 실행
+                    import concurrent.futures
+                    
+                    def run_async():
+                        """별도 스레드에서 비동기 함수 실행"""
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(
+                                self.embedding_generator.embed_texts(texts)
+                            )
+                        finally:
+                            new_loop.close()
+                    
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(run_async)
+                        embeddings = future.result()
+                        
+                except RuntimeError:
+                    # 이벤트 루프가 없으면 새로 생성
+                    embeddings = asyncio.run(
+                        self.embedding_generator.embed_texts(texts)
+                    )
+                        
+            except Exception as e:
+                logger.error(f"임베딩 생성 실패: {document.id} - {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return {
+                    "success": False,
+                    "document_id": document.id,
+                    "error": f"임베딩 생성 실패: {str(e)}",
+                }
+            
+            # 임베딩 검증 (빈 임베딩 필터링)
+            final_chunks = []
+            final_embeddings = []
+            for i, (chunk, embedding) in enumerate(zip(valid_chunks, embeddings)):
+                if embedding and len(embedding) > 0:  # 빈 임베딩 제외
+                    final_chunks.append(chunk)
+                    final_embeddings.append(embedding)
+                else:
+                    logger.warning(f"청크 {i}의 임베딩이 비어있습니다: {chunk.get('text', '')[:50]}")
+            
+            if not final_chunks:
+                logger.warning(f"문서 {document.id}에 유효한 임베딩이 없습니다.")
+                return {
+                    "success": False,
+                    "document_id": document.id,
+                    "error": "유효한 임베딩이 생성되지 않았습니다.",
+                }
+            
+            # 문서 객체 생성 (청크별)
+            chunk_documents = []
+            for i, chunk_data in enumerate(final_chunks):
+                # metadata를 딕셔너리로 변환
+                doc_metadata = {}
+                if document.metadata:
+                    if hasattr(document.metadata, 'model_dump'):
+                        doc_metadata = document.metadata.model_dump()
+                    elif isinstance(document.metadata, dict):
+                        doc_metadata = document.metadata.copy()
+                    else:
+                        try:
+                            doc_metadata = dict(document.metadata)
+                        except (TypeError, ValueError):
+                            doc_metadata = {"raw_metadata": str(document.metadata)}
+                
+                chunk_doc = BaseDocument(
+                    id=f"{document.id}_chunk_{i}",
+                    category=document.category,
+                    sub_category=document.sub_category,
+                    type=document.type,
+                    title=f"{document.title} (청크 {i+1})",
+                    content=chunk_data["text"],
+                    metadata={
+                        **doc_metadata,
+                        **chunk_data["metadata"],
+                    }
+                )
+                chunk_documents.append(chunk_doc)
+            
+            # 벡터 DB에 추가
+            ids = self.vector_store.add_documents(
+                documents=chunk_documents,
+                embeddings=final_embeddings,
+            )
+            
+            return {
+                "success": True,
+                "document_id": document.id,
+                "chunks_count": len(final_chunks),
+                "indexed_ids": ids,
+            }
+            
+        except Exception as e:
+            logger.error(f"문서 인덱싱 실패: {document.id} - {str(e)}")
+            return {
+                "success": False,
+                "document_id": document.id,
+                "error": str(e),
+            }
+    
+    def index_file(self, file_path: Path | str, chunk: bool = True) -> Dict[str, Any]:
+        """
+        JSON 파일을 읽어서 인덱싱합니다.
+        
+        Args:
+            file_path: JSON 파일 경로
+            chunk: 청킹 여부
+            
+        Returns:
+            인덱싱 결과
+        """
+        file_path = Path(file_path)
+        
+        if not file_path.exists():
+            return {
+                "success": False,
+                "error": f"파일이 존재하지 않습니다: {file_path}",
+            }
+        
+        try:
+            # JSON 파일 읽기 (제어 문자 처리)
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # JSON 파싱 (제어 문자 처리)
+            try:
+                # 먼저 strict=False로 시도 (일부 제어 문자 허용)
+                data = json.loads(content, strict=False)
+            except json.JSONDecodeError as e:
+                # strict=False로도 안 되면 제어 문자를 이스케이프
+                # JSON 문자열 값 내의 제어 문자만 이스케이프 (구조는 유지)
+                import re
+                
+                def fix_control_chars(text):
+                    """JSON 문자열 값 내의 제어 문자를 이스케이프"""
+                    # 문자열 값 패턴: "..." 내부의 내용만 수정
+                    def replace_in_string(match):
+                        # 전체 매치 (따옴표 포함)
+                        full_match = match.group(0)
+                        # 문자열 내용 (따옴표 제외)
+                        string_content = match.group(1)
+                        
+                        # 이미 이스케이프된 제어 문자는 건너뛰기
+                        if '\\n' in string_content or '\\r' in string_content or '\\t' in string_content:
+                            return full_match
+                        
+                        # 제어 문자 이스케이프
+                        fixed = string_content.replace('\n', '\\n')
+                        fixed = fixed.replace('\r', '\\r')
+                        fixed = fixed.replace('\t', '\\t')
+                        return f'"{fixed}"'
+                    
+                    # JSON 문자열 값 패턴: "..." (이스케이프된 따옴표 제외)
+                    pattern = r'"((?:[^"\\]|\\.)*)"'
+                    return re.sub(pattern, replace_in_string, text)
+                
+                try:
+                    # 제어 문자 수정 후 재시도
+                    content_fixed = fix_control_chars(content)
+                    data = json.loads(content_fixed, strict=False)
+                except (json.JSONDecodeError, Exception) as e2:
+                    # 여전히 실패하면 원본 오류 반환
+                    logger.warning(f"JSON 제어 문자 수정 후에도 파싱 실패: {file_path} - {str(e2)}")
+                    raise e
+            
+            # 검증
+            success, model = self.validator.validate(data)
+            if not success:
+                return {
+                    "success": False,
+                    "error": f"검증 실패: {', '.join(self.validator.get_errors())}",
+                }
+            
+            # 인덱싱
+            return self.index_document(model, chunk=chunk)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 파싱 실패: {file_path} - {str(e)}")
+            return {
+                "success": False,
+                "error": f"JSON 파싱 오류: {str(e)}",
+            }
+        except Exception as e:
+            logger.error(f"파일 인덱싱 실패: {file_path} - {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+    
+    def index_directory(
+        self,
+        directory: Path | str,
+        pattern: str = "*.json",
+        chunk: bool = True,
+        recursive: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        디렉토리 내 모든 JSON 파일을 인덱싱합니다.
+        
+        Args:
+            directory: 디렉토리 경로
+            pattern: 파일 패턴
+            chunk: 청킹 여부
+            recursive: 하위 디렉토리 재귀 검색 여부 (기본값: True)
+            
+        Returns:
+            일괄 인덱싱 결과
+        """
+        directory = Path(directory)
+        results = {
+            "total": 0,
+            "success": 0,
+            "failed": 0,
+            "details": [],
+        }
+        
+        # 재귀 검색 여부에 따라 glob 또는 rglob 사용
+        if recursive:
+            file_paths = directory.rglob(pattern)
+        else:
+            file_paths = directory.glob(pattern)
+        
+        for file_path in file_paths:
+            # 디렉토리는 제외하고 파일만 처리
+            if not file_path.is_file():
+                continue
+                
+            results["total"] += 1
+            result = self.index_file(file_path, chunk=chunk)
+            
+            if result["success"]:
+                results["success"] += 1
+            else:
+                results["failed"] += 1
+            
+            results["details"].append({
+                "file": str(file_path.relative_to(directory)),  # 상대 경로 포함
+                "result": result,
+            })
+        
+        logger.info(
+            f"디렉토리 인덱싱 완료: 총 {results['total']}건, "
+            f"성공 {results['success']}건, 실패 {results['failed']}건"
+        )
+        
+        return results
+    
+    def get_index_status(self) -> Dict[str, Any]:
+        """인덱스 상태를 반환합니다."""
+        return {
+            "collection_name": self.vector_store.collection_name,
+            "document_count": self.vector_store.get_count(),
+        }
+

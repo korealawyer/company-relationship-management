@@ -756,6 +756,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
 
                     {/* ✨ 우측: 로펌 컨택 및 사이드바 ✨ */}
                     <div className="space-y-6">
+                        <PrivacyReportWidget company={company} />
                         <CalendarWidget companyId={company?.id} />
 
                         {/* IBS 로펌 전담 데스크 */}
@@ -822,7 +823,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
 
                                 {/* 하단 버튼 — 균형 있게 */}
                                 <div className="px-5 pb-5 flex gap-2">
-                                    <Button variant="outline" className="flex-1 gap-1.5 border-gray-200 text-sm font-bold" onClick={() => setZoomModalOpen(true)}>
+                                    <Button variant="outline" className="flex-1 gap-1.5 border-gray-200 text-sm font-bold hidden" style={{ display: 'none' }} onClick={() => setZoomModalOpen(true)}>
                                         <Video className="w-4 h-4" /> 화상 미팅
                                     </Button>
                                     <Button variant="premium" className="flex-1 gap-1.5 shadow-md text-sm font-bold" onClick={() => setInquiryModalOpen(true)}>

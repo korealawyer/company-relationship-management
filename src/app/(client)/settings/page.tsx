@@ -188,7 +188,9 @@ export default function SettingsPage() {
                         <h3 className="text-xs font-bold tracking-wider uppercase mb-3" style={{ color: '#9ca3af' }}>수신 채널</h3>
                         <div className="space-y-2">
                             <Toggle on={notiEmail} onChange={() => setNotiEmail(!notiEmail)} label="이메일 알림" desc="등록된 이메일로 알림 수신" />
-                            <Toggle on={notiSms} onChange={() => setNotiSms(!notiSms)} label="SMS 알림" desc="등록된 휴대폰으로 문자 알림" />
+                            <div className="hidden" style={{ display: 'none' }}>
+                                <Toggle on={notiSms} onChange={() => setNotiSms(!notiSms)} label="SMS 알림" desc="등록된 휴대폰으로 문자 알림" />
+                            </div>
                             <Toggle on={notiMarketing} onChange={() => setNotiMarketing(!notiMarketing)} label="마케팅 정보 수신" desc="서비스 혜택, 이벤트, 법률 뉴스레터" />
                         </div>
                     </section>
@@ -325,8 +327,8 @@ export default function SettingsPage() {
                                 <span className="text-sm" style={{ color: '#374151' }}>이용약관</span>
                                 <ArrowRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
                             </Link>
-                            <button className="flex items-center justify-between w-full p-4 rounded-xl text-left hover:bg-gray-50 transition-all"
-                                style={{ border: '1px solid #f0ede6' }}>
+                            <button className="flex items-center justify-between w-full p-4 rounded-xl text-left hover:bg-gray-50 transition-all hidden"
+                                style={{ border: '1px solid #f0ede6', display: 'none' }}>
                                 <span className="text-sm" style={{ color: '#374151' }}>내 데이터 다운로드 (GDPR)</span>
                                 <ArrowRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
                             </button>

@@ -6,6 +6,8 @@ import { Shield, AlertTriangle, CheckCircle2, FileText, ArrowLeft, Loader2, Aler
 import { useCompanies } from '@/hooks/useDataLayer';
 import { getSession } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const LVL_COLOR: Record<string, string> = { HIGH: '#ef4444', MEDIUM: '#f59e0b', LOW: '#10b981' };
 const LVL_BG: Record<string, string> = { HIGH: '#fee2e2', MEDIUM: '#fef3c7', LOW: '#d1fae5' };
@@ -131,7 +133,8 @@ export default function PrivacyAnalysisClientPage() {
         );
     }
 
-    const { issues, riskLevel, lawyerConfirmed, issueCount = 0 } = company;
+    const { issues, riskLevel, lawyerConfirmed, issueCount = 0, auditReport, audit_report } = company;
+    const finalAuditReport = auditReport || audit_report;
     const displayIssues = issues || [];
     
     // 화면에 보여줄 확정 메트릭 (DB 컬럼 최우선 활용)
@@ -160,7 +163,7 @@ export default function PrivacyAnalysisClientPage() {
 
     return (
         <div className="min-h-screen pt-20 pb-24 px-4" style={{ backgroundColor: '#fcfbfa' }}>
-            <div className="max-w-4xl mx-auto mb-8">
+            <div className="max-w-6xl mx-auto mb-8">
                 <button
                     onClick={() => router.back()}
                     className="flex items-center gap-2 text-sm font-bold text-gray-500 transition-colors hover:text-black"
@@ -169,7 +172,8 @@ export default function PrivacyAnalysisClientPage() {
                 </button>
             </div>
 
-            <div className="max-w-4xl mx-auto space-y-10">
+            <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8 items-start">
+                <div className="w-full lg:flex-1 space-y-10">
                 {/* ── 헤더: 심각성 강조 ── */}
                 <div className={`relative p-8 md:p-10 rounded-[2rem] overflow-hidden ${isCritical ? 'bg-red-600' : 'bg-gray-900'} text-white shadow-2xl`}>
                     <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
@@ -196,90 +200,44 @@ export default function PrivacyAnalysisClientPage() {
 
                 {hasAnalysis && hasIssues && (
                     <>
-                        {/* ── 핵심 지표 대시보드 (Four Key Metrics) ── */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                                <div className="text-gray-400 mb-3"><AlertTriangle className="w-6 h-6" /></div>
-                                <div className="text-3xl font-black text-gray-900 mb-1">{effectiveTotalIssues}<span className="text-sm font-bold text-gray-400 ml-1">건</span></div>
-                                <div className="text-xs font-bold text-gray-500">발견된 보안/법률 취약점</div>
+                        {/* ── 프라이버시 실사 마크다운 보고서 (A4 뷰어) ── */}
+                        {finalAuditReport ? (
+                            <div className="mt-8 relative">
+                                <h2 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-gray-400" /> 개인정보처리방침 종합 실사 보고서
+                                </h2>
+                                <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 p-8 md:p-14 prose prose-slate max-w-none text-[15px] leading-relaxed text-gray-800" 
+                                    style={{ 
+                                        minHeight: '297mm', // Roughly A4 height
+                                        fontFamily: "'Inter', 'Pretendard', sans-serif" 
+                                    }}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                        {finalAuditReport}
+                                    </ReactMarkdown>
+                                </div>
                             </div>
-                            <div className="bg-white p-6 rounded-2xl border border-red-100 shadow-sm relative overflow-hidden">
-                                <div className="absolute -right-4 -bottom-4 opacity-5"><AlertOctagon className="w-24 h-24 text-red-500" /></div>
-                                <div className="text-red-500 mb-3 relative z-10"><AlertOctagon className="w-6 h-6" /></div>
-                                <div className="text-3xl font-black text-red-600 mb-1 relative z-10">{highRiskCount}<span className="text-sm font-bold text-red-400 ml-1">건</span></div>
-                                <div className="text-xs font-bold text-red-500 relative z-10">고위험 위반 조항</div>
-                            </div>
-                            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                                <div className="text-gray-400 mb-3"><Banknote className="w-6 h-6" /></div>
-                                <PenaltyDisplay />
-                                <div className="text-xs font-bold text-gray-500">예상 과태료/벌금 리스크</div>
-                            </div>
-                            <div className={`p-6 rounded-2xl shadow-sm ${isCritical ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
-                                <div className={`${isCritical ? 'text-red-400' : 'text-green-400'} mb-3`}><Shield className="w-6 h-6" /></div>
-                                <div className={`text-2xl font-black mb-1 ${isCritical ? 'text-red-700' : 'text-green-700'}`}>{LVL_LABEL[effectiveRiskLevel] || '알 수 없음'}</div>
-                                <div className={`text-xs font-bold ${isCritical ? 'text-red-500' : 'text-green-500'}`}>종합 컴플라이언스 등급</div>
-                            </div>
-                        </div>
-
-                        {/* ── 경고 메시지 ── */}
-                        {isCritical && (
-                            <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl">
-                                <h3 className="text-red-800 font-black text-lg mb-2 flex items-center gap-2">
-                                    <FileWarning className="w-5 h-5" /> 즉시 시정 조치가 필요합니다.
-                                </h3>
-                                <p className="text-red-700 text-sm leading-relaxed font-medium">
-                                    발견된 고위험 항목은 개인정보보호위원회 조사 대상이 될 경우 매출액의 최대 3% 이하의 과징금 또는 형사 고발로 이어질 수 있는 중대한 사안입니다.
-                                </p>
+                        ) : (
+                            /* ── 기존 상세 조항 분석 리스트 (Fallback) ── */
+                            <div>
+                                <h2 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                                    <HelpCircle className="w-5 h-5 text-gray-400" /> 상세 리스크 분석 및 솔루션
+                                </h2>
+                                <div className="space-y-4">
+                                    {displayIssues.map((issue: any, idx: number) => (
+                                        <IssueItem key={idx} issue={issue} index={idx} />
+                                    ))}
+                                </div>
                             </div>
                         )}
-
-                        {/* ── 상세 조항 분석 리스트 ── */}
-                        <div>
-                            <h2 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
-                                <HelpCircle className="w-5 h-5 text-gray-400" /> 상세 리스크 분석 및 솔루션
-                            </h2>
-                            <div className="space-y-4">
-                                {displayIssues.map((issue: any, idx: number) => (
-                                    <IssueItem key={idx} issue={issue} index={idx} />
-                                ))}
-                            </div>
+                        
+                        {/* 모바일 화면용 간단한 권고 메시지 */}
+                        <div className="lg:hidden mt-12 mb-4 p-8 bg-red-50 rounded-2xl border border-red-100 text-center">
+                            <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+                            <h3 className="text-xl font-black text-red-900 mb-2">지체 없는 개정이 필요합니다</h3>
+                            <p className="text-sm font-medium text-red-700 leading-relaxed">
+                                다수의 고위험 위반 항목이 검출되었습니다. 방침 전면 개정을 위임하여 즉시 해소하시길 적극 권고합니다.
+                            </p>
                         </div>
-
-                        {/* ── 강력한 CTA 영역 (자문 계약 유도) ── */}
-                        <motion.div 
-                            initial={{ opacity: 0, y: 10 }} 
-                            animate={{ opacity: 1, y: 0 }} 
-                            transition={{ delay: 0.5 }}
-                            className="mt-12 p-10 md:p-12 rounded-[2rem] text-center relative overflow-hidden"
-                            style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
-                        >
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 -translate-y-1/2 translate-x-1/2"></div>
-                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 translate-y-1/2 -translate-x-1/2"></div>
-                            
-                            <div className="relative z-10 max-w-2xl mx-auto">
-                                <Shield className="w-12 h-12 text-amber-400 mx-auto mb-6" />
-                                <h3 className="text-2xl md:text-3xl font-black text-white mb-4 leading-tight">
-                                    이대로 방치하면 <br className="md:hidden"/>리스크는 현실이 됩니다.
-                                </h3>
-                                <p className="text-base text-gray-300 mb-10 leading-relaxed font-medium">
-                                    IBS 로펌의 전문가가 고객사의 비즈니스 모델에 완벽히 부합하는 최적의 약관으로 전면 개정해 드립니다. 지금 바로 법률 자문 계약을 맺고 법적 사각지대를 완전히 해소하세요.
-                                </p>
-                                <button
-                                    onClick={() => router.push(`/contracts/sign/${company.id}`)}
-                                    className="w-full md:w-auto px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center mx-auto gap-3 transition-all hover:scale-105 active:scale-95"
-                                    style={{ 
-                                        background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
-                                        color: '#fff', 
-                                        boxShadow: '0 10px 25px -5px rgba(245,158,11,0.5), 0 8px 10px -6px rgba(245,158,11,0.1)'
-                                    }}
-                                >
-                                    <FileSignature className="w-6 h-6" /> IBS 로펌에 리스크 전면 개선 맡기기 (위임계약 서명)
-                                </button>
-                                <p className="mt-5 text-xs text-gray-500 font-bold">
-                                    * 전자서명 완료 즉시 전담 변호사가 배정되어 실무 작업에 착수합니다.
-                                </p>
-                            </div>
-                        </motion.div>
                     </>
                 )}
 
@@ -302,7 +260,75 @@ export default function PrivacyAnalysisClientPage() {
                         </p>
                     </div>
                 )}
+                </div>
+
+                {/* ── 우측 고정 탭 (Sticky Sidebar CTA) ── */}
+                {hasAnalysis && hasIssues && (
+                    <div className="hidden lg:block w-[340px] shrink-0 sticky top-24">
+                        <motion.div 
+                            initial={{ opacity: 0, x: 20 }} 
+                            animate={{ opacity: 1, x: 0 }} 
+                            transition={{ delay: 0.3 }}
+                            className="bg-white rounded-[2rem] shadow-xl border border-gray-200 overflow-hidden"
+                        >
+                            <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 flex flex-col items-center text-center">
+                                <AlertTriangle className="w-10 h-10 text-white opacity-90 mb-3" />
+                                <h3 className="text-xl font-black text-white leading-snug">
+                                    ❗ 권고 후속 조치<br/><span className="text-sm font-bold text-red-200">(Action Needed)</span>
+                                </h3>
+                            </div>
+                            <div className="p-8 space-y-6">
+                                <p className="text-[15px] text-gray-700 font-medium leading-relaxed">
+                                    진단 결과 다수의 <strong className="text-red-600">법적 분쟁/과징금 고위험 리스크</strong>가 발견되었습니다. 지체 없이 개정 작업을 이관하여 관련 리스크를 원천 차단하십시오.
+                                </p>
+                                
+                                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                        법률 검토증명서 공식 발급
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                        개인정보보호위원회 기준 100% 충족
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm font-bold text-gray-800">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                                        위임 즉시 전담 변호사 배정
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => router.push(`/contracts/sign/${company.id}`)}
+                                    className="w-full py-5 px-4 rounded-xl font-black text-[15px] flex items-center justify-center gap-2 transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-red-500/30 focus:ring-4 focus:ring-red-100"
+                                    style={{ 
+                                        background: 'linear-gradient(135deg, #ef4444, #b91c1c)', 
+                                        color: '#fff', 
+                                    }}
+                                >
+                                    <FileSignature className="w-5 h-5" /> ✍️ 방침 전면 개정 위임 및 결재
+                                </button>
+                                <p className="text-xs text-center font-bold text-gray-400 leading-relaxed">
+                                    위임 승인 시, 기존 처리방침 내 모든 조항이 컴플라이언스 체계에 맞춰 전면 재작성됩니다.
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
             </div>
+
+            {/* Mobile Fixed Bottom CTA */}
+            {hasAnalysis && hasIssues && (
+                <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-[100]">
+                    <button
+                        onClick={() => router.push(`/contracts/sign/${company.id}`)}
+                        className="w-full py-4 px-4 rounded-xl font-black text-base flex items-center justify-center gap-2"
+                        style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff' }}
+                    >
+                        <FileSignature className="w-5 h-5" /> ✍️ 방침 전면 개정 및 개선 위임하기
+                    </button>
+                    <div className="pb-safe"></div>
+                </div>
+            )}
         </div>
     );
 }

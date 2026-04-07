@@ -26,3 +26,5 @@ franchise_notion_content/
 franchise_notion_export/
 .env.vercel
 .env.vercel.prod
+
+_docs/ibs_legal_ai_system/data/vector_db_backup/

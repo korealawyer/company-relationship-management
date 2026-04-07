@@ -149,6 +149,7 @@ export interface Company {
     autoMode: boolean;
     aiDraftReady: boolean;
     source: 'manual' | 'crawler';
+    audit_report?: string;
     // ── 리드 통합 필드 ──
     riskScore: number;
     riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' | '';

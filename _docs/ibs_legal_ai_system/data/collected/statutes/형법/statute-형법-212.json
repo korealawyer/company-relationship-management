@@ -1,0 +1,15 @@
+{
+  "id": "statute-형법-212",
+  "category": "형사",
+  "sub_category": "통화에 관한 죄",
+  "type": "statute",
+  "title": "형법 제212조(미수범)",
+  "content": "제207조, 제208조와 전조의 미수범은 처벌한다.",
+  "metadata": {
+    "law_name": "형법",
+    "article_number": "212",
+    "topics": ["미수범", "미수범 처벌", "제212조"],
+    "source": "법제처",
+    "updated_at": "2025-04-08"
+  }
+}

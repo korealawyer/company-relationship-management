@@ -182,7 +182,7 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
     // 통화 / 로그인
     'login_count', 'call_note',
     // 자동화 / AI
-    'auto_mode', 'ai_draft_ready', 'custom_script', 'lawyer_note',
+    'auto_mode', 'ai_draft_ready', 'custom_script', 'lawyer_note', 'audit_report',
     // 계약 프로세스
     'contract_sent_at', 'contract_signed_at', 'contract_method', 'contract_note',
     // 자동화 추적

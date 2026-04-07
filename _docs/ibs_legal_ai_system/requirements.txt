@@ -1,0 +1,41 @@
+# Core Dependencies
+langchain>=0.1.0
+langgraph>=0.0.20
+langchain-openai>=0.0.5
+langchain-community>=0.0.20
+
+# Vector Database
+chromadb>=0.4.0
+# pinecone-client>=3.0.0  # Optional: for Pinecone
+
+# API Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-multipart>=0.0.6  # Required for file uploads (Form data)
+
+# Data Processing
+python-dotenv>=1.0.0
+python-json-logger>=2.0.7
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0  # Mock 객체 지원
+
+# Utilities
+httpx>=0.25.0
+aiofiles>=23.2.0
+redis>=5.0.0  # Optional: for Redis session storage
+
+# PDF Processing
+PyPDF2>=3.0.0  # For parsing statute PDFs
+pdfplumber>=0.10.0  # Fallback PDF parser (more robust)
+pymupdf>=1.23.0  # Alternative PDF parser (fitz)
+
+# Web Scraping (for data collection)
+beautifulsoup4>=4.12.0  # For HTML parsing in collectors
+requests>=2.31.0  # For HTTP requests in collectors
+

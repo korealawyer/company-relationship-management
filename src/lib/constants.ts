@@ -68,7 +68,12 @@ export const COURTS = ['서울중앙지방법원', '수원지방법원', '서울
 export const PERSONAL_LIT_STATUS_TEXT: any = {};
 export const PERSONAL_LIT_TYPES: any[] = [];
 export const PERSONAL_LIT_STATUS_LABEL: any = {};
-export const STATUS_COLORS: any = {};
+export const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+    '상담': { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+    '수임': { bg: '#fdf4ff', text: '#c026d3', border: '#f5d0fe' },
+    '보류': { bg: '#fef2f2', text: '#ef4444', border: '#fecaca' },
+    '완료': { bg: '#f0fdf4', text: '#22c55e', border: '#bbf7d0' },
+};
 export const SAMPLE_CONSULTS: any[] = [];
 export const SAMPLE_BILLING: any[] = [];
 export const PERSONAL_LIT_STATUS_COLOR: any = {};

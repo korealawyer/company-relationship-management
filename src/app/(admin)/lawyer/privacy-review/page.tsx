@@ -228,6 +228,7 @@ function PrivacyReviewContent() {
     const [elapsed, setElapsed] = useState(0);
     const [confirmedTab, setConfirmedTab] = useState<'first' | 'full' | null>(null);
     const [confirming, setConfirming] = useState(false);
+    const [confirmProgress, setConfirmProgress] = useState('');
     const [categories, setCategories] = useState<ScenarioCategory[]>(DEFAULT_SCENARIO_CATEGORIES);
     const [requestModalOpen, setRequestModalOpen] = useState(false);
     const [requestingFiles, setRequestingFiles] = useState(false);
@@ -343,10 +344,10 @@ function PrivacyReviewContent() {
     };
 
     // ── 1차 조문검토 컨펌 ────────────────────────────────────────
-    // 변호사 컨펌 = "조문 검토됨" 상태를 기록하는 것이 전부
-    // → 영업팀이 CRM에서 확인 후 이메일 미리보기 → 발송 (영업팀 역할)
+    // 변호사 컨펌 = "조문 검토됨" 상태 기록 및 AI 실사 보고서 생성 후 영업팀 패스
     const handleFirstConfirm = async () => {
         setConfirming(true);
+        setConfirmProgress('이슈 데이터 동기화 중...');
         try {
             if (leadId) {
                 console.log('[handleFirstConfirm] Updating Supabase row for lead:', leadId);
@@ -367,13 +368,47 @@ function PrivacyReviewContent() {
                     aiDraftGenerated: true
                 }));
 
+                // 1. 이슈 데이터 먼저 저장
                 await supabaseCompanyStore.update(leadId, { 
+                    issues: newIssues as any
+                });
+
+                // 2. 외부 마크다운 실사 보고서 자동 생성 API 호출 (백그라운드, 대기)
+                setConfirmProgress('보고서 작성 중...');
+                console.log('[handleFirstConfirm] Calling report generation API...');
+                
+                let reportMarkdown = null;
+                try {
+                    const res = await fetch('/api/analyze/report', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ issues: newIssues, companyName: company })
+                    });
+                    
+                    if (res.ok) {
+                        const resData = await res.json();
+                        reportMarkdown = resData.reportMarkdown;
+                        console.log('[handleFirstConfirm] Report generation successful.');
+                    } else {
+                        console.error('[handleFirstConfirm] API returned error:', await res.text());
+                    }
+                } catch (reportErr) {
+                    console.error('[handleFirstConfirm] API fetch error:', reportErr);
+                }
+
+                // 3. 상태 업데이트 및 보고서 저장 (보고서가 없어도 상태는 진행)
+                setConfirmProgress('CRM 최종 반영 중...');
+                const updatePayload: any = {
                     lawyerConfirmed: true, 
                     lawyerConfirmedAt: new Date().toISOString(),
                     status: 'lawyer_confirmed',
-                    issues: newIssues as any
-                });
-                console.log('[handleFirstConfirm] Successfully updated lawyerConfirmed, status, and issues.');
+                };
+                if (reportMarkdown) {
+                    updatePayload.audit_report = reportMarkdown;
+                }
+                
+                await supabaseCompanyStore.update(leadId, updatePayload);
+                console.log('[handleFirstConfirm] Successfully updated lawyerConfirmed, status, and audit_report.');
 
                 if (autoSettings?.autoSendEmail) {
                     try {
@@ -399,9 +434,7 @@ function PrivacyReviewContent() {
                         console.error('[handleFirstConfirm] clause_review_done email failed:', e);
                     }
                 }
-
-                alert('CRM 반영이 성공적으로 완료되었습니다.');
-                
+                // alert('리포트 생성 및 CRM 반영이 성공적으로 완료되었습니다.');
                 // 다음 검토 대기 기업 확인
                 const allCompanies = await supabaseCompanyStore.getAll();
                 const nextPending = allCompanies.find((c: any) => 
@@ -421,6 +454,7 @@ function PrivacyReviewContent() {
             alert('데이터베이스 반영 중 오류가 발생했습니다. 개발자 콘솔을 확인해주세요.');
         } finally {
             setConfirming(false);
+            setConfirmProgress('');
         }
     };
 
@@ -569,8 +603,9 @@ function PrivacyReviewContent() {
                         <button onClick={handleFirstConfirm} disabled={confirming}
                             title="조문검토 결과를 영업팀 CRM과 고객 프라이버시 리포트에 자동 반영합니다"
                             style={{ display: 'flex', alignItems: 'center', gap: 7, background: confirming ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 24px', fontWeight: 900, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(22,163,74,0.4)' }}>
-                            <CheckCircle2 size={16} />
-                            {confirming ? '반영 중...' : '✅ 조문검토 컨펌 → CRM 반영'}
+                            {confirming && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
+                            {!confirming && <CheckCircle2 size={16} />}
+                            {confirming ? (confirmProgress || '반영 중...') : '1차 검토 컨펌'}
                         </button>
                     ) : (
                         <button onClick={handleFullConfirm} disabled={confirming}

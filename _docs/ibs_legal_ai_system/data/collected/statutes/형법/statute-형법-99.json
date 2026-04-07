@@ -1,0 +1,15 @@
+{
+  "id": "statute-형법-99",
+  "category": "형사",
+  "sub_category": "외환의 죄",
+  "type": "statute",
+  "title": "형법 제99조(일반이적)",
+  "content": "전7조에 기재한 이외에 대한민국의 군사상 이익을 해하거나 적국에 군사상 이익을 공여한 자는 무기 또는 3년 이상의 징역에 처한다.",
+  "metadata": {
+    "law_name": "형법",
+    "article_number": "99",
+    "topics": ["일반이적", "일반이적 처벌", "제99조"],
+    "source": "법제처",
+    "updated_at": "2025-04-08"
+  }
+}
