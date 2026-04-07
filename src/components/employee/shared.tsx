@@ -73,6 +73,11 @@ export async function executeAiAnalysis({
 }) {
     setErrorMsg(null);
     setAnalyzing(true);
+
+    // 클라이언트 fetch 타임아웃 — 서버 무응답 시 무한 대기 방지 (120초)
+    const clientAbort = new AbortController();
+    const clientTimeout = setTimeout(() => clientAbort.abort(), 120_000);
+
     try {
         await updateCompany(c.id, { 
             privacyUrl,
@@ -93,19 +98,29 @@ export async function executeAiAnalysis({
                 manualText: privacyText,
                 systemPrompt: promptConfig.analyzePrompt,
                 model: promptConfig.model
-            })
+            }),
+            signal: clientAbort.signal
         });
-        const data = await res.json();
+
+        // 서버 에러 응답(502, 504 등)일 때 JSON 파싱 실패 방어
+        let data: any;
+        try {
+            data = await res.json();
+        } catch {
+            throw new Error(`서버 응답 파싱 실패 (HTTP ${res.status}). Vercel 서버 로그를 확인하세요.`);
+        }
         
         if (!res.ok || !data.success) {
             setErrorMsg(data.error || '알 수 없는 오류');
-            await updateCompany(c.id, { status: 'pending' });
-            await dataLayer.auto.addLog({
-                type: 'ai_analysis',
-                label: '분석 실패',
-                companyName: c.name,
-                detail: data?.error || '알 수 없는 오류'
-            });
+            try { await updateCompany(c.id, { status: 'pending' }); } catch {}
+            try {
+                await dataLayer.auto.addLog({
+                    type: 'ai_analysis',
+                    label: '분석 실패',
+                    companyName: c.name,
+                    detail: data?.error || '알 수 없는 오류'
+                });
+            } catch {}
         } else {
             const payload: any = { 
                 status: 'analyzed',
@@ -122,27 +137,36 @@ export async function executeAiAnalysis({
                 if (data.extractedDetails.privacyUrl) payload.privacyUrl = data.extractedDetails.privacyUrl;
             }
             await updateCompany(c.id, payload);
-            await dataLayer.auto.addLog({
-                type: 'ai_analysis',
-                label: '분석 완료',
-                companyName: c.name,
-                detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
-            });
+            try {
+                await dataLayer.auto.addLog({
+                    type: 'ai_analysis',
+                    label: '분석 완료',
+                    companyName: c.name,
+                    detail: `발견된 이슈 ${data.issueCount || 0}건 (${data.riskLevel || 'MEDIUM'})`
+                });
+            } catch {}
             
             if (onSuccess) onSuccess(data);
         }
     } catch (err: any) {
-        setErrorMsg(`분석 중 에러 발생: ${err.message}`);
-        await updateCompany(c.id, { status: 'pending' });
-        await dataLayer.auto.addLog({
-            type: 'ai_analysis',
-            label: '분석 중단됨',
-            companyName: c.name,
-            detail: err.message || '네트워크 에러 발생'
-        });
+        const isTimeout = err.name === 'AbortError';
+        const msg = isTimeout 
+            ? '서버 응답 시간 초과 (2분). 네트워크 상태를 확인하거나 잠시 후 재시도해 주세요.'
+            : `분석 중 에러 발생: ${err.message}`;
+        setErrorMsg(msg);
+        try { await updateCompany(c.id, { status: 'pending' }); } catch {}
+        try {
+            await dataLayer.auto.addLog({
+                type: 'ai_analysis',
+                label: isTimeout ? '분석 시간 초과' : '분석 중단됨',
+                companyName: c.name,
+                detail: err.message || '네트워크 에러 발생'
+            });
+        } catch {}
     } finally {
+        clearTimeout(clientTimeout);
         setAnalyzing(false);
-        await mutate();
+        try { await mutate(); } catch {}
         globalMutate('auto-logs');
     }
 }

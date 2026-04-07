@@ -44,19 +44,31 @@ export default function EmployeePage() {
             for (const c of pendings) {
                 await crm.updateCompany(c.id, { status: 'crawling' });
                 try {
-                    const res = await fetch('/api/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            companyId: c.id, 
-                            homepageUrl: c.url,
-                            privacyUrl: c.privacyUrl,
-                            manualText: c.privacyPolicyText,
-                            systemPrompt: promptConfig.analyzePrompt,
-                            model: promptConfig.model
-                        })
-                    });
-                    const data = await res.json();
+                    const batchAbort = new AbortController();
+                    const batchTimeout = setTimeout(() => batchAbort.abort(), 90_000);
+                    let data: any;
+                    let res: Response;
+                    try {
+                        res = await fetch('/api/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                companyId: c.id, 
+                                homepageUrl: c.url,
+                                privacyUrl: c.privacyUrl,
+                                manualText: c.privacyPolicyText,
+                                systemPrompt: promptConfig.analyzePrompt,
+                                model: promptConfig.model
+                            }),
+                            signal: batchAbort.signal
+                        });
+                        data = await res.json();
+                    } catch (fetchErr: any) {
+                        clearTimeout(batchTimeout);
+                        const isTimeout = fetchErr.name === 'AbortError';
+                        throw new Error(isTimeout ? '서버 응답 시간 초과 (90초)' : fetchErr.message);
+                    }
+                    clearTimeout(batchTimeout);
                     
                     if (res.ok && data.success) {
                         queued++;

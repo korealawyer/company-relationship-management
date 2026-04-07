@@ -9,8 +9,13 @@ export const runtime = 'nodejs'; // Edge 대신 Node 환경으로 넉넉한 컴�
 
 export async function POST(request: NextRequest) {
     // 인증 검증
+    console.log('[Analyze API] POST request received. Checking auth...');
     const auth = await requireSessionFromCookie(request);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    if (!auth.ok) {
+        console.warn(`[Analyze API] Auth failed: ${auth.error} (status: ${auth.status})`);
+        return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    console.log(`[Analyze API] Auth OK. role=${auth.role}, userId=${auth.userId}`);
 
     // ── 입력값 파싱 (try-catch로 400 에러 방지) ──
     let body: { url?: string; privacyUrl?: string; homepageUrl?: string; companyId?: string; manualText?: string; systemPrompt?: string; model?: string; };
