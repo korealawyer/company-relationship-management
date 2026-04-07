@@ -103,7 +103,8 @@ export const CLAUSE_SCENARIO_MAP: Record<string, string[]> = {
 };
 
 // ── AI 프롬프트 템플릿 ────────────────────────────────────────
-import { IBS_SYSTEM_PROMPT, IBS_FULL_CHAT_PROMPT } from './chat';
+const IBS_SYSTEM_PROMPT = `당신은 대한민국 개인정보보호법 및 IT 규제 준수(Compliance)를 전문으로 하는 최고 수준의 리걸 AI 어시스턴트입니다.`;
+const IBS_FULL_CHAT_PROMPT = `당신은 대한민국 최고 법무법인의 파트너 변호사입니다. 전문적이면서도 고객이 이해하기 쉬운 언어로 답변해주세요.`;
 
 export interface PrivacyPromptConfig {
     model: string;
