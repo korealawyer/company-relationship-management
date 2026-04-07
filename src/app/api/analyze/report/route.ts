@@ -53,7 +53,6 @@ export async function POST(req: Request) {
             model,
             prompt: finalPrompt,
             temperature: 0.2, // 보수적이고 일관된 톤 유지
-            maxTokens: 4096, // 긴 문서 생성 허용
         });
 
         // 결과 마크다운 텍스트 반환
