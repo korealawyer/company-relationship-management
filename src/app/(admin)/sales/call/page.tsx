@@ -194,7 +194,7 @@ export default function SalesCallPage() {
 
     const FILTERS: { key: CaseStatus | 'all' | 'my_calls_today'; label: string; icon: string }[] = [
         { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, 
-        { key: 'pending', label: '신규접수', icon: '📥' }, { key: 'crawling', label: '분석중', icon: '⚙️' },
+        { key: 'pending', label: '신규 회사', icon: '📥' }, { key: 'crawling', label: '분석중', icon: '⚙️' },
         { key: 'analyzed', label: '분석완료', icon: '🔍' },
         { key: 'reviewing', label: '변호사검토', icon: '📋' }, { key: 'lawyer_confirmed', label: '변호사 컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일 발송', icon: '📧' },
         { key: 'client_replied', label: '답장수신', icon: '💬' }, { key: 'client_viewed', label: '리포트열람', icon: '👁️' },

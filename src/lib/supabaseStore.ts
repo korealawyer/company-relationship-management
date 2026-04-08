@@ -272,7 +272,7 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
   const sb = getSupabase();
   if (!sb) return defaultStats;
   
-  const { data: rows } = await sb.from('companies').select('id, plan, risk_score, store_count, status');
+  const { data: rows } = await sb.from('companies').select('id, plan, risk_score, store_count, status').limit(50000);
   if (!rows) return defaultStats;
   
   let total = rows.length, subscribers = 0, premium = 0, standard = 0, starter = 0, atRisk = 0, totalStores = 0;
