@@ -1,7 +1,8 @@
 'use client';
 
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import dataLayer from '@/lib/dataLayer';
+import type { PaginationOptions, CompanyStats } from '@/lib/supabaseStore';
 import type { 
   Company, 
   LitigationCase, 
@@ -49,30 +50,22 @@ export function useCompanies() {
     mutate(); // 리프레시
   };
 
-  const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = true) => {
-    try {
+  const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = false) => {
+    // 낙관적 업데이트 가능
+    await dataLayer.companies.update(id, patch);
+    if (skipMutate) {
       mutate(
         (currentData) => currentData?.map(c => c.id === id ? { ...c, ...patch } : c),
         { revalidate: false }
       );
-      await dataLayer.companies.update(id, patch);
-      if (!skipMutate) {
-        mutate();
-      }
-    } catch (e) {
-      mutate(); // rollback
-      throw e;
+    } else {
+      mutate();
     }
   };
 
   const deleteCompany = async (id: string) => {
-    try {
-      mutate((currentData) => currentData?.filter(c => c.id !== id), { revalidate: false });
-      await dataLayer.companies.delete(id);
-    } catch (e) {
-      mutate();
-      throw e;
-    }
+    await dataLayer.companies.delete(id);
+    mutate();
   };
 
   const updateBulk = async (companiesList: Partial<Company>[]) => {
@@ -90,6 +83,71 @@ export function useCompanies() {
   return { companies: data || EMPTY_COMPANIES, isLoading, error, mutate, addCompany, updateCompany, updateBulk, deleteCompany, importBulk };
 }
 
+export function usePaginatedCompanies(options: PaginationOptions) {
+  const keyStr = JSON.stringify(options);
+  const { data, error, isLoading, mutate } = useSWR<{data: Company[], count: number}>(
+    ['paginated-companies', keyStr],
+    async () => await dataLayer.companies.getPaginated(options),
+    { fallbackData: { data: [], count: 0 }, ...SWR_OPTS }
+  );
+
+  return { companies: data?.data || [], count: data?.count || 0, isLoading, error, mutate };
+}
+
+export function useCompanyStats() {
+  const defaultStats: CompanyStats = { total: 0, subscribers: 0, premium: 0, standard: 0, starter: 0, atRisk: 0, totalStores: 0, unreviewedIssues: 0, reviewedIssues: 0, statusCounts: {} };
+  const { data, error, isLoading, mutate } = useSWR<CompanyStats>(
+    'company-stats',
+    async () => await dataLayer.companies.getStats(),
+    { fallbackData: defaultStats, ...SWR_OPTS }
+  );
+
+  return { stats: data || defaultStats, isLoading, error, mutate };
+}
+
+export function useCompanyMutations() {
+  const { mutate } = useSWRConfig();
+  
+  const refreshCompanies = () => {
+    mutate(
+      (key: any) => Array.isArray(key) && key[0] === 'paginated-companies',
+      undefined,
+      { revalidate: true }
+    );
+    mutate('company-stats');
+    mutate('companies');
+  };
+
+  const addCompany = async (company: Partial<Company>) => {
+    await dataLayer.companies.create(company);
+    refreshCompanies();
+  };
+
+  const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = false) => {
+    await dataLayer.companies.update(id, patch);
+    if (!skipMutate) refreshCompanies();
+  };
+
+  const deleteCompany = async (id: string) => {
+    await dataLayer.companies.delete(id);
+    refreshCompanies();
+  };
+
+  const updateBulk = async (companiesList: Partial<Company>[]) => {
+    const result = await dataLayer.companies.updateBulk(companiesList);
+    refreshCompanies();
+    return result;
+  };
+
+  const importBulk = async (companiesList: Partial<Company>[]) => {
+    const result = await dataLayer.companies.importBulk(companiesList);
+    refreshCompanies();
+    return result;
+  };
+
+  return { addCompany, updateCompany, deleteCompany, updateBulk, importBulk, refreshCompanies };
+}
+
 export function useLitigations() {
   const { data, error, isLoading, mutate } = useSWR<LitigationCase[]>(
     'litigations',
@@ -103,13 +161,8 @@ export function useLitigations() {
   };
 
   const updateLitigation = async (id: string, patch: Partial<LitigationCase>) => {
-    try {
-      mutate(curr => curr?.map(l => l.id === id ? { ...l, ...patch } : l), { revalidate: false });
-      await dataLayer.litigation.update(id, patch);
-    } catch (e) {
-      mutate();
-      throw e;
-    }
+    await dataLayer.litigation.update(id, patch);
+    mutate();
   };
 
   return { litigations: data || EMPTY_LITIGATIONS, isLoading, error, mutate, addLitigation, updateLitigation };
@@ -128,13 +181,8 @@ export function useConsultations() {
   };
 
   const updateConsultation = async (id: string, patch: Partial<Consultation>) => {
-    try {
-      mutate(curr => curr?.map(c => c.id === id ? { ...c, ...patch } : c), { revalidate: false });
-      await dataLayer.consult.update(id, patch);
-    } catch (e) {
-      mutate();
-      throw e;
-    }
+    await dataLayer.consult.update(id, patch);
+    mutate();
   };
 
   return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate, addConsultation, updateConsultation };
@@ -168,33 +216,18 @@ export function useNotifications() {
   );
 
   const markAsRead = async (id: string) => {
-    try {
-      mutate(curr => curr?.map(n => n.id === id ? { ...n, isRead: true } : n), { revalidate: false });
-      await dataLayer.notifications.markAsRead(id);
-    } catch (e) {
-      mutate();
-      throw e;
-    }
+    await dataLayer.notifications.markAsRead(id);
+    mutate();
   };
 
   const markAllAsRead = async () => {
-    try {
-      mutate(curr => curr?.map(n => ({ ...n, isRead: true })), { revalidate: false });
-      await dataLayer.notifications.markAllAsRead();
-    } catch (e) {
-      mutate();
-      throw e;
-    }
+    await dataLayer.notifications.markAllAsRead();
+    mutate();
   };
 
   const deleteNotification = async (id: string) => {
-    try {
-      mutate(curr => curr?.filter(n => n.id !== id), { revalidate: false });
-      await dataLayer.notifications.delete(id);
-    } catch (e) {
-      mutate();
-      throw e;
-    }
+    await dataLayer.notifications.delete(id);
+    mutate();
   };
 
   return { notifications: data || EMPTY_NOTIFICATIONS, isLoading, error, markAsRead, markAllAsRead, deleteNotification };

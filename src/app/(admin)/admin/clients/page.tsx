@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import { DocumentWidget } from '@/components/DocumentWidget';
 import type { Company } from '@/lib/types';
-import { useCompanies } from '@/hooks/useDataLayer';
+import { usePaginatedCompanies, useCompanyStats, useCompanyMutations } from '@/hooks/useDataLayer';
 import { AdminCompanyEditModal } from '@/components/admin/AdminCompanyEditModal';
 
 /* ── 상수 ──────────────────────────────────────────────────── */
@@ -118,12 +118,17 @@ const DETAIL_TABS: { key: DetailTab; label: string; icon: React.ElementType }[] 
    ══════════════════════════════════════════════════════════════ */
 
 export default function AdminClientsPage() {
-    const { companies, updateCompany, deleteCompany } = useCompanies();
+    const { addCompany, updateCompany, updateBulk, deleteCompany, importBulk, refreshCompanies } = useCompanyMutations();
+    
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(50);
     const [filterPlan, setFilterPlan] = useState<string>('all_clients');
     const [filterHealth, setFilterHealth] = useState<string>('all');
     const [sortBy, setSortBy] = useState<'name' | 'stores' | 'plan' | 'health' | 'activity'>('name');
     const [sortAsc, setSortAsc] = useState(true);
+
     const [expandId, setExpandId] = useState<string | null>(null);
     const [editingCompany, setEditingCompany] = useState<Company | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -132,55 +137,36 @@ export default function AdminClientsPage() {
     const [toast, setToast] = useState('');
     const [detailsCache, setDetailsCache] = useState<Record<string, { memos: any[]; timeline: any[] }>>({});
 
-    // ── KPI 계산 ─────────────────────────────────────────
-    const kpi = useMemo(() => {
-        const total = companies.length;
-        const subscribers = companies.filter(c => c.plan && c.plan !== 'none');
-        const premium = companies.filter(c => c.plan === 'premium').length;
-        const standard = companies.filter(c => c.plan === 'standard').length;
-        const starter = companies.filter(c => c.plan === 'starter').length;
-        const atRisk = companies.filter(c => calcHealthScore(c).score < 50).length;
-        const totalStores = companies.reduce((sum, c) => sum + (c.storeCount || 0), 0);
-        return { total, subscribers: subscribers.length, premium, standard, starter, atRisk, totalStores };
-    }, [companies]);
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    React.useEffect(() => {
+        setPage(1);
+    }, [filterPlan, filterHealth, pageSize, sortBy, sortAsc]);
+
+    const { companies, count, isLoading } = usePaginatedCompanies({
+        page, limit: pageSize, search: debouncedSearch, plan: filterPlan, health: filterHealth, sortBy, sortAsc
+    });
+    const { stats } = useCompanyStats();
+
+    // ── KPI ─────────────────────────────────────────
+    const kpi = {
+        total: stats.total,
+        subscribers: stats.subscribers,
+        premium: stats.premium,
+        standard: stats.standard, 
+        starter: stats.starter,
+        atRisk: stats.atRisk,
+        totalStores: stats.totalStores
+    };
 
     // ── 필터 + 정렬 ─────────────────────────────────────
-    const filtered = useMemo(() => {
-        return companies
-            .filter(c => {
-                const q = search.toLowerCase();
-                const matchSearch = !q || (c.name || '').toLowerCase().includes(q) ||
-                    (c.email || '').toLowerCase().includes(q) ||
-                    (c.biz || '').toLowerCase().includes(q) ||
-                    (c.phone || '').includes(q);
-
-                let matchPlan = false;
-                if (filterPlan === 'all_users') matchPlan = true;
-                else if (filterPlan === 'all_clients') matchPlan = !!c.plan && c.plan !== 'none';
-                else if (filterPlan === 'none') matchPlan = !c.plan || c.plan === 'none';
-                else matchPlan = c.plan === filterPlan;
-
-                let matchHealth = true;
-                if (filterHealth === 'danger') matchHealth = calcHealthScore(c).score < 50;
-                else if (filterHealth === 'warning') { const s = calcHealthScore(c).score; matchHealth = s >= 50 && s < 80; }
-                else if (filterHealth === 'healthy') matchHealth = calcHealthScore(c).score >= 80;
-
-                return matchSearch && matchPlan && matchHealth;
-            })
-            .sort((a, b) => {
-                let r = 0;
-                if (sortBy === 'name') r = a.name.localeCompare(b.name);
-                else if (sortBy === 'stores') r = (a.storeCount || 0) - (b.storeCount || 0);
-                else if (sortBy === 'plan') r = (a.plan || '').localeCompare(b.plan || '');
-                else if (sortBy === 'health') r = calcHealthScore(a).score - calcHealthScore(b).score;
-                else if (sortBy === 'activity') {
-                    const da = getLastActivityDate(a) || '1970-01-01';
-                    const db = getLastActivityDate(b) || '1970-01-01';
-                    r = new Date(da).getTime() - new Date(db).getTime();
-                }
-                return sortAsc ? r : -r;
-            });
-    }, [companies, search, filterPlan, filterHealth, sortBy, sortAsc]);
+    const filtered = companies;
 
     const toggleSort = useCallback((col: typeof sortBy) => {
         if (sortBy === col) setSortAsc(v => !v);
@@ -809,13 +795,62 @@ export default function AdminClientsPage() {
                 </div>
 
                 {/* Empty State */}
-                {filtered.length === 0 && (
+                {filtered.length === 0 && !isLoading && (
                     <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm mt-4">
                         <Building2 className="w-12 h-12 mx-auto mb-4 text-slate-200" />
                         <p className="font-bold text-slate-400 text-sm">
                             {search ? '검색 결과가 없습니다' : '고객 데이터가 없습니다'}
                         </p>
                         <p className="text-xs text-slate-300 mt-1">필터 조건을 변경해보세요</p>
+                    </div>
+                )}
+                
+                {isLoading && (
+                    <div className="py-20 text-center text-slate-400">
+                        데이터를 불러오는 중입니다...
+                    </div>
+                )}
+
+                {/* ── Server Pagination Controls ── */}
+                {count > 0 && !isLoading && (
+                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between bg-white px-6 py-4 rounded-2xl border border-slate-200 shadow-sm gap-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-slate-500">페이지 당</span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => {
+                                    setPageSize(Number(e.target.value));
+                                }}
+                                className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 font-bold text-slate-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >
+                                <option value={30}>30개</option>
+                                <option value={50}>50개</option>
+                                <option value={100}>100개</option>
+                            </select>
+                            <span className="text-sm text-slate-400">
+                                전체 <span className="font-bold text-slate-700">{count.toLocaleString()}</span>개 중
+                                <span className="font-bold text-amber-600 ml-1">
+                                    {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, count)}
+                                </span>
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-3 py-1.5 text-sm font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                            >
+                                이전
+                            </button>
+                            <span className="text-sm font-bold text-slate-600 px-2">{page} / {Math.ceil(count / pageSize) || 1}</span>
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={page * pageSize >= count}
+                                className="px-3 py-1.5 text-sm font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
+                            >
+                                다음
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

@@ -14,8 +14,8 @@ export const C = {
 };
 
 export const CALLABLE: CaseStatus[] = [
-    'analyzed','reviewing','lawyer_confirmed','emailed',
-    'client_replied','client_viewed','contract_sent','contract_signed',
+    'pending', 'crawling', 'analyzed', 'lawyer_confirmed', 'emailed',
+    'client_replied', 'client_viewed', 'contract_sent', 'contract_signed',
 ];
 
 export function getScript(c: Company): string {

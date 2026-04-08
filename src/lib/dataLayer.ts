@@ -19,13 +19,17 @@ import {
   supabaseUserStore,
   supabaseNotificationStore,
   supabaseContractStore,
-  supabaseDocumentStore
+  supabaseDocumentStore,
+  type PaginationOptions,
+  type CompanyStats
 } from './supabaseStore';
 
 // ── 타입 ──────────────────────────────────────────────────────
 
 export interface CompanyDataSource {
   getAll(): Promise<Company[]>;
+  getPaginated(options: PaginationOptions): Promise<{ data: Company[]; count: number }>;
+  getStats(): Promise<CompanyStats>;
   getById(id: string): Promise<Company | undefined>;
   update(id: string, patch: Partial<Company>): Promise<void>;
   updateBulk(companies: Partial<Company>[]): Promise<{ success: number; skipped: number }>;
@@ -84,6 +88,8 @@ export interface DocumentDataSource {
 // ── Supabase 래퍼 ────────────────────────────────────────────
 
 const sbCompanies: CompanyDataSource = {
+  getPaginated: supabaseCompanyStore.getPaginated,
+  getStats: supabaseCompanyStore.getStats,
   getAll: supabaseCompanyStore.getAll,
   getById: async (id) => (await supabaseCompanyStore.getById(id)) ?? undefined,
   update: supabaseCompanyStore.update,

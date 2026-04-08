@@ -41,10 +41,11 @@ const IssueItem = ({ issue, index }: { issue: any; index: number }) => {
             transition={{ delay: index * 0.08 }}
             style={{
                 borderLeft: `4px solid ${isHighRisk ? '#ef4444' : '#f59e0b'}`,
-                backgroundColor: '#fff',
+                backgroundColor: 'transparent',
                 marginBottom: '2px',
+                borderBottom: '1px solid rgba(0,0,0,0.05)'
             }}
-            className="transition-all"
+            className="transition-all relative z-10"
         >
             <button
                 onClick={() => setExpanded(!expanded)}
@@ -140,16 +141,42 @@ export default function PrivacyAnalysisClientPage() {
     const { companies, isLoading } = useCompanies();
     const [company, setCompany] = useState<any>(null);
     const bookRef = useRef<HTMLDivElement>(null);
-    const { scrollYProgress } = useScroll();
+    const { scrollYProgress, scrollY } = useScroll();
     const progressWidth = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
+    const [showBottomBanner, setShowBottomBanner] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = scrollY.on('change', (latest) => {
+            if (latest > 400) {
+                setShowBottomBanner(true);
+            } else {
+                setShowBottomBanner(false);
+            }
+        });
+        return () => unsubscribe();
+    }, [scrollY]);
 
     useEffect(() => {
         const session = getSession();
-        if (session && companies) {
-            const match = companies.find((c) => c.id === session.companyId);
-            if (match) setCompany(match);
+        if (companies && companies.length > 0) {
+            let match = null;
+            if (session?.companyId) {
+                match = companies.find((c) => c.id === session.companyId);
+            }
+            // 세션이 없거나 일치하는 회사가 없으면 목록의 첫 번째 회사로 폴백 (미리보기 용도)
+            setCompany(match || companies[0]);
         }
     }, [companies]);
+
+    if (!isLoading && !company) {
+        return (
+            <div className="min-h-screen flex justify-center items-center" style={{ backgroundColor: '#f8f7f4' }}>
+                <div className="text-center">
+                    <p className="text-sm font-bold text-gray-500">조회할 검토안이 없습니다.</p>
+                </div>
+            </div>
+        );
+    }
 
     if (isLoading || !company) {
         return (
@@ -178,7 +205,7 @@ export default function PrivacyAnalysisClientPage() {
     const dateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
 
     return (
-        <div className="min-h-screen" style={{ backgroundColor: '#f5f3ee' }}>
+        <div className="min-h-screen relative" style={{ backgroundColor: '#e5e3db' }}>
             {/* ─── 상단 진행바 ─── */}
             <motion.div
                 className="fixed top-0 left-0 h-[3px] z-[200]"
@@ -222,13 +249,18 @@ export default function PrivacyAnalysisClientPage() {
                             animate={{ opacity: 1, y: 0 }}
                             className="relative overflow-hidden"
                             style={{
-                                background: '#fff',
+                                background: '#faf9f6',
                                 borderRadius: '2px 2px 0 0',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 20px 60px rgba(0,0,0,0.03)',
                                 borderTop: `4px solid ${isCritical ? '#ef4444' : GOLD}`,
                             }}
                         >
-                            {/* 표지 배경 패턴 */}
+                            {/* 표지 배경 패턴 및 종이 질감 */}
+                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-multiply"
+                                style={{
+                                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                                }}
+                            />
                             <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
                                 style={{
                                     backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 39px, #000 39px, #000 40px)`,
@@ -294,11 +326,18 @@ export default function PrivacyAnalysisClientPage() {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.2 }}
+                                className="relative"
                                 style={{
-                                    background: '#fff',
+                                    background: '#faf9f6',
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 20px 60px rgba(0,0,0,0.03)',
                                 }}
                             >
+                                {/* 본문 배경 질감 (노이즈) 추가 */}
+                                <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-multiply"
+                                    style={{
+                                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                                    }}
+                                />
                                 {finalAuditReport ? (
                                     <>
                                         {/* 마크다운 보고서 (전자책 본문) */}
@@ -609,27 +648,61 @@ export default function PrivacyAnalysisClientPage() {
             </div>
 
             {/* ═══════════════════════════════════════════
-                모바일 하단 고정 CTA
+                 하단 고정 배너 (Bottom Sheet 형태)
             ═══════════════════════════════════════════ */}
-            {hasAnalysis && hasIssues && (
-                <div className="xl:hidden fixed bottom-0 left-0 right-0 z-[100]">
-                    <div className="px-4 py-3" style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid #e5e7eb', boxShadow: '0 -4px 20px rgba(0,0,0,0.05)' }}>
-                        <button
-                            onClick={() => router.push(`/contracts/sign/${company.id}`)}
-                            className="w-full py-4 px-4 rounded-xl font-black text-[15px] flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                            style={{
-                                background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
-                                color: '#0a0e1a',
-                                boxShadow: `0 6px 24px ${GOLD}30`,
-                            }}
-                        >
-                            <FileSignature className="w-5 h-5" /> 방침 전면 개정 위임하기
-                            <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                    <div className="pb-safe" />
-                </div>
-            )}
+            <AnimatePresence>
+                {showBottomBanner && hasAnalysis && hasIssues && (
+                    <motion.div
+                        initial={{ y: '100%', opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: '100%', opacity: 0 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        className="fixed bottom-0 left-0 right-0 z-[200] pb-safe"
+                    >
+                        {/* 데스크톱/모바일 동시 적용 하단 배너 */}
+                        <div className="bg-white/95 backdrop-blur-xl border-t border-gray-200 shadow-[0_-8px_40px_rgba(0,0,0,0.1)]">
+                            <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-3 md:py-4">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                                    {/* 문구 영역 */}
+                                    <div className="flex items-center gap-4 text-center md:text-left">
+                                        <div className="hidden md:flex w-12 h-12 rounded-full items-center justify-center bg-red-50 shrink-0">
+                                            <AlertOctagon className="w-6 h-6 text-red-500" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[15px] md:text-[17px] font-black text-gray-900 leading-tight mb-1">
+                                                방치하면 예상되는 <span className="text-red-600">최대 {isCritical ? '매출액 3% 과징금' : '3,000만원 과태료'}</span>
+                                            </h4>
+                                            <p className="text-xs md:text-sm text-gray-500 font-medium">
+                                                전담 변호사가 48시간 내 위반 사항을 완벽하게 수정해 드립니다.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Action 버튼들 */}
+                                    <div className="flex w-full md:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                                        <button
+                                            onClick={() => alert("개인정보보호 책임자용 맞춤 보고서(PDF) 다운로드는 프리미엄 구독자 전용 기능입니다.")}
+                                            className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-[14px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap border border-gray-200"
+                                        >
+                                            <Download className="w-4 h-4" /> 책임자용 보고서 다운
+                                        </button>
+                                        <button
+                                            onClick={() => router.push(`/contracts/sign/${company.id}`)}
+                                            className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-[15px] transition-all hover:-translate-y-0.5 shadow-[0_4px_16px_rgba(201,168,76,0.25)] whitespace-nowrap"
+                                            style={{
+                                                background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
+                                                color: '#0a0e1a',
+                                            }}
+                                        >
+                                            <Phone className="w-5 h-5 text-current opacity-80" /> 수석 변호사 1:1 상담
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

@@ -17,7 +17,7 @@ interface AddCompanyModalProps {
 export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalProps) {
     const { addCompany, updateCompany, mutate } = useCompanies();
     const { settings: autoSettings } = useAutoSettings();
-    const [addForm, setAddForm] = useState({ name: '', biz: '', url: '', email: '', phone: '', storeCount: '', contactName: '', contactPhone: '', bizType: '', franchiseType: '' });
+    const [addForm, setAddForm] = useState({ name: '', biz: '', url: '', privacyUrl: '', email: '', phone: '', storeCount: '', contactName: '', contactPhone: '', bizType: '', franchiseType: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     return (
@@ -53,7 +53,8 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                         ] },
                         { k: 'bizType', l: '업종 (예: 식음료, IT)', ph: '식음료' },
                         { k: 'biz', l: '사업자번호', ph: '123-45-67890' },
-                        { k: 'url', l: '홈페이지 URL (등록 시 방침 자동 분석)', ph: 'https://kyochon.com' },
+                        { k: 'url', l: '홈페이지 URL', ph: 'https://kyochon.com' },
+                        { k: 'privacyUrl', l: '개인정보처리방침 URL (선택)', ph: 'https://kyochon.com/privacy' },
                         { k: 'email', l: '이메일 *', ph: 'legal@kyochon.com' },
                         { k: 'phone', l: '전화번호', ph: '02-1234-5678' },
                         { k: 'storeCount', l: '가맹점수', ph: '100' },
@@ -104,7 +105,8 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                         const newId = crypto.randomUUID();
                         
                         try {
-                            const initialStatus = addForm.url ? 'crawling' : 'pending';
+                            const targetUrlForAnalysis = addForm.privacyUrl || addForm.url;
+                            const initialStatus = targetUrlForAnalysis ? 'crawling' : 'pending';
                             
                             await addCompany({
                                 id: newId,
@@ -121,18 +123,18 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                                 riskScore: 0, riskLevel: '', issueCount: 0,
                                 bizType: addForm.bizType || '', 
                                 franchiseType: addForm.franchiseType,
-                                domain: addForm.url || '', privacyUrl: addForm.url || '',
+                                domain: addForm.url || '', privacyUrl: addForm.privacyUrl || '',
                                 contactName: addForm.contactName || '', contactEmail: addForm.email || '',
                                 contactPhone: addForm.contactPhone || addForm.phone || '',
                                 contacts: [], memos: [], timeline: [],
                             });
 
-                            setAddForm({ name: '', biz: '', url: '', email: '', phone: '', storeCount: '', contactName: '', contactPhone: '', bizType: '', franchiseType: '' });
+                            setAddForm({ name: '', biz: '', url: '', privacyUrl: '', email: '', phone: '', storeCount: '', contactName: '', contactPhone: '', bizType: '', franchiseType: '' });
                             onClose();
                             refresh();
 
-                            // 등록 후 URL이 있으면 백그라운드로 분석 요청 (fire-and-forget)
-                            if (addForm.url) {
+                            // 등록 후 분석할 URL이 있으면 백그라운드로 분석 요청 (fire-and-forget)
+                            if (targetUrlForAnalysis) {
                                 (async () => {
                                     try {
                                         const promptConfig = getPromptConfig();
@@ -141,7 +143,7 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ 
                                                 companyId: newId, 
-                                                url: addForm.url, 
+                                                url: targetUrlForAnalysis, 
                                                 systemPrompt: promptConfig.analyzePrompt,
                                                 model: promptConfig.model
                                             })

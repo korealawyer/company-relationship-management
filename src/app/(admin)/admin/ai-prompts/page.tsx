@@ -125,7 +125,7 @@ export default function AdminAIPromptsPage() {
                                                 key: 'firstReviewPrompt' as const, 
                                                 label: '📋 1차 조문검토 프롬프트', 
                                                 usage: '기업 상세 > [조문 분석] 탭', 
-                                                desc: '이슈 분석, 검토의견, 시나리오, 예상 제재 내역을 생성할 때 사용됩니다.' 
+                                                desc: '이슈 분석, 검토의견, 법률리스트, 예상 제재 내역을 생성할 때 사용됩니다.' 
                                             },
                                             { 
                                                 key: 'fullRevisionPrompt' as const, 

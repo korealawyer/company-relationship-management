@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     Company, CaseStatus,
     type AutoSettings,
 } from '@/lib/types';
 import { SALES_REPS } from '@/lib/constants';
-import { useCompanies, useAutoSettings } from '@/hooks/useDataLayer';
+import { useAutoSettings, usePaginatedCompanies, useCompanyStats, useCompanyMutations } from '@/hooks/useDataLayer';
 import {
     CallQueueManager, AutoEmailService, FollowUpService,
     RiskAlertService, AIMemoService, NewsLeadService, AutoKakaoService,
@@ -33,8 +33,11 @@ export interface UseCallPageReturn {
     activeCallId: string | null;
     statusFilter: CaseStatus | 'all' | 'my_calls_today';
     setStatusFilter: (v: CaseStatus | 'all' | 'my_calls_today') => void;
-    sortKey: 'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType';
+    sortKey: string;
     sortAsc: boolean;
+    page: number;
+    setPage: (v: number) => void;
+    count: number;
     showNews: boolean;
     setShowNews: (v: boolean) => void;
     riskAlerts: RiskAlert[];
@@ -77,24 +80,45 @@ export interface UseCallPageReturn {
     endCall: () => Promise<void>;
     handleCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
     confirmCallback: () => void;
-    toggleSort: (k: 'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType') => void;
+    toggleSort: (k: string) => void;
     refresh: () => void;
 }
 
 /* ── Hook ────────────────────────────────────────────────────────── */
 export function useCallPage(userName: string = ''): UseCallPageReturn {
-    const { companies: dbCompanies, updateCompany } = useCompanies();
-    const { settings: dbSettings } = useAutoSettings();
-    const [companies, setCompanies] = useState<Company[]>([]);
+    const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all' | 'my_calls_today'>('all');
+    const [sortKey, setSortKey] = useState<string>('risk_score');
+    const [sortAsc, setSortAsc] = useState(false);
+
+    useEffect(() => {
+        setPage(1);
+    }, [sortKey, sortAsc, statusFilter]);
+
+    const { companies: dbCompanies, count } = usePaginatedCompanies({
+        page, limit: 50, search: debouncedSearch, status: statusFilter === 'all' || statusFilter === 'my_calls_today' ? undefined : statusFilter,
+        sortBy: sortKey === 'name' ? 'name' : sortKey === 'risk' ? 'risk_score' : 'created_at', sortAsc
+    });
+    const { stats: dbStats } = useCompanyStats();
+    const { updateCompany } = useCompanyMutations();
+    const { settings: dbSettings } = useAutoSettings();
+    const companies = useMemo(() => dbCompanies.filter(c => CALLABLE.includes(c.status)), [dbCompanies]);
     const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [toast, setToast] = useState('');
     const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | ''>('');
     const [activeCallId, setActiveCallId] = useState<string | null>(null);
-    const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all' | 'my_calls_today'>('all');
-    const [sortKey, setSortKey] = useState<'risk' | 'name' | 'status' | 'contactName' | 'salesRep' | 'phone' | 'conversion' | 'issue' | 'memo' | 'franchiseType'>('risk');
-    const [sortAsc, setSortAsc] = useState(false);
     const [showNews, setShowNews] = useState(false);
     const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
     const [callQueue, setCallQueue] = useState<CallQueueItem[]>([]);
@@ -119,13 +143,12 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
 
     /* ── refresh ── */
     const refresh = useCallback(() => {
-        setCompanies(dbCompanies.filter(c => CALLABLE.includes(c.status)));
         const counts: Record<string, number> = {};
         const allRecs = CallRecordingStore.getAll();
         allRecs.forEach(r => { counts[r.companyId] = (counts[r.companyId] || 0) + 1; });
         setRecordingCounts(counts);
         setAutoSettings(dbSettings || null);
-    }, [dbCompanies, dbSettings]);
+    }, [dbSettings]);
 
     /* ── effects ── */
     useEffect(() => { refresh(); const id = setInterval(refresh, 2000); return () => clearInterval(id); }, [refresh]);
@@ -260,8 +283,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         return sortAsc ? -d : d;
     });
 
-    const statusCounts: Record<string, number> = { all: companies.length };
-    companies.forEach(c => { statusCounts[c.status] = (statusCounts[c.status] || 0) + 1; });
+    const statusCounts = dbStats?.statusCounts || { all: dbCompanies.length };
 
     const todayCalls = companies.filter(c => isToday(c.lastCallAt) && c.lastCalledBy === userName);
     const todayStats = {
@@ -428,6 +450,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         sttStatus,
         waveformData,
         recordingCounts,
+        page, setPage, count,
         // computed
         filtered,
         statusCounts,

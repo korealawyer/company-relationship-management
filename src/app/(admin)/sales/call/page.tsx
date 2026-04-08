@@ -82,7 +82,7 @@ const ExcelFilterHeader = ({
 
     return (
         <th className={`relative py-3 px-3 align-middle transition-colors whitespace-nowrap ${w || ''}`} ref={ref}>
-            <div className={`flex items-center justify-between gap-0.5 select-none text-[13px] font-bold ${sortKey === k || isFiltered ? 'text-indigo-700' : 'text-slate-600'}`}>
+            <div className={`flex items-center justify-between gap-0.5 select-none text-[14px] font-bold ${sortKey === k || isFiltered ? 'text-indigo-700' : 'text-slate-600'}`}>
                 <div className="flex items-center gap-1 cursor-pointer hover:opacity-70 flex-1" onClick={() => toggleSort(k)}>
                     {label}
                     <span className="flex flex-col">
@@ -175,7 +175,7 @@ export default function SalesCallPage() {
         contractPreviewTarget, setContractPreviewTarget, timer, isRecording, sttStatus, waveformData,
         filtered, statusCounts, selected, calledCount, highRiskCount, todayStats, newsItems,
         selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh,
-        columnFilters, setColumnFilter
+        columnFilters, setColumnFilter, page, setPage, count
     } = useCallPage(user?.name || '');
 
     const getVal = (c: Company, k: string) => {
@@ -193,7 +193,9 @@ export default function SalesCallPage() {
     const getColumnValues = (k: string) => companies.map(c => getVal(c, k));
 
     const FILTERS: { key: CaseStatus | 'all' | 'my_calls_today'; label: string; icon: string }[] = [
-        { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, { key: 'analyzed', label: '분석완료', icon: '🔍' },
+        { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, 
+        { key: 'pending', label: '신규접수', icon: '📥' }, { key: 'crawling', label: '분석중', icon: '⚙️' },
+        { key: 'analyzed', label: '분석완료', icon: '🔍' },
         { key: 'reviewing', label: '변호사검토', icon: '📋' }, { key: 'lawyer_confirmed', label: '변호사 컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일 발송', icon: '📧' },
         { key: 'client_replied', label: '답장수신', icon: '💬' }, { key: 'client_viewed', label: '리포트열람', icon: '👁️' },
         { key: 'contract_sent', label: '계약서발송', icon: '📄' }, { key: 'contract_signed', label: '서명완료', icon: '✍️' },
@@ -214,7 +216,7 @@ export default function SalesCallPage() {
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-600"><Phone className="w-4 h-4 text-white" /></div>
                             <div>
                                 <h1 className="text-lg font-black text-slate-900">전화 영업 센터</h1>
-                                <p className="text-[13px] text-slate-500">{filtered.length}개 기업</p>
+                                <p className="text-[13px] text-slate-500">{count}개 기업 중 {filtered.length}개 표기</p>
                             </div>
                         </div>
                         <div id="tour-nav" className="flex gap-2 items-center overflow-x-auto pb-1">
@@ -294,7 +296,7 @@ export default function SalesCallPage() {
                             <ExcelFilterHeader label="전환율" k="conversion" w="w-[100px] min-w-[90px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={getColumnValues('conversion')} />
                             <ExcelFilterHeader label="이슈" k="issue" w="w-[100px] min-w-[90px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={[]} />
                             <ExcelFilterHeader label="최근 메모" k="memo" w="w-[260px] min-w-[220px] bg-slate-50 border-r border-slate-200/60" sortKey={sortKey} sortAsc={sortAsc} toggleSort={toggleSort} columnFilters={columnFilters} setColumnFilter={setColumnFilter} allValues={[]} />
-                            <th className="text-left text-[13px] font-bold py-3 px-3 align-middle text-slate-600 w-[130px] min-w-[130px] bg-slate-50 border-l border-slate-200/60 whitespace-nowrap">바로가기</th>
+                            <th className="text-left text-[14px] font-bold py-3 px-3 align-middle text-slate-600 w-[130px] min-w-[130px] bg-slate-50 border-l border-slate-200/60 whitespace-nowrap">바로가기</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -312,6 +314,15 @@ export default function SalesCallPage() {
                         ))}
                     </tbody>
                 </table>
+            </div>
+            
+            <div className="flex bg-white items-center justify-between px-6 py-3 border-t border-slate-200 shrink-0">
+                <span className="text-[13px] text-slate-500 font-medium">검색결과: <strong className="text-slate-900">{count.toLocaleString()}</strong>건</span>
+                <div className="flex items-center gap-1">
+                    <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1.5 text-[13px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 disabled:opacity-30 transition-colors">이전</button>
+                    <div className="px-4 text-[13px] font-bold text-slate-700 select-none">{page}</div>
+                    <button onClick={() => setPage(page + 1)} disabled={filtered.length < 50} className="px-3 py-1.5 text-[13px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 disabled:opacity-30 transition-colors">다음</button>
+                </div>
             </div>
 
             <CallbackModal show={showCallbackModal} selected={selected} callbackTime={callbackTime} setCallbackTime={setCallbackTime} onClose={() => { setShowCallbackModal(false); setCallbackTime(''); }} onConfirm={confirmCallback} />

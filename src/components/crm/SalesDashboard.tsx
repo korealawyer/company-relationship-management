@@ -2,8 +2,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, FileText, DollarSign } from 'lucide-react';
-import { Company, AutoLog } from '@/lib/types';
+import { AutoLog } from '@/lib/types';
 import { PIPELINE, STATUS_LABEL, STATUS_COLOR, STATUS_TEXT } from '@/lib/constants';
+import { CompanyStats } from '@/lib/supabaseStore';
 
 const T = {
     heading: '#0f172a', body: '#1e293b', sub: '#475569',
@@ -13,14 +14,16 @@ const T = {
 };
 
 interface SalesDashboardProps {
-    companies: Company[];
+    stats?: CompanyStats | null;
     logs: AutoLog[];
 }
 
-export default function SalesDashboard({ companies, logs }: SalesDashboardProps) {
-    const total = companies.length;
-    const subscribed = companies.filter(c => c.status === 'subscribed').length;
-    const contractSigned = companies.filter(c => c.status === 'contract_signed').length;
+export default function SalesDashboard({ stats, logs }: SalesDashboardProps) {
+    const total = stats?.total || 0;
+    const statusCounts = stats?.statusCounts || {};
+    
+    const subscribed = statusCounts['subscribed'] || 0;
+    const contractSigned = statusCounts['contract_signed'] || 0;
     const conversionRate = total > 0 ? Math.round(((subscribed + contractSigned) / total) * 100) : 0;
     
     // 매출 추정 (구독 기업 수 × 평균 월 요금)
@@ -31,7 +34,7 @@ export default function SalesDashboard({ companies, logs }: SalesDashboardProps)
     const pipelineCounts = PIPELINE.map(s => ({
         status: s,
         label: STATUS_LABEL[s],
-        count: companies.filter(c => c.status === s).length,
+        count: statusCounts[s] || 0,
         color: STATUS_TEXT[s],
         bg: STATUS_COLOR[s],
     }));
@@ -41,7 +44,7 @@ export default function SalesDashboard({ companies, logs }: SalesDashboardProps)
     const kpis = [
         {
             icon: Users, label: '총 관리 기업', value: total.toString(),
-            sub: `활성 ${companies.filter(c => !['pending', 'crawling'].includes(c.status)).length}개`,
+            sub: `활성 ${total - (statusCounts['pending'] || 0) - (statusCounts['crawling'] || 0)}개`,
             color: '#2563eb', bg: '#eff6ff',
         },
         {
@@ -50,8 +53,8 @@ export default function SalesDashboard({ companies, logs }: SalesDashboardProps)
             color: '#16a34a', bg: '#f0fdf4',
         },
         {
-            icon: FileText, label: '구독 기업', value: subscribed.toString(),
-            sub: companies.filter(c => c.status === 'subscribed').map(c => c.name.replace('(주)', '')).join(', ') || '-',
+            icon: FileText, label: '새 구독 기업수', value: subscribed.toString(),
+            sub: `구독 전환 완료된 기업 수`,
             color: '#c9a84c', bg: '#fffbeb',
         },
         {

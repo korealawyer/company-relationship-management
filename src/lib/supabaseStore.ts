@@ -148,6 +148,154 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
   return c;
 }
 
+// ── 페이지네이션 및 통계 조회 ──────────────────────────────────
+export interface PaginationOptions {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+  plan?: string;
+  health?: string;
+  sortBy?: string;
+  sortAsc?: boolean;
+}
+
+export interface CompanyStats {
+  total: number;
+  subscribers: number;
+  premium: number;
+  standard: number;
+  starter: number;
+  atRisk: number;
+  totalStores: number;
+  unreviewedIssues: number;
+  reviewedIssues: number;
+  statusCounts?: Record<string, number>;
+}
+
+async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ data: Company[]; count: number }> {
+  const sb = getSupabase();
+  if (!sb) return { data: [], count: 0 };
+
+  const { page = 1, limit = 50, search, status, plan, health, sortBy = 'created_at', sortAsc = false } = options;
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  let query = sb.from('companies').select('*', { count: 'exact' });
+
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,biz_no.ilike.%${search}%,domain.ilike.%${search}%,contact_email.ilike.%${search}%,contact_phone.ilike.%${search}%`);
+  }
+
+  if (status && status !== 'all') {
+    if (status === 'pending') query = query.in('status', ['pending', '등록됨']);
+    else if (status === 'crawling') query = query.in('status', ['crawling', '분석중']);
+    else if (status === 'analyzed') query = query.in('status', ['analyzed', '분석완료']);
+    else query = query.eq('status', status);
+  }
+  
+  if (plan && plan !== 'all_clients' && plan !== 'all_users') {
+    if (plan === 'none') {
+      query = query.or('plan.is.null,plan.eq.none');
+    } else {
+      query = query.eq('plan', plan);
+    }
+  } else if (plan === 'all_clients') {
+    query = query.not('plan', 'is', 'null').neq('plan', 'none');
+  }
+
+  if (health && health !== 'all') {
+    if (health === 'danger') query = query.gte('risk_score', 50);
+    else if (health === 'warning') query = query.gte('risk_score', 20).lt('risk_score', 50);
+    else if (health === 'healthy') query = query.lt('risk_score', 20);
+  }
+
+  const dbSortCol = camelToSnake(sortBy);
+  if (dbSortCol !== 'health' && dbSortCol !== 'activity') {
+    query = query.order(dbSortCol, { ascending: sortAsc });
+  } else if (dbSortCol === 'health') {
+    query = query.order('risk_score', { ascending: sortAsc });
+  } else {
+    query = query.order('created_at', { ascending: sortAsc });
+  }
+
+  query = query.range(from, to);
+
+  const { data: rows, count, error } = await query;
+  if (error || !rows) return { data: [], count: count || 0 };
+
+  const companyIds = rows.map(r => r.id);
+  let issueMap: Record<string, Record<string, any>[]> = {};
+  let contactMap: Record<string, Record<string, any>[]> = {};
+  
+  if (companyIds.length > 0) {
+    const [issuesRes, contactsRes] = await Promise.all([
+      sb.from('issues').select('*').in('company_id', companyIds),
+      sb.from('company_contacts').select('*').in('company_id', companyIds)
+    ]);
+    issueMap = groupBy(issuesRes.data, 'company_id');
+    contactMap = groupBy(contactsRes.data, 'company_id');
+  }
+
+  const companies: Company[] = [];
+  for (const row of rows) {
+    const anyC = rowToObj<Record<string, any>>(row);
+    const c = anyC as unknown as Company;
+    c.biz = anyC.bizNo || '';
+    c.bizType = anyC.bizCategory || '';
+    c.franchiseType = anyC.franchiseType || '';
+    c.assignedLawyer = anyC.assignedLawyerId || '';
+    c.url = anyC.domain || '';
+    c.email = anyC.contactEmail || '';
+    c.phone = anyC.contactPhone || '';
+
+    // Normalize Korean status strings to English enum keys
+    if (c.status === '등록됨' as any) c.status = 'pending';
+    if (c.status === '분석중' as any) c.status = 'crawling';
+    if (c.status === '분석완료' as any) c.status = 'analyzed';
+
+    c.issues = (issueMap[c.id] || []).map(r => {
+      const obj = rowToObj<Record<string, any>>(r);
+      if (obj.lawRef) { obj.law = obj.lawRef; delete obj.lawRef; }
+      return obj as unknown as Issue;
+    });
+    c.contacts = (contactMap[c.id] || []).map(r => rowToObj<CompanyContact>(r));
+    c.memos = [];
+    c.timeline = [];
+    companies.push(c);
+  }
+  return { data: companies, count: count || 0 };
+}
+
+async function fetchCompanyStats(): Promise<CompanyStats> {
+  const defaultStats = { total: 0, subscribers: 0, premium: 0, standard: 0, starter: 0, atRisk: 0, totalStores: 0, unreviewedIssues: 0, reviewedIssues: 0, statusCounts: {} };
+  const sb = getSupabase();
+  if (!sb) return defaultStats;
+  
+  const { data: rows } = await sb.from('companies').select('id, plan, risk_score, store_count, status');
+  if (!rows) return defaultStats;
+  
+  let total = rows.length, subscribers = 0, premium = 0, standard = 0, starter = 0, atRisk = 0, totalStores = 0;
+  const statusCounts: Record<string, number> = {};
+  
+  for (const r of rows) {
+    totalStores += (r.store_count || 0);
+    if (r.plan && r.plan !== 'none') subscribers++;
+    if (r.plan === 'premium') premium++;
+    if (r.plan === 'standard') standard++;
+    if (r.plan === 'starter') starter++;
+    const score = 100 - (r.risk_score || 0);
+    if (score < 50) atRisk++;
+    
+    let st = r.status || 'pending';
+    if (st === '등록됨') st = 'pending';
+    if (st === '분석중') st = 'crawling';
+    if (st === '분석완료') st = 'analyzed';
+    statusCounts[st] = (statusCounts[st] || 0) + 1;
+  }
+  return { total, subscribers, premium, standard, starter, atRisk, totalStores, unreviewedIssues: 0, reviewedIssues: 0, statusCounts };
+}
+
 function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = false): Record<string, any> {
   const { issues, contacts, memos, timeline, biz, bizType, franchiseType, assignedLawyer, id, ...flat } = companyData as Record<string, any>;
   const rawRow = objToRow(flat);
@@ -205,6 +353,8 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
 }
 
 export const supabaseCompanyStore = {
+  getPaginated: fetchPaginatedCompanies,
+  getStats: fetchCompanyStats,
   getAll: async (): Promise<Company[]> => {
     return fetchCompaniesWithRelations();
   },

@@ -138,14 +138,13 @@ export default function EmployeePage() {
 
     if (authLoading || !authorized) return null;
 
-    const filtered = crm.companies.filter(c => {
-        const q = crm.search.toLowerCase();
-        return (c.name.includes(q) || c.biz.includes(q) || c.email.includes(q) || c.phone.includes(q))
-            && (crm.filterStatus === 'all' || c.status === crm.filterStatus);
-    });
     const ALL_STATUSES = Object.keys(STATUS_LABEL) as CaseStatus[];
-    const counts = Object.fromEntries(ALL_STATUSES.map(s => [s, crm.companies.filter(c => c.status === s).length]));
-    const needsAction = crm.companies.filter(c => ['analyzed', 'lawyer_confirmed', 'client_replied'].includes(c.status));
+    
+    // Server-side paginated companies
+    const filtered = crm.companies;
+    
+    const statusesNeedsAction = ['analyzed', 'lawyer_confirmed', 'client_replied'];
+    const needsActionCount = statusesNeedsAction.reduce((acc, status) => acc + (crm.stats?.statusCounts?.[status] || 0), 0);
 
     return (
         <div className="min-h-screen px-3 sm:px-4 py-4 sm:py-8 max-w-[1600px] mx-auto" style={{ background: T.bg }}>
@@ -154,7 +153,7 @@ export default function EmployeePage() {
                 <div className="flex items-center justify-between mb-2 sm:mb-3">
                     <div>
                         <h1 className="text-lg sm:text-2xl font-black" style={{ color: T.heading }}>{crm.isAdmin ? '⚙️ 관리자 CRM' : '📊 영업팀 CRM'}</h1>
-                        <p className="text-xs sm:text-sm mt-0.5" style={{ color: T.muted }}>총 {crm.companies.length}개 기업</p>
+                        <p className="text-xs sm:text-sm mt-0.5" style={{ color: T.muted }}>총 {crm.stats?.total || 0}개 기업</p>
                     </div>
                     <div className="sm:hidden">
                         <Button variant="premium" size="sm" onClick={() => setShowAdd(true)}><Plus className="w-4 h-4" /></Button>
@@ -234,20 +233,17 @@ export default function EmployeePage() {
             {crm.isAdmin && <AnimatePresence>{showInvitePanel && <InvitePanel />}</AnimatePresence>}
 
             {/* Action Banners & Filters */}
-            {needsAction.length > 0 && (
+            {needsActionCount > 0 && (
                 <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
                     <div className="rounded-xl p-4" style={{ background: '#fef2f2', border: '1px solid #fca5a5' }}>
                         <div className="flex items-center gap-2 mb-2">
                             <AlertTriangle className="w-4 h-4" style={{ color: '#dc2626' }} />
-                            <p className="text-sm font-black" style={{ color: '#dc2626' }}>조치 필요 — {needsAction.length}건</p>
+                            <p className="text-sm font-black" style={{ color: '#dc2626' }}>조치 필요 — {needsActionCount}건</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {needsAction.map((c, i) => (
-                                <span key={c.id || i} className="text-xs px-2.5 py-1 rounded-full font-bold"
-                                    style={{ background: STATUS_COLOR[c.status], color: STATUS_TEXT[c.status] }}>
-                                    {c.name} · {STATUS_LABEL[c.status]}
-                                </span>
-                            ))}
+                            <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-white text-gray-700 shadow-sm border border-gray-200">
+                                조치 필요 필터 (분석완료, 변호사 컨펌, 답장수신)를 클릭하여 확인하세요.
+                            </span>
                         </div>
                     </div>
                 </motion.div>
@@ -255,7 +251,7 @@ export default function EmployeePage() {
 
             <div className="mb-5 overflow-x-auto pb-1">
                 <div className="flex gap-2 min-w-max">
-                    <button onClick={() => crm.setFilterStatus('all')}
+                    <button onClick={() => { crm.setFilterStatus('all'); crm.setPage(1); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
                         style={{ 
                             background: crm.filterStatus === 'all' ? '#fffbeb' : 'transparent', 
@@ -263,12 +259,12 @@ export default function EmployeePage() {
                             color: '#b8960a',
                             opacity: crm.filterStatus === 'all' ? 1 : 0.6 
                         }}>
-                        전체 <span>{crm.companies.length}</span>
+                        전체 <span>{crm.stats?.total || 0}</span>
                     </button>
                     {ALL_STATUSES.map(s => {
                         const isSelected = crm.filterStatus === s;
                         return (
-                            <button key={s} onClick={() => crm.setFilterStatus(s)}
+                            <button key={s} onClick={() => { crm.setFilterStatus(s); crm.setPage(1); }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
                                 style={{ 
                                     background: isSelected ? STATUS_COLOR[s] : 'transparent', 
@@ -276,7 +272,7 @@ export default function EmployeePage() {
                                     color: STATUS_TEXT[s],
                                     opacity: isSelected ? 1 : 0.5
                                 }}>
-                                {STATUS_LABEL[s]} <span>{counts[s] ?? 0}</span>
+                                {STATUS_LABEL[s]} <span>{crm.stats?.statusCounts?.[s] || 0}</span>
                             </button>
                         );
                     })}
@@ -291,7 +287,7 @@ export default function EmployeePage() {
                     style={{ background: T.card, border: `1px solid ${T.border}`, color: T.body, outline: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} />
             </div>
 
-            <AnimatePresence>{showDashboard && <SalesDashboard companies={crm.companies} logs={crm.autoLogs} />}</AnimatePresence>
+            <AnimatePresence>{showDashboard && <SalesDashboard stats={crm.stats} logs={crm.autoLogs} />}</AnimatePresence>
 
             {/* main views */}
             {crm.viewMode === 'phone' ? (
@@ -299,7 +295,59 @@ export default function EmployeePage() {
             ) : crm.viewMode === 'kanban' ? (
                 <KanbanBoard companies={filtered} onCardClick={(c) => { crm.setSearch(c.name); crm.setViewMode('table'); }} />
             ) : (
-                <TableView filtered={filtered} refresh={crm.refresh} />
+                <TableView 
+                    filtered={filtered} 
+                    refresh={crm.refresh} 
+                    sortBy={crm.sortBy}
+                    sortAsc={crm.sortAsc}
+                    onSort={(key) => {
+                        if (crm.sortBy === key) {
+                            crm.setSortAsc(!crm.sortAsc);
+                        } else {
+                            crm.setSortBy(key);
+                            crm.setSortAsc(false); // Default to desc for new keys
+                        }
+                        crm.setPage(1);
+                    }}
+                />
+            )}
+
+            {/* Pagination Controls */}
+            {crm.viewMode === 'table' && (
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-sm font-medium" style={{ color: T.muted }}>
+                        총 {crm.count} 개 중 {crm.count > 0 ? ((crm.page - 1) * crm.pageSize) + 1 : 0} - {Math.min(crm.page * crm.pageSize, crm.count)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <select 
+                            value={crm.pageSize} 
+                            onChange={(e) => { crm.setPageSize(Number(e.target.value)); crm.setPage(1); }}
+                            className="border rounded-lg px-2 py-1 text-sm outline-none transition-all"
+                            style={{ background: T.card, borderColor: T.border, color: T.body, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                        >
+                            <option value={30}>30개씩 보기</option>
+                            <option value={50}>50개씩 보기</option>
+                            <option value={100}>100개씩 보기</option>
+                        </select>
+                        
+                        <div className="flex gap-1.5">
+                            <Button 
+                                variant="outline" size="sm" 
+                                disabled={crm.page === 1}
+                                onClick={() => crm.setPage(p => Math.max(1, p - 1))}
+                            >
+                                이전
+                            </Button>
+                            <Button 
+                                variant="outline" size="sm"
+                                disabled={crm.page * crm.pageSize >= crm.count}
+                                onClick={() => crm.setPage(p => p + 1)}
+                            >
+                                다음
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Modals & Overlays */}

@@ -38,7 +38,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
         <div className="flex flex-col gap-3">
             {/* ── 기업 정보 ── */}
             <div className="space-y-2">
-                <p className="text-[11px] font-black" style={{ color: C.heading }}>📋 기업 정보 (클릭하여 수정)</p>
+                <p className="text-[14px] font-black" style={{ color: C.heading }}>📋 기업 정보 (클릭하여 수정)</p>
                 <div className="grid grid-cols-4 gap-2">
                     {[
                         { l: '기업명', v: co.name || '', field: isAdmin ? 'name' : undefined, placeholder: '기업명' },
@@ -47,7 +47,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                         { l: '담당자', v: co.contactName || '', field: 'contactName', placeholder: '이름 입력' },
                         { l: '이메일', v: co.contactEmail || co.email || '', field: 'contactEmail', placeholder: '이메일 입력' },
                         { l: '전화', v: co.contactPhone || co.phone || '', field: 'contactPhone', placeholder: '전화번호 입력' },
-                        { l: '홈페이지', v: co.domain || co.url || '', field: 'domain', placeholder: '홈페이지 주소' },
+                        { l: '홈페이지', v: co.domain || co.url || '', field: 'domain', placeholder: '홈페이지 주소', isUrl: true },
                         { l: '매장수', v: String(co.storeCount || 0), field: isAdmin ? 'storeCount' : undefined, placeholder: '매장수', isNumber: true },
                         { l: '업종', v: co.bizType || '', field: isAdmin ? 'bizType' : undefined, placeholder: '업종명' },
                         { l: '변호사', v: co.assignedLawyer || '', field: isAdmin ? 'assignedLawyer' : undefined, placeholder: '미배정' },
@@ -57,8 +57,15 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                             className="px-2.5 py-2 rounded-lg min-w-0"
                             style={{ background: C.surface, border: `1px solid ${C.borderLight}` }}
                         >
-                            <div className="text-[8px] font-bold" style={{ color: C.faint }}>{i.l}</div>
-                            <div className="text-[11px] font-medium truncate" style={{ color: i.field ? '#2563eb' : C.body }}>
+                            <div className="flex items-center justify-between">
+                                <div className="text-[11px] font-bold" style={{ color: C.faint }}>{i.l}</div>
+                                {i.isUrl && i.v && (
+                                    <a href={(i.v as string).startsWith('http') ? (i.v as string) : `http://${i.v}`} target="_blank" rel="noopener noreferrer">
+                                        <ExternalLink className="w-3.5 h-3.5 text-blue-500 hover:text-blue-700" title="홈페이지 바로가기" />
+                                    </a>
+                                )}
+                            </div>
+                            <div className="text-[13px] font-medium truncate" style={{ color: i.field ? '#2563eb' : C.body }}>
                                 {i.field ? (
                                     <EditableField 
                                         value={i.v as string} 
@@ -79,7 +86,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                 {/* ── 어드민: 상태값 강제 변경 ── */}
                 {(user?.role === 'super_admin' || user?.role === 'admin') && (
                     <div className="flex items-center gap-2 mt-4 pt-4 border-t border-red-100 justify-end">
-                        <p className="text-[11px] font-black" style={{ color: '#dc2626' }}>🔧 상태 강제 변경 (Admin)</p>
+                        <p className="text-[12px] font-black" style={{ color: '#dc2626' }}>🔧 상태 강제 변경 (Admin)</p>
                         <select
                             value={co.status}
                             onChange={(e) => {
@@ -87,7 +94,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                                 onRefresh();
                                 setToast('슈퍼 관리자 권한으로 상태가 변경되었습니다.');
                             }}
-                            className="text-[11px] px-2 py-1.5 rounded-lg border outline-none font-bold min-w-[120px]"
+                            className="text-[12px] px-2 py-1.5 rounded-lg border outline-none font-bold min-w-[120px]"
                             style={{ background: '#fef2f2', borderColor: '#fca5a5', color: '#dc2626' }}
                         >
                             {Object.entries(STATUS_LABEL).map(([val, label]) => (
