@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Building, CheckCircle2, Clock, Scale, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { type Company } from '@/lib/types';
+import { ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'; // Added ChevronLeft and named ChevronRightIcon for clarity
 
 // ── 로컬 상수 ────────────────────────────────────────────────
 const LEVEL_COLOR: Record<string, { text: string; bg: string; border: string }> = {
@@ -21,7 +22,18 @@ const LEVEL_ICON: Record<string, string> = { HIGH: '🔴', MEDIUM: '🟡', LOW: 
 
 // ── 컴포넌트 ─────────────────────────────────────────────────
 export default function ReviewDocList({ cases }: { cases: Company[] }) {
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const pageSize = 5;
+
     const pending = cases.filter(c => ['assigned', 'reviewing'].includes(c.status));
+    const totalPages = Math.max(1, Math.ceil(pending.length / pageSize));
+    
+    // Reset to page 1 if filtered results change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [cases]);
+
+    const paginatedCases = pending.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     if (pending.length === 0) {
         return (
@@ -48,7 +60,7 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
 
             {/* 문서 목록 */}
             <div>
-                {pending.map((c, idx) => {
+                {paginatedCases.map((c, idx) => {
                     const highIssues = c.issues.filter(i => i.level === 'HIGH' && !i.reviewChecked);
                     const medIssues = c.issues.filter(i => i.level === 'MEDIUM' && !i.reviewChecked);
                     const lowIssues = c.issues.filter(i => i.level === 'LOW' && !i.reviewChecked);
@@ -230,6 +242,63 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
                     총 미검토 {pending.reduce((s, c) => s + c.issues.filter(i => !i.reviewChecked).length, 0)}건
                 </span>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-white">
+                    <span className="text-xs text-slate-500 font-medium tracking-tight">
+                        {pending.length}건 중 {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, pending.length)}건 표기
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                        <button 
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="flex items-center gap-1">
+                            {Array.from({ length: totalPages }).map((_, i) => {
+                                const page = i + 1;
+                                // Show first, last, current, and adjacent sibling pages
+                                if (
+                                    page === 1 || 
+                                    page === totalPages || 
+                                    Math.abs(page - currentPage) <= 1
+                                ) {
+                                    return (
+                                        <button
+                                            key={page}
+                                            onClick={() => setCurrentPage(page)}
+                                            className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors flex items-center justify-center
+                                                ${currentPage === page 
+                                                    ? 'bg-violet-50 text-violet-600 border border-violet-200' 
+                                                    : 'text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200'}`}
+                                        >
+                                            {page}
+                                        </button>
+                                    );
+                                } else if (
+                                    page === currentPage - 2 ||
+                                    page === currentPage + 2
+                                ) {
+                                    return <span key={page} className="text-slate-400 text-xs tracking-widest px-0.5">...</span>;
+                                }
+                                return null;
+                            })}
+                        </div>
+
+                        <button 
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                        >
+                            <ChevronRightIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
