@@ -58,6 +58,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const sb = getBrowserSupabase();
 
+        // ── Next.js 개발 모드에서 무해한 인증 만료 에러가 콘솔 전체화면을 덮는 것을 방지 ──
+        if (typeof window !== 'undefined') {
+            const originalError = console.error;
+            console.error = (...args: any[]) => {
+                if (args[0] && typeof args[0] === 'string' && args[0].includes('Invalid Refresh Token: Refresh Token Not Found')) {
+                    // 무시 (정상적인 세션 만료)
+                    return;
+                }
+                originalError.apply(console, args);
+            };
+        }
+
         if (!sb || !IS_SUPABASE_CONFIGURED) {
             // Supabase 미설정 — 로컬 캐시에서 읽기 (개발 폴백)
             try {
