@@ -155,7 +155,7 @@ export interface Company {
     riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' | '';
     issueCount: number;
     bizType: string;
-    franchiseType?: '프랜차이즈' | '그외' | string;
+    franchiseType?: '프랜차이즈' | '중소기업' | '병의원' | '온라인쇼핑몰/이커머스' | '부동산 임대업' | 'IT/소프트웨어' | '스타트업' | '건설/시공' | '제조업' | '컨설팅/전문서비스' | '협회/비영리' | '기타' | string;
     domain: string;
     privacyUrl: string;
     privacyPolicyText?: string;

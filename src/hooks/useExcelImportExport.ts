@@ -45,7 +45,7 @@ export function useExcelImportExport(
             '기업명': c.name,
             '사업자번호': c.biz,
             '업종': c.bizType || '',
-            '구분': c.franchiseType || '',
+            '구분 카테고리': c.franchiseType || '',
             '홈페이지': c.url || c.domain || '',
             '이메일': c.email,
             '전화번호': c.phone,
@@ -56,7 +56,8 @@ export function useExcelImportExport(
             '위험도등급': c.riskLevel || '미분석',
             '발견된 법률이슈(건)': c.issueCount || 0,
             'AI 분석여부': c.status === 'analyzed' || c.status === 'client_replied' ? '완료' : '진행전',
-            '설정된 방침 URL': c.privacyUrl || '',
+            '개인정보처리방침 URL': c.privacyUrl || '',
+            '개인정보처리방침 전문': c.privacyPolicyText || '',
             '배정 변호사': c.assignedLawyer || '',
             '영업자': c.assignedSalesName || '',
             '통화 메모': c.callNote || '',
@@ -67,11 +68,11 @@ export function useExcelImportExport(
         XLSX.utils.book_append_sheet(wb, ws, 'CRM 기업목록');
         
         ws['!cols'] = [
-            { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, // 업종, 구분 추가로 늘어남
-            { wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 10 },
-            { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-            { wch: 18 }, { wch: 12 }, { wch: 40 }, { wch: 12 },
-            { wch: 15 }, { wch: 30 }, { wch: 10 },
+            { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, // 이름, 사업자번호, 업종, 구분카테고리
+            { wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, // 홈페이지, 이메일, 전화번호, 담당자
+            { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, // 담당자전화, 가맹점수, 상태, 위험도
+            { wch: 18 }, { wch: 12 }, { wch: 40 }, { wch: 40 }, // 이슈건수, AI분석여부, URL, 전문
+            { wch: 15 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, // 배정변호사, 영업자, 통화메모, 플랜
         ];
         XLSX.writeFile(wb, `IBS_CRM_기업목록_${new Date().toISOString().slice(0, 10)}.xlsx`);
         showToast('📥 Excel 파일이 다운로드되었습니다');
@@ -83,7 +84,7 @@ export function useExcelImportExport(
                 '기업명': '아이비에스 주식회사 (필수)',
                 '사업자번호': '123-45-67890',
                 '이메일': 'contact@ibs.example.com',
-                '구분(프랜차이즈/그외)': '프랜차이즈',
+                '구분 카테고리': '프랜차이즈',
                 '업종': '식음료',
                 '홈페이지': 'https://ibs.example.com',
                 '전화번호': '02-1234-5678',
@@ -92,8 +93,8 @@ export function useExcelImportExport(
                 '담당자': '김철수',
                 '담당자 전화': '010-1234-5678',
                 '담당자 이메일': 'kim@ibs.example.com',
-                '개인정보방침 URL': 'https://ibs.example.com/privacy',
-                '개인정보방침 전문': '당사는 고객의 개인정보를 소중하게 생각합니다...',
+                '개인정보처리방침 URL': 'https://ibs.example.com/privacy',
+                '개인정보처리방침 전문': '당사는 고객의 개인정보를 소중하게 생각합니다...',
                 '메모': '신규 유망 고객사',
             }
         ];
@@ -105,7 +106,7 @@ export function useExcelImportExport(
             { wch: 30 }, // 기업명
             { wch: 20 }, // 사업자번호
             { wch: 30 }, // 이메일
-            { wch: 25 }, // 구분(프랜차이즈/그외)
+            { wch: 25 }, // 구분 카테고리
             { wch: 20 }, // 업종
             { wch: 30 }, // 홈페이지
             { wch: 15 }, // 전화번호
@@ -114,8 +115,8 @@ export function useExcelImportExport(
             { wch: 15 }, // 담당자
             { wch: 20 }, // 담당자 전화
             { wch: 30 }, // 담당자 이메일
-            { wch: 40 }, // 개인정보방침 URL
-            { wch: 40 }, // 개인정보방침 전문
+            { wch: 40 }, // 개인정보처리방침 URL
+            { wch: 40 }, // 개인정보처리방침 전문
             { wch: 30 }, // 메모
         ];
         XLSX.writeFile(wb, 'CRM_업로드_양식.xlsx');
@@ -219,17 +220,23 @@ export function useExcelImportExport(
             if (!name) continue;
 
             const bizType = String(row['업종'] || row['bizType'] || '').trim();
-            const franchiseType = String(row['구분'] || row['구분(프랜차이즈/그외)'] || row['franchiseType'] || '').trim();
-            if (!franchiseType || (franchiseType !== '프랜차이즈' && franchiseType !== '그외')) {
-                showToast(`❌ [${name}] 기업의 구분(프랜차이즈/그외) 값이 누락되었거나 올바르지 않아 업로드가 취소되었습니다.`);
+            const franchiseType = String(row['구분'] || row['구분 카테고리'] || row['구분(프랜차이즈/그외)'] || row['franchiseType'] || '').trim();
+            const allowedCategories = [
+                '프랜차이즈', '중소기업', '병의원', '온라인쇼핑몰/이커머스', 
+                '부동산 임대업', 'IT/소프트웨어', '스타트업', '건설/시공', 
+                '제조업', '컨설팅/전문서비스', '협회/비영리', '기타'
+            ];
+            
+            if (!franchiseType || !allowedCategories.includes(franchiseType)) {
+                showToast(`❌ [${name}] 기업의 구분 카테고리 값이 누락되었거나 지정된 카테고리가 아니어 업로드가 취소되었습니다.`);
                 setExcelUploading(false);
                 return;
             }
 
             const biz = String(row['사업자번호'] || row['biz'] || '').trim();
             let memoContent = String(row['메모'] || row['memo'] || '').trim();
-            const privacyUrl = String(row['개인정보방침 URL'] || row['개인정보처리방침 URL'] || row['개인정보처리방침url'] || row['privacyUrl'] || '').trim();
-            const privacyPolicyText = String(row['개인정보방침 전문'] || row['개인정보처리방침 전문'] || row['개인정보처리방침전문'] || row['privacyPolicyText'] || '').trim();
+            const privacyUrl = String(row['개인정보처리방침 URL'] || row['개인정보처리방침url'] || row['개인정보방침 URL'] || row['privacyUrl'] || '').trim();
+            const privacyPolicyText = String(row['개인정보처리방침 전문'] || row['개인정보처리방침전문'] || row['개인정보방침 전문'] || row['privacyPolicyText'] || '').trim();
 
             const salesNameInput = String(row['영업자'] || row['담당영업자'] || row['salesName'] || '').trim();
             let assignedSalesId = undefined;
@@ -273,7 +280,7 @@ export function useExcelImportExport(
                 autoMode: true, aiDraftReady: false, source: 'manual',
                 riskScore: 0, riskLevel: '', issueCount: 0,
                 bizType,
-                franchiseType: franchiseType as '프랜차이즈' | '그외',
+                franchiseType,
                 domain: String(row['홈페이지'] || row['domain'] || '').trim(),
                 privacyUrl,
                 privacyPolicyText,

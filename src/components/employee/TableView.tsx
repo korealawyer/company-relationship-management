@@ -115,8 +115,8 @@ export default function TableView({ filtered, refresh }: TableViewProps) {
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedData.map((c: Company) => (
-                            <React.Fragment key={c.id}>
+                        {sortedData.map((c: Company, idx) => (
+                            <React.Fragment key={c.id || idx}>
                                 <tr
                                     className="transition-colors cursor-pointer"
                                     style={{ borderBottom: `1px solid ${T.borderSub}` }}

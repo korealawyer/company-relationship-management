@@ -101,8 +101,12 @@ export function PortalTour() {
             let hasSeen = false;
 
             if (supabase) {
-                const { data: { user } } = await supabase.auth.getUser();
-                hasSeen = !!user?.user_metadata?.hasSeenPortalTour;
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    hasSeen = !!user?.user_metadata?.hasSeenPortalTour;
+                } catch (e) {
+                    // Ignore auth error if refresh token is invalid
+                }
             } else {
                 hasSeen = !!localStorage.getItem('hasSeenPortalTour');
             }

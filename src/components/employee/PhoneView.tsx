@@ -136,8 +136,8 @@ export default function PhoneView({
                                 {[...(c.timeline || []).map(t => ({...t, _k: 't'})), ...(c.memos || []).map(m => ({...m, _k: 'm'}))]
                                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                     .slice(0, 8)
-                                    .map(env => (
-                                        <div key={env.id} className="text-xs pb-3 border-b last:border-0 border-slate-100">
+                                    .map((env, i) => (
+                                        <div key={env.id || i} className="text-xs pb-3 border-b last:border-0 border-slate-100">
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="font-bold flex items-center gap-1 text-[10.5px]" style={{ color: env._k === 't' ? '#6366f1' : '#10b981' }}>
                                                     {env._k === 't' ? <Activity className="w-3 h-3"/> : <MessageSquare className="w-3 h-3"/>}

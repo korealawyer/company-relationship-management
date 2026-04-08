@@ -74,9 +74,9 @@ export default function KanbanBoard({ companies, onCardClick }: KanbanBoardProps
                                     비어 있음
                                 </div>
                             )}
-                            {col.items.map(c => (
+                            {col.items.map((c, i) => (
                                 <motion.div
-                                    key={c.id}
+                                    key={c.id || i}
                                     whileHover={{ scale: 1.02, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                     onClick={() => onCardClick(c)}
                                     style={{

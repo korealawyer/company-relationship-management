@@ -49,15 +49,30 @@ export function useCompanies() {
     mutate(); // 리프레시
   };
 
-  const updateCompany = async (id: string, patch: Partial<Company>) => {
-    // 낙관적 업데이트 가능
-    await dataLayer.companies.update(id, patch);
-    mutate();
+  const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = true) => {
+    try {
+      mutate(
+        (currentData) => currentData?.map(c => c.id === id ? { ...c, ...patch } : c),
+        { revalidate: false }
+      );
+      await dataLayer.companies.update(id, patch);
+      if (!skipMutate) {
+        mutate();
+      }
+    } catch (e) {
+      mutate(); // rollback
+      throw e;
+    }
   };
 
   const deleteCompany = async (id: string) => {
-    await dataLayer.companies.delete(id);
-    mutate();
+    try {
+      mutate((currentData) => currentData?.filter(c => c.id !== id), { revalidate: false });
+      await dataLayer.companies.delete(id);
+    } catch (e) {
+      mutate();
+      throw e;
+    }
   };
 
   const updateBulk = async (companiesList: Partial<Company>[]) => {
@@ -88,8 +103,13 @@ export function useLitigations() {
   };
 
   const updateLitigation = async (id: string, patch: Partial<LitigationCase>) => {
-    await dataLayer.litigation.update(id, patch);
-    mutate();
+    try {
+      mutate(curr => curr?.map(l => l.id === id ? { ...l, ...patch } : l), { revalidate: false });
+      await dataLayer.litigation.update(id, patch);
+    } catch (e) {
+      mutate();
+      throw e;
+    }
   };
 
   return { litigations: data || EMPTY_LITIGATIONS, isLoading, error, mutate, addLitigation, updateLitigation };
@@ -108,8 +128,13 @@ export function useConsultations() {
   };
 
   const updateConsultation = async (id: string, patch: Partial<Consultation>) => {
-    await dataLayer.consult.update(id, patch);
-    mutate();
+    try {
+      mutate(curr => curr?.map(c => c.id === id ? { ...c, ...patch } : c), { revalidate: false });
+      await dataLayer.consult.update(id, patch);
+    } catch (e) {
+      mutate();
+      throw e;
+    }
   };
 
   return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate, addConsultation, updateConsultation };
@@ -143,18 +168,33 @@ export function useNotifications() {
   );
 
   const markAsRead = async (id: string) => {
-    await dataLayer.notifications.markAsRead(id);
-    mutate();
+    try {
+      mutate(curr => curr?.map(n => n.id === id ? { ...n, isRead: true } : n), { revalidate: false });
+      await dataLayer.notifications.markAsRead(id);
+    } catch (e) {
+      mutate();
+      throw e;
+    }
   };
 
   const markAllAsRead = async () => {
-    await dataLayer.notifications.markAllAsRead();
-    mutate();
+    try {
+      mutate(curr => curr?.map(n => ({ ...n, isRead: true })), { revalidate: false });
+      await dataLayer.notifications.markAllAsRead();
+    } catch (e) {
+      mutate();
+      throw e;
+    }
   };
 
   const deleteNotification = async (id: string) => {
-    await dataLayer.notifications.delete(id);
-    mutate();
+    try {
+      mutate(curr => curr?.filter(n => n.id !== id), { revalidate: false });
+      await dataLayer.notifications.delete(id);
+    } catch (e) {
+      mutate();
+      throw e;
+    }
   };
 
   return { notifications: data || EMPTY_NOTIFICATIONS, isLoading, error, markAsRead, markAllAsRead, deleteNotification };

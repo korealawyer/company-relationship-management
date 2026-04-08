@@ -12,7 +12,8 @@ import { useAuth } from '@/lib/AuthContext';
 
 function setCookie(name: string, value: string) {
     if (typeof document !== 'undefined') {
-        document.cookie = `${name}=${encodeURIComponent(value)}; path=/`;
+        const secure = process.env.NODE_ENV === 'production' ? 'Secure;' : '';
+        document.cookie = `${name}=${encodeURIComponent(value)}; path=/; ${secure} SameSite=Lax; max-age=86400;`;
     }
 }
 

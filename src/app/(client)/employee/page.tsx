@@ -42,7 +42,7 @@ export default function EmployeePage() {
         try {
             // 서버 부하 및 API Rate Limit 방지를 위해 순차적으로 처리합니다.
             for (const c of pendings) {
-                await crm.updateCompany(c.id, { status: 'crawling' });
+                await crm.updateCompany(c.id, { status: 'crawling' }, true);
                 try {
                     const batchAbort = new AbortController();
                     const batchTimeout = setTimeout(() => batchAbort.abort(), 90_000);
@@ -83,7 +83,7 @@ export default function EmployeePage() {
                             payload.privacyPolicyText = data.rawText;
                         }
                         
-                        await crm.updateCompany(c.id, payload);
+                        await crm.updateCompany(c.id, payload, true);
                         
                         import('@/lib/dataLayer').then(({ default: dl }) => {
                             dl.auto.addLog({
@@ -95,7 +95,7 @@ export default function EmployeePage() {
                         });
 
                     } else {
-                        await crm.updateCompany(c.id, { status: 'pending' });
+                        await crm.updateCompany(c.id, { status: 'pending' }, true);
                         import('@/lib/dataLayer').then(({ default: dl }) => {
                             dl.auto.addLog({
                                 type: 'ai_analysis',
@@ -107,7 +107,7 @@ export default function EmployeePage() {
                     }
                 } catch (err: any) {
                     console.error('Batch analyze fetch error:', err);
-                    await crm.updateCompany(c.id, { status: 'pending' });
+                    await crm.updateCompany(c.id, { status: 'pending' }, true);
                     import('@/lib/dataLayer').then(({ default: dl }) => {
                         dl.auto.addLog({
                             type: 'ai_analysis',
@@ -242,8 +242,8 @@ export default function EmployeePage() {
                             <p className="text-sm font-black" style={{ color: '#dc2626' }}>조치 필요 — {needsAction.length}건</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {needsAction.map(c => (
-                                <span key={c.id} className="text-xs px-2.5 py-1 rounded-full font-bold"
+                            {needsAction.map((c, i) => (
+                                <span key={c.id || i} className="text-xs px-2.5 py-1 rounded-full font-bold"
                                     style={{ background: STATUS_COLOR[c.status], color: STATUS_TEXT[c.status] }}>
                                     {c.name} · {STATUS_LABEL[c.status]}
                                 </span>

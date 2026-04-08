@@ -69,8 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // ── 초기 세션 로드 ─────────────────────────────────────
-        sb.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-            if (session?.user) {
+        sb.auth.getSession().then(({ data: { session }, error }: any) => {
+            if (error) {
+                console.warn('Supabase Auth error ignored:', error.message);
+                setUser(null);
+                _setSessionCache(null);
+            } else if (session?.user) {
                 const u = supabaseUserToAuthUser(session.user);
                 setUser(u);
                 _setSessionCache(u);
@@ -78,6 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null);
                 _setSessionCache(null);
             }
+            setLoading(false);
+        }).catch((err: any) => {
+            console.warn('Supabase getSession exception:', err);
+            setUser(null);
+            _setSessionCache(null);
             setLoading(false);
         });
 

@@ -36,7 +36,21 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                 <div className="space-y-3">
                     {[
                         { k: 'name', l: '기업명 *', ph: '(주)교촌에프앤비' },
-                        { k: 'franchiseType', l: '구분 (프랜차이즈/그외) *', type: 'select', options: [{label: '선택 안함', value: ''}, {label: '프랜차이즈', value: '프랜차이즈'}, {label: '그외', value: '그외'}] },
+                        { k: 'franchiseType', l: '구분 카테고리 *', type: 'select', options: [
+                            {label: '선택 안함', value: ''},
+                            {label: '프랜차이즈', value: '프랜차이즈'},
+                            {label: '중소기업', value: '중소기업'},
+                            {label: '병의원', value: '병의원'},
+                            {label: '온라인쇼핑몰/이커머스', value: '온라인쇼핑몰/이커머스'},
+                            {label: '부동산 임대업', value: '부동산 임대업'},
+                            {label: 'IT/소프트웨어', value: 'IT/소프트웨어'},
+                            {label: '스타트업', value: '스타트업'},
+                            {label: '건설/시공', value: '건설/시공'},
+                            {label: '제조업', value: '제조업'},
+                            {label: '컨설팅/전문서비스', value: '컨설팅/전문서비스'},
+                            {label: '협회/비영리', value: '협회/비영리'},
+                            {label: '기타', value: '기타'}
+                        ] },
                         { k: 'bizType', l: '업종 (예: 식음료, IT)', ph: '식음료' },
                         { k: 'biz', l: '사업자번호', ph: '123-45-67890' },
                         { k: 'url', l: '홈페이지 URL (등록 시 방침 자동 분석)', ph: 'https://kyochon.com' },
@@ -73,11 +87,16 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                     <Button variant="ghost" className="flex-1" onClick={onClose} disabled={isSubmitting}>취소</Button>
                     <Button variant="premium" className="flex-1" disabled={isSubmitting} onClick={async () => {
                         if (!addForm.name || !addForm.email || !addForm.franchiseType) {
-                            alert('기업명, 이메일, 구분(프랜차이즈/그외)은 필수 항목입니다.');
+                            alert('기업명, 이메일, 구분 카테고리는 필수 항목입니다.');
                             return;
                         }
-                        if (addForm.franchiseType !== '프랜차이즈' && addForm.franchiseType !== '그외') {
-                            alert('구분(프랜차이즈/그외)을 정확히 선택해주세요.');
+                        const allowedCategories = [
+                            '프랜차이즈', '중소기업', '병의원', '온라인쇼핑몰/이커머스', 
+                            '부동산 임대업', 'IT/소프트웨어', '스타트업', '건설/시공', 
+                            '제조업', '컨설팅/전문서비스', '협회/비영리', '기타'
+                        ];
+                        if (!allowedCategories.includes(addForm.franchiseType)) {
+                            alert('구분 카테고리를 정확히 선택해주세요.');
                             return;
                         }
 
@@ -101,7 +120,7 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
                                 autoMode: true, aiDraftReady: false, source: 'manual' as const,
                                 riskScore: 0, riskLevel: '', issueCount: 0,
                                 bizType: addForm.bizType || '', 
-                                franchiseType: addForm.franchiseType as '프랜차이즈' | '그외',
+                                franchiseType: addForm.franchiseType,
                                 domain: addForm.url || '', privacyUrl: addForm.url || '',
                                 contactName: addForm.contactName || '', contactEmail: addForm.email || '',
                                 contactPhone: addForm.contactPhone || addForm.phone || '',

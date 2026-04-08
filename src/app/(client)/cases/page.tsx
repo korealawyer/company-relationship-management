@@ -27,10 +27,19 @@ export default async function CasesPage() {
         }
     );
 
-    const { data: { user }, error } = await supabase.auth.getUser();
+    let user = null;
+    let error = null;
+    try {
+        const result = await supabase.auth.getUser();
+        user = result.data.user;
+        error = result.error;
+    } catch (err: any) {
+        // console.warn('SSR getUser exception:', err.message);
+        error = err;
+    }
 
     if (error || !user) {
-        redirect('/sign-in');
+        redirect('/login');
     }
 
     const authSession = {

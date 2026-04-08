@@ -105,9 +105,9 @@ export async function middleware(request: NextRequest) {
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
                         request.cookies.set(name, value);
-                        // Force session cookies to prevent auto-login after browser restart
-                        const { maxAge, expires, ...restOptions } = options;
-                        response.cookies.set(name, value, restOptions);
+                        // macOS (Safari/Chrome ITP) 환경에서는 maxAge/expires가 없는 세션 쿠키를 
+                        // 추적 방지로 오인하여 탭을 옮기거나 도달 시 삭제하는 경우가 빈번하므로 그대로 전달합니다.
+                        response.cookies.set(name, value, options);
                     });
                 },
             },
@@ -137,7 +137,16 @@ export async function middleware(request: NextRequest) {
         return response;
     }
 
-    const { data: { user }, error } = await sb.auth.getUser();
+    let user = null;
+    let error = null;
+    try {
+        const result = await sb.auth.getUser();
+        user = result.data.user;
+        error = result.error;
+    } catch (err: any) {
+        console.warn('Middleware getUser exception:', err.message);
+        error = err;
+    }
 
     // 미인증 또는 토큰 스푸핑/만료 → /login 리다이렉트
     if (error || !user) {
