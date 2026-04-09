@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Building, CheckCircle2, Clock, Scale, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { type Company } from '@/lib/types';
-import { ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'; // Added ChevronLeft and named ChevronRightIcon for clarity
+import { ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw } from 'lucide-react';
+import { useCompanies } from '@/hooks/useDataLayer';
 
 // ── 로컬 상수 ────────────────────────────────────────────────
 const LEVEL_COLOR: Record<string, { text: string; bg: string; border: string }> = {
@@ -24,6 +25,55 @@ const LEVEL_ICON: Record<string, string> = { HIGH: '🔴', MEDIUM: '🟡', LOW: 
 export default function ReviewDocList({ cases }: { cases: Company[] }) {
     const [currentPage, setCurrentPage] = React.useState(1);
     const pageSize = 5;
+    
+    const { updateCompany, mutate: refreshCompanies } = useCompanies();
+    const [analyzingId, setAnalyzingId] = React.useState<string | null>(null);
+
+    const handleReanalyze = async (c: Company) => {
+        if (!confirm(`${c.name}의 개인정보처리방침을 재분석하시겠습니까?`)) return;
+        setAnalyzingId(c.id);
+        
+        try {
+            await updateCompany(c.id, { status: 'reviewing' });
+            refreshCompanies();
+
+            const promptConfig = (await import('@/lib/prompts/privacy')).getPromptConfig();
+            
+            // @ts-ignore
+            const targetUrlForAnalysis = c.privacyUrl || c.domain || c.url;
+            
+            const res = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    companyId: c.id, 
+                    url: targetUrlForAnalysis, 
+                    systemPrompt: promptConfig.analyzePrompt,
+                    model: promptConfig.model
+                })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                await updateCompany(c.id, { 
+                    status: 'reviewing',
+                    issues: data.issues || [],
+                    issueCount: data.issueCount || 0,
+                    riskLevel: data.riskLevel || 'MEDIUM',
+                    privacyPolicyText: data.rawText || (c as any).privacyPolicyText // Use any if alias doesn't exist, though it shouldn't matter as backend handles it now
+                });
+                alert('재분석이 완료되었습니다.');
+            } else {
+                alert(`재분석 실패: ${data.error || '알 수 없는 오류'}`);
+            }
+        } catch (err: any) {
+            console.error('재분석 에러:', err);
+            alert(`재분석 중 오류 발생: ${err.message}`);
+        } finally {
+            setAnalyzingId(null);
+            refreshCompanies();
+        }
+    };
 
     const pending = cases.filter(c => ['assigned', 'reviewing'].includes(c.status));
     const totalPages = Math.max(1, Math.ceil(pending.length / pageSize));
@@ -50,12 +100,12 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
     return (
         <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             {/* 테이블 헤더 */}
-            <div className="hidden sm:grid px-5 py-3 text-[11px] font-bold tracking-wide"
-                style={{ gridTemplateColumns: '1fr 120px 180px 220px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', letterSpacing: '0.05em' }}>
+            <div className="hidden sm:grid px-5 py-3 gap-3 text-[11px] font-bold tracking-wide"
+                style={{ gridTemplateColumns: '1fr 120px 180px 290px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', letterSpacing: '0.05em' }}>
                 <span>기업명 / 상태</span>
                 <span className="text-center">위험도 분포</span>
                 <span className="text-center">미검토 이슈</span>
-                <span className="text-right">검토</span>
+                <span className="text-right pr-2">검토</span>
             </div>
 
             {/* 문서 목록 */}
@@ -82,7 +132,7 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
 
                             {/* === 데스크탑 레이아웃 === */}
                             <div className="hidden sm:grid items-center px-5 py-4 gap-3 hover:bg-slate-50/50 transition-colors"
-                                style={{ gridTemplateColumns: '1fr 120px 180px 220px' }}>
+                                style={{ gridTemplateColumns: '1fr 120px 180px 290px' }}>
                                 {/* 기업명 + 상태 */}
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -151,6 +201,14 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
 
                                 {/* 검토 버튼 */}
                                 <div className="flex justify-end gap-2">
+                                    <button
+                                        onClick={() => handleReanalyze(c)}
+                                        disabled={analyzingId === c.id}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all hover:shadow-md active:scale-95 border"
+                                        style={{ background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
+                                        <RefreshCw className={`w-3.5 h-3.5 ${analyzingId === c.id ? 'animate-spin' : ''}`} />
+                                        {analyzingId === c.id ? '분석중' : '재분석'}
+                                    </button>
                                     <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}&preview=1`}
                                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all hover:shadow-md active:scale-95 border"
                                         style={{ background: '#fffbeb', color: '#B45309', borderColor: '#fde68a' }}>
@@ -196,6 +254,14 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={() => handleReanalyze(c)}
+                                            disabled={analyzingId === c.id}
+                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap flex-shrink-0 border"
+                                            style={{ background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
+                                            <RefreshCw className={`w-3 h-3 ${analyzingId === c.id ? 'animate-spin' : ''}`} />
+                                            {analyzingId === c.id ? '분석중' : '재분석'}
+                                        </button>
                                         <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}&preview=1`}
                                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap flex-shrink-0 border"
                                             style={{ background: '#fffbeb', color: '#B45309', borderColor: '#fde68a' }}>

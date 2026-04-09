@@ -31,7 +31,7 @@ export default function LawyerProfileTab() {
                 
                 if (data) {
                     setProfile({
-                       name: data.name || '',
+                       name: data.name || user?.name || '임시 변호사',
                        department: data.department || '',
                        title: data.title || '',
                     });
@@ -39,7 +39,7 @@ export default function LawyerProfileTab() {
                 } else {
                     // Fallback mock if data is missing
                     setProfile({
-                        name: '임시 변호사',
+                        name: user?.name || '임시 변호사',
                         department: '기업자문팀',
                         title: '파트너 변호사',
                     });
@@ -246,7 +246,6 @@ export default function LawyerProfileTab() {
                                 </div>
                                 <div className="p-6 relative flex justify-end" style={{ backgroundColor: '#e5e3db' /* Privacy Review Paper Texture */ }}>
                                     <div className="text-right">
-                                        <div className="text-[12px] font-medium text-slate-500 mb-1 tracking-tight">검토 담당 변호사</div>
                                         <div className="flex items-center justify-end gap-3">
                                             <span className="text-[15px] font-black text-slate-800 tracking-wide" style={{ letterSpacing: '-0.02em' }}>
                                                 변호사 {profile.name}

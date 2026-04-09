@@ -226,7 +226,9 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  let query = sb.from('companies').select('*', { count: 'exact' });
+  const overviewColumns = `id, name, domain, url, email, phone, contact_name, contact_email, contact_phone, ceo_name, biz_category, franchise_type, store_count, plan, status, risk_level, risk_score, issue_count, privacy_url, assigned_lawyer_id, email_sent_at, lawyer_confirmed, lawyer_confirmed_at, source, biz_no, created_at, updated_at, sales_confirmed, sales_confirmed_at, sales_confirmed_by, email_subject, client_replied, client_replied_at, client_reply_note, login_count, call_note, auto_mode, ai_draft_ready, custom_script, lawyer_note, contract_sent_at, contract_signed_at, contract_method, contract_note, callback_scheduled_at, follow_up_step, ai_memo_summary, ai_next_action, ai_next_action_type, last_call_result, last_call_at, call_attempts, last_called_by`;
+
+  let query = sb.from('companies').select(overviewColumns, { count: 'exact' });
 
   if (search) {
     query = query.or(`name.ilike.%${search}%,biz_no.ilike.%${search}%,domain.ilike.%${search}%,contact_email.ilike.%${search}%,contact_phone.ilike.%${search}%`);

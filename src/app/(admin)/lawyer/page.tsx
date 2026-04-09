@@ -9,6 +9,7 @@ import { usePaginatedCompanies } from '@/hooks/useDataLayer';
 
 import { useRequireAuth } from '@/lib/AuthContext';
 import { DocumentWidget } from '@/components/DocumentWidget';
+import { RefreshCw } from 'lucide-react';
 import ConsultQueue from '@/components/lawyer/ConsultQueue';
 import BillingTracker from '@/components/lawyer/BillingTracker';
 import ReviewDocList from '@/components/lawyer/ReviewDocList';
@@ -28,12 +29,12 @@ import { LawyerFabMenu } from './components/LawyerFabMenu';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { MenuOption } from '@/components/layout/DashboardSidebar';
 
-import { usePersonalLitigations, useConsultations } from '@/hooks/useDataLayer';
+import { usePersonalLitigations, useConsultations, useCompanies } from '@/hooks/useDataLayer';
 
 const RecordingWidget = lazy(() => import('@/components/RecordingWidget'));
 
 export default function LawyerPage() {
-    const { loading, authorized } = useRequireAuth(['lawyer']);
+    const { user, loading, authorized } = useRequireAuth(['lawyer']);
     const [tab, setTab] = useState<string>('overview');
     const [search, setSearch] = useState('');
 
@@ -45,7 +46,9 @@ export default function LawyerPage() {
 
     const userId = getCurrentUserId();
     const { companies } = usePaginatedCompanies({ limit: 1000, page: 1, status: 'lawyer_active' });
+    const { updateCompany, mutate: refreshCompanies } = useCompanies();
     const { personalLitigations } = usePersonalLitigations();
+    const [isReanalyzingAll, setIsReanalyzingAll] = useState(false);
     const { consultations } = useConsultations();
     
     const personalLits = React.useMemo(() => personalLitigations.filter((l: any) => l.status !== 'closed'), [personalLitigations]);
@@ -85,6 +88,56 @@ export default function LawyerPage() {
     const urgentCount = assignedCases.filter(c => c.issues.some(i => i.level === 'HIGH' && !i.reviewChecked)).length;
     const reviewedCount = companies.filter(c => c.lawyerConfirmed).length;
     const unreviewedCount = companies.reduce((s, c) => s + c.issues.filter(i => !i.reviewChecked).length, 0);
+
+    const handleReanalyzeAll = async () => {
+        if (!confirm(`현재 목록에 있는 전체 기업(${assignedCases.length}곳)을 재분석하시겠습니까?\n이 작업은 시간이 다소 소요될 수 있습니다.`)) return;
+        
+        setIsReanalyzingAll(true);
+        try {
+            for (const c of assignedCases) {
+                await updateCompany(c.id, { status: 'reviewing' });
+            }
+            refreshCompanies();
+
+            const promptConfig = (await import('@/lib/prompts/privacy')).getPromptConfig();
+            
+            for (const c of assignedCases) {
+                // @ts-ignore
+                const targetUrl = c.domain || c.url || c.privacyUrl;
+                
+                try {
+                    const res = await fetch('/api/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            companyId: c.id,
+                            url: targetUrl,
+                            systemPrompt: promptConfig.analyzePrompt,
+                            model: promptConfig.model
+                        })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        await updateCompany(c.id, { 
+                            status: 'reviewing',
+                            issues: data.issues || [],
+                            issueCount: data.issueCount || 0,
+                            riskLevel: data.riskLevel || 'MEDIUM',
+                            privacyPolicyText: data.rawText || c.privacyPolicyText
+                        });
+                    }
+                } catch (err) {
+                    console.error(`항목 재분석 실패 (${c.name}):`, err);
+                }
+            }
+            alert('전체 재분석 작업이 완료되었습니다.');
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsReanalyzingAll(false);
+            refreshCompanies();
+        }
+    };
 
     const menus: MenuOption[] = [
         { id: 'overview', label: '대시보드', icon: Scale, badge: assignedCases.length, alert: urgentCount > 0 },
@@ -148,6 +201,14 @@ export default function LawyerPage() {
                                         className="w-full pl-9 pr-4 py-2 rounded-xl text-sm border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all bg-white shadow-sm"
                                     />
                                 </div>
+                                <button
+                                    onClick={handleReanalyzeAll}
+                                    disabled={isReanalyzingAll || assignedCases.length === 0}
+                                    className="hidden sm:flex items-center gap-1.5 text-sm font-bold transition-colors text-slate-500 hover:text-slate-800 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:border-slate-300 shadow-sm disabled:opacity-50"
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isReanalyzingAll ? 'animate-spin' : ''}`} />
+                                    {isReanalyzingAll ? '전체 재분석 중...' : '전체 재분석'}
+                                </button>
                                 <Link href={assignedCases.length > 0 ? `/lawyer/privacy-review?leadId=${assignedCases[0].id}&company=${encodeURIComponent(assignedCases[0].name)}` : "/lawyer/privacy-review"}
                                     className="hidden sm:flex items-center gap-1.5 text-sm font-bold transition-colors text-slate-400 hover:text-violet-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:border-violet-200 shadow-sm"
                                 >
@@ -236,8 +297,8 @@ export default function LawyerPage() {
             menus={menus}
             activeTab={tab}
             onTabChange={setTab}
-            userName="김수현 변호사"
-            userEmail="soohyun.kim@ibs.law"
+            userName={user?.name || "임시 변호사"}
+            userEmail={user?.email || "soohyun.kim@ibs.law"}
             companyName="IBS 법률사무소"
         >
             {renderContent()}
@@ -257,7 +318,7 @@ export default function LawyerPage() {
                             mode={recWidgetMode}
                             onClose={() => setShowRecWidget(false)}
                             userId="lawyer1"
-                            userName="김수현 변호사"
+                            userName={user?.name || "임시 변호사"}
                         />
                     )}
                 </AnimatePresence>

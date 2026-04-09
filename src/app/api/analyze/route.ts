@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 import { DEFAULT_PROMPT_CONFIG } from '@/lib/prompts/privacy';
+import { getServiceSupabase } from '@/lib/supabase';
 
 // Pro 요금제 활용: 최대 3분 허용 (기본 15초 제한 해제)
 export const maxDuration = 180; // 3분
@@ -163,17 +164,37 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        // [네트워크 Egress 최적화] DB 저장된 원문이 있는지 확인하여 Server 내부에서 처리
+        if ((!manualText || manualText.trim().length === 0) && companyId) {
+            console.log(`[Analyze API] manualText가 없어 서버에서 기존 DB 텍스트 직접 재검토 시도: ${companyId}`);
+            try {
+                const sb = getServiceSupabase();
+                if (sb) {
+                    const { data: dbCompany } = await sb.from('companies').select('privacy_policy_text, raw_text').eq('id', companyId).single();
+                    if (dbCompany) {
+                        const existingText = dbCompany.privacy_policy_text || dbCompany.raw_text;
+                        if (existingText && existingText.trim().length > 0) {
+                            extractedText = existingText.trim();
+                            console.log(`[Analyze API] DB에서 기존 프라이버시 텍스트 추출 완료 (${extractedText.length} bytes) - 크롤링 스킵`);
+                        }
+                    }
+                }
+            } catch (dbErr) {
+                console.warn('[Analyze API] 기존 DB 텍스트 쿼리 중 에러 발생:', dbErr);
+            }
+        }
+
         // 분기 로직
         // Case 2-3: manualText가 최우선
-        if (manualText && manualText.trim().length > 0) {
+        if (!extractedText && manualText && manualText.trim().length > 0) {
             extractedText = manualText.trim();
         }
         // Case 2-2: privacyUrl이 있는 경우
-        else if (privacyUrl && privacyUrl.startsWith('http')) {
+        else if (!extractedText && privacyUrl && privacyUrl.startsWith('http')) {
             extractedText = await crawlUrl(privacyUrl);
         } 
         // Case 2-1: homepageUrl만 있는 경우
-        else if (homepageUrl && homepageUrl.startsWith('http')) {
+        else if (!extractedText && homepageUrl && homepageUrl.startsWith('http')) {
             console.log(`[Analyze API] 홈페이지에서 푸터 정보 추출 시도 중: ${homepageUrl}`);
             const homeText = await crawlUrl(homepageUrl);
             
