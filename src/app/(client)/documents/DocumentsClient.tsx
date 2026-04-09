@@ -225,6 +225,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                             status: '검토 완료',
                             url: '#',
                             createdAt: company.updatedAt || new Date().toISOString(),
+                            updatedAt: company.updatedAt || new Date().toISOString(),
                             isNewForClient: false,
                             isNewForLawyer: false,
                             isDemo: false,

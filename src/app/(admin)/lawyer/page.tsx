@@ -56,7 +56,7 @@ export default function LawyerPage() {
     }, [personalLits]);
 
     const consultCount = React.useMemo(() => {
-        return (consultations || []).filter(c => c.status === '대기' || c.status === 'submitted').length;
+        return (consultations || []).filter(c => c.status === 'submitted').length;
     }, [consultations]);
 
     useEffect(() => {
