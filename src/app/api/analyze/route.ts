@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
                 body: JSON.stringify({
                     model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022',
                     max_tokens: 4096,
-                    system: '반드시 순수 JSON 형식({ "riskLevel": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.',
+                    system: '반드시 순수 JSON 형식({ "riskLevel": ..., "summaryOpinion": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.',
                     messages: [{ role: 'user', content: prompt }]
                 }),
                 signal: aiController.signal
@@ -326,7 +326,7 @@ export async function POST(request: NextRequest) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     systemInstruction: {
-                        parts: [{ text: '반드시 순수 JSON 형식({ "riskLevel": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.' }]
+                        parts: [{ text: '반드시 순수 JSON 형식({ "riskLevel": ..., "summaryOpinion": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.' }]
                     },
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     generationConfig: {
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest) {
                     temperature: 0.1,
                     response_format: { type: "json_object" },
                     messages: [
-                        { role: 'system', content: '반드시 JSON 형식의 객체({ "riskLevel": ..., "issues": [...] })만 반환해야 합니다.' },
+                        { role: 'system', content: '반드시 JSON 형식의 객체({ "riskLevel": ..., "summaryOpinion": ..., "issues": [...] })만 반환해야 합니다.' },
                         { role: 'user', content: prompt }
                     ]
                 }),

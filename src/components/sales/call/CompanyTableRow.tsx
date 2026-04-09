@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { AnimatePresence } from 'framer-motion';
-import { ChevronUp, ChevronDown, Phone, Mail, Globe, MessageCircle, FileSignature, Eye, ShieldCheck } from 'lucide-react';
+import { ChevronUp, ChevronDown, Phone, Mail, Globe, MessageCircle, FileSignature, Eye, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 import InlinePanel from './InlinePanel';
@@ -38,12 +38,13 @@ interface CompanyTableRowProps {
   onOpenKakao: (c: Company) => void;
   onOpenContract: (c: Company) => void;
   onPass?: () => void;
+  onDelete?: (id: string) => void;
 }
 
 export default function CompanyTableRow({
   c, lockInfo, myUserId, index, selectedId, activeCallId, kakaoStatuses, callResult, timer, 
   isRecording, sttStatus, waveformData, onSelect, onStartCall, onEndCall, 
-  onCallResult, onRefresh, setToast, onOpenKakao, onOpenContract, onPass
+  onCallResult, onRefresh, setToast, onOpenKakao, onOpenContract, onPass, onDelete
 }: CompanyTableRowProps) {
   const isSel = selectedId === c.id;
   const isCall = activeCallId === c.id;
@@ -296,6 +297,19 @@ export default function CompanyTableRow({
                           </>
                       );
                   })()}
+                  
+                  {user?.role === 'super_admin' && onDelete && (
+                      <button 
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(c.id);
+                          }}
+                          className="p-1.5 rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors" 
+                          style={{border:`1px solid ${C.borderLight}`}} 
+                          title="기업 정보 완전히 삭제 (슈퍼 관리자 전용)">
+                          <Trash2 className="w-3.5 h-3.5" style={{color:'#ef4444'}}/>
+                      </button>
+                  )}
               </div>
           </td>
       </tr>

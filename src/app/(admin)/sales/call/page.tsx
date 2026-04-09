@@ -175,8 +175,8 @@ export default function SalesCallPage() {
         contractPreviewTarget, setContractPreviewTarget, timer, isRecording, sttStatus, waveformData,
         filtered, statusCounts, selected, calledCount, highRiskCount, todayStats, newsItems,
         selectCompany, startCall, endCall, handleCallResult, confirmCallback, toggleSort, refresh,
-        columnFilters, setColumnFilter, page, setPage, count
-    } = useCallPage(user?.name || '');
+        columnFilters, setColumnFilter, page, setPage, count, deleteCompany
+    } = useCallPage(user?.id || '', user?.name || '');
 
     const getVal = (c: Company, k: string) => {
         if (k === 'name') return c.name;
@@ -310,7 +310,14 @@ export default function SalesCallPage() {
                                 onCallResult={handleCallResult} onRefresh={refresh} setToast={setToast}
                                 onOpenKakao={(co: Company) => { setKakaoTarget(co); setKakaoTemplate(0); }}
                                 onOpenContract={(co: Company) => { setContractPreviewTarget(co); }}
-                                onPass={() => selectCompany('')} />
+                                onPass={() => selectCompany('')} 
+                                onDelete={async (id: string) => {
+                                    if (window.confirm("정말로 이 기업 정보를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.")) {
+                                        await deleteCompany(id);
+                                        setToast('🗑️ 기업 정보가 삭제되었습니다.');
+                                    }
+                                }}
+                            />
                         ))}
                     </tbody>
                 </table>

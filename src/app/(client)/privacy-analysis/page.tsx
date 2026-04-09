@@ -423,7 +423,7 @@ export default function PrivacyAnalysisClientPage() {
 
                                         {/* 변호사 서명 영역 (신규) */}
                                         {company?.lawyerProfile && (
-                                            <div className="px-8 md:px-16 flex justify-end">
+                                            <div className="px-8 md:px-16 pt-6 pb-2 flex justify-end">
                                                 <div className="text-right flex flex-col items-end gap-2">
                                                     <div className="flex items-end gap-3">
                                                         <div className="font-black text-gray-900 text-lg">
@@ -766,14 +766,14 @@ export default function PrivacyAnalysisClientPage() {
                                             <Download className="w-4 h-4" /> 책임자용 보고서 다운
                                         </button>
                                         <button
-                                            onClick={() => router.push(`/contracts/sign/${company.id}`)}
+                                            onClick={() => window.location.href = 'tel:025988518'}
                                             className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-[15px] transition-all hover:-translate-y-0.5 shadow-[0_4px_16px_rgba(201,168,76,0.25)] whitespace-nowrap"
                                             style={{
                                                 background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
                                                 color: '#0a0e1a',
                                             }}
                                         >
-                                            <Phone className="w-5 h-5 text-current opacity-80" /> 수석 변호사 1:1 상담
+                                            <Phone className="w-5 h-5 text-current opacity-80" /> 1:1 상담 하기
                                         </button>
                                     </div>
                                 </div>

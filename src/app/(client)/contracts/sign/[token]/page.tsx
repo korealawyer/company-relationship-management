@@ -134,6 +134,7 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
     const [submitting, setSubmitting] = useState(false);
     const [companyName, setCompanyName] = useState('고객사');
     const [isLoading, setIsLoading] = useState(true);
+    const [documentUrl, setDocumentUrl] = useState<string | null>(null);
 
     const [selectedPlan, setSelectedPlan] = useState<PlanType>('pro');
     const [businessNumber, setBusinessNumber] = useState('');
@@ -282,43 +283,55 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
         try {
             const session = getSession();
             if (session?.companyId) {
-                await dataLayer.contracts.create({
-                    id: crypto.randomUUID(), 
-                    title: `법률자문 계약 (${PLANS[selectedPlan].name})`,
-                    template: '자문 계약서',
-                    party_a_name: 'test_ibs',
-                    party_a_signed: true,
-                    party_b_name: session.companyName || '고객사',
-                    party_b_email: session.email || '',
-                    party_b_signed: true,
-                    status: 'both_signed',
-                    content: `기업 법률자문 계약 (구독플랜: ${PLANS[selectedPlan].name}) - 온라인 체결 완료`,
+                // Call backend API to render PDF securely
+                const response = await fetch('/api/contracts/finalize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        companyName,
+                        businessNumber,
+                        address,
+                        ceoName,
+                        selectedPlan,
+                        signatureDataUrl,
+                        companyId: session.companyId
+                    })
                 });
 
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'API Request Failed');
+                }
+
+                if (result.documentUrl) {
+                    setDocumentUrl(result.documentUrl);
+                }
+
+                // Update company status directly through API if possible,
+                // but since frontend still uses dataLayer for updating status:
                 await dataLayer.companies.update(session.companyId, {
                     status: 'contract_signed',
                     contract_signed_at: new Date().toISOString()
                 } as any);
+
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#b8960a', '#e8c87a', '#22c55e', '#3b82f6']
+                });
+
+                setStep('done');
             } else {
                 console.warn('세션이 없어 DB에 반영되지 않았습니다.');
+                alert('로그인 세션이 만료되었습니다. 다시 로그인 해 주세요.');
             }
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            confetti({
-                particleCount: 150,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#b8960a', '#e8c87a', '#22c55e', '#3b82f6']
-            });
-
-            setStep('done');
-            setTimeout(() => {
-                router.replace('/contracts');
-            }, 3000);
-        } catch (error) {
+        } catch (error: any) {
             console.error('계약 저장 오류:', error);
-            alert('계약 처리 중 오류가 발생했습니다.');
+            alert(`계약 처리 중 오류가 발생했습니다: ${error.message}`);
         } finally {
             setSubmitting(false);
         }
@@ -372,15 +385,36 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
                             </div>
                         </div>
                     </div>
-                    <Link href="/contracts">
-                        <button className="w-full py-4 rounded-xl font-black text-[15px] transition-all hover:scale-105 shadow-[0_8px_30px_rgba(201,168,76,0.25)]"
-                            style={{ 
-                                background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, 
-                                color: '#0a0e1a'
-                            }}>
-                            내 전자계약함으로 복귀
-                        </button>
-                    </Link>
+                    {documentUrl ? (
+                        <div className="flex gap-4">
+                            <a href={documentUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                                <button className="w-full py-4 rounded-xl font-black text-[15px] border-2 transition-all hover:bg-gray-50 flex items-center justify-center gap-2"
+                                    style={{ borderColor: GOLD, color: GOLD }}>
+                                    <FileText className="w-5 h-5" />
+                                    PDF 다운로드
+                                </button>
+                            </a>
+                            <Link href="/contracts" className="flex-1">
+                                <button className="w-full h-full py-4 rounded-xl font-black text-[15px] transition-all hover:scale-105 shadow-[0_8px_30px_rgba(201,168,76,0.25)]"
+                                    style={{ 
+                                        background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, 
+                                        color: '#0a0e1a'
+                                    }}>
+                                    내 서재 복귀
+                                </button>
+                            </Link>
+                        </div>
+                    ) : (
+                        <Link href="/contracts">
+                            <button className="w-full py-4 rounded-xl font-black text-[15px] transition-all hover:scale-105 shadow-[0_8px_30px_rgba(201,168,76,0.25)]"
+                                style={{ 
+                                    background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, 
+                                    color: '#0a0e1a'
+                                }}>
+                                내 전자계약함으로 복귀
+                            </button>
+                        </Link>
+                    )}
                 </motion.div>
             </div>
         );

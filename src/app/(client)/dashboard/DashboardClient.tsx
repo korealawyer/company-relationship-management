@@ -922,7 +922,6 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
 
                     {/* ✨ 우측: 로펌 컨택 및 사이드바 ✨ */}
                     <div className="space-y-6">
-                        <PrivacyReportWidget company={company} />
                         <CalendarWidget companyId={company?.id} />
 
                         {/* IBS 로펌 전담 데스크 */}

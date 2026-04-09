@@ -127,7 +127,7 @@ export async function executeAiAnalysis({
                 issues: data.issues || [],
                 issueCount: data.issueCount || 0,
                 riskLevel: data.riskLevel || 'MEDIUM',
-                summary_opinion: data.summaryOpinion || ''
+                audit_report: data.summaryOpinion || ''
             };
             if (data.rawText) {
                 payload.privacyPolicyText = data.rawText;

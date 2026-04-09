@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import styles from "./page.module.css";
 import { supabaseCompanyStore, supabaseUserStore } from "@/lib/supabaseStore";
 import { Company, CallLock } from "@/lib/types";
+import { useCallLocks } from "@/hooks/useCallLocks";
 
 // Helper to calculate minutes difference from now
 function getMinutesDiff(dateStr: string) {
@@ -22,10 +23,17 @@ function getLocalDayStr(dateStr: string) {
 export default function SalesBoard() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [salesUsers, setSalesUsers] = useState<any[]>([]);
-  const [callLocks, setCallLocks] = useState<CallLock[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date().toLocaleTimeString());
   const [visibleCount, setVisibleCount] = useState(50);
+  
+  // Real-time locks via hook
+  const { locks: callLocks } = useCallLocks();
+
+  // Update lastRefresh when callLocks updates
+  useEffect(() => {
+    setLastRefreshed(new Date().toLocaleTimeString());
+  }, [callLocks]);
   
   // Total Goal
   const TOTAL_GOAL = 2000;
@@ -41,7 +49,6 @@ export default function SalesBoard() {
         ]);
         setCompanies(cmpData);
         setSalesUsers(usrData.filter((u: any) => u.role === "sales"));
-        await pollLocks();
       } catch (err) {
         console.error("Failed to init data:", err);
       } finally {
@@ -49,25 +56,6 @@ export default function SalesBoard() {
       }
     }
     init();
-  }, []);
-
-  // Polling Function
-  async function pollLocks() {
-    try {
-      const res = await fetch("/api/call-lock/status");
-      if (res.ok) {
-        const locks = await res.json();
-        setCallLocks(locks);
-        setLastRefreshed(new Date().toLocaleTimeString());
-      }
-    } catch (e) {
-      console.error("Lock polling error:", e);
-    }
-  }
-
-  useEffect(() => {
-    const id = setInterval(pollLocks, 30000);
-    return () => clearInterval(id);
   }, []);
 
   // -- Calculations --
@@ -177,7 +165,6 @@ export default function SalesBoard() {
           body: JSON.stringify({ companyId: l.companyId, userId: l.userId })
         })
       ));
-      pollLocks();
       alert(`초기화 완료 (${obsoleteLocks.length}건)`);
     } catch (err) {
       console.error(err);

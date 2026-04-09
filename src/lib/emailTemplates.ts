@@ -211,8 +211,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     </div>` : ''}
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 20px">
-      상세 검토 결과를 별도로 준비해두었으니, 아래 버튼을 통해 확인해주시기 바랍니다.<br/>
-      검토 결과에 대해 궁금하신 사항이 있으시면 언제든 연락 주시기 바랍니다.
+      *상기 항목은 단순한 표현상의 문제가 아니라 관련 법령과 직접적으로 연결되는 사항으로, 현행 기준에 비추어 보완 검토가 필요한 것으로 판단됩니다.
     </p>
 
     <!-- CTA -->
@@ -226,7 +225,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     <!-- 서명 -->
     <div style="margin-top:56px;padding-top:40px;padding-bottom:0px;border-top:1px solid #e2e8f0">
       <div style="text-align:right;margin-bottom:32px;">
-        <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">귀사의 안전한 개인정보 관리를 위해 최선을 다하겠습니다.</p><p style="color:#374151;font-size:14px;line-height:1.6;margin:0">감사합니다. </p>
+        <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">귀사가 사업의 성장과 확장에 안정적으로 전념하실 수 있도록<br/>경영 전반에 수반되는 법률 리스크에 대해 지속적이고 체계적인 자문 지원을 제공해드리겠습니다.</p><p style="color:#374151;font-size:14px;line-height:1.6;margin:0;margin-top:4px;">감사합니다.</p>
       </div>
       <div style="display:flex;align-items:center;justify-content:flex-end;gap:16px">
         ${lawyerName ? `
@@ -238,7 +237,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
         </div>
         ` : `
         <div style="text-align:right;">
-          <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 3px">IBS 법률사무소 개인정보보호 팀</p>
+          <p style="color:#1e293b;font-size:16px;font-weight:900;margin:0 0 3px">프랜차이즈 전문 IBS 법률사무소 드림</p>
           <p style="color:#64748b;font-size:13px;margin:0">02-598-8518 | info@ibslaw.co.kr</p>
         </div>
         `}
@@ -255,9 +254,12 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
 
   <!-- 풋터 -->
   <div style="background:#04091a;border-radius:0 0 16px 16px;padding:32px 40px;text-align:center;border-top:1px solid #1e293b">
-    <p style="color:#ffffff;font-size:14px;font-weight:bold;margin:0 0 8px">IBS 법률사무소 | 대표번호 02-598-8518 | info@ibslaw.co.kr | <a href="${unsubscribeUrl}" style="color:#94a3b8;font-weight:normal;text-decoration:underline;">수신거부</a></p>
-    <p style="color:#e2e8f0;font-size:13px;margin:0 0 4px">서울시 서초구 서초대로 272 IBS빌딩</p>
-    <p style="color:#e2e8f0;font-size:13px;margin:0">서울시 서초구 서초대로 270 IBS법률상담센터</p>
+    <p style="color:#ffffff;font-size:16px;font-weight:bold;margin:0 0 16px">IBS 법률사무소</p>
+    <div style="display:inline-block;text-align:left;">
+      <p style="color:#e2e8f0;font-size:13px;margin:0 0 6px">| 우 06645 서울시 서초구 서초대로 272 IBS 빌딩 | http://www.ibsbase.com</p>
+      <p style="color:#e2e8f0;font-size:13px;margin:0 0 6px">| 우 06645 서울시 서초구 서초대로 270 IBS 법률상담센터 | http://www.ibslawfirm.co.kr</p>
+      <p style="color:#e2e8f0;font-size:13px;margin:0">| 연락처 02-598-8518 | 팩스번호 02-598-8517 | 이메일 case@ibslaw.co.kr</p>
+    </div>
   </div>
 
   <!-- 트래킹 픽셀 (이메일 열람 추적) -->

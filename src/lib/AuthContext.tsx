@@ -59,15 +59,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sb = getBrowserSupabase();
 
         // ── Next.js 개발 모드에서 무해한 인증 만료 에러가 콘솔 전체화면을 덮는 것을 방지 ──
+        let handleUnhandledRejection: ((event: PromiseRejectionEvent) => void) | null = null;
         if (typeof window !== 'undefined') {
             const originalError = console.error;
             console.error = (...args: any[]) => {
-                if (args[0] && typeof args[0] === 'string' && args[0].includes('Invalid Refresh Token: Refresh Token Not Found')) {
+                const isAuthError = args.some(arg =>
+                    (typeof arg === 'string' && arg.includes('Refresh Token Not Found')) ||
+                    (arg && typeof arg === 'object' && arg.message && typeof arg.message === 'string' && arg.message.includes('Refresh Token Not Found'))
+                );
+                if (isAuthError) {
                     // 무시 (정상적인 세션 만료)
                     return;
                 }
                 originalError.apply(console, args);
             };
+
+            handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+                if (event.reason && event.reason.message && typeof event.reason.message === 'string' && event.reason.message.includes('Refresh Token Not Found')) {
+                    event.preventDefault();
+                }
+            };
+            window.addEventListener('unhandledrejection', handleUnhandledRejection);
         }
 
         if (!sb || !IS_SUPABASE_CONFIGURED) {
@@ -118,6 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return () => {
             subscription.unsubscribe();
+            if (handleUnhandledRejection && typeof window !== 'undefined') {
+                window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+            }
         };
     }, []);
 

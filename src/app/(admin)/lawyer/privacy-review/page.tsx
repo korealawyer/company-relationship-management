@@ -14,6 +14,7 @@ import {
 import { supabaseCompanyStore } from '@/lib/supabaseStore';
 import { useAutoSettings } from '@/hooks/useDataLayer';
 import type { Company, Issue } from '@/lib/mockStore';
+import LegalReviewPreview from '@/components/lawyer/LegalReviewPreview';
 
 // ── 색상 ──────────────────────────────────────────────────
 const R: Record<string, { border: string; bg: string; tag: string; text: string; label: string }> = {
@@ -119,18 +120,22 @@ function FirstReviewRow({ c, data, onChange, categories }: {
     return (
         <div style={{ borderBottom: '2px solid #e5e7eb', padding: '16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ fontWeight: 800, fontSize: 11, background: col.tag, color: col.text, borderRadius: 4, padding: '2px 8px' }}>{c.num}</span>
-                <span style={{ fontWeight: 900, fontSize: 13, color: '#111827' }}>{c.title}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col.tag, color: col.text }}>{col.label}</span>
+                <span style={{ fontWeight: 800, fontSize: 13, background: col.tag, color: col.text, borderRadius: 4, padding: '2px 8px' }}>{c.num}</span>
+                <span style={{ fontWeight: 900, fontSize: 15, color: '#111827' }}>{c.title}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col.tag, color: col.text }}>{col.label}</span>
             </div>
 
             {hasIssue && (
                 <>
-
-
-
-                    {/* 시나리오 설명 */}
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>⚠ 위반 시 예상 시나리오</div>
+                    {/* 진단 요약 */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: col.tag, border: `1px solid ${col.border}40`, borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                        <div style={{ fontSize: 20 }}>🎯</div>
+                        <div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: col.text, marginBottom: 4 }}>위반 쟁점 요약</div>
+                            <div style={{ fontSize: 16, color: col.text, lineHeight: 1.6, fontWeight: 600 }}>{c.riskSummary}</div>
+                        </div>
+                    </div>                    {/* 시나리오 설명 */}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>⚠ 위반 시 예상 시나리오</div>
                     <EditableText
                         value={data[`${c.num}_scenario`] ?? c.scenario}
                         onChange={v => onChange(`${c.num}_scenario`, v)}
@@ -140,7 +145,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                     {/* 예상 제재 + 수정 권고 */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                         <div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>💰 예상 제재</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>💰 예상 제재</div>
                             <EditableText
                                 value={data[`${c.num}_penalty`] ?? c.penalty}
                                 onChange={v => onChange(`${c.num}_penalty`, v)}
@@ -148,7 +153,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                             />
                         </div>
                         <div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>📌 수정 권고</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>📌 수정 권고</div>
                             <EditableText
                                 value={data[`${c.num}_recommendation`] ?? c.recommendation}
                                 onChange={v => onChange(`${c.num}_recommendation`, v)}
@@ -170,13 +175,13 @@ function FullRevisionRow({ c, data, onChange }: {
     return (
         <div style={{ borderBottom: '2px solid #e5e7eb', padding: '16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ fontWeight: 800, fontSize: 11, background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '2px 8px' }}>수정완료</span>
-                <span style={{ fontWeight: 900, fontSize: 13, color: '#166534' }}>{c.num} — {c.title}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#dcfce7', color: '#166534' }}>✅ 수정</span>
+                <span style={{ fontWeight: 800, fontSize: 13, background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '2px 8px' }}>수정완료</span>
+                <span style={{ fontWeight: 900, fontSize: 15, color: '#166534' }}>{c.num} — {c.title}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#dcfce7', color: '#166534' }}>✅ 수정</span>
             </div>
 
             {/* ① 수정 완료본 */}
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#166534', marginBottom: 4 }}>📄 수정 완료본</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 4 }}>📄 수정 완료본</div>
             <EditableText
                 value={data[`${c.num}_fixed`] ?? c.aiFixed}
                 onChange={v => onChange(`${c.num}_fixed`, v)}
@@ -184,7 +189,7 @@ function FullRevisionRow({ c, data, onChange }: {
             />
 
             {/* ② 변호사 검토의견 */}
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>⚖ 변호사 검토의견</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>⚖ 변호사 검토의견</div>
             <EditableText
                 value={data[`${c.num}_revOpinion`] ?? c.revisionOpinion}
                 onChange={v => onChange(`${c.num}_revOpinion`, v)}
@@ -192,8 +197,8 @@ function FullRevisionRow({ c, data, onChange }: {
             />
 
             {/* ③ 수정 근거 */}
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>📋 수정 근거</div>
-            <div style={{ fontSize: 12, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '8px 12px', lineHeight: 1.7 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>📋 수정 근거</div>
+            <div style={{ fontSize: 14, color: '#1e40af', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '8px 12px', lineHeight: 1.7 }}>
                 {c.legalBasis.map((b, i) => <div key={i}>· {b}</div>)}
             </div>
 
@@ -217,11 +222,11 @@ export default function PrivacyReviewPage() {
 function PrivacyReviewContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { loading, authorized } = useRequireAuth(['super_admin', 'admin', 'lawyer', 'sales']);
+    const { loading, authorized, user } = useRequireAuth(['super_admin', 'admin', 'lawyer', 'sales']);
     const { settings: autoSettings } = useAutoSettings();
     const company = searchParams?.get('company') || '(주)샐러디';
     const leadId = searchParams?.get('leadId') || undefined;
-    const [tab, setTab] = useState<'first' | 'full'>('first');
+    const [tab, setTab] = useState<'first' | 'legal_review' | 'full'>('first');
     const [data, setData] = useState<Record<string, string>>({});
     const [generating, setGenerating] = useState(false);
     const [generated, setGenerated] = useState(false);
@@ -236,6 +241,7 @@ function PrivacyReviewContent() {
     const [customReqMsg, setCustomReqMsg] = useState('');
     const [toastMsg, setToastMsg] = useState('');
     const [clauses, setClauses] = useState<Clause[]>(CLAUSES);
+    const [auditReport, setAuditReport] = useState<string | null>(null);
     const [fetching, setFetching] = useState(true);
     const t0 = useRef(Date.now());
 
@@ -297,6 +303,11 @@ function PrivacyReviewContent() {
                 } else {
                     setClauses([]);
                 }
+                
+                if (data && data.audit_report) {
+                    setAuditReport(data.audit_report);
+                }
+                
                 setFetching(false);
             });
         } else {
@@ -309,7 +320,7 @@ function PrivacyReviewContent() {
         return () => clearInterval(id);
     }, []);
 
-    if (fetching || loading || !authorized) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div></div>;
+    if (fetching || loading || !authorized) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 16, color: '#6b7280' }}>로딩 중...</div></div>;
 
     const upd = (k: string, v: string) => setData(p => ({ ...p, [k]: v }));
     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
@@ -343,115 +354,85 @@ function PrivacyReviewContent() {
         }, 1500);
     };
 
-    // ── 1차 조문검토 컨펌 ────────────────────────────────────────
-    // 변호사 컨펌 = "조문 검토됨" 상태 기록 및 AI 실사 보고서 생성 후 영업팀 패스
-    const handleFirstConfirm = async () => {
+    const handleUpdateReport = async (newReport: string) => {
+        setAuditReport(newReport);
+        if (leadId) {
+            await supabaseCompanyStore.update(leadId, { audit_report: newReport });
+        }
+    };
+
+
+    // ── 핸들러 ────────────────────────────────────────────────
+    const handleFirstConfirm = async (action: 'view_full' | 'view_legal_review' | 'next') => {
+        if (!leadId) {
+            alert('연결된 리드가 없습니다.');
+            return;
+        }
         setConfirming(true);
         setConfirmProgress('이슈 데이터 동기화 중...');
         try {
-            if (leadId) {
-                console.log('[handleFirstConfirm] Updating Supabase row for lead:', leadId);
-                
-                const newIssues = clauses.filter(c => c.level !== 'OK').map(c => ({
-                    level: c.level as 'HIGH' | 'MEDIUM' | 'LOW',
-                    law: c.lawRef,
-                    title: c.title,
-                    originalText: c.original,
-                    riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
-                    customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
-                    lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
-                    scenario: c.scenario,
-                    penalty: c.penalty,
-                    recommendation: c.recommendation,
-                    lawText: c.lawText,
-                    reviewChecked: true,
-                    aiDraftGenerated: true
-                }));
+            const newIssues = clauses.filter(c => c.level !== 'OK').map(c => ({
+                level: c.level as 'HIGH' | 'MEDIUM' | 'LOW',
+                law: c.lawRef,
+                title: c.title,
+                originalText: c.original,
+                riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
+                customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
+                lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
+                scenario: data[`${c.num}_scenario`] ?? c.scenario,
+                penalty: data[`${c.num}_penalty`] ?? c.penalty,
+                recommendation: data[`${c.num}_recommendation`] ?? c.recommendation,
+                lawText: c.lawText,
+                reviewChecked: true,
+                aiDraftGenerated: true
+            }));
 
-                // 1. 이슈 데이터 먼저 저장
-                await supabaseCompanyStore.update(leadId, { 
-                    issues: newIssues as any
+            await supabaseCompanyStore.update(leadId, { issues: newIssues as any });
+
+            setConfirmProgress('보고서 작성 중...');
+            let reportMarkdown = null;
+            try {
+                const res = await fetch('/api/analyze/report', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ issues: newIssues, companyName: company })
                 });
-
-                // 2. 외부 마크다운 실사 보고서 자동 생성 API 호출 (백그라운드, 대기)
-                setConfirmProgress('보고서 작성 중...');
-                console.log('[handleFirstConfirm] Calling report generation API...');
-                
-                let reportMarkdown = null;
-                try {
-                    const res = await fetch('/api/analyze/report', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ issues: newIssues, companyName: company })
-                    });
-                    
-                    if (res.ok) {
-                        const resData = await res.json();
-                        reportMarkdown = resData.reportMarkdown;
-                        console.log('[handleFirstConfirm] Report generation successful.');
-                    } else {
-                        console.error('[handleFirstConfirm] API returned error:', await res.text());
-                    }
-                } catch (reportErr) {
-                    console.error('[handleFirstConfirm] API fetch error:', reportErr);
-                }
-
-                // 3. 상태 업데이트 및 보고서 저장 (보고서가 없어도 상태는 진행)
-                setConfirmProgress('CRM 최종 반영 중...');
-                const updatePayload: any = {
-                    lawyerConfirmed: true, 
-                    lawyerConfirmedAt: new Date().toISOString(),
-                    status: 'lawyer_confirmed',
-                };
-                if (reportMarkdown) {
-                    updatePayload.audit_report = reportMarkdown;
-                }
-                
-                await supabaseCompanyStore.update(leadId, updatePayload);
-                console.log('[handleFirstConfirm] Successfully updated lawyerConfirmed, status, and audit_report.');
-
-                if (autoSettings?.autoSendEmail) {
-                    try {
-                        const emailRes = await fetch('/api/email', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ type: 'company_hook', leadId, customSubject: `[IBS 법률] ${company} 개인정보처리방침 리스크 진단 결과` }),
-                        });
-                        console.log('[handleFirstConfirm] autoSendEmail response:', emailRes.status);
-                        await supabaseCompanyStore.update(leadId, { status: 'emailed', emailSentAt: new Date().toISOString() });
-                    } catch(e) {
-                         console.error('[handleFirstConfirm] Auto email send failed:', e);
-                    }
+                if (res.ok) {
+                    const resData = await res.json();
+                    reportMarkdown = resData.reportMarkdown;
+                    setAuditReport(reportMarkdown);
                 } else {
-                    try {
-                        const emailRes = await fetch('/api/email', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ type: 'clause_review_done', leadId, company, highRiskCount: highN, medRiskCount: medN }),
-                        });
-                        console.log('[handleFirstConfirm] clause_review_done email response:', emailRes.status);
-                    } catch(e) {
-                        console.error('[handleFirstConfirm] clause_review_done email failed:', e);
-                    }
+                    reportMarkdown = "# ️자동 보고서 생성 지연\n\n현재 AI 실사 보고서 작성 서버의 응답이 지연되고 있습니다. \n잠시 후 다시 시도하거나, 아래 `수정 모드`를 통해 직접 의견을 기재해 주시기 바랍니다.";
+                    setAuditReport(reportMarkdown);
                 }
-                // alert('리포트 생성 및 CRM 반영이 성공적으로 완료되었습니다.');
-                // 다음 검토 대기 기업 확인
-                const allCompanies = await supabaseCompanyStore.getAll();
-                const nextPending = allCompanies.find((c: any) => 
-                    ['assigned', 'reviewing'].includes(c.status) && c.id !== leadId
-                );
+            } catch (reportErr) { 
+                console.error(reportErr); 
+                reportMarkdown = "# ️자동 보고서 생성 연동 오류\n\nAI 보고서 작성 서버와의 연결에 실패했습니다. 네트워크 상태를 확인하시거나 고객센터에 문의해주세요.";
+                setAuditReport(reportMarkdown);
+            }
 
-                if (nextPending) {
-                    router.push(`/lawyer/privacy-review?leadId=${nextPending.id}&company=${encodeURIComponent(nextPending.name)}`);
-                } else {
-                    router.push('/lawyer');
-                }
+            setConfirmProgress('CRM 최종 반영 중...');
+            const updatePayload: any = {
+                lawyerConfirmed: true, 
+                lawyerConfirmedAt: new Date().toISOString(),
+                status: 'lawyer_confirmed',
+            };
+            if (reportMarkdown) updatePayload.audit_report = reportMarkdown;
+            await supabaseCompanyStore.update(leadId, updatePayload);
+
+            if (action === 'view_legal_review') {
+                setTab('legal_review');
+            } else if (action === 'view_full') {
+                setTab('full');
             } else {
-                setConfirmedTab('first');
+                const allCompanies = await supabaseCompanyStore.getAll();
+                const nextPending = allCompanies.find((c: any) => ['assigned', 'reviewing'].includes(c.status) && c.id !== leadId);
+                if (nextPending) router.push(`/lawyer/privacy-review?leadId=${nextPending.id}&company=${encodeURIComponent(nextPending.name)}`);
+                else router.push('/lawyer');
             }
         } catch (error) {
-            console.error('[handleFirstConfirm] Critical Error updating Supabase:', error);
-            alert('데이터베이스 반영 중 오류가 발생했습니다. 개발자 콘솔을 확인해주세요.');
+            console.error(error);
+            alert('오류가 발생했습니다.');
         } finally {
             setConfirming(false);
             setConfirmProgress('');
@@ -459,7 +440,6 @@ function PrivacyReviewContent() {
     };
 
     // ── 전체수정완본 컨펌 ────────────────────────────────────────
-    // 계약 완료 후 변호사가 최종 완본 컨펌 → 고객 HR 문서함으로 자동 전달
     const handleFullConfirm = async () => {
         setConfirming(true);
         try {
@@ -472,16 +452,17 @@ function PrivacyReviewContent() {
                     riskDesc: data[`${c.num}_risk`] ?? c.riskSummary,
                     customDraft: data[`${c.num}_fixed`] ?? c.aiFixed,
                     lawyerNote: data[`${c.num}_revOpinion`] ?? c.revisionOpinion ?? data[`${c.num}_opinion`] ?? c.lawyerOpinion,
-                    scenario: c.scenario,
-                    penalty: c.penalty,
-                    recommendation: c.recommendation,
+                    scenario: data[`${c.num}_scenario`] ?? c.scenario,
+                    penalty: data[`${c.num}_penalty`] ?? c.penalty,
+                    recommendation: data[`${c.num}_recommendation`] ?? c.recommendation,
                     lawText: c.lawText,
                     reviewChecked: true,
                     aiDraftGenerated: true
                 }));
 
                 await supabaseCompanyStore.update(leadId, { 
-                    issues: newIssues as any
+                    issues: newIssues as any,
+                    audit_report: auditReport || undefined
                 });
             }
 
@@ -496,10 +477,9 @@ function PrivacyReviewContent() {
                     documentNo: `IBS-PR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
                 }),
             });
-            console.log('[handleFullConfirm] Email response:', res.status);
             setConfirmedTab('full');
         } catch(error) { 
-            console.error('[handleFullConfirm] Error:', error);
+            console.error(error);
             alert('오류가 발생했습니다. 다시 시도해주세요.'); 
         } finally {
             setConfirming(false);
@@ -511,29 +491,29 @@ function PrivacyReviewContent() {
         <div style={{ minHeight: '100vh', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center', background: '#fff', borderRadius: 20, padding: '48px 64px', boxShadow: '0 4px 32px rgba(0,0,0,0.08)', maxWidth: 460 }}>
                 <CheckCircle2 size={56} color="#16a34a" style={{ margin: '0 auto 16px' }} />
-                <h2 style={{ fontSize: 22, fontWeight: 900, color: '#16a34a', margin: '0 0 6px' }}>1차 조문검토 컨펌 완료</h2>
-                <p style={{ color: '#374151', margin: '0 0 20px', fontWeight: 700, fontSize: 15 }}>{company}</p>
+                <h2 style={{ fontSize: 24, fontWeight: 900, color: '#16a34a', margin: '0 0 6px' }}>1차 조문검토 컨펌 완료</h2>
+                <p style={{ color: '#374151', margin: '0 0 20px', fontWeight: 700, fontSize: 17 }}>{company}</p>
                 {/* 다음 단계 안내 — 영업팀 역할 */}
                 <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 18px', marginBottom: 24, textAlign: 'left' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, letterSpacing: 0.5 }}>다음 단계 (영업팀)</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', marginBottom: 8, letterSpacing: 0.5 }}>다음 단계 (영업팀)</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#dcfce7', color: '#166534', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✓</span>
-                            <span style={{ fontSize: 12, color: '#374151' }}>변호사 1차 조문검토 완료 — CRM 반영됨</span>
+                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#dcfce7', color: '#166534', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✓</span>
+                            <span style={{ fontSize: 14, color: '#374151' }}>변호사 1차 조문검토 완료 — CRM 반영됨</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</span>
-                            <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>영업팀 → 이메일 미리보기 확인</span>
+                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fef3c7', color: '#92400e', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</span>
+                            <span style={{ fontSize: 14, color: '#374151', fontWeight: 600 }}>영업팀 → 이메일 미리보기 확인</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</span>
-                            <span style={{ fontSize: 12, color: '#374151' }}>영업팀 → 고객에게 이메일 발송</span>
+                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#dbeafe', color: '#1d4ed8', fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</span>
+                            <span style={{ fontSize: 14, color: '#374151' }}>영업팀 → 고객에게 이메일 발송</span>
                         </div>
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                    <button onClick={() => { setConfirmedTab(null); setTab('full'); }} style={{ background: '#f8f9fc', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 18px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>전체수정완본 보기</button>
-                    <Link href="/lawyer"><button style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>변호사 대시보드 →</button></Link>
+                    <button onClick={() => { setConfirmedTab(null); setTab('full'); }} style={{ background: '#f8f9fc', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 18px', fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>전체수정완본 보기</button>
+                    <Link href="/lawyer"><button style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 15 }}>변호사 대시보드 →</button></Link>
                 </div>
             </div>
         </div>
@@ -543,20 +523,32 @@ function PrivacyReviewContent() {
         <div style={{ minHeight: '100vh', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center', background: '#fff', borderRadius: 20, padding: '48px 64px', boxShadow: '0 4px 32px rgba(0,0,0,0.08)', maxWidth: 460 }}>
                 <FileText size={56} color="#2563eb" style={{ margin: '0 auto 16px' }} />
-                <h2 style={{ fontSize: 22, fontWeight: 900, color: '#1d4ed8', margin: '0 0 6px' }}>수정완본 고객 전달 완료</h2>
+                <h2 style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', margin: '0 0 6px' }}>수정완본 고객 전달 완료</h2>
                 <p style={{ color: '#374151', margin: '0 0 20px', fontWeight: 700 }}>{company}</p>
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '14px 18px', marginBottom: 24, textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 700, marginBottom: 6 }}>📤 고객 HR 문서함으로 전달됨</div>
-                    <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.8 }}>
+                    <div style={{ fontSize: 15, color: '#1d4ed8', fontWeight: 700, marginBottom: 6 }}>📤 고객 HR 문서함으로 전달됨</div>
+                    <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }}>
                         · {company} 개인정보처리방침 수정완본<br />
                         · 변호사 검토의견서 포함<br />
                         · 고객 대시보드 문서함에서 확인 가능
                     </div>
                 </div>
-                <Link href="/lawyer"><button style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>변호사 대시보드 →</button></Link>
+                <Link href="/lawyer"><button style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>변호사 대시보드 →</button></Link>
             </div>
         </div>
     );
+
+    const displayIssues = clauses.filter((c: any) => c.level !== 'OK').map((c: any, i: number) => {
+        return {
+            level: c.level,
+            law: c.lawRef || '법령 미상',
+            title: c.title || `검토 의견 ${i + 1}`,
+            originalText: c.original || '원본 조항 데이터가 없습니다.',
+            riskDesc: data[`issue_risk_${c.num}`] || data[`clause_${c.num}_desc`] || '리스크 상세 내용이 리뷰 중입니다.',
+            customDraft: data[`custom_draft_${c.num}`] || data[`clause_${c.num}_draft`] || '수정 권고안이 준비 중입니다.',
+            lawyerNote: data[`lawyer_note_${c.num}`] || '',
+        };
+    });
 
     return (
         <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -572,25 +564,25 @@ function PrivacyReviewContent() {
                 }
             `}</style>
             {/* ── 상단 헤더 ── */}
-            <div className="no-print" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#1e3a8a', borderBottom: '3px solid #2563eb', padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="no-print" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#1e3a8a', borderBottom: '3px solid #2563eb', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <Link href="/lawyer"><button style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', color: '#e0e7ff', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 13 }}><ArrowLeft size={13} /> 목록</button></Link>
+                    <Link href="/lawyer"><button style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', color: '#e0e7ff', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontSize: 15 }}><ArrowLeft size={13} /> 목록</button></Link>
                     <div>
-                        <span style={{ fontWeight: 900, color: '#fff', fontSize: 15 }}>{company}</span>
-                        <span style={{ color: '#93c5fd', fontSize: 13, marginLeft: 10 }}>개인정보처리방침 검토</span>
-                        <span style={{ color: '#fca5a5', fontSize: 12, marginLeft: 10 }}>🔴 {highN}건</span>
-                        <span style={{ color: '#fcd34d', fontSize: 12, marginLeft: 6 }}>🟡 {medN}건</span>
+                        <span style={{ fontWeight: 900, color: '#fff', fontSize: 17 }}>{company}</span>
+                        <span style={{ color: '#93c5fd', fontSize: 15, marginLeft: 10 }}>개인정보처리방침 검토</span>
+                        <span style={{ color: '#fca5a5', fontSize: 14, marginLeft: 10 }}>🔴 {highN}건</span>
+                        <span style={{ color: '#fcd34d', fontSize: 14, marginLeft: 6 }}>🟡 {medN}건</span>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '5px 14px' }}>
                         <Clock size={13} color={timerCol} />
-                        <span style={{ fontWeight: 900, color: timerCol, fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>{mm}:{ss}</span>
+                        <span style={{ fontWeight: 900, color: timerCol, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>{mm}:{ss}</span>
                     </div>
                     
                     <button onClick={handleDownloadPDF}
                         className="no-print"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 9, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 9, padding: '8px 16px', fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
@@ -600,40 +592,69 @@ function PrivacyReviewContent() {
 
                     {/* 탭별 다른 컨펌 버튼 */}
                     {tab === 'first' ? (
-                        <button onClick={handleFirstConfirm} disabled={confirming}
-                            title="조문검토 결과를 영업팀 CRM과 고객 프라이버시 리포트에 자동 반영합니다"
-                            style={{ display: 'flex', alignItems: 'center', gap: 7, background: confirming ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 24px', fontWeight: 900, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(22,163,74,0.4)' }}>
-                            {confirming && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
-                            {!confirming && <CheckCircle2 size={16} />}
-                            {confirming ? (confirmProgress || '반영 중...') : '1차 검토 컨펌'}
-                        </button>
+                        <>
+                            <button onClick={() => {
+                                if (!confirm('현재 작업된 1차 조문 검토 내용을 CRM 데이터에 덮어씁니다.\n진행하시겠습니까? (CRM 반영 후 ⚖️ 개인정보 처리방침 조문별 법적 검토안 탭으로 이동합니다)')) return;
+                                handleFirstConfirm('view_legal_review');
+                            }} disabled={confirming || !!auditReport}
+                                title={auditReport ? "이미 법적 검토안이 생성되었습니다. 하단의 검토안 탭을 이용해 주세요." : "CRM 반영 후 ⚖️ 개인정보 처리방침 조문별 법적 검토안 탭으로 이동합니다"}
+                                style={{ display: 'flex', alignItems: 'center', gap: 7, background: (confirming || !!auditReport) ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontWeight: 900, fontSize: 15, cursor: (confirming || !!auditReport) ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(22,163,74,0.4)', opacity: auditReport ? 0.6 : 1 }}>
+                                {confirming && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
+                                {!confirming && <CheckCircle2 size={16} />}
+                                {auditReport ? '법적 검토안 생성 완료' : (confirming ? (confirmProgress || '반영 중...') : '1차 검토 컨펌 및 ⚖️ 법적 검토안 보기')}
+                            </button>
+                            <button onClick={() => handleFirstConfirm('next')} disabled={confirming}
+                                title="CRM 반영 후 다음 대기중인 회사로 이동합니다"
+                                style={{ display: 'flex', alignItems: 'center', gap: 7, background: confirming ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontWeight: 900, fontSize: 15, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(22,163,74,0.4)' }}>
+                                {confirming && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
+                                {!confirming && <CheckCircle2 size={16} />}
+                                {confirming ? '반영 중...' : '1차 검토 건펌 및 다음회사 보기'}
+                            </button>
+                            <button onClick={handleFullTab} disabled={confirming}
+                                title="CRM 반영 없이 의견서 보기 탭으로 단순 전환합니다"
+                                style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 9, padding: '9px 18px', fontWeight: 900, fontSize: 15, cursor: confirming ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <FileText size={16} />
+                                고객 의견서만 보기
+                            </button>
+                        </>
                     ) : (
                         <button onClick={handleFullConfirm} disabled={confirming}
                             title="수정완본을 고객 HR 문서함으로 전달합니다 (계약 완료 후 사용)"
-                            style={{ display: 'flex', alignItems: 'center', gap: 7, background: confirming ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 24px', fontWeight: 900, fontSize: 14, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(29,78,216,0.4)' }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: 7, background: confirming ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 24px', fontWeight: 900, fontSize: 16, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(29,78,216,0.4)' }}>
                             <FileText size={16} />
-                            {confirming ? '전달 중...' : '📤 완본 컨펌 → 고객 HR 전달'}
+                            {confirming ? '전달 중...' : '개인정보처리방침 검토 완료'}
                         </button>
                     )}
                 </div>
             </div>
 
             {/* ── 컬럼 헤더 (좌: 고정 / 우: 탭) ── */}
-            <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', position: 'sticky', top: 58, zIndex: 90 }}>
+            <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', position: 'sticky', top: 64, zIndex: 90 }}>
                 <div style={{ padding: '10px 20px', background: '#1e40af', display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#bfdbfe', letterSpacing: 1 }}>📖 원문 + 법조문</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#bfdbfe', letterSpacing: 1 }}>📖 원문 + 법조문</span>
                 </div>
                 <div style={{ display: 'flex' }}>
                     <button onClick={() => setTab('first')} style={{
-                        flex: 1, padding: '10px 16px', fontSize: 13, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        flex: 1, padding: '10px 16px', fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
                         background: tab === 'first' ? 'linear-gradient(135deg, #16a34a, #15803d)' : '#1e40af',
                         color: tab === 'first' ? '#fff' : '#93c5fd',
                         borderBottom: tab === 'first' ? '3px solid #4ade80' : '3px solid transparent',
                     }}>
                         📋 1차 조문검토
                     </button>
+                    <button onClick={() => setTab('legal_review')} style={{
+                        flex: 1, padding: '10px 16px', fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        background: tab === 'legal_review' ? 'linear-gradient(135deg, #d97706, #b45309)' : '#1e40af',
+                        color: tab === 'legal_review' ? '#fff' : '#93c5fd',
+                        borderBottom: tab === 'legal_review' ? '3px solid #fcd34d' : '3px solid transparent',
+                    }}>
+                        ⚖️ 개인정보 처리방침 조문별 법적 검토안
+                    </button>
                     <button onClick={handleFullTab} style={{
-                        flex: 1, padding: '10px 16px', fontSize: 13, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        flex: 1, padding: '10px 16px', fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
                         background: tab === 'full' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#1e40af',
                         color: tab === 'full' ? '#fff' : '#93c5fd',
                         borderBottom: tab === 'full' ? '3px solid #60a5fa' : '3px solid transparent',
@@ -651,15 +672,15 @@ function PrivacyReviewContent() {
                         <div style={{ padding: '16px 18px', background: '#fafafa', borderRight: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ textAlign: 'center', color: '#9ca3af' }}>
                                 <Scale size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
-                                <div style={{ fontSize: 12, fontWeight: 700 }}>← 원문 조항별 검토</div>
-                                <div style={{ fontSize: 11, marginTop: 2 }}>아래에서 각 조문을 확인하세요</div>
+                                <div style={{ fontSize: 14, fontWeight: 700 }}>← 원문 조항별 검토</div>
+                                <div style={{ fontSize: 13, marginTop: 2 }}>아래에서 각 조문을 확인하세요</div>
                             </div>
                         </div>
                         <div style={{ padding: '16px 18px', background: '#fffbeb' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                <span style={{ fontSize: 18 }}>⚖</span>
-                                <span style={{ fontSize: 15, fontWeight: 900, color: '#92400e' }}>종합 검토의견</span>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 20 }}>프라이버시 리포트 반영</span>
+                                <span style={{ fontSize: 20 }}>⚖</span>
+                                <span style={{ fontSize: 17, fontWeight: 900, color: '#92400e' }}>종합 검토의견</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 20 }}>프라이버시 리포트 반영</span>
                             </div>
                             <EditableText
                                 value={data['summary_opinion'] ?? (
@@ -668,7 +689,7 @@ function PrivacyReviewContent() {
                                     : `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${clauses.filter(c => c.level === 'HIGH').length + clauses.filter(c => c.level === 'MEDIUM').length}건이 확인되었습니다. 특히 핵심 필수 기재사항 누락 등 고위험 사항 ${clauses.filter(c => c.level === 'HIGH').length}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`
                                 )}
                                 onChange={v => upd('summary_opinion', v)}
-                                style={{ background: '#ffffff', borderColor: '#fde68a', fontSize: 13 }}
+                                style={{ background: '#ffffff', borderColor: '#fde68a', fontSize: 15 }}
                                 minRows={2}
                             />
                         </div>
@@ -684,9 +705,9 @@ function PrivacyReviewContent() {
                                 <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                                     <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <Scale size={15} color="#d97706" />
-                                        <span style={{ fontWeight: 800, fontSize: 13, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
+                                        <span style={{ fontWeight: 800, fontSize: 15, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
                                     </div>
-                                    <div style={{ padding: '14px 16px', fontSize: 12, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
+                                    <div style={{ padding: '14px 16px', fontSize: 14, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
                                         {c.lawText || '법조문 텍스트가 전달되지 않았습니다.'}
                                     </div>
                                 </div>
@@ -696,27 +717,16 @@ function PrivacyReviewContent() {
                                     <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <FileText size={15} color="#475569" />
-                                            <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>고객사 방침 원문</span>
+                                            <span style={{ fontWeight: 800, fontSize: 15, color: '#334155' }}>고객사 방침 원문</span>
                                         </div>
-                                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
                                             {c.title || c.num}
                                         </span>
                                     </div>
-                                    <div style={{ padding: '14px 16px', fontSize: 13, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                                    <div style={{ padding: '14px 16px', fontSize: 15, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
                                         {c.original || '회사 방침 원본 데이터가 전달되지 않았습니다.'}
                                     </div>
                                 </div>
-
-                                {/* 3. 진단 요약 */}
-                                {hasIssue && (
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: col.tag, border: `1px solid ${col.border}40`, borderRadius: 8, padding: '12px 16px' }}>
-                                        <div style={{ fontSize: 16 }}>🎯</div>
-                                        <div>
-                                            <div style={{ fontSize: 11, fontWeight: 800, color: col.text, marginBottom: 4 }}>위반 쟁점 요약</div>
-                                            <div style={{ fontSize: 12, color: col.text, lineHeight: 1.6, fontWeight: 600 }}>{c.riskSummary}</div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                             {/* 우: 1차 조문검토 */}
                             <div style={{ background: '#f9fafb' }}>
@@ -727,16 +737,27 @@ function PrivacyReviewContent() {
                 })
                     }
                 </>
+            ) : tab === 'legal_review' ? (
+                <div style={{ background: '#f8fafc', minHeight: '100vh', display: 'flex', justifyContent: 'center' }}>
+                    <LegalReviewPreview 
+                        auditReport={auditReport} 
+                        companyName={company} 
+                        displayIssues={displayIssues} 
+                        onUpdateReport={handleUpdateReport} 
+                        lawyerName={user?.name}
+                        lawyerSignature={user?.avatar}
+                    />
+                </div>
             ) : generating ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                     <div style={{ padding: '80px 20px', background: '#fafafa', borderRight: '1px solid #e5e7eb', textAlign: 'center', color: '#9ca3af' }}>
                         <Scale size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
-                        <div style={{ fontSize: 12, fontWeight: 700 }}>원문은 좌측에 그대로 표시됩니다</div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>원문은 좌측에 그대로 표시됩니다</div>
                     </div>
                     <div style={{ padding: '80px 40px', textAlign: 'center' }}>
                         <Loader2 size={40} color="#2563eb" style={{ margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-                        <p style={{ fontSize: 16, fontWeight: 900, color: '#1d4ed8', marginBottom: 4 }}>AI 의견서 생성 중...</p>
-                        <p style={{ fontSize: 13, color: '#6b7280' }}>변호사 페르소나로 법률 의견서를 작성하고 있습니다</p>
+                        <p style={{ fontSize: 18, fontWeight: 900, color: '#1d4ed8', marginBottom: 4 }}>AI 의견서 생성 중...</p>
+                        <p style={{ fontSize: 15, color: '#6b7280' }}>변호사 페르소나로 법률 의견서를 작성하고 있습니다</p>
                         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                     </div>
                 </div>
@@ -753,9 +774,9 @@ function PrivacyReviewContent() {
                                     <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                                         <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
                                             <Scale size={15} color="#d97706" />
-                                            <span style={{ fontWeight: 800, fontSize: 13, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
+                                            <span style={{ fontWeight: 800, fontSize: 15, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
                                         </div>
-                                        <div style={{ padding: '14px 16px', fontSize: 12, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
+                                        <div style={{ padding: '14px 16px', fontSize: 14, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
                                             {c.lawText || '법조문 텍스트가 전달되지 않았습니다.'}
                                         </div>
                                     </div>
@@ -765,13 +786,13 @@ function PrivacyReviewContent() {
                                         <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <FileText size={15} color="#475569" />
-                                                <span style={{ fontWeight: 800, fontSize: 13, color: '#334155' }}>고객사 방침 원문</span>
+                                                <span style={{ fontWeight: 800, fontSize: 15, color: '#334155' }}>고객사 방침 원문</span>
                                             </div>
-                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
+                                            <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
                                                 {c.title || c.num}
                                             </span>
                                         </div>
-                                        <div style={{ padding: '14px 16px', fontSize: 13, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                                        <div style={{ padding: '14px 16px', fontSize: 15, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
                                             {c.original || '회사 방침 원본 데이터가 전달되지 않았습니다.'}
                                         </div>
                                     </div>
@@ -782,15 +803,15 @@ function PrivacyReviewContent() {
                                         <div style={{ background: '#0f172a', padding: '14px 18px', color: '#fff' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
-                                                    <div style={{ fontSize: 15, fontWeight: 900, color: '#c9a84c' }}>⚖️ IBS 법률사무소</div>
-                                                    <div style={{ fontSize: 10, color: '#94a3b8' }}>개인정보보호 전문 법률 의견서</div>
+                                                    <div style={{ fontSize: 17, fontWeight: 900, color: '#c9a84c' }}>⚖️ IBS 법률사무소</div>
+                                                    <div style={{ fontSize: 12, color: '#94a3b8' }}>개인정보보호 전문 법률 의견서</div>
                                                 </div>
-                                                <div style={{ textAlign: 'right', fontSize: 10, color: '#94a3b8' }}>
+                                                <div style={{ textAlign: 'right', fontSize: 12, color: '#94a3b8' }}>
                                                     <div>문서번호: IBS-PR-{new Date().getFullYear()}-{String(Math.floor(Math.random() * 1000)).padStart(3, '0')}</div>
                                                     <div>작성일: {new Date().toLocaleDateString('ko-KR')}</div>
                                                 </div>
                                             </div>
-                                            <div style={{ marginTop: 8, fontSize: 12, color: '#e2e8f0' }}>
+                                            <div style={{ marginTop: 8, fontSize: 14, color: '#e2e8f0' }}>
                                                 수신: <strong>{company}</strong> 귀중
                                             </div>
                                         </div>
@@ -805,15 +826,26 @@ function PrivacyReviewContent() {
                         <div style={{ background: '#fafafa', borderRight: '1px solid #e5e7eb' }} />
                         <div style={{ padding: '20px 18px', background: '#fff', borderTop: '2px solid #e5e7eb' }}>
                             <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>위와 같이 검토 의견을 제출합니다.</div>
-                                <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b', marginBottom: 2 }}>IBS 법률사무소</div>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>담당 변호사: 김수현</div>
-                                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>대한변호사협회 등록 | 개인정보관리사(CPPG)</div>
+                                <div style={{ fontSize: 15, color: '#374151', marginBottom: 4 }}>위와 같이 검토 의견을 제출합니다.</div>
+                                <div style={{ fontSize: 17, fontWeight: 900, color: '#1e293b', marginBottom: 2 }}>IBS 법률사무소</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>담당 변호사: 김수현</div>
+                                <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>대한변호사협회 등록 | 개인정보관리사(CPPG)</div>
                             </div>
                         </div>
                     </div>
                 </>
             )}
+
+            {/* 하단 여백 및 스크롤 확장용: 상단 좌측 UI 복제 (텍스트/요소 투명) */}
+            <div className="no-print" style={{ opacity: 0, pointerEvents: 'none', padding: '24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 15 }}><ArrowLeft size={13} /> 목록</div>
+                <div>
+                    <span style={{ fontSize: 17 }}>{company}</span>
+                    <span style={{ fontSize: 15, marginLeft: 10 }}>개인정보처리방침 검토</span>
+                    <span style={{ fontSize: 14, marginLeft: 10 }}>🔴 {highN}건</span>
+                    <span style={{ fontSize: 14, marginLeft: 6 }}>🟡 {medN}건</span>
+                </div>
+            </div>
 
             {/* 추가 자료 요청 모달 */}
             <AnimatePresence>
@@ -833,7 +865,7 @@ function PrivacyReviewContent() {
                             style={{ position: 'relative', width: 440, background: '#fff', borderRadius: 16, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', overflow: 'hidden' }}
                         >
                             <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <FilePlus size={18} color="#2563eb" />
                                     추가 자료 요청
                                 </h3>
@@ -842,7 +874,7 @@ function PrivacyReviewContent() {
                                 </button>
                             </div>
                             <div style={{ padding: 24 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 12 }}>요청할 누락 서류 선택 (다중 선택 가능)</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: '#334155', marginBottom: 12 }}>요청할 누락 서류 선택 (다중 선택 가능)</div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
                                     {[
                                         { id: 'contract', label: '근로계약서' },
@@ -850,27 +882,27 @@ function PrivacyReviewContent() {
                                         { id: 'security', label: '보안서약서' },
                                         { id: 'other', label: '기타 추가 문서' },
                                     ].map(item => (
-                                        <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#1e293b', cursor: 'pointer' }}>
+                                        <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, color: '#1e293b', cursor: 'pointer' }}>
                                             <input type="checkbox" checked={(docsList as any)[item.id]} onChange={e => setDocsList(p => ({ ...p, [item.id]: e.target.checked }))} style={{ width: 16, height: 16, accentColor: '#2563eb' }} />
                                             {item.label}
                                         </label>
                                     ))}
                                 </div>
                                 
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 8 }}>추가 요청 메시지</div>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: '#334155', marginBottom: 8 }}>추가 요청 메시지</div>
                                 <textarea
                                     value={customReqMsg}
                                     onChange={e => setCustomReqMsg(e.target.value)}
                                     placeholder="고객사에 전달할 상세 요청사항을 입력하세요..."
-                                    style={{ width: '100%', height: 100, padding: 12, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, color: '#1e293b', resize: 'none', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', height: 100, padding: 12, border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 15, color: '#1e293b', resize: 'none', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
                                 />
                             </div>
                             <div style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#f8fafc' }}>
-                                <button onClick={() => setRequestModalOpen(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>취소</button>
+                                <button onClick={() => setRequestModalOpen(false)} style={{ padding: '8px 16px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', borderRadius: 6, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>취소</button>
                                 <button
                                     onClick={handleSendRequest}
                                     disabled={requestingFiles}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', background: '#2563eb', color: '#fff', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: requestingFiles ? 'not-allowed' : 'pointer' }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', background: '#2563eb', color: '#fff', borderRadius: 6, fontSize: 15, fontWeight: 700, cursor: requestingFiles ? 'not-allowed' : 'pointer' }}
                                 >
                                     {requestingFiles ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FilePlus size={16} />}
                                     {requestingFiles ? '발송 중...' : '요청 발송'}
@@ -889,7 +921,7 @@ function PrivacyReviewContent() {
                         initial={{ opacity: 0, y: 50, x: '-50%' }}
                         animate={{ opacity: 1, y: 0, x: '-50%' }}
                         exit={{ opacity: 0, y: 50, x: '-50%' }}
-                        style={{ position: 'fixed', bottom: 40, left: '50%', background: '#1e293b', color: '#fff', padding: '14px 24px', borderRadius: 8, fontSize: 14, fontWeight: 700, zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}
+                        style={{ position: 'fixed', bottom: 40, left: '50%', background: '#1e293b', color: '#fff', padding: '14px 24px', borderRadius: 8, fontSize: 16, fontWeight: 700, zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 8 }}
                     >
                         <CheckCircle2 size={18} color="#4ade80" />
                         {toastMsg}
@@ -905,7 +937,7 @@ function PrivacyReviewContent() {
                     position: 'fixed', right: 32, bottom: 32, zIndex: 9000,
                     display: 'flex', alignItems: 'center', gap: 8,
                     background: '#0f172a', color: '#fff', border: 'none', borderRadius: 30,
-                    padding: '14px 24px', fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                    padding: '14px 24px', fontSize: 17, fontWeight: 800, cursor: 'pointer',
                     boxShadow: '0 8px 24px rgba(15, 23, 42, 0.3)',
                     transition: 'transform 0.2s',
                 }}

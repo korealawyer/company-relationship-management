@@ -82,10 +82,11 @@ export interface UseCallPageReturn {
     confirmCallback: () => void;
     toggleSort: (k: string) => void;
     refresh: () => void;
+    deleteCompany: (id: string) => Promise<void>;
 }
 
 /* ── Hook ────────────────────────────────────────────────────────── */
-export function useCallPage(userName: string = ''): UseCallPageReturn {
+export function useCallPage(userId: string = '', userName: string = ''): UseCallPageReturn {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -111,7 +112,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         sortBy: sortKey === 'name' ? 'name' : sortKey === 'risk' ? 'risk_score' : 'created_at', sortAsc
     });
     const { stats: dbStats } = useCompanyStats();
-    const { updateCompany } = useCompanyMutations();
+    const { updateCompany, deleteCompany } = useCompanyMutations();
     const { settings: dbSettings } = useAutoSettings();
     const companies = useMemo(() => {
         let list = dbCompanies;
@@ -233,8 +234,63 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         return () => clearInterval(poll);
     }, [refresh, dbCompanies, updateCompany, setToast]);
 
-    /* ── computed ── */
     const isToday = (dateStr?: string) => dateStr && dateStr.startsWith(new Date().toISOString().split('T')[0]);
+
+    // 글로벌 통계를 저장 (페이지네이션과 무관하게 전체 데이터 기준)
+    const [globalStats, setGlobalStats] = useState({
+        calledCount: 0,
+        highRiskCount: 0,
+        todayStats: { total: 0, connected: 0, no_answer: 0, callback: 0 }
+    });
+
+    const refreshGlobalStats = useCallback(async () => {
+        // useDataLayer.ts 등에서 사용하는 supabase client 획득을 위해
+        // 브라우저 환경에서만 동작하도록 처리
+        const { getBrowserSupabase } = await import('@/lib/supabase');
+        const sb = getBrowserSupabase();
+        if (!sb) return;
+
+        try {
+            // 통화 메모가 있는(연락된) 카운트
+            const { count: cCount } = await sb.from('companies').select('*', { count: 'exact', head: true }).not('call_note', 'is', 'null').not('call_note', 'eq', '');
+            
+            // 고위험군 카운트
+            const { count: hCount } = await sb.from('companies').select('*', { count: 'exact', head: true }).gte('risk_score', 70);
+
+            // 오늘 나의 통화 결과 카운트
+            let todayTotal = 0, connected = 0, no_answer = 0, callback = 0;
+            if (userName) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const startOfToday = `${todayStr}T00:00:00.000Z`;
+
+                const { data } = await sb.from('companies')
+                    .select('last_call_result')
+                    .eq('last_called_by', userName)
+                    .gte('last_call_at', startOfToday);
+                    
+                if (data) {
+                    todayTotal = data.length;
+                    for (const row of data) {
+                        if (row.last_call_result === 'connected') connected++;
+                        else if (row.last_call_result === 'no_answer') no_answer++;
+                        else if (row.last_call_result === 'callback') callback++;
+                    }
+                }
+            }
+
+            setGlobalStats({
+                calledCount: cCount || 0,
+                highRiskCount: hCount || 0,
+                todayStats: { total: todayTotal, connected, no_answer, callback }
+            });
+        } catch (e) {
+            console.error('Failed to fetch global stats:', e);
+        }
+    }, [userName]);
+
+    useEffect(() => {
+        refreshGlobalStats();
+    }, [refreshGlobalStats]);
 
     const filtered = companies.filter(c => {
         if (statusFilter === 'my_calls_today') {
@@ -294,24 +350,66 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
 
     const statusCounts = dbStats?.statusCounts || { all: dbCompanies.length };
 
-    const todayCalls = companies.filter(c => isToday(c.lastCallAt) && c.lastCalledBy === userName);
-    const todayStats = {
-        total: todayCalls.length,
-        connected: todayCalls.filter(c => c.lastCallResult === 'connected').length,
-        no_answer: todayCalls.filter(c => c.lastCallResult === 'no_answer').length,
-        callback: todayCalls.filter(c => c.lastCallResult === 'callback').length,
-    };
-
     const selected = companies.find(c => c.id === selectedId) || null;
-    const calledCount = companies.filter(c => c.callNote).length;
-    const highRiskCount = companies.filter(c => c.riskScore >= 70).length;
+    const calledCount = globalStats.calledCount;
+    const highRiskCount = globalStats.highRiskCount;
+    const todayStats = globalStats.todayStats;
     const newsItems = NewsLeadService.getRelevantNews(companies);
 
     /* ── handlers ── */
-    const selectCompany = (id: string) => {
-        if (selectedId === id) { setSelectedId(null); return; }
+    const claimLock = async (companyId: string) => {
+        if (!userId) return;
+        try {
+            await fetch('/api/call-lock/claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId, userId, userName })
+            });
+        } catch(e) { console.error('Failed to claim lock', e); }
+    };
+
+    const releaseLock = async (companyId: string) => {
+        if (!userId) return;
+        try {
+            await fetch('/api/call-lock/release', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({ companyId, userId })
+            });
+        } catch(e) { console.error('Failed to release lock', e); }
+    };
+
+    const selectCompany = (id: string | null) => {
+        if (selectedId === id) { 
+            if (id) releaseLock(id);
+            setSelectedId(null); 
+            return; 
+        }
+        if (selectedId) {
+            releaseLock(selectedId);
+        }
+        if (id) {
+            claimLock(id);
+        }
         setSelectedId(id); setCallResult('');
     };
+
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (selectedId) {
+                releaseLock(selectedId);
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            if (selectedId) {
+                releaseLock(selectedId);
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedId, userId, userName]);
 
     const startCall = async () => {
         if (!selectedId) return;
@@ -424,7 +522,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
 
         setActiveCallId(null); timer.reset(); setCallResult(''); refresh();
         if (result !== 'callback') {
-            setTimeout(() => { setSelectedId(null); }, 400);
+            setTimeout(() => { selectCompany(null); }, 400);
         }
     };
 
@@ -490,5 +588,6 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         confirmCallback,
         toggleSort,
         refresh,
+        deleteCompany,
     };
 }

@@ -13,7 +13,7 @@ import { buildHookEmailHtml } from '@/lib/emailTemplates';
 
 // ── 이메일 미리보기 + 개인화 편집 + 확정 발송 UI ─────────────
 
-const BASE_SUBJECT = '[IBS 법률] {company}님의 개인정보처리방침 — 리스크 분석 결과';
+const BASE_SUBJECT = '{company}사 홈페이지 개인정보처리방침 법적 리스크 검토 결과 안내드립니다.';
 const BASE_PREHEADER = '개인정보보호법 위반 {issueCount}건 발견. 지금 확인하세요.';
 
 
