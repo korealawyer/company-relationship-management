@@ -15,6 +15,14 @@ import type {
 import type { AppNotification, Document, DbContract } from './types';
 import { LAWYERS } from './mockStore';
 
+function getEffectiveSupabase() {
+  let sb = getSupabase();
+  if (!sb && typeof window === 'undefined') {
+    sb = getServiceSupabase();
+  }
+  return sb;
+}
+
 // ── snake_case ↔ camelCase 변환 유틸 ──────────────────────────
 
 function snakeToCamel(s: string): string {
@@ -59,7 +67,7 @@ function groupBy(rows: Record<string, any>[] | null, key: string): Record<string
 // ── Company CRUD ──────────────────────────────────────────────
 
 async function fetchCompaniesWithRelations(): Promise<Company[]> {
-  const sb = getSupabase();
+  const sb = getEffectiveSupabase();
   if (!sb) return [];
 
   const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false });
@@ -108,7 +116,7 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
 
 // ── 단건 회사 조회 (전체 getAll 호출 없이 직접 조회) ──────────
 async function fetchCompanyById(id: string): Promise<Company | null> {
-  const sb = getSupabase();
+  const sb = getEffectiveSupabase();
   if (!sb) return null;
 
   const { data: row } = await sb.from('companies').select('*').eq('id', id).single();
@@ -211,7 +219,7 @@ export interface CompanyStats {
 }
 
 async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ data: Company[]; count: number }> {
-  const sb = getSupabase();
+  const sb = getEffectiveSupabase();
   if (!sb) return { data: [], count: 0 };
 
   const { page = 1, limit = 50, search, status, plan, health, sortBy = 'created_at', sortAsc = false } = options;
@@ -311,7 +319,7 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
 
 async function fetchCompanyStats(): Promise<CompanyStats> {
   const defaultStats = { total: 0, subscribers: 0, premium: 0, standard: 0, starter: 0, atRisk: 0, totalStores: 0, unreviewedIssues: 0, reviewedIssues: 0, statusCounts: {} };
-  const sb = getSupabase();
+  const sb = getEffectiveSupabase();
   if (!sb) return defaultStats;
   
   const { count, error } = await sb.from('companies').select('*', { count: 'exact', head: true });
@@ -429,7 +437,7 @@ export const supabaseCompanyStore = {
   },
 
   create: async (company: Partial<Company>): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     
     
@@ -457,7 +465,7 @@ export const supabaseCompanyStore = {
   },
 
   updateBulk: async (companies: Partial<Company>[]): Promise<{ success: number; skipped: number }> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return { success: 0, skipped: companies.length };
 
     const rows = companies.map(company => cleanCompanyRow(company, false));
@@ -482,7 +490,7 @@ export const supabaseCompanyStore = {
   },
 
   importBulk: async (companies: Partial<Company>[]): Promise<{ success: number; skipped: number }> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return { success: 0, skipped: companies.length };
 
     const rows = companies.map(company => {
@@ -569,7 +577,7 @@ export const supabaseCompanyStore = {
   },
 
   update: async (id: string, updates: Partial<Company>): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     
     // 1) Update main companies table
@@ -679,13 +687,13 @@ export const supabaseCompanyStore = {
   },
 
   delete: async (id: string): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     await sb.from('companies').delete().eq('id', id);
   },
 
   updateStatus: async (id: string, status: CaseStatus): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     await sb.from('companies').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
   },
@@ -695,7 +703,7 @@ export const supabaseCompanyStore = {
 
 export const supabaseLitigationStore = {
   getAll: async (): Promise<LitigationCase[]> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return [];
     const { data: rows } = await sb.from('litigation_cases').select('*').order('created_at', { ascending: false });
     if (!rows) return [];
@@ -714,7 +722,7 @@ export const supabaseLitigationStore = {
   },
 
   create: async (litCase: Partial<LitigationCase>): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     if (!litCase.id) litCase.id = crypto.randomUUID();
     const { deadlines, ...flat } = litCase as Record<string, unknown>;
@@ -728,7 +736,7 @@ export const supabaseLitigationStore = {
   },
 
   update: async (id: string, updates: Partial<LitigationCase>): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     const { deadlines, ...flat } = updates as Record<string, unknown>;
     const row = objToRow(flat as Record<string, unknown>);
@@ -737,7 +745,7 @@ export const supabaseLitigationStore = {
   },
 
   delete: async (id: string): Promise<void> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return;
     await sb.from('litigation_cases').delete().eq('id', id);
   },
@@ -747,7 +755,7 @@ export const supabaseLitigationStore = {
 
 export const supabaseConsultStore = {
   getAll: async (): Promise<Consultation[]> => {
-    const sb = getSupabase();
+    const sb = getEffectiveSupabase();
     if (!sb) return [];
     const { data: rows } = await sb.from('consultations').select('*').order('created_at', { ascending: false });
     return (rows || []).map(r => rowToObj<Consultation>(r));
