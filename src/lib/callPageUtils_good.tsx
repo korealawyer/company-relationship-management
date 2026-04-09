@@ -14,7 +14,7 @@ export const C = {
 };
 
 export const CALLABLE: CaseStatus[] = [
-    'analyzed','lawyer_confirmed','emailed',
+    'pending', 'crawling', 'analyzed', 'first_review_completed', 'lawyer_confirmed', 'emailed',
     'client_replied','client_viewed','contract_sent','contract_signed',
 ];
 
@@ -24,7 +24,7 @@ export function getScript(c: Company): string {
     const it = issues.length>0 ? issues.map((i,x)=>`  ${x+1}. [${i.level}] ${i.title}`).join('\n') : '  (분석 결과 대기 중)';
     if (['analyzed'].includes(c.status))
         return `안녕하세요, ${hi}.\n법률사무소 IBS 영업팀입니다.\n\n${c.name}의 개인정보처리방침을 검토한 결과,\n아래와 같은 법적 리스크가 확인되었습니다:\n\n${it}\n\n사전 대응을 권고드립니다.`;
-    if (['lawyer_confirmed','emailed'].includes(c.status))
+    if (['first_review_completed','lawyer_confirmed','emailed'].includes(c.status))
         return `${hi}, 법률사무소 IBS입니다.\n앞서 발송드린 ${c.name} 개인정보 진단 보고서는 확인하셨을까요?\n\n주요 리스크:\n${it}\n\n전담 변호사의 상세 검토 의견이 준비되어 있습니다.`;
     if (['client_replied','client_viewed'].includes(c.status))
         return `${hi}, 법률사무소 IBS입니다.\n보고서를 검토해 주셔서 감사합니다.\n\n계약 진행을 위한 서류가 준비되어 있습니다.`;

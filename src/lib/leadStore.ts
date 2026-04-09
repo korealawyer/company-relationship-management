@@ -5,6 +5,8 @@ export type LeadStatus =
     | 'pending'           // 미분석
     | 'analyzed'          // AI 분석 완료
     | 'assigned'          // 변호사 자동 배정
+    | 'reviewing'         // 변호사 검토 중
+    | 'first_review_completed' // 1차 검토 완료
     | 'lawyer_confirmed'  // 변호사 컨펌 완료
     | 'emailed'           // 이메일 발송 완료
     | 'in_contact'        // 연락 중

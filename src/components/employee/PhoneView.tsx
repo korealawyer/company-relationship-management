@@ -35,7 +35,7 @@ export default function PhoneView({
     }
 
     const c = filtered[phoneIdx % filtered.length] || filtered[0];
-    const callableStatuses: CaseStatus[] = ['analyzed', 'lawyer_confirmed', 'emailed', 'client_replied', 'client_viewed'];
+    const callableStatuses: CaseStatus[] = ['analyzed', 'first_review_completed', 'lawyer_confirmed', 'emailed', 'client_replied', 'client_viewed'];
     const defaultScript = `안녕하세요, ${c.contactName || c.name} 담당자님.\nIBS 법률사무소 영업팀 ${autoSettings.updatedBy || '담당자'}입니다.\n\n귀사 홈페이지의 개인정보처리방침을 AI로 분석한 결과,\n${c.riskLevel === 'HIGH' ? '고위험' : c.riskLevel === 'MEDIUM' ? '중위험' : '저위험'} 수준의 법적 문제가 ${c.issueCount || c.issues?.length || 0}건 발견되었습니다.\n\n특히 개인정보보호법 위반 시 최대 과징금 3,000만원이 부과될 수 있어\n사전 검토가 필요한 상황입니다.\n\n무료 분석 결과를 이메일로 보내드릴 수 있는데,\n확인해보시겠습니까?`;
     const script = c.customScript?.call || defaultScript;
 
@@ -215,7 +215,7 @@ export default function PhoneView({
                             <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> 통화 완료
                         </Button>
                     )}
-                    {c.status === 'lawyer_confirmed' && (
+                    {['first_review_completed', 'lawyer_confirmed'].includes(c.status) && (
                         <a href={`/admin/email-preview?leadId=${c.id}`}>
                             <Button variant="premium" size="sm">
                                 <Mail className="w-3.5 h-3.5 mr-1" /> 이메일 미리보기

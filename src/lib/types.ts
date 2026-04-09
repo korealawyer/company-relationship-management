@@ -47,6 +47,7 @@ export type CaseStatus =
     | 'analyzed'          // AI 분석 완료
     | 'assigned'          // 변호사 자동 배정
     | 'reviewing'         // 변호사 검토 중
+    | 'first_review_completed' // 1차검토완
     | 'lawyer_confirmed'  // 변호사 컨펌 완료
     | 'emailed'           // 이메일 자동 발송
     | 'client_replied'    // 클라이언트 답장

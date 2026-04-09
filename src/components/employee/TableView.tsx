@@ -111,7 +111,7 @@ export default function TableView({ filtered, refresh, sortBy, sortAsc, onSort }
                                         {c.lawyerConfirmedAt && <p className="text-[9px] mt-0.5 font-medium" style={{ color: T.faint }}>{c.lawyerConfirmedAt}</p>}
                                     </td>
                                     <td className="py-3.5 px-3">
-                                        <StepCell done={!!c.emailSentAt} label="발송완료" active={c.status === 'lawyer_confirmed'} />
+                                        <StepCell done={!!c.emailSentAt} label="발송완료" active={['first_review_completed', 'lawyer_confirmed'].includes(c.status)} />
                                         {c.emailSentAt && <p className="text-[9px] mt-0.5 font-medium" style={{ color: T.faint }}>{c.emailSentAt}</p>}
                                     </td>
                                     <td className="py-3.5 px-3">

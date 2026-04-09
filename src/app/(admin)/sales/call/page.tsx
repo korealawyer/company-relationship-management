@@ -196,7 +196,7 @@ export default function SalesCallPage() {
         { key: 'my_calls_today', label: '오늘통화', icon: '📞' }, { key: 'all', label: '전체', icon: '📋' }, 
         { key: 'pending', label: '신규 회사', icon: '📥' }, { key: 'crawling', label: '분석중', icon: '⚙️' },
         { key: 'analyzed', label: '분석완료', icon: '🔍' },
-        { key: 'reviewing', label: '변호사검토', icon: '📋' }, { key: 'lawyer_confirmed', label: '변호사 컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일 발송', icon: '📧' },
+        { key: 'reviewing', label: '변호사검토', icon: '📋' }, { key: 'first_review_completed', label: '1차 검토완', icon: '⚖️' }, { key: 'lawyer_confirmed', label: '변호사 컨펌', icon: '⚖️' }, { key: 'emailed', label: '이메일 발송', icon: '📧' },
         { key: 'client_replied', label: '답장수신', icon: '💬' }, { key: 'client_viewed', label: '리포트열람', icon: '👁️' },
         { key: 'contract_sent', label: '계약서발송', icon: '📄' }, { key: 'contract_signed', label: '서명완료', icon: '✍️' },
         { key: 'rejected', label: '거절', icon: '❌' }, { key: 'invalid_site', label: '사이트이상', icon: '⚠️' },

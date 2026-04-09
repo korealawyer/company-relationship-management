@@ -74,9 +74,9 @@ export async function executeAiAnalysis({
     setErrorMsg(null);
     setAnalyzing(true);
 
-    // 클라이언트 fetch 타임아웃 — 서버 무응답 시 무한 대기 방지 (120초)
+    // 클라이언트 fetch 타임아웃 — 서버 무응답 시 무한 대기 방지 (180초)
     const clientAbort = new AbortController();
-    const clientTimeout = setTimeout(() => clientAbort.abort(), 120_000);
+    const clientTimeout = setTimeout(() => clientAbort.abort(), 180_000);
 
     try {
         await updateCompany(c.id, { 
@@ -122,12 +122,40 @@ export async function executeAiAnalysis({
                 });
             } catch {}
         } else {
+            let reportMarkdown = data.summaryOpinion || '';
+            const issuesForReport = data.issues?.map((iss: any) => ({
+                ...iss,
+                reviewChecked: true,
+                aiDraftGenerated: true
+            })) || [];
+
+            if (issuesForReport.length > 0) {
+                try {
+                    const reportRes = await fetch('/api/analyze/report', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ issues: issuesForReport, companyName: c.name }),
+                        signal: clientAbort.signal
+                    });
+                    if (reportRes.ok) {
+                        const reportData = await reportRes.json();
+                        if (reportData.reportMarkdown) {
+                            reportMarkdown = reportData.reportMarkdown;
+                        }
+                    } else {
+                        console.warn("Report generation failed with status", reportRes.status);
+                    }
+                } catch (reportErr) {
+                    console.error("Report generation error:", reportErr);
+                }
+            }
+
             const payload: any = { 
                 status: 'analyzed',
                 issues: data.issues || [],
                 issueCount: data.issueCount || 0,
                 riskLevel: data.riskLevel || 'MEDIUM',
-                audit_report: data.summaryOpinion || ''
+                audit_report: reportMarkdown
             };
             if (data.rawText) {
                 payload.privacyPolicyText = data.rawText;
@@ -152,7 +180,7 @@ export async function executeAiAnalysis({
     } catch (err: any) {
         const isTimeout = err.name === 'AbortError';
         const msg = isTimeout 
-            ? '서버 응답 시간 초과 (2분). 네트워크 상태를 확인하거나 잠시 후 재시도해 주세요.'
+            ? '서버 응답 시간 초과 (3분). 네트워크 상태를 확인하거나 잠시 후 재시도해 주세요.'
             : `분석 중 에러 발생: ${err.message}`;
         setErrorMsg(msg);
         try { await updateCompany(c.id, { status: 'pending' }); } catch {}
@@ -284,7 +312,7 @@ export function ActionButton({
             <Eye className="w-3.5 h-3.5" /> 변호사 검토 중
         </span>
     );
-    if (s === 'lawyer_confirmed') return (
+    if (['first_review_completed', 'lawyer_confirmed'].includes(s)) return (
         <div className="flex items-center gap-1.5">
             <Button variant="premium" size="sm" onClick={() => run(c.id, () => updateCompany(c.id, { status: 'emailed' }))} disabled={loading === c.id}>
                 <Mail className="w-3.5 h-3.5 mr-1" />

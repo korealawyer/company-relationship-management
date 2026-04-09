@@ -14,7 +14,8 @@ import { Company } from '@/lib/types';
 const PIPELINE_STAGES: { status: LeadStatus; label: string; color: string; bg: string }[] = [
     { status: 'pending', label: '미분석', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
     { status: 'analyzed', label: 'AI 분석완료', color: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
-    { status: 'assigned', label: '변호사 배정', color: '#c9a84c', bg: 'rgba(201,168,76,0.1)' },
+    { status: 'reviewing', label: '변호사 검토중', color: '#b45309', bg: 'rgba(217,119,6,0.1)' },
+    { status: 'first_review_completed', label: '1차 검토완', color: '#0d9488', bg: 'rgba(20,184,166,0.1)' },
     { status: 'lawyer_confirmed', label: '컨펌 완료', color: '#fb923c', bg: 'rgba(251,146,60,0.1)' },
     { status: 'emailed', label: '이메일 발송', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
     { status: 'in_contact', label: '연락 중', color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },

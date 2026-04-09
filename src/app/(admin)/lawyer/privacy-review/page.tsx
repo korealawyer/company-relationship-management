@@ -276,6 +276,7 @@ function PrivacyReviewContent() {
         setCategories(getScenarioCategories());
         
         if (leadId) {
+            setFetching(true);
             supabaseCompanyStore.getById(leadId).then((data: any) => {
                 if (data && data.issues && data.issues.length > 0) {
                     const mapped = data.issues.map((iss: any, i: number) => {
@@ -306,6 +307,8 @@ function PrivacyReviewContent() {
                 
                 if (data && data.audit_report) {
                     setAuditReport(data.audit_report);
+                } else {
+                    setAuditReport(null);
                 }
                 
                 setFetching(false);
@@ -389,35 +392,12 @@ function PrivacyReviewContent() {
 
             await supabaseCompanyStore.update(leadId, { issues: newIssues as any });
 
-            setConfirmProgress('보고서 작성 중...');
-            let reportMarkdown = null;
-            try {
-                const res = await fetch('/api/analyze/report', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ issues: newIssues, companyName: company })
-                });
-                if (res.ok) {
-                    const resData = await res.json();
-                    reportMarkdown = resData.reportMarkdown;
-                    setAuditReport(reportMarkdown);
-                } else {
-                    reportMarkdown = "# ️자동 보고서 생성 지연\n\n현재 AI 실사 보고서 작성 서버의 응답이 지연되고 있습니다. \n잠시 후 다시 시도하거나, 아래 `수정 모드`를 통해 직접 의견을 기재해 주시기 바랍니다.";
-                    setAuditReport(reportMarkdown);
-                }
-            } catch (reportErr) { 
-                console.error(reportErr); 
-                reportMarkdown = "# ️자동 보고서 생성 연동 오류\n\nAI 보고서 작성 서버와의 연결에 실패했습니다. 네트워크 상태를 확인하시거나 고객센터에 문의해주세요.";
-                setAuditReport(reportMarkdown);
-            }
-
             setConfirmProgress('CRM 최종 반영 중...');
             const updatePayload: any = {
                 lawyerConfirmed: true, 
                 lawyerConfirmedAt: new Date().toISOString(),
-                status: 'lawyer_confirmed',
+                status: 'first_review_completed',
             };
-            if (reportMarkdown) updatePayload.audit_report = reportMarkdown;
             await supabaseCompanyStore.update(leadId, updatePayload);
 
             if (action === 'view_legal_review') {
@@ -427,8 +407,17 @@ function PrivacyReviewContent() {
             } else {
                 const allCompanies = await supabaseCompanyStore.getAll();
                 const nextPending = allCompanies.find((c: any) => ['assigned', 'reviewing'].includes(c.status) && c.id !== leadId);
-                if (nextPending) router.push(`/lawyer/privacy-review?leadId=${nextPending.id}&company=${encodeURIComponent(nextPending.name)}`);
-                else router.push('/lawyer');
+                if (nextPending) {
+                    setTab('first');
+                    setData({});
+                    setAuditReport(null);
+                    setGenerated(false);
+                    t0.current = Date.now();
+                    setElapsed(0);
+                    router.push(`/lawyer/privacy-review?leadId=${nextPending.id}&company=${encodeURIComponent(nextPending.name)}`);
+                } else {
+                    router.push('/lawyer');
+                }
             }
         } catch (error) {
             console.error(error);
@@ -593,16 +582,7 @@ function PrivacyReviewContent() {
                     {/* 탭별 다른 컨펌 버튼 */}
                     {tab === 'first' ? (
                         <>
-                            <button onClick={() => {
-                                if (!confirm('현재 작업된 1차 조문 검토 내용을 CRM 데이터에 덮어씁니다.\n진행하시겠습니까? (CRM 반영 후 ⚖️ 개인정보 처리방침 조문별 법적 검토안 탭으로 이동합니다)')) return;
-                                handleFirstConfirm('view_legal_review');
-                            }} disabled={confirming || !!auditReport}
-                                title={auditReport ? "이미 법적 검토안이 생성되었습니다. 하단의 검토안 탭을 이용해 주세요." : "CRM 반영 후 ⚖️ 개인정보 처리방침 조문별 법적 검토안 탭으로 이동합니다"}
-                                style={{ display: 'flex', alignItems: 'center', gap: 7, background: (confirming || !!auditReport) ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontWeight: 900, fontSize: 15, cursor: (confirming || !!auditReport) ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(22,163,74,0.4)', opacity: auditReport ? 0.6 : 1 }}>
-                                {confirming && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
-                                {!confirming && <CheckCircle2 size={16} />}
-                                {auditReport ? '법적 검토안 생성 완료' : (confirming ? (confirmProgress || '반영 중...') : '1차 검토 컨펌 및 ⚖️ 법적 검토안 보기')}
-                            </button>
+
                             <button onClick={() => handleFirstConfirm('next')} disabled={confirming}
                                 title="CRM 반영 후 다음 대기중인 회사로 이동합니다"
                                 style={{ display: 'flex', alignItems: 'center', gap: 7, background: confirming ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontWeight: 900, fontSize: 15, cursor: confirming ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(22,163,74,0.4)' }}>
