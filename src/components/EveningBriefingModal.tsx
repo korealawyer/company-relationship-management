@@ -33,7 +33,7 @@ export function EveningBriefingModal({ isOpen, variant, onConfirm, onCancel }: E
           const { count, error } = await supabase
             .from('companies')
             .select('*', { count: 'exact', head: true })
-            .gte('lastCallAt', startOfToday.toISOString());
+            .gte('last_call_at', startOfToday.toISOString());
             
           if (error) throw error;
           
