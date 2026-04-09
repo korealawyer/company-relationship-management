@@ -177,9 +177,7 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     </p>
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 20px">
-      이번에 <strong>${vars.company}</strong>의 개인정보처리방침을 검토한 결과,
-      <strong style="color:#dc2626">개인정보보호법상 시정이 필요한 사항 ${vars.issueCount}건</strong>이 확인되어
-      아래와 같이 안내드립니다.
+      ${vars.summaryOpinion}
     </p>
 
 

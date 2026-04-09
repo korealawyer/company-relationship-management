@@ -122,8 +122,12 @@ export default function DashboardSidebar({
                   {isOpen && menu.alert && (
                     <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" />
                   )}
-                  {isOpen && menu.badge && menu.badge > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold shrink-0">
+                  {isOpen && menu.badge !== undefined && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        menu.badge > 0 && menu.alert 
+                            ? 'bg-red-500 text-white shadow-sm shadow-red-500/20'
+                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                    }`}>
                       {menu.badge > 99 ? '99+' : menu.badge}
                     </span>
                   )}

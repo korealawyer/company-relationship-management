@@ -16,6 +16,14 @@ export type RoleType =
     | 'client_hr'       // 고객사 HR 담당자 (신규)
     | 'personal_client'; // 개인 의뢰인 (개인 소송 포탈)
 
+export interface LawyerProfile {
+    id: string;
+    name: string;
+    role: string;
+    signatureImageUrl?: string;
+    createdAt?: string;
+}
+
 // ── 모듈 레지스트리 타입 ────────────────────────────────────────
 export type ModuleStatus = 'active' | 'beta' | 'coming_soon';
 
@@ -52,7 +60,9 @@ export type CaseStatus =
     | 'subscribed'        // 구독 완료 (정식 계약/구독 중)
     | 'upsell'            // 업셀링 대상
     | 'churn_risk'        // 이탈 위험(Churn)
-    | 're_investigation'; // 재조사
+    | 're_investigation'  // 재조사
+    | 'rejected'          // 거절
+    | 'invalid_site';      // 사이트이상
 
 export interface Issue {
     id: string;
@@ -127,6 +137,7 @@ export interface Company {
     assignedLawyer: string;
     assignedSalesId?: string;
     assignedSalesName?: string;
+    lawyerProfile?: LawyerProfile;
     assignedAt?: string;
     salesQueueIndex?: number;
     issues: Issue[];
@@ -159,6 +170,7 @@ export interface Company {
     domain: string;
     privacyUrl: string;
     privacyPolicyText?: string;
+    ceo?: string;
     contactName: string;
     contactEmail: string;
     contactPhone: string;
@@ -288,6 +300,7 @@ export interface Document {
     createdBy?: string; // 작성자 정보 추가
     url: string;
     createdAt: string;
+    updatedAt: string;
     isNewForClient: boolean;
     isNewForLawyer: boolean;
 }

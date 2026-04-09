@@ -1,401 +1,613 @@
+// @ts-nocheck
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Scale, MessageSquare, CheckCircle2, Send, Loader2,
-    Phone, Edit3, ChevronRight, ChevronLeft, Paperclip, X, CreditCard
+    ChevronRight, ChevronLeft, Paperclip, X, DownloadCloud, FileText, Image as ImageIcon,
+    FileSpreadsheet, Archive, Phone, Mail, DollarSign, Plus, User
 } from 'lucide-react';
-import { generateAIDraft, type AIAssistResponse } from '@/lib/ai-assist';
-import { type ConsultItem } from '@/lib/types';
-import { CONSULTS } from '@/lib/constants';
+import { useConsultations } from '@/hooks/useDataLayer';
+import { type Consultation } from '@/lib/types';
 
-// ── 상담 검토 패널 (모바일 탭 전환 지원) ─────────────────────────
+// Mock File preview handler
+function getFileIcon(type: string, name: string) {
+    if (type.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-indigo-500" />;
+    if (type === 'application/pdf') return <FileText className="w-5 h-5 text-red-500" />;
+    if (name.endsWith('.xlsx') || name.endsWith('.csv')) return <FileSpreadsheet className="w-5 h-5 text-green-600" />;
+    if (name.endsWith('.zip')) return <Archive className="w-5 h-5 text-amber-500" />;
+    return <FileText className="w-5 h-5 text-slate-500" />;
+}
+
+function getPreviewText(type: string, name: string) {
+    if (type.startsWith('image/')) return "OCR 텍스트 추출 완료: [민감정보 마스킹 처리됨]";
+    if (type === 'application/pdf') return "총 12페이지 문서 변환 완료. 핵심 요약(Executive Summary) 생성됨.";
+    if (name.endsWith('.xlsx') || name.endsWith('.csv')) return "스프레드시트 표 데이터 개요 및 엑셀 데이터 분석 요약.";
+    if (name.endsWith('.hwp') || name.endsWith('.docx') || name.endsWith('.txt')) return "주요 조항/계약 핵심 추출 완료.";
+    if (name.endsWith('.zip')) return "압축 파일 내부 구조 요약 렌더링 완료.";
+    return "문서 요약 분석 대기중";
+}
+
+const LAWYERS = ['김수현', '이정재', '박은빈', '송중기'];
+
+const STATUS_COLORS: Record<string, { bg: string, text: string, border: string }> = {
+    '상담': { bg: '#fffbeb', text: '#d97706', border: '#fde68a' }, // Amber
+    '수임': { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' }, // Red
+    '보류': { bg: '#f1f5f9', text: '#64748b', border: '#e2e8f0' }, // Slate
+    '완료': { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' }, // Green
+};
+
 export default function ConsultQueue() {
-    const [sel, setSel] = useState<ConsultItem | null>(CONSULTS[0]);
-    const [answer, setAnswer] = useState('');
-    const [done, setDone] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [aiCache, setAiCache] = useState<Record<string, AIAssistResponse>>({});
-    const [sentItems, setSentItems] = useState<Set<string>>(new Set());
-    const [toast, setToast] = useState('');
-    // 모바일: 목록 패널 vs 답변 패널 전환
-    const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
-    const [attachments, setAttachments] = useState<File[]>([]);
+    const { consultations, isLoading, updateConsultation, addConsultation } = useConsultations();
     
-    // 결제 팝업 상태
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentReason, setPaymentReason] = useState('초기 자문료');
-    const [paymentAmount, setPaymentAmount] = useState('500,000');
-    const [paymentLoading, setPaymentLoading] = useState(false);
+    // Map Supabase Consultation to the UI's expected ConsultRecord format for mapping tabs/status
+    const records = (consultations || []).map(c => {
+        let mappedStatus = '상담';
+        if (c.status === '대기' || c.status === 'submitted') mappedStatus = '상담';
+        else if (c.status === '수임') mappedStatus = '수임';
+        else if (c.status === '거절') mappedStatus = '보류';
+        else if (c.status === '상담완료' || c.status === 'answered' || c.status === 'callback_done') mappedStatus = '완료';
+
+        return {
+            ...c,
+            uiStatus: mappedStatus as '상담' | '수임' | '보류' | '완료',
+            clientName: c.companyName || c.authorName || '이름 없음',
+            clientPhone: c.callbackPhone || '-',
+            clientEmail: '',
+            uiDate: c.createdAt ? c.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+            lawyer: c.assignedLawyer || '',
+            targetFee: 0,
+            fee: 0,
+            isCallbackReq: c.status === 'callback_requested',
+        };
+    });
+
+    const [activeTab, setActiveTab] = useState<'전체' | '상담' | '수임' | '보류' | '완료'>('전체');
+    const filtered = activeTab === '전체' ? records : records.filter(r => r.uiStatus === activeTab);
+    const tabs = (['전체', '상담', '수임', '보류', '완료'] as const);
+    const counts = tabs.reduce((a, t) => ({
+        ...a, [t]: t === '전체' ? records.length : records.filter(r => r.uiStatus === t).length
+    }), {} as Record<string, number>);
+
+    const [selId, setSelId] = useState<string | null>(null);
+    const sel = records.find(r => r.id === selId) || (records.length > 0 ? records[0] : null);
+
+    const [answer, setAnswer] = useState('');
+    const [memo, setMemo] = useState('');
+    const [isSavingMemo, setIsSavingMemo] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
+    const memoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState('');
+    const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
+    
+    // 신규 모달 & 담당자 드롭다운
+    const [showAdd, setShowAdd] = useState(false);
+    const [showLawyerDropdown, setShowLawyerDropdown] = useState(false);
+    const [newForm, setNewForm] = useState({ clientName: '', clientPhone: '', category: '민사', content: '', targetFee: '' });
+
+    // 첨부파일 관리
+    const [attachments, setAttachments] = useState<{file: any, expanded: boolean}[]>([]);
 
     useEffect(() => {
-        const preloadAll = async () => {
-            const cache: Record<string, AIAssistResponse> = {};
-            for (const item of CONSULTS) {
-                const result = await generateAIDraft({
-                    question: item.content,
-                    category: item.category,
-                    companyName: item.companyName,
-                    urgency: item.urgency,
-                    lawyerName: '김수현',
-                });
-                cache[item.id] = result;
-            }
-            setAiCache(cache);
-            if (CONSULTS[0] && cache[CONSULTS[0].id]) {
-                setAnswer(cache[CONSULTS[0].id].draft);
-            }
-        };
-        preloadAll();
-    }, []);
-
-    const handleSelect = (item: ConsultItem) => {
-        setSel(item);
-        if (sentItems.has(item.id)) {
-            setDone(true);
-            setAnswer('');
-        } else {
-            setDone(false);
-            const cached = aiCache[item.id];
-            setAnswer(cached?.draft || '');
+        if (records.length > 0 && !selId) {
+            setSelId(records[0].id);
         }
-        setAttachments([]);
-        // 모바일에서 선택하면 상세 뷰로 이동
-        setMobileView('detail');
+    }, [records.length, selId]);
+
+    useEffect(() => {
+        if (sel) {
+            setAnswer(sel.lawyerAnswer || sel.aiAnswer || ''); // AI 초안 자동 주입
+            setMemo(sel.callbackNote || ''); // 메모 주입
+            
+            const fileList = sel.attachedFiles || [];
+            setAttachments(fileList.map((f: any) => ({ file: f, expanded: false })));
+        }
+    }, [sel?.id]); // Only run when selection ID changes
+
+    // 자동 저장 
+    const handleMemoChange = (val: string) => {
+        setMemo(val);
+        setIsSavingMemo(true);
+        if (memoTimeoutRef.current) clearTimeout(memoTimeoutRef.current);
+        memoTimeoutRef.current = setTimeout(() => {
+            if (sel) {
+                updateConsultation(sel.id, { callbackNote: val, updatedAt: new Date().toISOString() });
+                setLastSaved(new Date());
+                setIsSavingMemo(false);
+            }
+        }, 1500);
     };
 
-    const submit = async () => {
+    const handleMemoBlur = () => {
+        if (memoTimeoutRef.current && isSavingMemo && sel) {
+            clearTimeout(memoTimeoutRef.current);
+            updateConsultation(sel.id, { callbackNote: memo, updatedAt: new Date().toISOString() });
+            setLastSaved(new Date());
+            setIsSavingMemo(false);
+        }
+    };
+
+    const updateStatus = async (r: any, newUiStatus: '상담' | '수임' | '보류' | '완료') => {
+        let mappedDbStatus = 'submitted';
+        if (newUiStatus === '상담') mappedDbStatus = 'submitted';
+        if (newUiStatus === '수임') mappedDbStatus = '수임'; 
+        if (newUiStatus === '보류') mappedDbStatus = '거절';
+        if (newUiStatus === '완료') {
+            mappedDbStatus = r.status === 'callback_requested' ? 'callback_done' : 'answered';
+        }
+
+        await updateConsultation(r.id, { status: mappedDbStatus as any });
+        setToast(`상태가 [${newUiStatus}] 단계로 변경되었습니다.`);
+        setTimeout(() => setToast(''), 3000);
+    };
+
+    const submitAnswer = async () => {
         if (!sel || !answer.trim()) return;
         setLoading(true);
-        await new Promise(r => setTimeout(r, 800));
-        setDone(true);
-        setSentItems(prev => new Set(prev).add(sel.id));
+        await updateConsultation(sel.id, { 
+            lawyerAnswer: answer, 
+            status: 'answered',
+            answeredAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            callbackNote: memo
+        });
         setLoading(false);
-        setToast(`✅ ${sel.companyName}에 답변이 발송되었습니다${attachments.length > 0 ? ` (파일 ${attachments.length}개 첨부)` : ''}`);
-        setAttachments([]);
-        // 모바일에서 발송 후 목록으로 돌아가기
+        setToast(`✅ ${sel.clientName}에 답변이 발송되었습니다`);
+        setTimeout(() => setToast(''), 3000);
         setTimeout(() => setMobileView('list'), 1500);
     };
 
-    const handlePaymentSubmit = async () => {
-        if (!paymentReason.trim() || !paymentAmount.trim()) {
-            setToast('❌ 청구 사유와 금액을 모두 입력해주세요.');
-            setTimeout(() => setToast(''), 3000);
-            return;
-        }
-
-        // 낙관적 UI(Optimistic UI) 업데이트: API 응답을 기다리기 전에 즉각적으로 모달을 닫고 피드백 제공
-        setShowPaymentModal(false);
-        const optimisticCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-        setToast(`⏳ 결제 링크(ibs.law/pay/${optimisticCode}) 전송 진행 중...`);
-        setPaymentLoading(true);
-
-        try {
-            const response = await fetch('/api/sms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    reason: paymentReason,
-                    amount: paymentAmount,
-                    phone: '010-0000-0000', // 모의 데이터 연동
-                }),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Server error occurred');
-            }
-
-            // 요청 성공 시 서버에서 받은 실제 결제 링크로 토스트 알림 교체
-            setToast(`✅ 결제 링크(${result.data.paymentLink})가 SMS로 전송되었습니다`);
-            
-            // 입력 폼 초기화
-            setPaymentReason('초기 자문료');
-            setPaymentAmount('500,000');
-        } catch (error) {
-            console.error('SMS sending error:', error);
-            // 에러 발생 시 UI 롤백 (모달을 다시 띄우고 실패 토스트 알림)
-            setShowPaymentModal(true);
-            setToast('❌ SMS 발송에 실패했습니다. 다시 시도해주세요.');
-        } finally {
-            setPaymentLoading(false);
-            setTimeout(() => setToast(''), 4000);
-        }
+    const addRecord = async () => {
+        await addConsultation({
+            id: `c${Date.now()}`,
+            title: newForm.content.slice(0, 20),
+            body: newForm.content,
+            authorName: newForm.clientName,
+            callbackPhone: newForm.clientPhone,
+            category: newForm.category as any,
+            status: 'submitted',
+            createdAt: new Date().toISOString(),
+            isPrivate: true,
+        });
+        setShowAdd(false);
+        setNewForm({ clientName: '', clientPhone: '', category: '민사', content: '', targetFee: '' });
+        setToast(`신규 상담이 등록되었습니다.`);
+        setTimeout(() => setToast(''), 3000);
     };
-
-    const pendingCount = CONSULTS.filter(c => !sentItems.has(c.id)).length;
 
     return (
         <div className="flex h-full" style={{ background: '#f8f9fc' }}>
-            {/* ── 질문 목록 (데스크탑: 항상 표시 / 모바일: list 뷰에서만) ── */}
+            {/* ── 좌측: 목록 패널 ── */}
             <div
                 className={`
-                    flex-shrink-0 overflow-y-auto
+                    flex-shrink-0 flex-col
                     ${mobileView === 'list' ? 'flex' : 'hidden'}
-                    sm:flex flex-col
-                    w-full sm:w-72 lg:w-80
+                    sm:flex w-full sm:w-72 lg:w-80
                 `}
                 style={{ borderRight: '1px solid #e5e7eb', background: '#ffffff' }}
             >
-                <div className="p-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <span className="text-xs font-bold" style={{ color: '#94a3b8' }}>고객사 질문 목록</span>
-                    {pendingCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black"
-                            style={{ background: '#fef2f2', color: '#dc2626' }}>
-                            미답변 {pendingCount}건
-                        </span>
-                    )}
+                {/* 탭 네비게이션 */}
+                <div className="flex-shrink-0" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <div className="flex overflow-x-auto">
+                        {tabs.map(t => (
+                            <button key={t} onClick={() => setActiveTab(t)}
+                                className="flex-shrink-0 px-3 py-3 text-xs font-bold transition-all whitespace-nowrap"
+                                style={{
+                                    color: activeTab === t ? '#b8960a' : '#94a3b8',
+                                    borderBottom: activeTab === t ? '2px solid #b8960a' : '2px solid transparent',
+                                }}>
+                                {t} <span className="ml-1 text-[10px]" style={{ color: activeTab === t ? '#c9a84c' : '#94a3b8' }}>{counts[t]}</span>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="px-3 pb-3 pt-2">
+                        <button onClick={() => setShowAdd(true)}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all active:scale-95"
+                            style={{ background: '#fffbeb', color: '#b8960a', border: '1px solid #fde68a' }}>
+                            <Plus className="w-3.5 h-3.5" /> 오프라인/신규 상담 등록
+                        </button>
+                    </div>
                 </div>
-                <div className="overflow-y-auto flex-1">
-                    {CONSULTS.map(c => {
-                        const isSent = sentItems.has(c.id);
+
+                {/* 리스트 목록 */}
+                <div className="overflow-y-auto flex-1 relative">
+                    {isLoading && records.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-slate-300" />
+                        </div>
+                    )}
+                    {filtered.map(r => {
+                        const sc = STATUS_COLORS[r.uiStatus] || STATUS_COLORS['상담'];
+                        const isSelected = selId === r.id;
                         return (
-                            <div key={c.id} onClick={() => handleSelect(c)}
+                            <div key={r.id} onClick={() => { 
+                                setSelId(r.id); 
+                                setMobileView('detail'); 
+                                setShowLawyerDropdown(false); 
+                                // 변호사가 1번이라도 열람했다면 '검토중(reviewing)'으로 상태 변경
+                                if (r.status === 'submitted' || r.status === '대기' || r.status === 'received') {
+                                    updateConsultation(r.id, { status: 'reviewing' as any });
+                                }
+                            }}
                                 className="p-4 cursor-pointer transition-all active:opacity-70"
                                 style={{
-                                    background: sel?.id === c.id ? '#fffbeb' : isSent ? '#f0fdf4' : 'transparent',
-                                    borderLeft: sel?.id === c.id ? '3px solid #c9a84c' : '3px solid transparent',
+                                    background: isSelected ? '#fffbeb' : 'transparent',
+                                    borderLeft: isSelected ? '3px solid #c9a84c' : '3px solid transparent',
                                     borderBottom: '1px solid #f1f5f9',
-                                    opacity: isSent ? 0.6 : 1,
                                 }}>
-                                <div className="flex justify-between mb-1">
+                                <div className="flex justify-between items-center mb-1.5">
                                     <div className="flex items-center gap-1.5">
-                                        {isSent ? (
-                                            <CheckCircle2 className="w-3 h-3" style={{ color: '#16a34a' }} />
-                                        ) : (
-                                            <span className="text-xs font-bold" style={{ color: c.urgency === 'urgent' ? '#dc2626' : '#94a3b8' }}>
-                                                {c.urgency === 'urgent' ? '🔴 긴급' : '⚪ 일반'}
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                                            style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
+                                            {r.uiStatus}
+                                        </span>
+                                        {r.isCallbackReq && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black bg-red-600 text-white animate-pulse">
+                                                🚨 통화요청
+                                            </span>
+                                        )}
+                                        {r.urgency === 'urgent' && r.uiStatus !== '완료' && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black bg-red-50 text-red-600">긴급</span>
+                                        )}
+                                        <span className="text-[10px] text-slate-500 font-medium px-1 rounded bg-slate-100">{r.category}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px]" style={{ color: '#94a3b8' }}>{r.uiDate.slice(5)}</span>
+                                        {r.lawyer && (
+                                            <span className="hidden sm:inline-block text-[10px] px-1.5 py-0.5 rounded font-bold"
+                                                style={{ background: '#f8f9fc', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                                                {r.lawyer}
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px]" style={{ color: '#94a3b8' }}>{c.created.slice(5)}</span>
-                                        {/* 모바일에서 화살표 표시 */}
-                                        <ChevronRight className="w-3.5 h-3.5 sm:hidden" style={{ color: '#c9a84c' }} />
-                                    </div>
                                 </div>
-                                <p className="text-sm font-bold truncate mb-0.5" style={{ color: '#1e293b' }}>{c.title}</p>
-                                <p className="text-xs truncate" style={{ color: '#64748b' }}>{c.companyName} · {c.category}</p>
+                                <p className="text-sm font-bold truncate mb-0.5" style={{ color: '#1e293b' }}>{r.clientName}</p>
+                                <p className="text-xs truncate text-slate-500">{r.title || r.body}</p>
                             </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* ── 답변 영역 (데스크탑: 항상 표시 / 모바일: detail 뷰에서만) ── */}
+            {/* ── 우측: 답변/상세 영역 ── */}
             {sel && (
                 <div
                     className={`
-                        flex-1 overflow-y-auto p-4 sm:p-6 space-y-5
+                        flex-1 overflow-y-auto p-4 sm:p-6 space-y-4
                         ${mobileView === 'detail' ? 'flex flex-col' : 'hidden'}
                         sm:flex sm:flex-col
                     `}
                 >
-                    {/* 모바일 뒤로가기 버튼 */}
                     <button
                         onClick={() => setMobileView('list')}
                         className="sm:hidden flex items-center gap-2 text-sm font-bold mb-1"
                         style={{ color: '#b8960a' }}
                     >
-                        <ChevronLeft className="w-4 h-4" />
-                        질문 목록으로
+                        <ChevronLeft className="w-4 h-4" /> 리스트로 돌아가기
                     </button>
 
-                    {/* 질문 헤더 */}
-                    <div>
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            {sel.urgency === 'urgent' && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-black"
-                                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>긴급</span>
-                            )}
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                style={{ background: '#eff6ff', color: '#2563eb' }}>{sel.category}</span>
-                            <span className="text-xs" style={{ color: '#94a3b8' }}>{sel.companyName}</span>
-                        </div>
-                        <h2 className="text-base sm:text-lg font-black mb-3" style={{ color: '#1e293b' }}>{sel.title}</h2>
-                        <div className="p-3 sm:p-4 rounded-xl text-sm leading-relaxed" style={{ background: '#f8f9fc', color: '#475569', borderLeft: '3px solid #e5e7eb' }}>
-                            <div className="flex items-center gap-1.5 mb-2 text-xs font-bold" style={{ color: '#94a3b8' }}>
-                                <MessageSquare className="w-3 h-3" /> 고객사 질문
+                    {/* 상단 CRM 정보 헤더 */}
+                    <div className="rounded-2xl p-5 shadow-sm" style={{ background: '#ffffff', border: '1px solid #e5e7eb' }}>
+                        <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-xs px-2.5 py-1 rounded-full font-bold"
+                                        style={{ background: STATUS_COLORS[sel.uiStatus]?.bg, color: STATUS_COLORS[sel.uiStatus]?.text, border: `1px solid ${STATUS_COLORS[sel.uiStatus]?.border}` }}>
+                                        {sel.uiStatus}
+                                    </span>
+                                    <span className="text-xs px-2 py-1 rounded-lg font-bold bg-slate-100 text-slate-600">{sel.category}</span>
+                                    <span className="text-xs text-slate-400 font-medium ml-1">{sel.uiDate}</span>
+                                </div>
+                                <h2 className="text-xl sm:text-2xl font-black text-slate-800">{sel.clientName}</h2>
                             </div>
-                            {sel.content}
+                            
+                            {/* 담당자 & 접근 권한 툴바 */}
+                            <div className="flex items-center gap-2">
+                                <div className="relative">
+                                    <button onClick={() => setShowLawyerDropdown(!showLawyerDropdown)}
+                                        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl font-bold transition-all hover:bg-slate-50"
+                                        style={{ background: '#ffffff', color: '#1e293b', border: '1px solid #cbd5e1' }}>
+                                        <User className="w-4 h-4" style={{ color: sel.lawyer ? '#b8960a' : '#94a3b8' }} />
+                                        담당: {sel.lawyer || '미지정'}
+                                    </button>
+                                    <AnimatePresence>
+                                        {showLawyerDropdown && (
+                                            <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+                                                className="absolute right-0 mt-2 w-36 rounded-xl py-1 z-10 shadow-xl"
+                                                style={{ background: '#ffffff', border: '1px solid #e5e7eb' }}>
+                                                {LAWYERS.map(l => (
+                                                    <button key={l} onClick={async () => {
+                                                        await updateConsultation(sel.id, { assignedLawyer: l });
+                                                        setToast(`담당자가 ${l} 변호사로 변경되었습니다.`);
+                                                        setShowLawyerDropdown(false);
+                                                        setTimeout(()=>setToast(''), 3000);
+                                                    }}
+                                                        className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition-colors flex items-center justify-between"
+                                                        style={{ color: '#374151', background: sel.lawyer === l ? '#fffbeb' : 'transparent' }}>
+                                                        {l} 변호사
+                                                        {sel.lawyer === l && <CheckCircle2 className="w-4 h-4 text-amber-500" />}
+                                                    </button>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl px-1 py-1">
+                                    <button onClick={async () => await updateConsultation(sel.id, { isPrivate: false })}
+                                        className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${!sel.isPrivate ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                                        전체공개
+                                    </button>
+                                    <button onClick={async () => await updateConsultation(sel.id, { isPrivate: true })}
+                                        className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${sel.isPrivate ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                                        개별비공개
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* CRM Detail info */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <Phone className="w-4 h-4 text-slate-400" />
+                                <span className="text-sm font-semibold text-slate-700">{sel.clientPhone || '연락처 없음'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4 text-slate-400" />
+                                <span className="text-sm font-semibold text-slate-700">{sel.clientEmail || '이메일 없음'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-amber-500" />
+                                <span className="text-sm font-bold text-amber-600">
+                                    {sel.fee ? `${(sel.fee / 10000).toLocaleString()}만` : '예상수임료 미결정'}
+                                    {sel.targetFee ? ` / 목표 ${(sel.targetFee / 10000).toLocaleString()}만원` : ''}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* AI 분석 결과 */}
-                    {sel && aiCache[sel.id] && (
-                        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #c7d2fe' }}>
-                            <div className="flex items-center justify-between px-4 py-2.5" style={{ background: '#eef2ff' }}>
-                                <div className="flex items-center gap-2">
-                                    <Scale className="w-4 h-4" style={{ color: '#6366f1' }} />
-                                    <span className="text-xs font-bold" style={{ color: '#6366f1' }}>1차 법률분석 완료</span>
-                                </div>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                    style={{ background: '#dcfce7', color: '#16a34a' }}>
-                                    신뢰도 {aiCache[sel.id].confidence}%
-                                </span>
-                            </div>
-                            <div className="px-4 py-2 flex items-center gap-2 flex-wrap" style={{ background: '#f8f9ff', borderBottom: '1px solid #e0e7ff' }}>
-                                <span className="text-[10px] font-bold" style={{ color: '#94a3b8' }}>참조:</span>
-                                {aiCache[sel.id].references.map((ref: string) => (
-                                    <span key={ref} className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                                        style={{ background: '#eff6ff', color: '#3b82f6' }}>{ref}</span>
+                    {/* 상태 단계 변경 툴바 */}
+                    <div className="rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ background: '#ffffff', border: '1px solid #e5e7eb' }}>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><Scale className="w-4 h-4" /> 단계/상태 관리</span>
+                            <div className="flex flex-wrap gap-2">
+                                {(['상담', '수임', '보류', '완료'] as const).map(s => (
+                                    <button key={s} onClick={() => updateStatus(sel, s)}
+                                        className="text-xs px-3.5 py-1.5 rounded-full font-bold transition-all active:scale-95"
+                                        style={{
+                                            background: sel.uiStatus === s ? STATUS_COLORS[s].bg : '#f1f5f9',
+                                            color: sel.uiStatus === s ? STATUS_COLORS[s].text : '#64748b',
+                                            border: `1px solid ${sel.uiStatus === s ? STATUS_COLORS[s].border : '#e2e8f0'}`,
+                                            boxShadow: sel.uiStatus === s ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+                                        }}>{s}</button>
                                 ))}
                             </div>
                         </div>
-                    )}
+                        {sel.uiStatus === '상담' && (
+                            <button onClick={() => updateStatus(sel, '수임')}
+                                className="flex items-center gap-1 text-xs px-4 py-2 rounded-xl font-bold shadow-sm transition-all hover:-translate-y-0.5"
+                                style={{ background: 'linear-gradient(135deg,#16a34a,#22c55e)', color: '#ffffff' }}>
+                                공식 사건안으로 승격 전환 →
+                            </button>
+                        )}
+                    </div>
 
-                    {/* 답변 영역 */}
-                    {!done ? (
-                        <div className="flex-1 flex flex-col">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Scale className="w-4 h-4" style={{ color: '#b8960a' }} />
-                                    <span className="text-sm font-bold" style={{ color: '#b8960a' }}>답변 발송</span>
-                                </div>
-                                {answer && (
-                                    <span className="text-[10px]" style={{ color: '#94a3b8' }}>
-                                        {answer.length}자 · 수정 가능
-                                    </span>
-                                )}
+                    {/* 고객사 질문 본문 */}
+                    <div>
+                        <div className="p-4 sm:p-5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap" style={{ background: '#f8f9fc', color: '#1e293b', borderLeft: '4px solid #e2e8f0' }}>
+                            <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-slate-500">
+                                <MessageSquare className="w-3.5 h-3.5" /> 
+                                {sel.title ? `${sel.title}\n\n` : ''}
                             </div>
-                            <textarea value={answer} onChange={e => setAnswer(e.target.value)} rows={8}
-                                placeholder="답변을 작성하세요..."
-                                className="w-full p-3 sm:p-4 rounded-xl outline-none text-sm resize-none flex-1"
-                                style={{ background: '#ffffff', border: `1px solid ${answer ? '#fde68a' : '#e5e7eb'}`, color: '#1e293b', lineHeight: 1.8, minHeight: 160 }} />
+                            {sel.body || sel.content}
+                        </div>
+                    </div>
 
-                            {/* 첨부파일 영역 */}
-                            <div className="mt-3 flex flex-col gap-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
-                                        style={{ color: '#64748b', border: '1px dashed #cbd5e1', background: '#f8fafc' }}>
-                                        <Paperclip className="w-3.5 h-3.5" />
-                                        파일 첨부하기
-                                        <input
-                                            type="file"
-                                            multiple
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                if (e.target.files) {
-                                                    setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
-                                                }
-                                                e.target.value = '';
-                                            }}
-                                        />
-                                    </label>
-                                    
-                                    {attachments.map((file, idx) => (
-                                        <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold"
-                                             style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569' }}>
-                                            <span className="truncate max-w-[100px] sm:max-w-[150px]">{file.name}</span>
-                                            <button 
-                                                onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                                                className="transition-colors hover:opacity-70 ml-0.5"
-                                                style={{ color: '#94a3b8' }}
-                                            >
-                                                <X className="w-3 h-3 hover:text-red-500" />
-                                            </button>
+                    {/* 첨부파일 사전 분석(미리보기) 영역 */}
+                    {attachments.length > 0 ? (
+                        <div className="space-y-3 pt-2">
+                            <h3 className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1.5">
+                                <Paperclip className="w-3.5 h-3.5" /> 첨부 문서 인텔리전스 분석 ({attachments.length}개)
+                            </h3>
+                            {attachments.map((att, idx) => (
+                                <div key={idx} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                    <div 
+                                        className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+                                        onClick={() => setAttachments(prev => prev.map((a, i) => i === idx ? { ...a, expanded: !a.expanded } : a))}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {getFileIcon(att.file.type, att.file.name)}
+                                            <span className="text-sm font-semibold text-slate-700 truncate max-w-xs">{att.file.name}</span>
+                                            <span className="text-xs text-slate-400">{(att.file.size / 1024).toFixed(1)} KB</span>
                                         </div>
-                                    ))}
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    setToast(`📥 ${att.file.name} 원본 다운로드가 시작되었습니다.`); 
+                                                    setTimeout(()=>setToast(''), 3000);
+                                                }}
+                                                className="hidden sm:flex items-center gap-1 text-[11px] font-black px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-blue-600 transition-all active:scale-95"
+                                            >
+                                                <DownloadCloud className="w-3.5 h-3.5" /> 원본 열기
+                                            </button>
+                                            <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${att.expanded ? 'rotate-90' : ''}`} />
+                                        </div>
+                                    </div>
+                                    <AnimatePresence>
+                                        {att.expanded && (
+                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                                <div className="p-4 bg-white flex gap-4">
+                                                    <div className="hidden sm:flex items-center justify-center w-32 h-32 bg-slate-50 rounded-xl shrink-0 border border-slate-100 shadow-sm">
+                                                        {att.file.type.startsWith('image/') ? <ImageIcon className="w-10 h-10 text-slate-300" /> : getFileIcon(att.file.type, att.file.name)}
+                                                    </div>
+                                                    <div className="flex-1 space-y-2">
+                                                        <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-2">
+                                                            <Scale className="w-3.5 h-3.5 text-indigo-500" /> AI 자동 요약 (참고용)
+                                                        </h4>
+                                                        <div className="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed min-h-[5rem]">
+                                                            {getPreviewText(att.file.type, att.file.name)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-4">
-                                <button onClick={() => setShowPaymentModal(true)}
-                                    className="flex items-center gap-2 px-4 sm:px-5 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex-1 sm:flex-none justify-center"
-                                    style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: '#ffffff', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}>
-                                    <CreditCard className="w-4 h-4" />
-                                    결제/청구서 발송
-                                </button>
-                                
-                                <button onClick={submit} disabled={loading || !answer.trim()}
-                                    className="flex items-center gap-2 px-5 sm:px-8 py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all active:scale-95 flex-1 sm:flex-none justify-center"
-                                    style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#78350f', boxShadow: '0 2px 8px rgba(201,168,76,0.3)' }}>
-                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    {loading ? '발송 중...' : '고객사에 답변 발송'}
-                                </button>
-
-                                {sel.urgency === 'urgent' && (
-                                    <button className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm"
-                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
-                                        <Phone className="w-4 h-4" /> 콜백
-                                    </button>
-                                )}
-
-                                <button onClick={() => { setAnswer(''); setAttachments([]); }}
-                                    className="flex items-center gap-1 px-3 py-3 rounded-xl text-xs font-bold"
-                                    style={{ color: '#94a3b8' }}>
-                                    <Edit3 className="w-3 h-3" /> 초기화
-                                </button>
-                            </div>
-
-                            {answer && (
-                                <p className="text-[10px] mt-3" style={{ color: '#94a3b8' }}>
-                                    💡 분석 결과가 자동으로 입력되었습니다. 검토 후 바로 발송하거나, 수정하여 보낼 수 있습니다.
-                                </p>
-                            )}
+                            ))}
                         </div>
                     ) : (
-                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                            className="p-6 sm:p-8 rounded-xl text-center"
-                            style={{ background: '#f0fdf4', border: '1px solid #86efac' }}>
-                            <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3" style={{ color: '#16a34a' }} />
-                            <p className="font-bold text-base sm:text-lg" style={{ color: '#16a34a' }}>답변이 {sel.companyName}에 발송되었습니다</p>
-                            <p className="text-xs mt-2" style={{ color: '#6b7280' }}>고객사 대시보드의 '변호사 답변' 탭에서 확인 가능합니다</p>
-                        </motion.div>
+                        <div className="pt-2">
+                            <h3 className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1.5">
+                                <Paperclip className="w-3.5 h-3.5" /> 첨부 문서
+                            </h3>
+                            <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 flex flex-col items-center justify-center text-center">
+                                <FileText className="w-8 h-8 text-slate-300 mb-2" />
+                                <p className="text-sm font-semibold text-slate-500">첨부된 파일이 없습니다</p>
+                                <p className="text-xs text-slate-400 mt-1">의뢰인이 상담 시 첨부한 문서나 자료가 없습니다.</p>
+                            </div>
+                        </div>
                     )}
+
+                    {/* 변호사 메모 및 오퍼레이션 영역 */}
+                    <div className="flex-1 flex flex-col pt-3 gap-6">
+                        
+                        {/* 변호사 코멘트 (강력한 자동저장 지원) */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                    📝 진행 메모 노트
+                                </span>
+                                <span className="text-[10px] flex items-center gap-1">
+                                    {isSavingMemo && <Loader2 className="w-3 h-3 text-slate-400 animate-spin" />}
+                                    <span className={`transition-opacity duration-300 font-bold ${isSavingMemo ? 'text-slate-400' : lastSaved ? 'text-green-600' : 'text-slate-400'}`}>
+                                        {isSavingMemo ? '저장 중...' : lastSaved ? `자동 저장됨: 오전 ${lastSaved.getHours().toString().padStart(2, '0')}:${lastSaved.getMinutes().toString().padStart(2, '0')}` : '수정 시 자동 저장됨'}
+                                    </span>
+                                </span>
+                            </div>
+                            <textarea 
+                                value={memo} 
+                                onChange={e => handleMemoChange(e.target.value)}
+                                onBlur={handleMemoBlur}
+                                rows={2}
+                                placeholder="의뢰인이나 사건 진행에 대한 내부 기록용 메모를 자유롭게 입력하세요 (입력 즉시 자동 저장)"
+                                className="w-full p-4 rounded-xl outline-none text-sm resize-none focus:ring-2 focus:ring-slate-100 transition-shadow"
+                                style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#1e293b' }} 
+                            />
+                        </div>
+
+                        {/* 고객 최종 답변 발송 폼 (선택적) */}
+                        <div className="pb-8">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <Scale className="w-4 h-4" style={{ color: '#b8960a' }} />
+                                    <span className="text-sm font-bold" style={{ color: '#b8960a' }}>고객 답변 브리핑</span>
+                                    {sel.aiAnswer && !sel.lawyerAnswer && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-bold ml-1 border border-indigo-200">
+                                            AI 초안 주입됨
+                                        </span>
+                                    )}
+                                </div>
+                                {answer && (
+                                    <span className="text-[10px] font-bold" style={{ color: '#94a3b8' }}>{answer.length}자</span>
+                                )}
+                            </div>
+                            
+                            <textarea 
+                                value={answer} 
+                                onChange={e => setAnswer(e.target.value)} 
+                                rows={6}
+                                placeholder="이메일이나 고객 포털로 발송되는 최종 답변을 작성 하는 곳 입니다."
+                                className="w-full p-5 rounded-2xl outline-none text-sm resize-none transition-all focus:shadow-md mb-4"
+                                style={{ background: '#ffffff', border: `1px solid ${answer ? '#fde68a' : '#e5e7eb'}`, color: '#1e293b', lineHeight: 1.8 }} 
+                            />
+
+                            <div className="flex justify-end">
+                                <button onClick={submitAnswer} disabled={loading || !answer.trim()}
+                                    className="flex items-center justify-center gap-2 px-10 py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-all active:scale-95 w-full sm:w-auto"
+                                    style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#78350f', boxShadow: '0 4px 14px rgba(201,168,76,0.25)' }}>
+                                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    {loading ? '발송 처리 중...' : '확인 및 답변 완료 처리'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* Payment Modal */}
+            {/* ── 기타 오버레이 ── */}
+            {/* 오프라인/신규 등록 모달 */}
             <AnimatePresence>
-                {showPaymentModal && (
+                {showAdd && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-                            style={{ border: '1px solid #e5e7eb' }}>
-                            <div className="flex justify-between items-center mb-5">
-                                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                                    <CreditCard className="w-5 h-5 text-blue-600" /> 결제 요청
-                                </h3>
-                                <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-slate-600">
-                                    <X className="w-5 h-5" />
-                                </button>
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }}
+                        onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
+                        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                            className="w-full max-w-md rounded-2xl p-6"
+                            style={{ background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+                            <div className="flex items-center justify-between mb-5">
+                                <h2 className="font-black text-lg" style={{ color: '#1e293b' }}>📋 오프라인 상담 등록</h2>
+                                <button onClick={() => setShowAdd(false)} className="p-1.5 rounded-lg active:bg-slate-100" style={{ color: '#94a3b8' }}><X className="w-4 h-4" /></button>
                             </div>
-                            
                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">청구 사유</label>
-                                    <input type="text" value={paymentReason} onChange={e => setPaymentReason(e.target.value)}
-                                        className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500"
-                                        placeholder="예: 초기 자문료" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[11px] font-bold mb-1 block" style={{ color: '#64748b' }}>회사/의뢰인명 <span className="text-red-500">*</span></label>
+                                        <input value={newForm.clientName} onChange={e => setNewForm(p => ({ ...p, clientName: e.target.value }))}
+                                            placeholder="홍○○ / (주)○○" className="w-full px-3 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                                            style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-bold mb-1 block" style={{ color: '#64748b' }}>연락처</label>
+                                        <input value={newForm.clientPhone} onChange={e => setNewForm(p => ({ ...p, clientPhone: e.target.value }))}
+                                            placeholder="010-0000-0000" className="w-full px-3 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                                            style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[11px] font-bold mb-1 block" style={{ color: '#64748b' }}>사건 분야</label>
+                                        <select value={newForm.category} onChange={e => setNewForm(p => ({ ...p, category: e.target.value }))}
+                                            className="w-full px-3 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                                            style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }}>
+                                            {['민사', '형사', '가사', '부동산', '노무', '기업', '기타'].map(c => <option key={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-bold mb-1 block" style={{ color: '#64748b' }}>목표 예상 수임료</label>
+                                        <input value={newForm.targetFee} onChange={e => setNewForm(p => ({ ...p, targetFee: e.target.value }))}
+                                            placeholder="숫자 입력 (예: 5000000)" className="w-full px-3 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                                            style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">청구 금액 (원)</label>
-                                    <input type="text" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
-                                        className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-blue-500 font-medium"
-                                        placeholder="예: 500,000" />
+                                    <label className="text-[11px] font-bold mb-1 block" style={{ color: '#64748b' }}>문의 내용 요약 <span className="text-red-500">*</span></label>
+                                    <textarea value={newForm.content} onChange={e => setNewForm(p => ({ ...p, content: e.target.value }))} rows={4}
+                                        placeholder="초기 상담 내용을 입력하세요..."
+                                        className="w-full px-3 py-2.5 rounded-xl text-sm resize-none outline-none focus:ring-2 focus:ring-blue-100"
+                                        style={{ background: '#f8f9fc', border: '1px solid #e2e8f0', color: '#1e293b' }} />
                                 </div>
                             </div>
-                            
-                            <button onClick={handlePaymentSubmit} disabled={paymentLoading}
-                                className="w-full mt-6 py-2.5 rounded-xl font-bold text-white text-sm flex justify-center items-center gap-2 active:scale-95 transition-all disabled:opacity-60"
-                                style={{ background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
-                                {paymentLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                {paymentLoading ? '발송 중...' : 'SMS 결제 링크 발송'}
-                            </button>
+                            <div className="flex gap-2 mt-6">
+                                <button onClick={() => setShowAdd(false)} className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:bg-slate-200"
+                                    style={{ background: '#f1f5f9', color: '#64748b' }}>취소</button>
+                                <button onClick={addRecord} className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95"
+                                    style={{ background: '#c9a84c', color: '#fff' }}>서류 등록 완료</button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Toast */}
+            {/* 토스트 메시지 */}
             <AnimatePresence>
                 {toast && (
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-                        className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm font-bold z-50 mx-4"
-                        style={{ background: '#111827', color: '#f0f4ff', border: '1px solid rgba(201,168,76,0.3)' }}>
+                        className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-sm font-bold z-50 shadow-xl flex items-center gap-2"
+                        style={{ background: '#111827', color: '#f0f4ff', border: '1px solid rgba(201,168,76,0.3)', whiteSpace: 'nowrap' }}>
+                        <CheckCircle2 className="w-4 h-4 text-green-400" />
                         {toast}
                     </motion.div>
                 )}

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
     Phone, PhoneOff, Building2, Headphones,
-    Pause, Play, RefreshCw, X,
+    Pause, Play, RefreshCw, X, Send
 } from 'lucide-react';
 import { Company, type CaseStatus } from '@/lib/types';
 import { STATUS_COLOR, STATUS_TEXT, STATUS_LABEL } from '@/lib/constants';
@@ -76,6 +76,41 @@ export default function InlinePanel({
     const [manualCaller, setManualCaller] = useState(user?.name || '영업담당자');
     const [localResult, setLocalResult] = useState<string | null>(null);
 
+    // 메모 작성 관련 상태
+    const authorName = user?.name || '알 수 없음';
+    const [note, setNote] = useState('');
+    const [savingMemo, setSavingMemo] = useState(false);
+    const [memoRefreshTrigger, setMemoRefreshTrigger] = useState(0);
+
+    const saveMemo = async () => {
+        if (!note.trim() || savingMemo) return;
+        setSavingMemo(true);
+        try {
+            const res = await fetch('/api/memos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyId: co.id,
+                    author: authorName,
+                    content: note.trim(),
+                }),
+            });
+            if (res.ok) {
+                setNote('');
+                setToast('💾 메모 저장 및 요약 진행 중...');
+                setMemoRefreshTrigger(prev => prev + 1);
+                onRefresh();
+            } else {
+                const err = await res.json();
+                setToast(`⚠️ 저장 실패: ${err.error}`);
+            }
+        } catch {
+            setToast('⚠️ 저장 실패');
+        } finally {
+            setSavingMemo(false);
+        }
+    };
+
     useEffect(() => {
         if (user?.name && manualCaller === '영업담당자') {
             setManualCaller(user.name);
@@ -95,6 +130,9 @@ export default function InlinePanel({
             if (nextAction === 'review' && co.status === 'analyzed') {
                 extraUpdate = { status: 'reviewing' };
                 co.status = 'reviewing';
+            } else if (res === 'rejected' || res === 'invalid_site') {
+                extraUpdate = { status: res };
+                co.status = res as unknown as 'pending'; // Hack to satisfy TS temporarily, pessimistic UI will correct it if needed, or optimistic will use it directly.
             }
             
             // --- 백그라운드 DB 저장 (UI 딜레이 제거) ---
@@ -210,7 +248,6 @@ export default function InlinePanel({
                             {/* Col 1: 스마트 기업 상세정보, 위험도, 주요 이슈 */}
                             <div className="flex flex-col gap-4 h-full min-w-0">
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 shrink-0">
-                                    <h3 className="text-sm font-bold text-gray-800 mb-3">📊 스마트 기업 상세정보</h3>
                                     <InfoTab co={co} onRefresh={onRefresh} setToast={setToast} />
                                 </div>
                                 
@@ -235,24 +272,22 @@ export default function InlinePanel({
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 shrink-0">
                                     <h3 className="text-[10px] font-bold text-red-600 mb-2">🚨 발생 이슈</h3>
                                     {co.issues && co.issues.length > 0 ? (
-                                        <div className="grid grid-cols-[56px_1fr] gap-x-2 gap-y-2 items-start mt-1">
+                                        <div className="flex flex-col gap-2 mt-1">
                                             {co.issues.map((iss, j) => (
-                                                <React.Fragment key={j}>
-                                                    <div className="text-center pt-[1px]">
-                                                        <span
-                                                            className="inline-block text-[8px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap w-full"
-                                                            style={{
-                                                                background: iss.level === 'HIGH' ? '#fef2f2' : '#fffbeb',
-                                                                color: iss.level === 'HIGH' ? '#dc2626' : '#92400e',
-                                                            }}
-                                                        >
-                                                            {iss.level}
-                                                        </span>
-                                                    </div>
-                                                    <span className="text-[11px] leading-relaxed break-words" style={{ color: C.body }}>
+                                                <div key={j} className="flex items-start gap-2">
+                                                    <span
+                                                        className="inline-block flex-shrink-0 text-[8px] px-1.5 py-0.5 rounded font-bold text-center w-[56px] mt-[3px]"
+                                                        style={{
+                                                            background: iss.level === 'HIGH' ? '#fef2f2' : '#fffbeb',
+                                                            color: iss.level === 'HIGH' ? '#dc2626' : '#92400e',
+                                                        }}
+                                                    >
+                                                        {iss.level}
+                                                    </span>
+                                                    <span className="text-[11px] leading-relaxed break-words flex-1" style={{ color: C.body }}>
                                                         {iss.title}
                                                     </span>
-                                                </React.Fragment>
+                                                </div>
                                             ))}
                                         </div>
                                     ) : (
@@ -305,14 +340,7 @@ export default function InlinePanel({
 
                                         {/* 연락 기록(수동/자동 겸용) */}
                                         <div className="flex flex-col bg-slate-50 p-2 rounded-lg border border-slate-100 gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-slate-500">담당자:</span>
-                                                <input 
-                                                    value={manualCaller} 
-                                                    onChange={e => setManualCaller(e.target.value)}
-                                                    className="text-[10px] border border-slate-200 rounded px-1.5 py-0.5 w-[80px] bg-white text-slate-700 outline-none focus:border-indigo-400"
-                                                />
-                                            </div>
+
                                             
                                             {/* 5버튼 레이아웃 */}
                                             <div className="flex flex-col gap-1.5 mt-1">
@@ -360,17 +388,59 @@ export default function InlinePanel({
                                     </div>
                                 </div>
 
+                                {/* ── 메모 입력 (이동됨) ── */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 shrink-0">
+                                    <h3 className="text-sm font-bold text-gray-800 mb-3">✍️ 메모 입력</h3>
+                                    <div className="flex flex-col gap-2">
+                                        <textarea
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
+                                            placeholder="새 메모를 입력하세요 (이슈 및 특이사항 등)"
+                                            className="w-full rounded-xl text-[12px] p-3 font-medium leading-relaxed"
+                                            style={{
+                                                background: C.surface,
+                                                border: `1px solid ${C.borderLight}`,
+                                                color: C.body,
+                                                outline: 'none',
+                                                resize: 'none',
+                                                minHeight: 80,
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                                    e.preventDefault();
+                                                    saveMemo();
+                                                }
+                                            }}
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={saveMemo}
+                                                disabled={!note.trim() || savingMemo}
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity"
+                                                style={{
+                                                    background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe',
+                                                    opacity: (note.trim() && !savingMemo) ? 1 : 0.5,
+                                                }}
+                                            >
+                                                <Send className="w-3.5 h-3.5" />{savingMemo ? '저장중...' : '메모 저장'}
+                                            </button>
+                                        </div>
+                                        <p className="text-[9px] text-right mt-1" style={{ color: C.faint }}>
+                                            Ctrl+Enter로 자동 저장 및 요약 진행
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📞 통화 스크립트</h3>
                                     <ScriptTab co={co} setToast={setToast} />
                                 </div>
                             </div>
 
-                            {/* Col 3: 메모 & AI 분석 (원래 Col 2) */}
                             <div className="flex flex-col gap-4 h-full min-w-0">
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col flex-1">
                                     <h3 className="text-sm font-bold text-gray-800 mb-3">📝 메모&요약</h3>
-                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} />
+                                    <MemoTab co={co} onRefresh={onRefresh} setToast={setToast} refreshTrigger={memoRefreshTrigger} />
                                 </div>
                             </div>
 

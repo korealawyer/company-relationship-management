@@ -1,93 +1,152 @@
 import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Edge Runtime에서는 localStorage 접근 불가하므로,
-// 클라이언트가 systemPrompt를 보내지 않았을 때 사용할 최소 폴백 프롬프트
-const FALLBACK_SYSTEM_PROMPT = '당신은 IBS 법률사무소의 AI 법무 어시스턴트입니다. 프랜차이즈 관련 법률 상담을 전문으로 합니다. 한국어로 답변하고, 전문적이면서도 친근한 말투를 사용하세요.';
-
-// [아키텍처 혁신]: Vercel Edge Runtime 강제 적용 및 타임아웃 최대 연장
-// 무거운 AI 프롬프트 생성 시 기본 10초 타임아웃에 걸리는 문제를 방어합니다.
 export const runtime = 'edge';
 export const maxDuration = 60;
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
-interface ChatMessage { role: 'user' | 'assistant'; content: string; }
+interface ChatMessage { role: 'user' | 'assistant' | 'system'; content: string; }
 
-// ── 모의 응답 (API 키 없을 때) — 프롬프트 철학 반영 ──────────────
-function generateMockResponse(messages: ChatMessage[], consultType: string): string {
+// 개발 모드용 Fallback
+function generateMockResponse(messages: ChatMessage[]): string {
     const last = messages[messages.length - 1]?.content || '';
-    const lowerLast = last.toLowerCase();
-
-    // 감정 표현 감지
-    if (lowerLast.includes('억울') || lowerLast.includes('화나') || lowerLast.includes('너무')) {
-        return '충분히 억울하실 수 있습니다. 상황을 더 자세히 말씀해 주시면 법적으로 취할 수 있는 조치를 안내드리겠습니다. 어떤 일이 있으셨나요?';
+    if (messages.length > 3) {
+        return '상세히 말씀해 주셔서 감사합니다. 담당 변호사가 충분히 검토할 수 있도록 정리되었습니다.\n담당 변호사가 검토 후 연락드릴 수 있도록, 먼저 담당자님의 성함을 남겨주시겠습니까?\n\n```json\n{"type": "summary", "legal_category": "가맹사업", "case_type": "계약 위반", "subject": "B2B 고객", "when_where": "최근", "antagonist": "거래처", "action": "계약 불이행", "goal": "손해배상 청구", "summary": "거래처의 계약 불이행으로 인한 손해배상 청구 검토 요청"}\n```';
     }
-
-    if (consultType === 'legal' || lowerLast.includes('법률') || lowerLast.includes('계약') || lowerLast.includes('가맹')) {
-        const responses = [
-            '네, 법률 문제라면 구체적인 상황을 알려주시면 바로 답변드릴 수 있습니다.\n\n다음 중 어떤 상황이신가요?\n\n1. 가맹계약서 검토 또는 작성\n2. 개인정보 처리방침 관련\n3. 가맹점과의 분쟁\n4. 노동·인사 문제\n5. 형사·민사 소송',
-            '상황을 파악했습니다. 관련 서류를 준비해 주시면 담당 변호사가 48시간 내에 검토 후 정확한 답변을 드립니다.\n\n📋 일반적으로 필요한 서류\n- 계약서 원본\n- 분쟁 경위서\n- 관련 증거 (문자, 이메일 등)\n\n접수 후 담당 변호사가 직접 연락드리겠습니다.',
-        ];
-        return responses[Math.min(messages.filter(m => m.role === 'assistant').length, responses.length - 1)];
-    }
-    if (consultType === 'eap') {
-        return '힘드신 상황이 느껴집니다. 저희 EAP 프로그램을 통해 전문 심리 상담사와 연결해 드릴 수 있습니다.\n\n먼저 간단히 현재 상태를 파악하겠습니다.\n\n**최근 2주간 일상적인 활동에서 즐거움을 느끼는 경우가:**\n① 거의 없다 ② 가끔 있다 ③ 자주 있다';
-    }
-
-    return '안녕하세요! IBS 법무 어시스턴트입니다.\n\n어떤 법률 문제든 바로 답변드립니다.\n\n⚖️ 법률 — 가맹계약, 개인정보, 노동, 형사\n🧠 심리/EAP — 스트레스·감정 관리\n💼 경영 자문 — 공정거래, 노무\n\n어떤 도움이 필요하신가요?';
+    return '상황을 좀 더 구체적으로 파악하기 위해 여쭙겠습니다. 해당 문제가 처음 발생한 시점은 언제인가요?';
 }
 
-// ── POST /api/chat — 인증 없음 (외부 방문자 포함) ────────────────
-// 주의: 배포 전 Rate Limiting 미들웨어 추가 권장
 export async function POST(req: NextRequest) {
-  const __auth = await requireSessionFromCookie(req as any);
-  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+    const __auth = await requireSessionFromCookie(req as any);
+    if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
 
     try {
-        const { messages, consultType = 'general', isPublic = false, systemPrompt: clientSystemPrompt } = await req.json();
+        const { messages, systemPrompt, model } = await req.json();
+        const finalModel = model || 'gpt-4o'; // 기본값
 
-        // 클라이언트가 getPromptConfig()로 보낸 systemPrompt 우선, 없으면 최소 폴백
-        const systemPrompt = clientSystemPrompt || FALLBACK_SYSTEM_PROMPT;
+        let aiResponse = '';
 
-        let aiResponse: string;
+        try {
+            if (finalModel.startsWith('claude')) {
+                const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+                if (ANTHROPIC_API_KEY) {
+                    const claudeModel = finalModel.includes('opus') ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022';
+                    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'anthropic-version': '2023-06-01',
+                            'content-type': 'application/json',
+                            'x-api-key': ANTHROPIC_API_KEY,
+                        },
+                        body: JSON.stringify({
+                            model: claudeModel,
+                            max_tokens: 1500,
+                            system: systemPrompt || "당신은 법률 AI 어시스턴트입니다.",
+                            messages: messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })),
+                        }),
+                    });
 
-        if (ANTHROPIC_API_KEY) {
-            const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'anthropic-version': '2023-06-01',
-                    'content-type': 'application/json',
-                    'x-api-key': ANTHROPIC_API_KEY,
-                },
-                body: JSON.stringify({
-                    model: 'claude-opus-4-5',
-                    max_tokens: 2048,
-                    system: systemPrompt,
-                    messages: messages.map((m: ChatMessage) => ({ role: m.role, content: m.content })),
-                }),
-            });
+                    if (!resp.ok) throw new Error(`Anthropic API 오류: ${resp.status}`);
+                    const data = await resp.json();
+                    aiResponse = data.content?.[0]?.text || '';
+                } else {
+                    console.warn('[chat API] ANTHROPIC_API_KEY is missing.');
+                }
+            } else if (finalModel.startsWith('gemini')) {
+                const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+                if (GEMINI_API_KEY) {
+                    const geminiModel = finalModel.includes('flash') ? 'gemini-1.5-flash-latest' : 'gemini-1.5-pro-latest';
+                    const geminiContents = messages.map((m: ChatMessage) => ({
+                        role: m.role === 'assistant' ? 'model' : 'user',
+                        parts: [{ text: m.content }]
+                    }));
+                    
+                    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            systemInstruction: { parts: [{ text: systemPrompt || "당신은 법률 AI 어시스턴트입니다." }] },
+                            contents: geminiContents,
+                            generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+                        }),
+                    });
 
-            if (!resp.ok) {
-                const errText = await resp.text();
-                console.error('[chat API] Anthropic 오류:', errText);
-                throw new Error(`Anthropic API 오류: ${resp.status}`);
+                    if (!resp.ok) throw new Error(`Gemini API 오류: ${resp.status}`);
+                    const data = await resp.json();
+                    aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                } else {
+                    console.warn('[chat API] GEMINI_API_KEY is missing.');
+                }
+            } else {
+                // Default: OpenAI (gpt-4o, gpt-4o-mini)
+                const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+                if (OPENAI_API_KEY) {
+                    const openAiMessages = [
+                        { role: 'system', content: systemPrompt || "당신은 법률 AI 어시스턴트입니다." },
+                        ...messages.map((m: ChatMessage) => ({ role: m.role, content: m.content }))
+                    ];
+
+                    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                        },
+                        body: JSON.stringify({
+                            model: finalModel === 'gpt-4o-mini' ? 'gpt-4o-mini' : 'gpt-4o',
+                            messages: openAiMessages,
+                            max_tokens: 1500,
+                            temperature: 0.7
+                        }),
+                    });
+
+                    if (!resp.ok) throw new Error(`OpenAI API 오류: ${resp.status}`);
+                    const data = await resp.json();
+                    aiResponse = data.choices?.[0]?.message?.content || '';
+                } else {
+                    console.warn('[chat API] OPENAI_API_KEY is missing.');
+                }
             }
-
-            const data = await resp.json();
-            aiResponse = data.content?.[0]?.text || '죄송합니다. 응답 생성 대기 중 문제가 발생했습니다. 잠시 후 다시 시도해 주시거나 전화(02-598-8518)로 문의 주세요.';
-        } else {
-            // 개발 환경 mock
-            await new Promise(r => setTimeout(r, 800));
-            aiResponse = generateMockResponse(messages, consultType);
+        } catch (error) {
+            console.error('[chat API] 연동 중 오류 발생:', error);
         }
 
-        return NextResponse.json({ message: aiResponse, mock: !ANTHROPIC_API_KEY });
+        // 해당 모델의 API 키가 없거나 에러가 났을 때 Fallback 적용
+        if (!aiResponse) {
+            await new Promise(r => setTimeout(r, 800));
+            aiResponse = generateMockResponse(messages);
+        }
+
+        // JSON 요약본 검출 로직
+        let isSummary = false;
+        let summaryData = null;
+        let visibleMessage = aiResponse;
+
+        const jsonMatch = aiResponse.match(/```json\n([\s\S]*?)\n```/);
+        if (jsonMatch && jsonMatch[1]) {
+            try {
+                const parsed = JSON.parse(jsonMatch[1]);
+                if (parsed.type === 'summary') {
+                    isSummary = true;
+                    summaryData = parsed;
+                    // 사용자에게 보여질 텍스트에서는 JSON 블록 제거
+                    visibleMessage = aiResponse.replace(/```json\n[\s\S]*?\n```/, '').trim();
+                }
+            } catch (e) {
+                console.error("JSON 파싱 에러:", e);
+            }
+        }
+
+        return NextResponse.json({ 
+            message: visibleMessage || '알겠습니다. 추가 문의 사항이 있으시다면 말씀해주세요.', 
+            isSummary,
+            summaryData
+        });
     } catch (err) {
         console.error('[chat API] 오류:', err);
-        const message = err instanceof Error ? err.message : '서버 오류';
         return NextResponse.json(
-            { error: message, fallback: '현재 AI 서버에 문제가 있습니다. 02-598-8518로 직접 문의해 주세요.' },
+            { error: '서버 오류', message: '현재 AI 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주시거나 02-598-8518로 문의해주세요.' },
             { status: 500 }
         );
     }

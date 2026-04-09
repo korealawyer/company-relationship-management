@@ -27,6 +27,7 @@ interface ConsultRecord {
     responseTime?: string;
     satisfaction?: number;
     messageCount: number;
+    lawyerAnswer?: string;
 }
 
 const TYPE_META: Record<ConsultType, { label: string; icon: React.ElementType; color: string }> = {
@@ -86,6 +87,7 @@ export default function ConsultationHistoryPage() {
     const [search, setSearch] = useState('');
     const [isSubscribed] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedAnswer, setSelectedAnswer] = useState<ConsultRecord | null>(null);
 
     if (authLoading || dataLoading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div></div>;
     if (!authorized) return null; // Or a redirect could happen inside useRequireAuth
@@ -103,9 +105,10 @@ export default function ConsultationHistoryPage() {
             title: c.title,
             summary: c.body || '상세 내용 없음',
             date: new Date(c.createdAt).toLocaleDateString(),
-            status: c.status === 'completed' ? 'completed' : (c.status === 'in_progress' ? 'in_progress' : 'waiting') as ConsultStatus,
+            status: ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status) ? 'completed' : (['in_progress', 'reviewing'].includes(c.status) ? 'in_progress' : 'waiting') as ConsultStatus,
             lawyer: c.managerName || '배정 대기 중',
             messageCount: Math.floor(Math.random() * 5), // Mock message count for now
+            lawyerAnswer: c.lawyerAnswer || '',
         }));
 
     const filtered = mappedRecords.filter(r => {
@@ -246,13 +249,21 @@ export default function ConsultationHistoryPage() {
                                             </span>
                                         )}
                                     </div>
-                                    <Link href="/chat">
-                                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
-                                            style={{ background: `${typeMeta.color}10`, color: typeMeta.color }}>
-                                            {r.status === 'completed' || r.status === 'closed' ? '다시 문의' : '이어서 대화'}
-                                            <ChevronRight className="w-3 h-3" />
-                                        </button>
-                                    </Link>
+                                    <div className="flex gap-1.5">
+                                        {(r.status === 'completed' || r.status === 'closed') && (
+                                            <button onClick={() => setSelectedAnswer(r)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
+                                                style={{ background: '#111827', color: '#fff' }}>
+                                                답변 보기
+                                            </button>
+                                        )}
+                                        <Link href="/chat">
+                                            <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
+                                                style={{ background: `${typeMeta.color}10`, color: typeMeta.color }}>
+                                                {r.status === 'completed' || r.status === 'closed' ? '다시 문의' : '이어서 대화'}
+                                                <ChevronRight className="w-3 h-3" />
+                                            </button>
+                                        </Link>
+                                    </div>
                                 </div>
                             </motion.div>
                         );
@@ -260,6 +271,44 @@ export default function ConsultationHistoryPage() {
                 </div>
             </div>
             <ServiceRequestModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} defaultType="consultation" />
+            
+            {/* 답변 보기 모달 */}
+            {selectedAnswer && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedAnswer(null)}>
+                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <div>
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <MessageSquare size={16} className="text-blue-600" />
+                                    변호사 답변
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-0.5">{selectedAnswer.caseId} | {selectedAnswer.title}</p>
+                            </div>
+                            <button onClick={() => setSelectedAnswer(null)} className="text-gray-400 hover:text-gray-600 text-2xl font-light leading-none outline-none">&times;</button>
+                        </div>
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700">
+                                    {selectedAnswer.lawyer?.[0] || '⚖'}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-sm text-gray-900">{selectedAnswer.lawyer}</div>
+                                    <div className="text-xs text-gray-500">IBS 법률사무소 담당 변호사</div>
+                                </div>
+                            </div>
+                            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-[#f8f9fa] p-5 rounded-xl border border-gray-200">
+                                {selectedAnswer.lawyerAnswer || "안내: 아직 답변 내용이 등록되지 않았습니다."}
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50">
+                            <button onClick={() => setSelectedAnswer(null)} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-gray-800 transition-colors">
+                                확인
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </div>
     );
 }

@@ -50,16 +50,30 @@ export function useCompanies() {
     mutate(); // 리프레시
   };
 
+  const { mutate: globalMutate } = useSWRConfig();
+
   const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = false) => {
-    // 낙관적 업데이트 가능
-    await dataLayer.companies.update(id, patch);
-    if (skipMutate) {
-      mutate(
-        (currentData) => currentData?.map(c => c.id === id ? { ...c, ...patch } : c),
+    // 낙관적 업데이트
+    if (!skipMutate) {
+      globalMutate('companies', (cur: Company[] | undefined) => cur?.map(c => c.id === id ? { ...c, ...patch } : c), { revalidate: false });
+      globalMutate(
+        (key: any) => Array.isArray(key) && key[0] === 'paginated-companies',
+        (cur: any) => {
+          if (!cur || !cur.data) return cur;
+          return {
+            ...cur,
+            data: cur.data.map((c: any) => c.id === id ? { ...c, ...patch } : c)
+          };
+        },
         { revalidate: false }
       );
-    } else {
-      mutate();
+    }
+    
+    await dataLayer.companies.update(id, patch);
+    
+    if (!skipMutate) {
+      globalMutate('companies');
+      globalMutate((key: any) => Array.isArray(key) && key[0] === 'paginated-companies');
     }
   };
 
@@ -124,6 +138,20 @@ export function useCompanyMutations() {
   };
 
   const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = false) => {
+    if (!skipMutate) {
+      mutate('companies', (cur: Company[] | undefined) => cur?.map(c => c.id === id ? { ...c, ...patch } : c), { revalidate: false });
+      mutate(
+        (key: any) => Array.isArray(key) && key[0] === 'paginated-companies',
+        (cur: any) => {
+          if (!cur || !cur.data) return cur;
+          return {
+            ...cur,
+            data: cur.data.map((c: any) => c.id === id ? { ...c, ...patch } : c)
+          };
+        },
+        { revalidate: false }
+      );
+    }
     await dataLayer.companies.update(id, patch);
     if (!skipMutate) refreshCompanies();
   };
@@ -181,8 +209,17 @@ export function useConsultations() {
   };
 
   const updateConsultation = async (id: string, patch: Partial<Consultation>) => {
-    await dataLayer.consult.update(id, patch);
-    mutate();
+    mutate(
+      (currentData) => currentData?.map(c => c.id === id ? { ...c, ...patch } : c),
+      { revalidate: false }
+    );
+    try {
+      await dataLayer.consult.update(id, patch);
+    } catch (err) {
+      console.error("Failed to update consultation:", err);
+    } finally {
+      mutate();
+    }
   };
 
   return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate, addConsultation, updateConsultation };

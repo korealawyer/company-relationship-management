@@ -73,10 +73,25 @@ export function DocumentWidget({ companyId, currentUserRole }: DocumentWidgetPro
     };
 
     const handleDocClick = (doc: Document) => {
-        if (doc.isNewForLawyer) {
-            // TODO: Mark as read via Supabase DB mutation
-            setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, isNewForLawyer: false } : d));
+        let shouldUpdate = false;
+        let updatedDoc = { ...doc };
+
+        if (currentUserRole === 'lawyer') {
+            if (doc.isNewForLawyer) {
+                updatedDoc.isNewForLawyer = false;
+                shouldUpdate = true;
+            }
+            if (doc.status === '검토 대기' || doc.status === '변호사 열람 완료') {
+                updatedDoc.status = '검토 중';
+                shouldUpdate = true;
+            }
         }
+
+        if (shouldUpdate) {
+            setDocs(prev => prev.map(d => d.id === doc.id ? updatedDoc : d));
+            // TODO: Update via Supabase DB mutation
+        }
+
         window.open(doc.url, '_blank');
     };
 

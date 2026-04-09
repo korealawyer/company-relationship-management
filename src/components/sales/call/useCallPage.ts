@@ -31,8 +31,8 @@ export interface UseCallPageReturn {
     setToast: (v: string) => void;
     callResult: string;
     activeCallId: string | null;
-    statusFilter: CaseStatus | 'all' | 'my_calls_today';
-    setStatusFilter: (v: CaseStatus | 'all' | 'my_calls_today') => void;
+    statusFilter: string;
+    setStatusFilter: (v: string) => void;
     sortKey: string;
     sortAsc: boolean;
     page: number;
@@ -98,7 +98,7 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
         return () => clearTimeout(timer);
     }, [search]);
 
-    const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all' | 'my_calls_today'>('all');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
     const [sortKey, setSortKey] = useState<string>('risk_score');
     const [sortAsc, setSortAsc] = useState(false);
 
@@ -113,7 +113,16 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
     const { stats: dbStats } = useCompanyStats();
     const { updateCompany } = useCompanyMutations();
     const { settings: dbSettings } = useAutoSettings();
-    const companies = useMemo(() => dbCompanies.filter(c => CALLABLE.includes(c.status)), [dbCompanies]);
+    const companies = useMemo(() => {
+        let list = dbCompanies;
+        
+        // 프론트엔드 실시간 격리 로직 (낙관적 UI 업데이트 대응)
+        if (statusFilter !== 'rejected' && statusFilter !== 'invalid_site') {
+            list = list.filter(c => c.status !== 'rejected' && c.status !== 'invalid_site');
+        }
+
+        return list;
+    }, [dbCompanies, statusFilter]);
     const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [toast, setToast] = useState('');
@@ -331,16 +340,30 @@ export function useCallPage(userName: string = ''): UseCallPageReturn {
     const endCall = async () => {
         if (!selected) return;
         const result = callResult || 'connected';
-        updateCompany(selected.id, { 
+        
+        const patchData: any = { 
             lastCallResult: result as any, 
             lastCallAt: new Date().toISOString(), 
             lastCalledBy: userName,
             callAttempts: (selected.callAttempts || 0) + 1 
-        });
+        };
+
+        if (result === 'rejected' || result === 'invalid_site') {
+            patchData.status = result;
+        }
+
+        updateCompany(selected.id, patchData);
+        
         if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
         else if (result === 'callback') { setShowCallbackModal(true); }
-        else if (result === 'rejected' || result === 'invalid_site') { CallQueueManager.removeFromQueue(selected.id); }
-        else { CallQueueManager.removeFromQueue(selected.id); if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'reviewing', assignedLawyer: SALES_REPS[0] }); }
+        else if (result === 'rejected' || result === 'invalid_site') { 
+            CallQueueManager.removeFromQueue(selected.id); 
+            setToast(result === 'rejected' ? '❌ 거절 처리되었습니다.' : '⚠️ 사이트 이상 분류 완료'); 
+        }
+        else { 
+            CallQueueManager.removeFromQueue(selected.id); 
+            if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'reviewing', assignedLawyer: SALES_REPS[0] }); 
+        }
 
         if (isRecording) {
             if (waveformInterval.current) { clearInterval(waveformInterval.current); waveformInterval.current = null; }

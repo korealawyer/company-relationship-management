@@ -14,7 +14,7 @@ interface EveningBriefingModalProps {
 
 export function EveningBriefingModal({ isOpen, variant, onConfirm, onCancel }: EveningBriefingModalProps) {
   const [actualCalls, setActualCalls] = useState(0);
-  const targetCalls = 80;
+  const targetCalls = 100;
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

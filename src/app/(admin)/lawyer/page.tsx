@@ -5,12 +5,11 @@ import { ArrowRight, Search, FileText, AlertTriangle, FolderOpen, ChevronRight, 
 import Link from 'next/link';
 import { type Company } from '@/lib/types';
 import { NotificationStore, PendingClientStore } from '@/lib/store';
-import { useCompanies } from '@/hooks/useDataLayer';
+import { usePaginatedCompanies } from '@/hooks/useDataLayer';
 
 import { useRequireAuth } from '@/lib/AuthContext';
 import { DocumentWidget } from '@/components/DocumentWidget';
 import ConsultQueue from '@/components/lawyer/ConsultQueue';
-import ConsultManage from '@/components/lawyer/ConsultManage';
 import BillingTracker from '@/components/lawyer/BillingTracker';
 import ReviewDocList from '@/components/lawyer/ReviewDocList';
 import LitigationDashboard from '@/app/(client)/litigation/page';
@@ -20,6 +19,7 @@ import AttendanceTab from '@/components/AttendanceTab';
 import PendingClientsPanel from '@/components/lawyer/PendingClientsPanel';
 import SmsTab from '@/components/lawyer/SmsTab';
 import MeetingRoomTab from '@/components/lawyer/MeetingRoomTab';
+import LawyerProfileTab from '@/components/lawyer/LawyerProfileTab';
 import PermissionDenied from '@/components/common/PermissionDenied';
 import { hasPermission, getCurrentUserId } from '@/lib/permissions';
 
@@ -28,7 +28,7 @@ import { LawyerFabMenu } from './components/LawyerFabMenu';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { MenuOption } from '@/components/layout/DashboardSidebar';
 
-import { usePersonalLitigations } from '@/hooks/useDataLayer';
+import { usePersonalLitigations, useConsultations } from '@/hooks/useDataLayer';
 
 const RecordingWidget = lazy(() => import('@/components/RecordingWidget'));
 
@@ -36,7 +36,7 @@ export default function LawyerPage() {
     const { loading, authorized } = useRequireAuth(['lawyer']);
     const [tab, setTab] = useState<string>('overview');
     const [search, setSearch] = useState('');
-    const [cases, setCases] = useState<Company[]>([]);
+
     const [selectedDocCompanyId, setSelectedDocCompanyId] = useState<string | null>(null);
     const [showRecWidget, setShowRecWidget] = useState(false);
     const [recWidgetMode, setRecWidgetMode] = useState<'new_client' | 'intake_url'>('new_client');
@@ -44,8 +44,9 @@ export default function LawyerPage() {
     const [pendingCount, setPendingCount] = useState(0);
 
     const userId = getCurrentUserId();
-    const { companies } = useCompanies();
+    const { companies } = usePaginatedCompanies({ limit: 1000, page: 1, status: 'lawyer_active' });
     const { personalLitigations } = usePersonalLitigations();
+    const { consultations } = useConsultations();
     
     const personalLits = React.useMemo(() => personalLitigations.filter((l: any) => l.status !== 'closed'), [personalLitigations]);
     const personalUrgentCount = React.useMemo(() => {
@@ -54,8 +55,12 @@ export default function LawyerPage() {
         return personalLits.flatMap(l => l.deadlines).filter(d => !d.completed && new Date(d.dueDate) <= sevenDaysLater).length;
     }, [personalLits]);
 
+    const consultCount = React.useMemo(() => {
+        return (consultations || []).filter(c => c.status === '대기' || c.status === 'submitted').length;
+    }, [consultations]);
+
     useEffect(() => {
-        setCases(companies || []);
+
         const refreshCounts = () => {
             setNotifCount(NotificationStore.unreadCount());
             setPendingCount(PendingClientStore.count());
@@ -67,7 +72,7 @@ export default function LawyerPage() {
             window.removeEventListener('ibs-notif-updated', refreshCounts);
             window.removeEventListener('ibs-pending-updated', refreshCounts);
         };
-    }, [companies]);
+    }, []);
 
     if (loading || !authorized) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -75,17 +80,16 @@ export default function LawyerPage() {
         </div>
     );
 
-    const assignedCases = cases.filter(c => ['assigned', 'reviewing'].includes(c.status));
+    const assignedCases = companies.filter(c => ['assigned', 'reviewing'].includes(c.status));
     const filtered = assignedCases.filter(c => !search || c.name.includes(search) || c.biz.includes(search));
     const urgentCount = assignedCases.filter(c => c.issues.some(i => i.level === 'HIGH' && !i.reviewChecked)).length;
-    const reviewedCount = cases.filter(c => c.lawyerConfirmed).length;
-    const unreviewedCount = cases.reduce((s, c) => s + c.issues.filter(i => !i.reviewChecked).length, 0);
+    const reviewedCount = companies.filter(c => c.lawyerConfirmed).length;
+    const unreviewedCount = companies.reduce((s, c) => s + c.issues.filter(i => !i.reviewChecked).length, 0);
 
     const menus: MenuOption[] = [
         { id: 'overview', label: '대시보드', icon: Scale, badge: assignedCases.length, alert: urgentCount > 0 },
-        { id: 'consult', label: '상담 검토', icon: MessageSquare },
+        { id: 'consult', label: '상담 및 수임 관리', icon: MessageSquare, badge: consultCount, alert: consultCount > 0 },
         { id: 'pending', label: '대기중(예비고객)', icon: Users, badge: pendingCount, alert: pendingCount > 0 },
-        { id: 'consultMgmt', label: '내 상담관리', icon: UserCheck },
         { id: 'litigation', label: '송무사건 관리', icon: Gavel },
         { id: 'billing', label: '청구/미수', icon: TrendingDown },
         { id: 'sms', label: '문자 발송', icon: Send },
@@ -93,6 +97,7 @@ export default function LawyerPage() {
         { id: 'contracts', label: '계약서', icon: FileText },
         { id: 'documents', label: '문서함', icon: FolderOpen },
         { id: 'attendance', label: '근태/행선지', icon: CalendarDays },
+        { id: 'profile', label: '프로필 설정', icon: UserIcon },
     ];
 
     const renderContent = () => {
@@ -101,10 +106,10 @@ export default function LawyerPage() {
                 return <ConsultQueue />;
             case 'pending':
                 return <PendingClientsPanel onConfirm={() => setPendingCount(PendingClientStore.count())} />;
-            case 'consultMgmt':
-                return <ConsultManage />;
             case 'billing':
                 return <BillingTracker />;
+            case 'profile':
+                return <LawyerProfileTab />;
             case 'overview':
                 return (
                     <div className="flex flex-col gap-6 -mt-2">
@@ -173,8 +178,8 @@ export default function LawyerPage() {
                                 <h3 className="text-sm font-bold text-slate-700 font-sans">구독 중인 기업</h3>
                             </div>
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {cases.filter(c => c.status === 'subscribed').length > 0 ? (
-                                    cases.filter(c => c.status === 'subscribed').map(c => (
+                                {companies.filter(c => c.status === 'subscribed').length > 0 ? (
+                                    companies.filter(c => c.status === 'subscribed').map(c => (
                                         <div 
                                             key={c.id} 
                                             onClick={() => setSelectedDocCompanyId(c.id)}

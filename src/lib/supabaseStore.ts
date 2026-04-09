@@ -124,6 +124,7 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
   c.url = anyC.domain || '';
   c.email = anyC.contactEmail || '';
   c.phone = anyC.contactPhone || '';
+  c.ceo = anyC.ceoName || '';
 
   // 해당 회사의 서브 데이터만 병렬 조회
   const [issuesRes, contactsRes, memosRes, tlRes] = await Promise.all([
@@ -144,6 +145,42 @@ async function fetchCompanyById(id: string): Promise<Company | null> {
   c.contacts = (contactsRes.data || []).map(r => rowToObj<CompanyContact>(r));
   c.memos = (memosRes.data || []).map(r => rowToObj<CompanyMemo>(r));
   c.timeline = (tlRes.data || []).map(r => rowToObj<CompanyTimelineEvent>(r));
+
+  let assignedLawyerRef = c.assignedLawyer;
+  let lawyerData = null;
+  
+  if (assignedLawyerRef) {
+    // Try by ID first
+    let res = await sb.from('lawyers').select('*').eq('id', assignedLawyerRef).maybeSingle();
+    if (!res.data) {
+       // Try by name
+       res = await sb.from('lawyers').select('*').eq('name', assignedLawyerRef).maybeSingle();
+    }
+    lawyerData = res.data;
+  }
+  
+  // If still no lawyer, fallback to the first available lawyer in DB
+  if (!lawyerData) {
+    const { data } = await sb.from('lawyers').select('*').limit(1).maybeSingle();
+    lawyerData = data;
+  }
+
+  if (lawyerData) {
+    c.lawyerProfile = {
+      id: lawyerData.id,
+      name: lawyerData.name,
+      role: lawyerData.role || '담당 변호사',
+      signatureImageUrl: lawyerData.signature_image_url
+    };
+  } else {
+    // 테이블 생성이 완료되지 않았거나 데이터가 없을 때를 대비한 모의 데이터
+    c.lawyerProfile = {
+      id: 'dummy',
+      name: assignedLawyerRef || '담당 변호사',
+      role: '개인정보보호 전문 팀장',
+      signatureImageUrl: 'https://placehold.co/150x50/transparent/333333?text=Signature&font=Caveat'
+    };
+  }
 
   return c;
 }
@@ -191,7 +228,11 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
     if (status === 'pending') query = query.in('status', ['pending', '등록됨']);
     else if (status === 'crawling') query = query.in('status', ['crawling', '분석중']);
     else if (status === 'analyzed') query = query.in('status', ['analyzed', '분석완료']);
+    else if (status === 'lawyer_active') query = query.in('status', ['assigned', 'reviewing', 'subscribed']);
     else query = query.eq('status', status);
+  } else {
+    // 거절 및 사이트이상은 '전체' 탭에서 보이지 않도록 제외합니다.
+    query = query.not('status', 'in', '("rejected","invalid_site")');
   }
   
   if (plan && plan !== 'all_clients' && plan !== 'all_users') {
@@ -248,6 +289,7 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
     c.url = anyC.domain || '';
     c.email = anyC.contactEmail || '';
     c.phone = anyC.contactPhone || '';
+    c.ceo = anyC.ceoName || '';
 
     // Normalize Korean status strings to English enum keys
     if (c.status === '등록됨' as any) c.status = 'pending';
@@ -272,13 +314,41 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
   const sb = getSupabase();
   if (!sb) return defaultStats;
   
-  const { data: rows } = await sb.from('companies').select('id, plan, risk_score, store_count, status').limit(50000);
-  if (!rows) return defaultStats;
+  const { count, error } = await sb.from('companies').select('*', { count: 'exact', head: true });
+  if (error || !count) return defaultStats;
+
+  const PAGE_SIZE = 1000;
+  const totalPages = Math.ceil(count / PAGE_SIZE);
+  const promises = [];
   
-  let total = rows.length, subscribers = 0, premium = 0, standard = 0, starter = 0, atRisk = 0, totalStores = 0;
+  for (let i = 0; i < totalPages; i++) {
+    const from = i * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    promises.push(
+      sb.from('companies').select('plan, risk_score, store_count, status').range(from, to)
+    );
+  }
+  
+  const results = await Promise.all(promises);
+  let allRows: any[] = [];
+  for (const res of results) {
+    if (res.data) allRows = allRows.concat(res.data);
+  }
+  
+  let total = 0, subscribers = 0, premium = 0, standard = 0, starter = 0, atRisk = 0, totalStores = 0;
   const statusCounts: Record<string, number> = {};
   
-  for (const r of rows) {
+  for (const r of allRows) {
+    let st = r.status || 'pending';
+    if (st === '등록됨') st = 'pending';
+    if (st === '분석중') st = 'crawling';
+    if (st === '분석완료') st = 'analyzed';
+    statusCounts[st] = (statusCounts[st] || 0) + 1;
+
+    // 거절, 사이트이상인 경우 메인 통계(total 등)에서 제외
+    if (st === 'rejected' || st === 'invalid_site') continue;
+
+    total++;
     totalStores += (r.store_count || 0);
     if (r.plan && r.plan !== 'none') subscribers++;
     if (r.plan === 'premium') premium++;
@@ -286,12 +356,6 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
     if (r.plan === 'starter') starter++;
     const score = 100 - (r.risk_score || 0);
     if (score < 50) atRisk++;
-    
-    let st = r.status || 'pending';
-    if (st === '등록됨') st = 'pending';
-    if (st === '분석중') st = 'crawling';
-    if (st === '분석완료') st = 'analyzed';
-    statusCounts[st] = (statusCounts[st] || 0) + 1;
   }
   return { total, subscribers, premium, standard, starter, atRisk, totalStores, unreviewedIssues: 0, reviewedIssues: 0, statusCounts };
 }
@@ -314,11 +378,12 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
   if (rawRow.url !== undefined && !rawRow.domain) rawRow.domain = rawRow.url;
   if (rawRow.email !== undefined && !rawRow.contact_email) rawRow.contact_email = rawRow.email;
   if (rawRow.phone !== undefined && !rawRow.contact_phone) rawRow.contact_phone = rawRow.phone;
+  if (flat.ceo !== undefined) rawRow.ceo_name = flat.ceo;
 
   const allowedDbColumns = [
     // 기존 컬럼
     'name', 'domain', 'url', 'email', 'phone',
-    'contact_name', 'contact_email', 'contact_phone',
+    'contact_name', 'contact_email', 'contact_phone', 'ceo_name',
     'biz_category', 'franchise_type', 'store_count', 'plan', 'status', 'risk_level',
     'risk_score', 'issue_count', 'privacy_url', 'privacy_policy_text', 'assigned_lawyer_id',
     'email_sent_at', 'lawyer_confirmed', 'lawyer_confirmed_at', 'source', 'biz_no', 'id',
@@ -692,7 +757,53 @@ export const supabaseConsultStore = {
     const sb = getSupabase();
     if (!sb) return;
     if (!consult.id) consult.id = crypto.randomUUID();
-    await sb.from('consultations').insert(objToRow(consult as Record<string, unknown>));
+    
+    // Convert to row format
+    const row = objToRow(consult as Record<string, unknown>);
+    
+    // Explicitly handle attachedFiles if the DB expects it as JSON or if it shouldn't exist
+    // If the DB throws error about attached_files, we stringify or drop it.
+    // Ensure content body has the attachedFiles data (already done in ServiceRequestModal)
+    // We will attempt to insert attached_files.
+    if (Array.isArray(row.attached_files)) {
+       // Just pass as is. Supabase accepts arrays for JSONB.
+    }
+
+    const { data, error } = await sb.from('consultations').insert(row);
+    if (error) {
+       console.error("Consult Create Error:", error);
+       
+       // Fallback: Clean up schema mismatches
+       const fallbackRow = { ...row };
+       if (fallbackRow.attached_files) delete fallbackRow.attached_files;
+       if (fallbackRow.body) {
+           fallbackRow.content = fallbackRow.body; // map body to content
+           delete fallbackRow.body;
+       }
+       
+       const { error: fallbackError } = await sb.from('consultations').insert(fallbackRow);
+       if (fallbackError) {
+           console.error("Consult Create Fallback Error:", fallbackError);
+           
+           // Super fallback: only standard DbConsultation columns
+           const safeRow = {
+              id: fallbackRow.id,
+              company_id: fallbackRow.company_id,
+              author_name: fallbackRow.author_name,
+              category: fallbackRow.category,
+              urgency: fallbackRow.urgency,
+              title: fallbackRow.title,
+              content: fallbackRow.content || fallbackRow.body,
+              status: fallbackRow.status || 'submitted',
+              callback_phone: fallbackRow.callback_phone,
+              is_private: fallbackRow.is_private,
+              created_at: new Date().toISOString()
+           };
+           
+           const { error: safeError } = await sb.from('consultations').insert(safeRow);
+           if (safeError) throw new Error(safeError.message);
+       }
+    }
   },
 
   update: async (id: string, updates: Partial<Consultation>): Promise<void> => {
@@ -700,7 +811,27 @@ export const supabaseConsultStore = {
     if (!sb) return;
     const row = objToRow(updates as Record<string, unknown>);
     row.updated_at = new Date().toISOString();
-    await sb.from('consultations').update(row).eq('id', id);
+    
+    // Explicitly drop attached_files if it got here to avoid error
+    if ('attached_files' in row) delete row.attached_files;
+
+    const { error } = await sb.from('consultations').update(row).eq('id', id);
+    if (error) {
+       console.warn("Consult UPDATE error:", error);
+       
+       // Fallback: DB might be missing newer columns like callback_note etc.
+       const fallbackRow = { ...row };
+       if ('callback_note' in fallbackRow) delete fallbackRow.callback_note;
+       if ('callback_phone' in fallbackRow) delete fallbackRow.callback_phone;
+       if ('callback_requested_at' in fallbackRow) delete fallbackRow.callback_requested_at;
+       if ('callback_done_at' in fallbackRow) delete fallbackRow.callback_done_at;
+       
+       const { error: fbErr } = await sb.from('consultations').update(fallbackRow).eq('id', id);
+       if (fbErr) {
+          console.error("Consult UPDATE Fallback Error:", fbErr);
+          throw new Error(fbErr.message);
+       }
+    }
   },
 };
 

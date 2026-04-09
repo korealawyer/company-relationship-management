@@ -18,7 +18,12 @@ export default function ChatPage() {
     const [loading, setLoading] = useState(false);
     const [consultType, setConsultType] = useState('general');
     const [step, setStep] = useState<'select' | 'chat'>('select');
-    const [caseId] = useState(() => `IBS-${new Date().getFullYear()}-${String(Math.random()).slice(2, 8)}`);
+    const [caseId, setCaseId] = useState('');
+    const [isFinished, setIsFinished] = useState(false);
+
+    useEffect(() => {
+        setCaseId(`IBS-${new Date().getFullYear()}-${String(Math.random()).slice(2, 8)}`);
+    }, []);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -26,21 +31,18 @@ export default function ChatPage() {
     const selectType = async (type: string) => {
         setConsultType(type);
         setStep('chat');
+        setMessages([
+            { role: 'assistant', content: '안녕하세요. IBS법률사무소 파트너입니다. 궁금한 점이나 법률적인 상담이 필요하시면 언제든지 말씀해 주세요. 빠르게 정리후 변호사님과 상담을 받을 수 있도록 도와 드리겠습니다.' }
+        ]);
+        
         setLoading(true);
-        try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ 
-                    messages: [], 
-                    consultType: type,
-                    systemPrompt: getPromptConfig().chatFullPrompt 
-                }),
-            });
-            const data = await res.json();
-            setMessages([{ role: 'assistant', content: data.message }]);
-        } catch { setMessages([{ role: 'assistant', content: '안녕하세요. 어떤 도움이 필요하신가요?' }]); }
-        setLoading(false);
+        setTimeout(() => {
+            setMessages(prev => [
+                ...prev,
+                { role: 'assistant', content: '명확한 상담을 위해 먼저 여쭙겠습니다. 현재 어떤 종류의 법률 문제를 겪고 계신가요? (예: 형사, 민사, 가사)' }
+            ]);
+            setLoading(false);
+        }, 1000);
     };
 
     const send = async () => {
@@ -57,11 +59,28 @@ export default function ChatPage() {
                 body: JSON.stringify({ 
                     messages: newMsgs, 
                     consultType,
-                    systemPrompt: getPromptConfig().chatFullPrompt 
+                    systemPrompt: getPromptConfig().chatSystemPrompt 
                 }),
             });
             const data = await res.json();
             setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+            if (data.isSummary) {
+                try {
+                    await fetch('/api/chat/save', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ 
+                            messages: newMsgs, 
+                            summaryData: data.summaryData, 
+                            caseId, 
+                            consultType 
+                        })
+                    });
+                } catch (e) {
+                    console.error('Failed to save chat', e);
+                }
+                setIsFinished(true);
+            }
         } catch { setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 일시적 오류가 발생했습니다.' }]); }
         setLoading(false);
     };
@@ -173,11 +192,12 @@ export default function ChatPage() {
                                     value={input}
                                     onChange={e => setInput(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-                                    placeholder="메시지를 입력하세요..."
-                                    className="flex-1 px-4 py-3 rounded-xl text-sm outline-none"
+                                    placeholder={isFinished ? "상담 접수가 완료되었습니다." : "메시지를 입력하세요..."}
+                                    disabled={isFinished}
+                                    className="flex-1 px-4 py-3 rounded-xl text-sm outline-none disabled:bg-gray-200 disabled:cursor-not-allowed"
                                     style={{ background: '#f3f4f6', border: '1px solid #e8e5de', color: '#111827' }}
                                 />
-                                <button onClick={send} disabled={loading || !input.trim()}
+                                <button onClick={send} disabled={loading || !input.trim() || isFinished}
                                     className="px-4 py-3 rounded-xl transition-all disabled:opacity-30"
                                     style={{ background: '#111827', color: '#fff' }}>
                                     <Send className="w-4 h-4" />

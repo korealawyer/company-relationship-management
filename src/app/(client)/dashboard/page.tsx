@@ -57,5 +57,35 @@ export default async function DashboardPage() {
        name: user.user_metadata?.name || null,
     };
 
-    return <DashboardClient initialUser={authSession} initialCompany={null} />;
+    // Fetch company server-side 
+    let initialCompany = null;
+    try {
+       let query = supabase.from('companies').select('*');
+       if (authSession.companyId) {
+           query = query.eq('id', authSession.companyId);
+       } else if (authSession.email) {
+           query = query.or(`email.eq.${authSession.email},contact_email.eq.${authSession.email}`);
+       } else {
+           // No valid id or email to lookup
+           query = query.eq('id', 'INVALID');
+       }
+       const { data } = await query.single();
+       if (data) {
+           // Mapping raw row to Company interface partially
+           initialCompany = {
+               id: data.id,
+               name: data.name,
+               email: data.email,
+               contactEmail: data.contact_email,
+               status: data.status,
+               issues: data.issues || [],
+               lawyerConfirmed: data.lawyer_confirmed || false,
+               riskLevel: data.risk_level || ''
+           };
+       }
+    } catch(err) {
+       console.log("Failed to fetch initial company for dashboard", err);
+    }
+
+    return <DashboardClient initialUser={authSession} initialCompany={initialCompany} />;
 }

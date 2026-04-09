@@ -11,7 +11,9 @@ import {
     MessageSquare, Zap, ExternalLink
 } from 'lucide-react';
 import { useCompanies } from '@/hooks/useDataLayer';
+import { dataLayer } from '@/lib/dataLayer';
 import { getSession } from '@/lib/auth';
+import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -139,6 +141,7 @@ const TrustBadge = ({ icon: Icon, label, sub }: { icon: any; label: string; sub:
 export default function PrivacyAnalysisClientPage() {
     const router = useRouter();
     const { companies, isLoading } = useCompanies();
+    const { user, loading: authLoading } = useAuth();
     const [company, setCompany] = useState<any>(null);
     const bookRef = useRef<HTMLDivElement>(null);
     const { scrollYProgress, scrollY } = useScroll();
@@ -157,16 +160,70 @@ export default function PrivacyAnalysisClientPage() {
     }, [scrollY]);
 
     useEffect(() => {
-        const session = getSession();
-        if (companies && companies.length > 0) {
+        if (authLoading || isLoading) return;
+        const session = user || getSession();
+
+        const resolveCompany = async () => {
             let match = null;
-            if (session?.companyId) {
-                match = companies.find((c) => c.id === session.companyId);
+            if (session) {
+                // 1. Initial array check
+                if (session.companyId) {
+                    match = companies?.find((c) => c.id === session.companyId);
+                }
+                
+                // 3. Fallback to bizNo from companyId string
+                if (!match && session.companyId) {
+                    const digits = session.companyId.replace(/\D/g, '');
+                    if (digits.length >= 10) {
+                        match = companies?.find((c: any) => c.biz === digits || c.biz?.replace(/\D/g, '') === digits);
+                    }
+                }
+
+                // 4. Fallback to bizNo from email
+                if (!match && session.email) {
+                    const prefix = session.email.split('@')[0].replace(/\D/g, '');
+                    if (prefix.length >= 10) {
+                        match = companies?.find((c: any) => c.biz === prefix || c.biz?.replace(/\D/g, '') === prefix);
+                    }
+                }
+                
+                // If it's a UUID but not matched above, maybe use the ID directly
+                let targetId = match ? match.id : (session.companyId && session.companyId.length > 20 ? session.companyId : null);
+                
+                // If nothing is found, use the first company
+                if (!targetId && companies && companies.length > 0) {
+                    targetId = companies[0].id;
+                }
+
+                // Upgrade to full model to retrieve `lawyerProfile` and full nested relations
+                if (targetId) {
+                    try {
+                        const fullComp = await dataLayer.companies.getById(targetId);
+                        if (fullComp) {
+                            match = fullComp;
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch full company', e);
+                    }
+                }
+            } else if (companies && companies.length > 0) {
+                // If no session but companies exist, load the full profile of the first one
+                try {
+                    const fullComp = await dataLayer.companies.getById(companies[0].id);
+                    if (fullComp) {
+                        match = fullComp;
+                    }
+                } catch (e) {
+                    console.error('Failed to fallback full company', e);
+                }
             }
-            // 세션이 없거나 일치하는 회사가 없으면 목록의 첫 번째 회사로 폴백 (미리보기 용도)
-            setCompany(match || companies[0]);
-        }
-    }, [companies]);
+
+            // Set final match
+            setCompany(match || (companies && companies.length > 0 ? companies[0] : null));
+        };
+
+        resolveCompany();
+    }, [companies, user, isLoading, authLoading]);
 
     if (!isLoading && !company) {
         return (
@@ -235,7 +292,7 @@ export default function PrivacyAnalysisClientPage() {
             </div>
 
             {/* ─── 메인 콘텐츠 영역 ─── */}
-            <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-8 pb-0">
+            <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-8 pb-40">
                 <div className="flex flex-col xl:flex-row gap-8 items-start">
 
                     {/* ═══════════════════════════════════════════
@@ -364,10 +421,33 @@ export default function PrivacyAnalysisClientPage() {
                                             </div>
                                         </div>
 
+                                        {/* 변호사 서명 영역 (신규) */}
+                                        {company?.lawyerProfile && (
+                                            <div className="px-8 md:px-16 flex justify-end">
+                                                <div className="text-right flex flex-col items-end gap-2">
+                                                    <div className="flex items-end gap-3">
+                                                        <div className="font-black text-gray-900 text-lg">
+                                                            {company.lawyerProfile.name.endsWith(' 변호사') 
+                                                                ? `변호사 ${company.lawyerProfile.name.replace(' 변호사', '')}` 
+                                                                : `변호사 ${company.lawyerProfile.name}`}
+                                                        </div>
+                                                        {company.lawyerProfile.signatureImageUrl && (
+                                                            <img 
+                                                                src={company.lawyerProfile.signatureImageUrl} 
+                                                                alt="서명" 
+                                                                className="h-10 max-w-[150px] object-contain opacity-80" 
+                                                                style={{ mixBlendMode: 'multiply' }} 
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* 조문별 상세 분석 (아코디언 형식) */}
                                         {displayIssues.length > 0 && (
                                             <div className="border-t border-gray-100">
-                                                <div className="px-8 md:px-16 pt-10 pb-4">
+                                                <div className="px-8 md:px-16 pt-6 pb-2">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <Gavel className="w-4 h-4 text-gray-300" />
                                                         <h2 className="text-sm font-black text-gray-400 tracking-wider uppercase">
@@ -409,14 +489,9 @@ export default function PrivacyAnalysisClientPage() {
                                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                                         <div>
                                             <div className="text-[10px] font-black text-gray-400 tracking-wider uppercase mb-3">검토 확인</div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${GOLD}15` }}>
-                                                    <BadgeCheck className="w-5 h-5" style={{ color: GOLD }} />
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-black text-gray-900">IBS 법률사무소</div>
-                                                    <div className="text-[11px] font-medium text-gray-400">개인정보보호 전문 검토팀</div>
-                                                </div>
+                                            <div>
+                                                <div className="text-sm font-black text-gray-900">IBS 법률사무소</div>
+                                                <div className="text-[11px] font-medium text-gray-400">개인정보보호 전문 검토팀</div>
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -467,15 +542,16 @@ export default function PrivacyAnalysisClientPage() {
 
                         {/* ─── 하단: 신뢰 & 프로세스 보증 영역 ─── */}
                         {hasAnalysis && hasIssues && (
-                            <motion.div
-                                initial="hidden"
-                                whileInView="visible"
-                                viewport={{ once: true }}
-                                variants={stagger}
-                                className="mt-8 space-y-6"
-                            >
+                            <>
                                 {/* 보증 섹션 */}
-                                <motion.div variants={fadeUp} className="rounded-xl overflow-hidden" style={{ background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                                <motion.div 
+                                    initial="hidden"
+                                    whileInView="visible"
+                                    viewport={{ once: true }}
+                                    variants={fadeUp} 
+                                    className="mt-8 rounded-xl overflow-hidden" 
+                                    style={{ background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                                >
                                     <div className="px-8 md:px-12 py-8">
                                         <div className="text-[10px] font-black text-gray-400 tracking-wider uppercase mb-6">IBS 법률사무소의 약속</div>
                                         <div className="grid md:grid-cols-3 gap-6">
@@ -500,8 +576,11 @@ export default function PrivacyAnalysisClientPage() {
 
                                 {/* 하단 CTA (데스크톱) */}
                                 <motion.div
+                                    initial="hidden"
+                                    whileInView="visible"
+                                    viewport={{ once: true }}
                                     variants={fadeUp}
-                                    className="rounded-xl overflow-hidden"
+                                    className="mt-6 rounded-xl overflow-hidden"
                                     style={{
                                         background: 'linear-gradient(135deg, #111827, #1f2937)',
                                         boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
@@ -539,7 +618,7 @@ export default function PrivacyAnalysisClientPage() {
                                         </div>
                                     </div>
                                 </motion.div>
-                            </motion.div>
+                            </>
                         )}
 
                         {/* 여백 */}

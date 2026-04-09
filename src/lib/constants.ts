@@ -14,6 +14,7 @@ export const STATUS_LABEL: Record<CaseStatus, string> = {
     cold_email: '콜드메일 발송', guide_download: '가이드북(리드)',
     pilot_offer: '파일럿 제안', upsell: '업셀링 대상', churn_risk: '이탈 위험',
     re_investigation: '재조사',
+    rejected: '거절', invalid_site: '사이트이상'
 };
 
 export const STATUS_COLOR: Record<CaseStatus, string> = {
@@ -27,6 +28,7 @@ export const STATUS_COLOR: Record<CaseStatus, string> = {
     cold_email: 'rgba(148,163,184,0.15)', guide_download: 'rgba(59,130,246,0.15)',
     pilot_offer: 'rgba(168,85,247,0.15)', upsell: 'rgba(14,165,233,0.15)', churn_risk: 'rgba(239,68,68,0.15)',
     re_investigation: 'rgba(113,113,122,0.15)',
+    rejected: 'rgba(239,68,68,0.15)', invalid_site: 'rgba(245,158,11,0.15)'
 };
 
 export const STATUS_TEXT: Record<CaseStatus, string> = {
@@ -38,6 +40,7 @@ export const STATUS_TEXT: Record<CaseStatus, string> = {
     cold_email: '#94a3b8', guide_download: '#3b82f6',
     pilot_offer: '#a855f7', upsell: '#0ea5e9', churn_risk: '#ef4444',
     re_investigation: '#52525b',
+    rejected: '#ef4444', invalid_site: '#f59e0b'
 };
 
 export const PIPELINE: CaseStatus[] = [

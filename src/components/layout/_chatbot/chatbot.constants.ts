@@ -23,6 +23,7 @@ export type Step =
     | 'asked_faq'
     | 'asked_free'
     | 'url_detected'
+    | 'interviewing'
     | 'waiting_name'
     | 'waiting_contact'
     | 'waiting_time'
@@ -46,7 +47,8 @@ export const STEP_PROGRESS: Record<Step, number> = {
     asked_faq: 20,
     asked_free: 20,
     url_detected: 20,
-    waiting_name: 50,
+    interviewing: 40,
+    waiting_name: 60,
     waiting_contact: 75,
     waiting_time: 90,
     done: 100,

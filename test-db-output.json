@@ -1,0 +1,9 @@
+{
+  "data": null,
+  "error": {
+    "code": "PGRST205",
+    "details": null,
+    "hint": "Perhaps you meant the table 'public.users'",
+    "message": "Could not find the table 'public.lawyers' in the schema cache"
+  }
+}

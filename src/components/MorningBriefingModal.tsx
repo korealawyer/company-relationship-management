@@ -90,7 +90,7 @@ export function MorningBriefingModal() {
           <div className="bg-blue-900/20 rounded-2xl p-6 border border-blue-800/50 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
             <p className="text-sm text-blue-300 mb-2 font-medium">오늘의 기본 할당량</p>
-            <p className="text-3xl font-bold text-blue-400">80 <span className="text-lg font-normal text-blue-500/70">건</span></p>
+            <p className="text-3xl font-bold text-blue-400">100 <span className="text-lg font-normal text-blue-500/70">건</span></p>
             <p className="text-xs text-blue-400/70 mt-2 font-medium">유효 통화 기준 달성 필수</p>
           </div>
         </div>

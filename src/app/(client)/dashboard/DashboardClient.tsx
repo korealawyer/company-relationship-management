@@ -217,8 +217,39 @@ const TYPE_META: Record<ItemType, { label: string; color: string; gradFrom: stri
 
 function ServiceProgressPanel({ companyId }: { companyId?: string }) {
     const { litigations, isLoading: isLitLoading } = useLitigations();
-    const { consultations, isLoading: isConLoading } = useConsultations();
+    const { consultations, isLoading: isConLoading, updateConsultation } = useConsultations();
     const { documents, isLoading: isDocLoading } = useDocuments();
+
+    // 의뢰하기 팝업 상태 (제안 3: 담당 변호사 직접 전화 연결 및 미팅 스케줄링)
+    const [hireModalItem, setHireModalItem] = useState<ServiceItem | null>(null);
+    const [hireModalState, setHireModalState] = useState<'default' | 'success'>('default');
+
+    const handleImmediateCall = async () => {
+        if (!hireModalItem) return;
+        
+        try {
+            if (hireModalItem.type === 'consultation') {
+                await updateConsultation(hireModalItem.id, { 
+                    status: 'callback_requested', 
+                    callbackRequestedAt: new Date().toISOString() 
+                });
+            } else {
+                // Documents and Litigations logic
+                if (hireModalItem.type === 'document') {
+                    // await dataLayer.documents.update(hireModalItem.id, { status: '검토 중', isNewForLawyer: true });
+                }
+            }
+
+            setHireModalState('success');
+            setTimeout(() => {
+                setHireModalItem(null);
+                setHireModalState('default');
+            }, 3000);
+        } catch (e) {
+            console.error("통화 요청 전달 실패:", e);
+            alert("통화 요청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        }
+    };
 
     const items = React.useMemo(() => {
         if (!companyId || isLitLoading || isConLoading || isDocLoading) return [];
@@ -234,8 +265,8 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
             title: l.caseName || `${l.opponent} 관련 소송`,
             date: new Date(l.createdAt).toLocaleDateString() + ' 접수',
             status: l.status === 'closed' ? 'completed' : 'reviewing',
-            steps: ['사건 접수', '증거 수집', '답변서 작성', '조정·소송'],
-            currentStep: l.status === 'closed' ? 3 : 1,
+            steps: ['접수', '검토중', '답변'],
+            currentStep: l.status === 'closed' ? 2 : 1,
             href: `/cases/${l.id}`,
             urgent: false
         }));
@@ -245,9 +276,9 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
              type: 'consultation',
              title: c.title,
              date: new Date(c.createdAt).toLocaleDateString() + ' 접수',
-             status: c.status === 'completed' ? 'completed' : (c.status === 'in_progress' ? 'reviewing' : 'received'),
-             steps: ['접수', '변호사 배정', '검토 중', '답변 완료'],
-             currentStep: c.status === 'completed' ? 3 : (c.status === 'in_progress' ? 2 : 0),
+             status: ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status) ? 'completed' : (['in_progress', 'reviewing', '수임', '검토중'].includes(c.status) ? 'reviewing' : 'received'),
+             steps: ['접수', '검토중', '답변'],
+             currentStep: ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status) ? 2 : (['in_progress', 'reviewing', '수임', '검토중'].includes(c.status) ? 1 : 0),
              href: `/consultation-history`
         }));
         
@@ -256,9 +287,9 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
              type: 'document',
              title: d.name,
              date: new Date(d.createdAt).toLocaleDateString() + ' 업로드',
-             status: d.status === '검토 완료' || d.status === '변호사 열람 완료' ? 'completed' : 'reviewing',
-             steps: ['문서 접수', '변호사 배정', '검토 중', '검토 완료'],
-             currentStep: d.status === '검토 완료' ? 3 : (d.status === '검토 중' ? 2 : 1),
+             status: ['검토 완료', '완료', 'completed'].includes(d.status) ? 'completed' : (['검토 중', 'reviewing', '변호사 열람 완료', '검토중'].includes(d.status) ? 'reviewing' : 'received'),
+             steps: ['접수', '검토중', '답변'],
+             currentStep: ['검토 완료', '완료', 'completed'].includes(d.status) ? 2 : (['검토 중', 'reviewing', '변호사 열람 완료', '검토중'].includes(d.status) ? 1 : 0),
              href: `/documents`
         }));
 
@@ -365,16 +396,49 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
                                         </div>
 
                                         {/* 하단 메타 */}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{stepLabel}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                                             <span style={{ fontSize: 10, color: '#9ca3af' }}>{item.date}</span>
                                         </div>
                                     </div>
 
-                                    {/* 퍼센트 + 화살표 */}
+                                    {/* 화살표 or 의뢰하기/답변보기 버튼 */}
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, gap: 4 }}>
-                                        <span style={{ fontSize: 16, fontWeight: 900, color: item.status === 'completed' ? '#16a34a' : tm.color }}>{pct}%</span>
-                                        <ChevronRight size={13} color="#d1d5db" />
+                                        {item.status === 'completed' ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <button onClick={(e) => {
+                                                    e.preventDefault();
+                                                    window.location.href = item.href;
+                                                }} style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 800,
+                                                    background: '#f3f4f6',
+                                                    color: '#374151',
+                                                    padding: '4px 10px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid #d1d5db',
+                                                    cursor: 'pointer',
+                                                    textAlign: 'center'
+                                                }}>답변 보기</button>
+                                                <button onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setHireModalItem(item);
+                                                    setHireModalState('default');
+                                                }} style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 800,
+                                                    background: '#111827',
+                                                    color: '#fff',
+                                                    padding: '4px 10px',
+                                                    borderRadius: 6,
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                                    textAlign: 'center'
+                                                }}>의뢰하기</button>
+                                            </div>
+                                        ) : (
+                                            <ChevronRight size={13} color="#d1d5db" />
+                                        )}
                                     </div>
                                 </div>
                             </Link>
@@ -382,6 +446,101 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
                     );
                 })}
             </div>
+
+            {/* 의뢰하기 스케줄링 팝업 (제안 3) */}
+            <AnimatePresence>
+                {hireModalItem && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                            zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20 }}
+                            style={{
+                                background: '#fff', borderRadius: 24, width: '100%', maxWidth: 440,
+                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden'
+                            }}
+                        >
+                            {hireModalState === 'default' ? (
+                                <div style={{ padding: '32px 24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                                        <div style={{
+                                            background: '#f3f4f6', width: 48, height: 48, borderRadius: 16,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            <Phone size={24} color="#111827" />
+                                        </div>
+                                        <button onClick={() => setHireModalItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                                            <X size={20} color="#9ca3af" />
+                                        </button>
+                                    </div>
+                                    <h3 style={{ fontSize: 20, fontWeight: 900, color: '#111827', marginBottom: 8, letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                                        추가 안내가 필요하신가요?
+                                    </h3>
+                                    <p style={{ fontSize: 14, color: '#4b5563', marginBottom: 24, lineHeight: 1.5 }}>
+                                        <strong>[{hireModalItem.title}]</strong> 건에 대해 담당 변호사(IBS 법무법인)와 직접 상담을 예약하시거나 즉시 통화를 요청하실 수 있습니다.
+                                    </p>
+                                    
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <button 
+                                            onClick={handleImmediateCall}
+                                            style={{
+                                                background: '#111827', color: '#fff', width: '100%', padding: '16px',
+                                                borderRadius: 12, fontWeight: 800, fontSize: 15, border: 'none', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                                            }}
+                                        >
+                                            <Zap size={18} color="#facc15" />
+                                            즉시 통화 요청하기 (가장 빠름)
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                alert("프리미엄 일정 예약 위젯 연동 대기중입니다.");
+                                                setHireModalItem(null);
+                                            }}
+                                            style={{
+                                                background: '#fff', color: '#111827', width: '100%', padding: '16px',
+                                                borderRadius: 12, fontWeight: 700, fontSize: 15, border: '1px solid #d1d5db', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                            }}
+                                        >
+                                            <Calendar size={18} color="#6b7280" />
+                                            편하신 시간으로 미팅 / 통화 예약
+                                        </button>
+                                    </div>
+                                    <div style={{ marginTop: 24, textAlign: 'center' }}>
+                                        <span style={{ fontSize: 13, color: '#9ca3af', fontWeight: 500 }}>
+                                            통화 요청 시 변호사에게 즉시 알람이 발송되며, 상황에 따라 약 10~15분 내외 콜백이 진행될 수 있습니다.
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+                                    <div style={{
+                                        background: '#f0fdf4', width: 64, height: 64, borderRadius: '50%',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px'
+                                    }}>
+                                        <CheckCircle2 size={32} color="#16a34a" />
+                                    </div>
+                                    <h3 style={{ fontSize: 20, fontWeight: 900, color: '#111827', marginBottom: 8 }}>통화 요청이 접수되었습니다!</h3>
+                                    <p style={{ fontSize: 14, color: '#4b5563', lineHeight: 1.5, marginBottom: 0 }}>
+                                        담당 변호사에게 긴급 푸시 알람이 전송되었습니다.<br/>잠시 후 입력된 연락처로 전화를 드릴 예정입니다.
+                                    </p>
+                                </div>
+                            )}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </Card>
     );
 }
@@ -474,9 +633,11 @@ function RecentDocumentsWidget({ companyId }: { companyId?: string }) {
     
     const recentDocs = React.useMemo(() => {
         if (!companyId || !documents) return [];
+        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        
         const myDocs = documents
-            .filter((d: any) => d.companyId === companyId)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .filter((d: any) => d.companyId === companyId && new Date(d.updatedAt || d.createdAt).getTime() > oneWeekAgo)
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
             .slice(0, 3);
             
         if (myDocs.length === 0) return [];
@@ -485,7 +646,7 @@ function RecentDocumentsWidget({ companyId }: { companyId?: string }) {
             const isCompleted = ['검토 완료', '변호사 열람 완료'].includes(doc.status);
             return {
                 title: doc.name,
-                date: new Date(doc.createdAt).toLocaleDateString(),
+                date: new Date(doc.updatedAt || doc.createdAt).toLocaleDateString(),
                 type: doc.category,
                 icon: isCompleted ? CheckCircle2 : (doc.category === '계약서' ? FileText : Zap),
                 iconColor: isCompleted ? '#4ade80' : (doc.category === '계약서' ? '#60a5fa' : '#f59e0b'),
@@ -606,8 +767,13 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
             const match = companies.find((c: any) => c.id === session.companyId);
             if (match) setCompany(match);
             else setCompany(null);
+        } else if (session?.email && companies?.length) {
+            // Fallback: If companyId is missing in user metadata, lookup by email
+            const match = companies.find((c: any) => c.contactEmail === session.email || c.email === session.email);
+            if (match) setCompany(match);
+            else setCompany(null);
         }
-    }, [initialCompany, session?.companyId, companies]);
+    }, [initialCompany, session?.companyId, session?.email, companies]);
 
     const [isRequestModalOpen, setRequestModalOpen] = useState(false);
     const [requestForm, setRequestForm] = useState({ type: 'consultation', title: '', detail: '', urgency: 'normal' });

@@ -22,22 +22,20 @@ function formatDateTime(iso: string): string {
     return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/* ── Props ───────────────── */
 export interface MemoTabProps {
     co: Company;
     onRefresh: () => void;
     setToast: (s: string) => void;
+    refreshTrigger?: number;
 }
 
 /* ── Component ───────────── */
-export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
+export default function MemoTab({ co, onRefresh, setToast, refreshTrigger }: MemoTabProps) {
     const { user } = useAuth();
     const authorName = user?.name || '알 수 없음';
-    const [note, setNote] = useState('');
     const [memos, setMemos] = useState<CompanyMemo[]>([]);
     const [aiResult, setAiResult] = useState<AIMemoResult | null>(null);
     const [aiLoading, setAiLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
     const [resummarizingId, setResummarizingId] = useState<string | null>(null);
 
     // 메모 목록 로드
@@ -55,11 +53,10 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
 
     // Reset when the target company changes
     useEffect(() => {
-        setNote('');
         setAiResult(null);
         prevMemosLength.current = -1;
         loadMemos();
-    }, [co.id, loadMemos]);
+    }, [co.id, loadMemos, refreshTrigger]);
 
     const prevMemosLength = useRef(-1);
 
@@ -90,35 +87,6 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
             runAutoAI();
         }
     }, [memos, co]);
-
-    const saveMemo = async () => {
-        if (!note.trim() || saving) return;
-        setSaving(true);
-        try {
-            const res = await fetch('/api/memos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    companyId: co.id,
-                    author: authorName,
-                    content: note.trim(),
-                }),
-            });
-            if (res.ok) {
-                setNote('');
-                setToast('💾 메모 저장 (내용 정리 중...)');
-                await loadMemos();
-                onRefresh();
-            } else {
-                const err = await res.json();
-                setToast(`⚠️ 저장 실패: ${err.error}`);
-            }
-        } catch {
-            setToast('⚠️ 저장 실패');
-        } finally {
-            setSaving(false);
-        }
-    };
 
     const deleteMemo = async (memoId: string) => {
         try {
@@ -321,52 +289,6 @@ export default function MemoTab({ co, onRefresh, setToast }: MemoTabProps) {
                     </div>
                 </div>
             )}
-
-            {/* ── 메모 입력 (3행으로 변경됨) ── */}
-            <div className="flex flex-col gap-2">
-                <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="새 메모를 입력하세요..."
-                    className="flex-1 rounded-xl text-[12px] p-4 font-medium leading-relaxed"
-                    style={{
-                        background: C.surface,
-                        border: `1px solid ${C.borderLight}`,
-                        color: C.body,
-                        outline: 'none',
-                        resize: 'none',
-                        minHeight: 100,
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                            e.preventDefault();
-                            saveMemo();
-                        }
-                    }}
-                />
-                <div className="flex gap-2">
-                    <button
-                        onClick={saveMemo}
-                        disabled={!note.trim() || saving}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-opacity"
-                        style={{
-                            background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe',
-                            opacity: (note.trim() && !saving) ? 1 : 0.5,
-                        }}
-                    >
-                        <Send className="w-3.5 h-3.5" />{saving ? '저장중...' : '메모 저장'}
-                    </button>
-                    {aiLoading && (
-                        <div className="flex items-center justify-center px-4 rounded-xl text-xs font-bold" 
-                            style={{ background: '#f3e8ff', color: '#7c3aed', border: '1px solid #d8b4fe' }}>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> 정리 중입니다...
-                        </div>
-                    )}
-                </div>
-                <p className="text-[9px] text-right mt-1" style={{ color: C.faint }}>
-                    Ctrl+Enter로 자동 저장 및 요약 진행
-                </p>
-            </div>
         </div>
     );
 }

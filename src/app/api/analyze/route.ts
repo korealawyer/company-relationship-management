@@ -406,6 +406,7 @@ export async function POST(request: NextRequest) {
             analysisId: `real-${Date.now()}`,
             analyzedUrl: privacyUrl || homepageUrl || null,
             issueCount: parsedResult.issues?.length || 0,
+            summaryOpinion: parsedResult.summaryOpinion || '',
             issues: (parsedResult.issues || []).map((iss: any) => {
                 const titleStr = iss.title || '';
                 const isMissingPolicy = titleStr.includes('누락') && titleStr.includes('방침');

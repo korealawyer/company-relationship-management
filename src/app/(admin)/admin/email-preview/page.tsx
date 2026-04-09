@@ -39,6 +39,23 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
         const totalCount = lead?.issues?.length || lead?.issueCount || 5;
         const highCount = lead?.issues?.filter((iss: any) => iss.level === 'HIGH' || iss.riskLevel === 'HIGH')?.length || 2;
         
+        let dynamicIssueText = '개인정보 수집 항목의 과다수집(제16조 위반), 제3자 제공 현황 미명시(제17조 위반)';
+        if (lead?.issues && lead.issues.length > 0) {
+            const sortedIssues = [...lead.issues].sort((a, b) => {
+                if ((a.level === 'HIGH' || a.riskLevel === 'HIGH') && !(b.level === 'HIGH' || b.riskLevel === 'HIGH')) return -1;
+                if (!(a.level === 'HIGH' || a.riskLevel === 'HIGH') && (b.level === 'HIGH' || b.riskLevel === 'HIGH')) return 1;
+                return 0;
+            });
+            const topIssues = sortedIssues.slice(0, 2);
+            dynamicIssueText = topIssues.map(iss => {
+                const lawRef = iss.law || iss.law_ref || '';
+                const shortLawMatches = lawRef.match(/제\d+조/);
+                const shortLaw = shortLawMatches ? shortLawMatches[0] : '';
+                const cleanTitle = (iss.title || '').replace(/^조항\s*\d+\.\s*/, '');
+                return `${cleanTitle}${shortLaw ? `(${shortLaw} 위반)` : ''}`;
+            }).join(', ');
+        }
+        
         return {
             company: lead?.companyName || lead?.name || companyParam || '(주)샘플회사',
             contactName: lead?.contactName || '담당자',
@@ -51,7 +68,7 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
             bizType: lead?.bizType || '',
             monthlyFee: sub.monthly.toLocaleString(),
             unsubscribeToken: typeof window !== 'undefined' ? btoa(`unsub_${leadId}`) : `unsub_${leadId}`,
-            summaryOpinion: lead?.summary_opinion || lead?.summaryOpinion || `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${totalCount}건이 확인되었습니다. 특히 개인정보 수집 항목의 과다수집(제16조 위반), 제3자 제공 현황 미명시(제17조 위반) 등 고위험 사항 ${highCount}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 쿠팡 55억원, 인터파크 44억원 등 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`
+            summaryOpinion: lead?.summary_opinion || lead?.summaryOpinion || `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${totalCount}건이 확인되었습니다. 특히 ${dynamicIssueText} 등 고위험 사항 ${highCount}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. 최근 쿠팡 55억원, 인터파크 44억원 등 대규모 과징금 사례가 이어지고 있어 조속한 시정이 필요합니다.`
         };
     }, [lead, leadId, companyParam, sub.monthly]);
 
@@ -67,7 +84,7 @@ const EmailPreviewContent = React.memo(function EmailPreviewContent() {
     const [trackingData, setTrackingData] = useState<{ opens: number; clicks: number; score: number; lastOpenAt?: string }>({ opens: 0, clicks: 0, score: 0 });
 
     const baseUrl = useMemo(() => typeof window !== 'undefined' ? window.location.origin : '', []);
-    const htmlPreview = useMemo(() => buildHookEmailHtml(vars, customMsg, baseUrl), [vars, customMsg, baseUrl]);
+    const htmlPreview = useMemo(() => buildHookEmailHtml(vars, customMsg, baseUrl, lead?.issues || []), [vars, customMsg, baseUrl, lead?.issues]);
     const optimalTimes = useMemo(() => getOptimalSendTimes(vars.bizType), [vars.bizType]);
 
     // vars (특히 company Name 등)가 뒤늦게 로딩될 경우 제목 자동 업데이트 (사용자가 명시적으로 수정하기 전까지만)

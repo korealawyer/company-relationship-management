@@ -256,11 +256,10 @@ export function useChatbot() {
         setTimeout(() => {
             setMessages(prev => [...prev, { role: 'bot', text: answer }]);
             setLoading(false);
-            // [개선 3위] 답변 읽을 시간 확보 — 1200ms → 2500ms
-            setTimeout(() => askForName(faq.q), 2500);
+            // FAQ 클릭 후 질문을 던졌으니, 추가 질문을 받도록 설정 (askForName 생략)
         }, 900);
         setStep('asked_faq');
-    }, [step, addUserMsg, askForName]);
+    }, [step, addUserMsg]);
 
     // 완료 처리
     const finishLead = useCallback((preferredTime: string, contact: string, name: string, question: string) => {
@@ -278,23 +277,34 @@ export function useChatbot() {
         setStep('done');
     }, [addBotMsg]);
 
-    // ── AI fallback 호출 ─────────────────────────────────────────
-    const callAI = useCallback(async (question: string) => {
+    // ── AI 5W1H 인터뷰 호출 ──────────────────────────────────────────
+    const callAI = useCallback(async (currentHistory: Message[]) => {
         setLoading(true);
         try {
+            const payloadMessages = currentHistory.filter(m => m.role === 'user' || m.role === 'bot').map(m => ({
+                role: m.role === 'bot' ? 'assistant' : 'user',
+                content: m.text
+            }));
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [{ role: 'user', content: question }],
-                    consultType: 'legal',
-                    isPublic: true,
+                body: JSON.stringify({ 
+                    messages: payloadMessages,
                     systemPrompt: getPromptConfig().chatSystemPrompt,
-                }),
+                    model: getPromptConfig().model
+                })
             });
             const data = await res.json();
-            const reply = data.message || '죄송합니다. 잠시 후 다시 시도해 주세요. 급하신 경우 02-598-8518로 전화 주세요.';
+            const reply = data.message || '다시 한 번 말씀해 주시겠어요?';
             setMessages(prev => [...prev, { role: 'bot', text: reply }]);
+
+            if (data.isSummary && data.summaryData) {
+                // 인터뷰 완료: JSON 저장 후 이름 수집 단계로 넘어감
+                const formattedSummary = `[AI 사전 인터뷰 요약]\n- 분야: ${data.summaryData.legal_category}\n- 사건: ${data.summaryData.case_type}\n- 주어: ${data.summaryData.subject}\n- 일시: ${data.summaryData.when_where}\n- 행위: ${data.summaryData.action}\n- 목적: ${data.summaryData.goal}\n\n[총평]: ${data.summaryData.summary}`;
+                setSavedQuestion(formattedSummary);
+                setStep('waiting_name');
+                // 안내 메시지 추가 (답변 안에 포함되었더라도 명확히 하기 위해)
+            }
         } catch {
             setMessages(prev => [...prev, { role: 'bot', text: '일시적인 오류가 발생했습니다. 📞 02-598-8518로 직접 문의해 주시면 즉시 도움드립니다.' }]);
         } finally {
@@ -310,9 +320,9 @@ export function useChatbot() {
         setContactError('');
         addUserMsg(userMsg);
 
-        if (step === 'initial' || step === 'asked_faq' || step === 'asked_free') {
+        if (step === 'initial' || step === 'asked_faq' || step === 'asked_free' || step === 'interviewing') {
             const detectedUrl = extractUrl(userMsg);
-            if (detectedUrl) {
+            if (detectedUrl && step !== 'interviewing') {
                 setSavedQuestion(`홈페이지 분석 요청: ${detectedUrl}`);
                 addBotMsg(
                     `${detectedUrl} 분석을 요청하셨군요! 🔍\n\nAI가 자동으로 개인정보처리방침을 점검해 드리겠습니다.\n\n📋 결과를 받으실 성함을 알려주시겠어요?`
@@ -322,17 +332,16 @@ export function useChatbot() {
             }
 
             const keywordReply = getKeywordResponse(userMsg);
-            if (keywordReply) {
-                // 키워드 매칭: 즉시 답변 + 이름 수집
+            if (keywordReply && step !== 'interviewing') {
+                // 키워드 매칭: 즉시 답변 + 다음 상태 대기
                 addBotMsg(keywordReply);
-                setTimeout(() => askForName(userMsg), Math.min(1600, Math.max(400, keywordReply.length * 18)) + 800);
+                setStep('asked_free');
             } else {
-                // 키워드 미매칭: AI에 실제 질문 → 답변 후 이름 수집
-                callAI(userMsg).then(() => {
-                    setTimeout(() => askForName(userMsg), 2000);
-                });
+                // 본격 인터뷰 진행
+                setStep('interviewing');
+                const newHistory = [...messages, { role: 'user' as const, text: userMsg }];
+                callAI(newHistory);
             }
-            setStep('asked_free');
 
         } else if (step === 'waiting_name') {
             askForContact(userMsg);
@@ -357,7 +366,7 @@ export function useChatbot() {
                 500
             );
         }
-    }, [input, loading, step, savedQuestion, savedContact, customerName, addBotMsg, addUserMsg, askForName, askForContact, askForPreferredTime, finishLead, callAI]);
+    }, [input, loading, step, savedQuestion, savedContact, customerName, messages, addBotMsg, addUserMsg, askForName, askForContact, askForPreferredTime, finishLead, callAI]);
 
     // 챗봇 초기화
     const handleReset = useCallback(() => {

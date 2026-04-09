@@ -144,7 +144,8 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                     title,
                     body: fullBody,
                     status: 'submitted',
-                    isPrivate: false
+                    isPrivate: false,
+                    attachedFiles: attachedFiles.length > 0 ? attachedFiles : undefined
                 };
 
                 await dataLayer.consult.create(payload);
@@ -167,7 +168,7 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex justify-end">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -175,12 +176,14 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
                         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                     />
 
-                    {/* Drawer */}
+                    {/* Modal */}
                     <motion.div
-                        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-                        transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-                        className="relative w-full max-w-md h-full bg-white flex flex-col shadow-2xl"
-                        style={{ borderLeft: '1px solid #e5e7eb' }}
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="relative w-full max-w-xl bg-white flex flex-col shadow-2xl rounded-2xl overflow-hidden max-h-[90vh] my-4 mx-auto z-[101]"
+                        style={{ border: '1px solid #e5e7eb' }}
                     >
                         {/* Gold top accent */}
                         <div className="h-1 w-full flex-shrink-0" style={{ background: 'linear-gradient(90deg, #e8c87a, #c9a84c)' }} />
