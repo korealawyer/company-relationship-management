@@ -56,9 +56,7 @@ export default function ClaimPopup() {
                     </button>
 
                     <div className="p-6">
-                        <div className="flex justify-center mb-4 relative">
-                            <div className="absolute inset-0 bg-gold/20 blur-xl rounded-full" />
-                        </div>
+
                         <p className="text-sm text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.6)', wordBreak: 'keep-all' }}>
                             사소한 법률 위반도 막대한 과징금으로<br/>이어질 수 있습니다.
                             <span className="block mt-2.5">귀사 홈페이지의 취약점을 분석한<br/>프라이버시 리포트를 발급했습니다.</span>
