@@ -355,7 +355,7 @@ function PrivacyReviewContent() {
     const handleUpdateReport = async (newReport: string) => {
         setAuditReport(newReport);
         if (leadId) {
-            await supabaseCompanyStore.update(leadId, { auditReport: newReport });
+            await supabaseCompanyStore.update(leadId, { audit_report: newReport });
         }
     };
 
