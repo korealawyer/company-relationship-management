@@ -7,6 +7,7 @@ import { getPromptConfig, DEFAULT_PROMPT_CONFIG } from '@/lib/prompts/privacy';
 
 export const maxDuration = 60; // 60 seconds for complex markdown generation
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge'; // Edge 런타임 사용 (Vercel Serverless 10초 타임아웃 우회)
 
 export async function POST(req: Request) {
     try {
