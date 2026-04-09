@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Briefcase, Image as ImageIcon, CheckCircle2, Upload, Loader2, Save } from 'lucide-react';
 import { getBrowserSupabase } from '@/lib/supabase';
-import { getCurrentUserId } from '@/lib/permissions';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function LawyerProfileTab() {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [profile, setProfile] = useState<any>({ name: '', department: '', title: '' });
@@ -16,8 +17,9 @@ export default function LawyerProfileTab() {
 
     useEffect(() => {
         async function fetchProfile() {
+            if (!user?.id) return;
             setLoading(true);
-            const lawyerId = getCurrentUserId() || '3'; 
+            const lawyerId = user.id; 
             const supabase = getBrowserSupabase();
             
             try {
@@ -48,7 +50,7 @@ export default function LawyerProfileTab() {
             setLoading(false);
         }
         fetchProfile();
-    }, []);
+    }, [user?.id]);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -59,8 +61,9 @@ export default function LawyerProfileTab() {
 
         setUploadingImage(true);
         try {
+            if (!user?.id) throw new Error("로그인이 필요합니다.");
             const supabase = getBrowserSupabase();
-            const lawyerId = getCurrentUserId() || '3';
+            const lawyerId = user.id;
             const fileExt = file.name.split('.').pop();
             const fileName = `signature_${lawyerId}_${Date.now()}.${fileExt}`;
             
@@ -96,8 +99,9 @@ export default function LawyerProfileTab() {
     const handleSave = async () => {
         setSaving(true);
         try {
+            if (!user?.id) throw new Error("로그인이 필요합니다.");
             const supabase = getBrowserSupabase();
-            const lawyerId = getCurrentUserId() || '3';
+            const lawyerId = user.id;
             
             const { error } = await supabase
                 .from('lawyers')

@@ -72,6 +72,8 @@ export interface UseCallPageReturn {
         connected: number;
         no_answer: number;
         callback: number;
+        rejected: number;
+        invalid_site: number;
     };
     newsItems: ReturnType<typeof NewsLeadService.getRelevantNews>;
     // handlers
@@ -240,7 +242,7 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
     const [globalStats, setGlobalStats] = useState({
         calledCount: 0,
         highRiskCount: 0,
-        todayStats: { total: 0, connected: 0, no_answer: 0, callback: 0 }
+        todayStats: { total: 0, connected: 0, no_answer: 0, callback: 0, rejected: 0, invalid_site: 0 }
     });
 
     const refreshGlobalStats = useCallback(async () => {
@@ -258,7 +260,7 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             const { count: hCount } = await sb.from('companies').select('*', { count: 'exact', head: true }).gte('risk_score', 70);
 
             // 오늘 나의 통화 결과 카운트
-            let todayTotal = 0, connected = 0, no_answer = 0, callback = 0;
+            let todayTotal = 0, connected = 0, no_answer = 0, callback = 0, rejected = 0, invalid_site = 0;
             if (userName) {
                 const todayStr = new Date().toISOString().split('T')[0];
                 const startOfToday = `${todayStr}T00:00:00.000Z`;
@@ -274,6 +276,8 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
                         if (row.last_call_result === 'connected') connected++;
                         else if (row.last_call_result === 'no_answer') no_answer++;
                         else if (row.last_call_result === 'callback') callback++;
+                        else if (row.last_call_result === 'rejected') rejected++;
+                        else if (row.last_call_result === 'invalid_site') invalid_site++;
                     }
                 }
             }
@@ -281,7 +285,7 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             setGlobalStats({
                 calledCount: cCount || 0,
                 highRiskCount: hCount || 0,
-                todayStats: { total: todayTotal, connected, no_answer, callback }
+                todayStats: { total: todayTotal, connected, no_answer, callback, rejected, invalid_site }
             });
         } catch (e) {
             console.error('Failed to fetch global stats:', e);

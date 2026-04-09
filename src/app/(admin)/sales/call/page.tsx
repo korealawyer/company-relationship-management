@@ -240,7 +240,7 @@ export default function SalesCallPage() {
                     <div id="tour-stats" className="flex items-center gap-3 mb-2">
                         <div className="flex gap-2 flex-1">
                             {[{ l: '대기', v: Math.max(0, count - calledCount), c: '#4f46e5', b: '#eef2ff' }, 
-                              { l: '오늘영업', v: todayStats.total, c: '#059669', b: '#ecfdf5', sub: `✅${todayStats.connected} 📵${todayStats.no_answer} 🔄${todayStats.callback}` }, 
+                              { l: '오늘영업', v: todayStats.total, c: '#059669', b: '#ecfdf5', sub: `✅${todayStats.connected} 📵${todayStats.no_answer} 🔄${todayStats.callback} ❌${todayStats.rejected} ⚠️${todayStats.invalid_site}` }, 
                               { l: '고위험', v: highRiskCount, c: '#dc2626', b: '#fef2f2' }, 
                               { l: '완료율', v: count > 0 ? `${Math.round(calledCount / count * 100)}%` : '0%', c: '#0891b2', b: '#ecfeff' }].map(k => (
                                 <div key={k.l} className="rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: k.b }}>

@@ -51,7 +51,7 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
         <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             {/* 테이블 헤더 */}
             <div className="hidden sm:grid px-5 py-3 text-[11px] font-bold tracking-wide"
-                style={{ gridTemplateColumns: '1fr 120px 180px 100px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', letterSpacing: '0.05em' }}>
+                style={{ gridTemplateColumns: '1fr 120px 180px 220px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', letterSpacing: '0.05em' }}>
                 <span>기업명 / 상태</span>
                 <span className="text-center">위험도 분포</span>
                 <span className="text-center">미검토 이슈</span>
@@ -82,7 +82,7 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
 
                             {/* === 데스크탑 레이아웃 === */}
                             <div className="hidden sm:grid items-center px-5 py-4 gap-3 hover:bg-slate-50/50 transition-colors"
-                                style={{ gridTemplateColumns: '1fr 120px 180px 100px' }}>
+                                style={{ gridTemplateColumns: '1fr 120px 180px 220px' }}>
                                 {/* 기업명 + 상태 */}
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -150,12 +150,18 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
                                 </div>
 
                                 {/* 검토 버튼 */}
-                                <div className="flex justify-end">
+                                <div className="flex justify-end gap-2">
+                                    <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}&preview=1`}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all hover:shadow-md active:scale-95 border"
+                                        style={{ background: '#fffbeb', color: '#B45309', borderColor: '#fde68a' }}>
+                                        <Scale className="w-3.5 h-3.5" />
+                                        검토안 보기
+                                    </Link>
                                     <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}`}
-                                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all hover:shadow-md active:scale-95"
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all hover:shadow-md active:scale-95"
                                         style={{ background: isUrgent ? '#dc2626' : '#1e293b', color: '#ffffff' }}>
                                         <Scale className="w-3.5 h-3.5" />
-                                        검토
+                                        상세 검토
                                     </Link>
                                 </div>
                             </div>
@@ -189,11 +195,18 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
                                             </div>
                                         </div>
                                     </div>
-                                    <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}`}
-                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0"
-                                        style={{ background: isUrgent ? '#dc2626' : '#1e293b', color: '#ffffff' }}>
-                                        검토 <ChevronRight className="w-3 h-3" />
-                                    </Link>
+                                    <div className="flex items-center gap-1.5">
+                                        <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}&preview=1`}
+                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap flex-shrink-0 border"
+                                            style={{ background: '#fffbeb', color: '#B45309', borderColor: '#fde68a' }}>
+                                            검토안 보기
+                                        </Link>
+                                        <Link href={`/lawyer/privacy-review?leadId=${c.id}&company=${encodeURIComponent(c.name)}`}
+                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap flex-shrink-0"
+                                            style={{ background: isUrgent ? '#dc2626' : '#1e293b', color: '#ffffff' }}>
+                                            상세 검토 <ChevronRight className="w-3 h-3" />
+                                        </Link>
+                                    </div>
                                 </div>
                                 {/* 모바일 위험도 + 진행률 */}
                                 <div className="flex items-center gap-3 pl-10">

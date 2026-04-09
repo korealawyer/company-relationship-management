@@ -226,10 +226,9 @@ function PrivacyReviewContent() {
     const { settings: autoSettings } = useAutoSettings();
     const company = searchParams?.get('company') || '(주)샐러디';
     const leadId = searchParams?.get('leadId') || undefined;
-    const [tab, setTab] = useState<'first' | 'legal_review' | 'full'>('first');
+    const previewMode = searchParams?.get('preview') === '1';
+    const [tab, setTab] = useState<'first' | 'legal_review' | 'full'>(previewMode ? 'legal_review' : 'first');
     const [data, setData] = useState<Record<string, string>>({});
-    const [generating, setGenerating] = useState(false);
-    const [generated, setGenerated] = useState(false);
     const [elapsed, setElapsed] = useState(0);
     const [confirmedTab, setConfirmedTab] = useState<'first' | 'full' | null>(null);
     const [confirming, setConfirming] = useState(false);
@@ -305,8 +304,8 @@ function PrivacyReviewContent() {
                     setClauses([]);
                 }
                 
-                if (data && data.audit_report) {
-                    setAuditReport(data.audit_report);
+                if (data && (data.auditReport || data.audit_report)) {
+                    setAuditReport(data.auditReport || data.audit_report);
                 } else {
                     setAuditReport(null);
                 }
@@ -332,13 +331,9 @@ function PrivacyReviewContent() {
     const highN = clauses.filter(c => c.level === 'HIGH').length;
     const medN = clauses.filter(c => c.level === 'MEDIUM').length;
 
-    // 전체수정완본 탭 클릭 시 AI 생성 시뮬레이션
+    // 전체수정완본 탭 클릭 시 (로딩 시뮬레이션 제거)
     const handleFullTab = () => {
         setTab('full');
-        if (!generated) {
-            setGenerating(true);
-            setTimeout(() => { setGenerating(false); setGenerated(true); }, 2000);
-        }
     };
 
     const handleDownloadPDF = () => {
@@ -360,7 +355,7 @@ function PrivacyReviewContent() {
     const handleUpdateReport = async (newReport: string) => {
         setAuditReport(newReport);
         if (leadId) {
-            await supabaseCompanyStore.update(leadId, { audit_report: newReport });
+            await supabaseCompanyStore.update(leadId, { auditReport: newReport });
         }
     };
 
@@ -411,7 +406,6 @@ function PrivacyReviewContent() {
                     setTab('first');
                     setData({});
                     setAuditReport(null);
-                    setGenerated(false);
                     t0.current = Date.now();
                     setElapsed(0);
                     router.push(`/lawyer/privacy-review?leadId=${nextPending.id}&company=${encodeURIComponent(nextPending.name)}`);
@@ -727,19 +721,6 @@ function PrivacyReviewContent() {
                         lawyerName={user?.name}
                         lawyerSignature={user?.avatar}
                     />
-                </div>
-            ) : generating ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                    <div style={{ padding: '80px 20px', background: '#fafafa', borderRight: '1px solid #e5e7eb', textAlign: 'center', color: '#9ca3af' }}>
-                        <Scale size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>원문은 좌측에 그대로 표시됩니다</div>
-                    </div>
-                    <div style={{ padding: '80px 40px', textAlign: 'center' }}>
-                        <Loader2 size={40} color="#2563eb" style={{ margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-                        <p style={{ fontSize: 18, fontWeight: 900, color: '#1d4ed8', marginBottom: 4 }}>AI 의견서 생성 중...</p>
-                        <p style={{ fontSize: 15, color: '#6b7280' }}>변호사 페르소나로 법률 의견서를 작성하고 있습니다</p>
-                        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-                    </div>
                 </div>
             ) : (
                 <>
