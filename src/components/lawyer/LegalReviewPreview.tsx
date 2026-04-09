@@ -281,8 +281,12 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
                         </div>
                         <div className="text-right">
                             <div className="flex items-center justify-end gap-3 mb-2">
-                                <span className="text-sm font-black text-gray-900">변호사 {lawyerName || '임시'}</span>
-                                <img src={lawyerSignature || "/signatures/lawyer-j.png"} alt="서명" className="h-[40px] w-auto object-contain opacity-80 mix-blend-multiply" />
+                                <span className="text-sm font-black text-gray-900">변호사 {(lawyerName || '임시').replace(' 변호사', '')}</span>
+                                {lawyerSignature ? (
+                                    <img src={lawyerSignature} alt="서명" className="h-[40px] w-auto object-contain opacity-80 mix-blend-multiply" />
+                                ) : (
+                                    <div className="h-[40px] px-2 flex items-center justify-center opacity-80 text-gray-600 font-['Caveat',_cursive] text-2xl" style={{ fontFamily: 'Caveat, cursive' }}>{(lawyerName || '임시').replace(' 변호사', '')}</div>
+                                )}
                             </div>
                             <div className="text-[10px] text-gray-400 font-medium tracking-tight">
                                 본 검토안은 법률 자문 목적으로 작성되었으며,<br />무단 복제 및 배포를 금합니다.

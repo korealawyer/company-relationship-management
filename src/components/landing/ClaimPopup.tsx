@@ -58,15 +58,7 @@ export default function ClaimPopup() {
                     <div className="p-6">
                         <div className="flex justify-center mb-4 relative">
                             <div className="absolute inset-0 bg-gold/20 blur-xl rounded-full" />
-                            <div className="w-12 h-12 flex items-center justify-center rounded-xl relative z-10"
-                                style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.1))', border: '1px solid rgba(201,168,76,0.4)' }}>
-                                <ShieldAlert className="w-6 h-6 text-gold" style={{ color: '#e8c87a' }} />
-                            </div>
                         </div>
-
-                        <h3 className="text-lg font-black text-center mb-2 leading-snug" style={{ color: '#f0f4ff', wordBreak: 'keep-all' }}>
-                            🚨 우리 회사의 개인정보보호,<br/> 정말 안전할까요?
-                        </h3>
                         <p className="text-sm text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.6)', wordBreak: 'keep-all' }}>
                             사소한 법률 위반도 막대한 과징금으로<br/>이어질 수 있습니다.
                             <span className="block mt-2.5">귀사 홈페이지의 취약점을 분석한<br/>프라이버시 리포트를 발급했습니다.</span>

@@ -18,20 +18,7 @@ import {
 type Step = 'info' | 'affiliation' | 'done';
 type AffMethod = 'code' | 'biz' | 'request' | null;
 
-function StepDot({ n, current, done }: { n: number; current: number; done: boolean }) {
-    const active = n === current;
-    const passed = done || n < current;
-    return (
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all`}
-            style={{
-                background: passed ? '#c9a84c' : active ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.06)',
-                color: passed ? '#04091a' : active ? '#c9a84c' : 'rgba(240,244,255,0.3)',
-                border: active ? '2px solid #c9a84c' : '2px solid transparent',
-            }}>
-            {passed && !active ? <CheckCircle2 className="w-3.5 h-3.5" /> : n}
-        </div>
-    );
-}
+
 
 import { useCompanies } from '@/hooks/useDataLayer';
 
@@ -144,38 +131,13 @@ export default function SignupPage() {
         setAffDone(true);
     };
 
-    const currentStep = step === 'info' ? 1 : step === 'affiliation' ? 2 : 3;
 
     return (
         <div className="min-h-screen flex items-center justify-center px-4 py-12"
             style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(35,68,168,0.2) 0%, transparent 65%), #04091a' }}>
 
             <div className="w-full max-w-md">
-                {/* 로고 */}
-                <div className="text-center mb-6">
-                    <Link href="/" className="inline-flex items-center gap-2.5 group">
-                        <div className="rounded-xl flex items-center justify-center font-black text-sm"
-                            style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a', width: 44, height: 44 }}>
-                            IBS
-                        </div>
-                        <div className="text-left">
-                            <p className="font-black text-base" style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>법률사무소</p>
-                            <p className="text-[9px] tracking-widest" style={{ color: 'rgba(201,168,76,0.5)' }}>IBS LAW FIRM</p>
-                        </div>
-                    </Link>
-                </div>
 
-                {/* 스텝 표시 */}
-                <div className="flex items-center justify-center gap-2 mb-7">
-                    <StepDot n={1} current={currentStep} done={currentStep > 1} />
-                    <div className="flex-1 h-px max-w-[40px]" style={{ background: currentStep > 1 ? '#c9a84c' : 'rgba(255,255,255,0.08)' }} />
-                    <StepDot n={2} current={currentStep} done={currentStep > 2} />
-                    <div className="flex-1 h-px max-w-[40px]" style={{ background: currentStep > 2 ? '#c9a84c' : 'rgba(255,255,255,0.08)' }} />
-                    <StepDot n={3} current={currentStep} done={false} />
-                    <div className="ml-3 text-xs" style={{ color: 'rgba(240,244,255,0.35)' }}>
-                        {step === 'info' ? '기본 정보' : step === 'affiliation' ? '소속 인증' : '가입 완료'}
-                    </div>
-                </div>
 
                 <AnimatePresence mode="wait">
 
@@ -186,11 +148,10 @@ export default function SignupPage() {
                                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
                                 <div>
                                     <h1 className="text-lg font-black mb-0.5" style={{ color: '#f0f4ff' }}>회원가입</h1>
-                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>이름, 이메일, 비밀번호를 입력해주세요.</p>
                                 </div>
 
                                 {[
-                                    { label: '이름', icon: <User className="w-4 h-4" />, value: name, set: setName, type: 'text', ph: '홍길동' },
+                                    { label: '이름', icon: <User className="w-4 h-4" />, value: name, set: setName, type: 'text', ph: '' },
                                     { label: '이메일', icon: <Mail className="w-4 h-4" />, value: email, set: setEmail, type: 'email', ph: 'name@company.com' },
                                 ].map(f => (
                                     <div key={f.label}>

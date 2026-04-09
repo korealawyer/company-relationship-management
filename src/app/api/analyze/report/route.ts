@@ -26,7 +26,7 @@ export async function POST(req: Request) {
             .replace('{{companyName}}', companyName || '의뢰인 기업')
             .replace('{{issuesJson}}', issuesJson);
 
-        // 3. 모델 선택 (기본적으로 Anthropic Claude 3.5 Sonnet이 이런 실사 보고서 작성에 우수함, 혹은 GPT-4o 사용)
+        // 3. 모델 선택
         const activeModelId = config.model || 'gpt-4o';
         const apiKey = process.env.OPENAI_API_KEY;
         const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -38,7 +38,8 @@ export async function POST(req: Request) {
         let model;
         if (activeModelId.includes('claude') && anthropicKey) {
             const anthropic = createAnthropic({ apiKey: anthropicKey });
-            model = anthropic(activeModelId);
+            const exactModelId = activeModelId === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022';
+            model = anthropic(exactModelId);
         } else if (apiKey) {
             const openai = createOpenAI({ apiKey });
             // fallback to openai if claude selected but no key
