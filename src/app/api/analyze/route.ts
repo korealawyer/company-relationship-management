@@ -202,10 +202,11 @@ export async function POST(request: NextRequest) {
             clearTimeout(aiTimeoutId);
 
             if (!response.ok) {
-                console.error('[Analyze API] Anthropic Failure:', await response.text());
+                const errText = await response.text();
+                console.error('[Analyze API] Anthropic Failure:', errText);
                 return NextResponse.json(
-                    { success: false, error: 'AI 모델(Anthropic) 호출에 실패했습니다. 관리자에게 문의하세요.' },
-                    { status: 502 }
+                    { success: false, error: `AI 모델(Anthropic) 호출에 실패했습니다 (${response.status}). 관리자에게 문의하세요.` },
+                    { status: response.status === 429 ? 429 : 500 }
                 );
             }
             const aiData = await response.json();
@@ -234,8 +235,12 @@ export async function POST(request: NextRequest) {
             clearTimeout(aiTimeoutId);
 
             if (!response.ok) {
-                console.error('[Analyze API] Gemini Failure:', await response.text());
-                return NextResponse.json({ success: false, error: 'AI 모델(Gemini) 호출에 실패했습니다. 관리자에게 문의하세요.' }, { status: 502 });
+                const errText = await response.text();
+                console.error('[Analyze API] Gemini Failure:', errText);
+                return NextResponse.json(
+                    { success: false, error: `AI 모델(Gemini) 호출에 실패했습니다 (${response.status}). 관리자에게 문의하세요.` },
+                    { status: response.status === 429 ? 429 : 500 }
+                );
             }
             const aiData = await response.json();
             content = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
