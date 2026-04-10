@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Set to true to actually perform deletions and updates
-const EXECUTE_MERGE_AND_DELETE = true;
+const EXECUTE_MERGE_AND_DELETE = false;
 
 interface DuplicateGroup {
   key: string;

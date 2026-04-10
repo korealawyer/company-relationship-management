@@ -85,6 +85,14 @@ export async function PATCH(request: NextRequest) {
             await sb.from('users').update(syncData).eq('id', userId);
         }
 
+        // public.lawyers 테이블도 동기화 (변호사/송무팀인 경우)
+        if (name !== undefined) {
+            const currentRole = role || data.user.user_metadata?.role;
+            if (currentRole === 'lawyer' || currentRole === 'litigation') {
+                await sb.from('lawyers').update({ name }).eq('id', userId);
+            }
+        }
+
         return NextResponse.json({
             success: true,
             message: '유저 정보가 수정되었습니다.',

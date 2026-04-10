@@ -39,7 +39,7 @@ export default function ClaimPopup() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 50, scale: 0.95 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed bottom-6 right-6 z-[100] w-[340px] shadow-2xl rounded-2xl overflow-hidden"
+                    className="fixed bottom-6 right-6 z-[100] w-[400px] shadow-2xl rounded-2xl overflow-hidden"
                     style={{ 
                         background: 'rgba(13,27,62,0.95)', 
                         backdropFilter: 'blur(12px)',

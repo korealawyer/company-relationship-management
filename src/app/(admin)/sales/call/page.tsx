@@ -166,6 +166,8 @@ import SalesCallTour from '@/components/sales/call/SalesCallTour';
 export default function SalesCallPage() {
     const { user } = useAuth();
     const [runTour, setRunTour] = useState(false);
+    const [isEditingPage, setIsEditingPage] = useState(false);
+    const [pageInputStr, setPageInputStr] = useState('');
     const { locks: callLocks, getLockInfo } = useCallLocks(); // @/hooks/useCallLocks 에 구현된 훅이라고 가정
     const {
         companies, search, setSearch, selectedId, toast, setToast, callResult, activeCallId,
@@ -327,7 +329,43 @@ export default function SalesCallPage() {
                 <span className="text-[13px] text-slate-500 font-medium">검색결과: <strong className="text-slate-900">{count.toLocaleString()}</strong>건</span>
                 <div className="flex items-center gap-1">
                     <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1.5 text-[13px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 disabled:opacity-30 transition-colors">이전</button>
-                    <div className="px-4 text-[13px] font-bold text-slate-700 select-none">{page}</div>
+                    {isEditingPage ? (
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            const newPage = parseInt(pageInputStr, 10);
+                            if (!isNaN(newPage) && newPage >= 1) {
+                                setPage(newPage);
+                            }
+                            setIsEditingPage(false);
+                        }}>
+                            <input
+                                autoFocus
+                                type="number"
+                                min={1}
+                                className="w-16 px-1 py-1 text-[13px] font-bold text-center border border-indigo-500 rounded outline-none focus:ring-1 focus:ring-indigo-500"
+                                value={pageInputStr}
+                                onChange={(e) => setPageInputStr(e.target.value)}
+                                onBlur={() => {
+                                    const newPage = parseInt(pageInputStr, 10);
+                                    if (!isNaN(newPage) && newPage >= 1) {
+                                        setPage(newPage);
+                                    }
+                                    setIsEditingPage(false);
+                                }}
+                            />
+                        </form>
+                    ) : (
+                        <div 
+                            className="px-4 py-1.5 text-[13px] font-bold text-slate-700 select-none cursor-pointer hover:bg-slate-100 hover:text-indigo-600 rounded transition-colors" 
+                            onClick={() => {
+                                setPageInputStr(page.toString());
+                                setIsEditingPage(true);
+                            }}
+                            title="클릭해서 페이지 번호 입력"
+                        >
+                            {page}
+                        </div>
+                    )}
                     <button onClick={() => setPage(page + 1)} disabled={filtered.length < 50} className="px-3 py-1.5 text-[13px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 disabled:opacity-30 transition-colors">다음</button>
                 </div>
             </div>

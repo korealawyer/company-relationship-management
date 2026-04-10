@@ -361,83 +361,63 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
                                 >
                                     {/* 아이콘 */}
                                     <div style={{
-                                        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                                        width: 48, height: 48, borderRadius: 14, flexShrink: 0,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         background: `linear-gradient(135deg, ${tm.gradFrom}, ${tm.gradTo})`,
                                     }}>
-                                        <Icon size={18} color="#fff" />
+                                        <Icon size={22} color="#fff" />
                                     </div>
 
                                     {/* 본문 */}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        {/* 제목 행 */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                                            <span style={{ fontSize: 10, fontWeight: 700, color: tm.color, background: `${tm.gradFrom}12`, padding: '1px 7px', borderRadius: 4 }}>{tm.label}</span>
-                                            {item.urgent && <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '1px 6px', borderRadius: 4, border: '1px solid #fecaca' }}>⚡ 긴급</span>}
-                                            <span style={{ fontSize: 10, fontWeight: 700, color: sm.color, background: sm.bg, padding: '1px 7px', borderRadius: 4, marginLeft: 'auto' }}>{sm.label}</span>
+                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {/* 1번 줄: 태그 + 제목 */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: tm.color, background: `${tm.gradFrom}12`, padding: '4px 8px', borderRadius: 6 }}>{tm.label}</span>
+                                            {item.urgent && <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '4px 8px', borderRadius: 6, border: '1px solid #fecaca' }}>⚡ 긴급</span>}
+                                            <span style={{ fontSize: 16, fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
                                         </div>
 
-                                        {/* 제목 */}
-                                        <p style={{ fontSize: 13, fontWeight: 800, color: '#111827', marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
-
-                                        {/* 게이지 바 */}
-                                        <div style={{ height: 6, borderRadius: 99, background: '#e5e7eb', marginBottom: 5, overflow: 'hidden' }}>
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${pct}%` }}
-                                                transition={{ duration: 0.8, ease: 'easeOut', delay: idx * 0.1 + 0.2 }}
-                                                style={{
-                                                    height: '100%', borderRadius: 99,
-                                                    background: item.status === 'completed'
-                                                        ? 'linear-gradient(90deg, #16a34a, #4ade80)'
-                                                        : `linear-gradient(90deg, ${tm.gradFrom}, ${tm.gradTo})`,
-                                                }}
-                                            />
-                                        </div>
-
-                                        {/* 하단 메타 */}
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{item.date}</span>
+                                        {/* 2번 줄: 날짜 + 프로그레스 + 상태뱃지 */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>{item.date}</span>
+                                            
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                {/* 심플한 진행 단계 표시 (세그먼트) */}
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    {item.steps.map((_, i) => (
+                                                        <div key={i} style={{
+                                                            width: 18, height: 5, borderRadius: 3,
+                                                            background: i <= item.currentStep 
+                                                                ? (item.status === 'completed' ? '#22c55e' : tm.color)
+                                                                : '#e5e7eb'
+                                                        }} />
+                                                    ))}
+                                                </div>
+                                                <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg, padding: '4px 8px', borderRadius: 6 }}>{sm.label}</span>
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* 화살표 or 의뢰하기/답변보기 버튼 */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, gap: 4 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
                                         {item.status === 'completed' ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <button onClick={(e) => {
                                                     e.preventDefault();
                                                     window.location.href = item.href;
                                                 }} style={{
-                                                    fontSize: 10,
-                                                    fontWeight: 800,
-                                                    background: '#f3f4f6',
-                                                    color: '#374151',
-                                                    padding: '4px 10px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid #d1d5db',
-                                                    cursor: 'pointer',
-                                                    textAlign: 'center'
+                                                    fontSize: 12, fontWeight: 700, background: '#fff', color: '#374151', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', cursor: 'pointer'
                                                 }}>답변 보기</button>
                                                 <button onClick={(e) => {
                                                     e.preventDefault();
                                                     setHireModalItem(item);
                                                     setHireModalState('default');
                                                 }} style={{
-                                                    fontSize: 10,
-                                                    fontWeight: 800,
-                                                    background: '#111827',
-                                                    color: '#fff',
-                                                    padding: '4px 10px',
-                                                    borderRadius: 6,
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                                    textAlign: 'center'
+                                                    fontSize: 12, fontWeight: 700, background: '#111827', color: '#fff', padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                                                 }}>의뢰하기</button>
                                             </div>
                                         ) : (
-                                            <ChevronRight size={13} color="#d1d5db" />
+                                            <ChevronRight size={16} color="#d1d5db" />
                                         )}
                                     </div>
                                 </div>
@@ -833,11 +813,10 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                 </span>
                             </div>
                             <h1 className="text-3xl sm:text-4xl font-black mb-2" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
-                                {displayName} 담당자님,<br />
-                                환영합니다!
+                                {displayName}({session?.name || '담당자'})님
                             </h1>
                             <p className="text-base" style={{ color: '#6b7280' }}>
-                                IBS 법률사무소와 함께 비즈니스를 더욱 안전하게 보호하세요.
+                                귀사의 사업 성장과 확장을 위해 경영 전반의 법률 리스크를 체계적으로 지원합니다.
                             </p>
                         </div>
 
@@ -861,16 +840,16 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                     </div>
                 </motion.div>
 
-                {/* ── 통합 서비스 진행 현황 ── */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <ServiceProgressPanel companyId={company?.id} />
-                </motion.div>
-
                 {/* ── 메인 레이아웃 ── */}
-                <div className="grid lg:grid-cols-3 gap-8">
+                <div className="grid lg:grid-cols-4 gap-8">
 
                     {/* ✨ 좌측: 서비스 허브 (메인) ✨ */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-3 space-y-8">
+                        {/* ── 통합 서비스 진행 현황 ── */}
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                            <ServiceProgressPanel companyId={company?.id} />
+                        </motion.div>
+
                         <div>
                             <div className="flex items-center gap-2 mb-4">
                                 <LayoutGrid className="w-5 h-5" style={{ color: '#111827' }} />
@@ -921,7 +900,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                     </div>
 
                     {/* ✨ 우측: 로펌 컨택 및 사이드바 ✨ */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 sticky top-28 self-start">
                         <CalendarWidget companyId={company?.id} />
 
                         {/* IBS 로펌 전담 데스크 */}
@@ -931,12 +910,12 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                 <div className="h-1.5 w-full absolute top-0 left-0" style={{ background: 'linear-gradient(90deg, #e8c87a, #c9a84c)' }} />
 
                                 {/* 헤더: 심볼 없이 텍스트만 */}
-                                <div className="px-6 pt-7 pb-4 border-b border-gray-100">
+                                <div className="pt-7 pb-4 border-b border-gray-100">
                                     <h3 className="font-black text-xl mb-0.5" style={{ color: '#111827' }}>IBS 법률사무소</h3>
                                     <p className="text-xs font-semibold" style={{ color: '#c9a84c' }}>한국 1위 프랜차이즈 전문 로펌</p>
                                 </div>
 
-                                <div className="p-5 space-y-4">
+                                <div className="py-5 space-y-4">
                                     {/* 전화 */}
                                     <div className="flex items-start gap-3">
                                         <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: '#f3f4f6' }}>
@@ -987,7 +966,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                 </div>
 
                                 {/* 하단 버튼 — 균형 있게 */}
-                                <div className="px-5 pb-5 flex gap-2">
+                                <div className="pb-5 flex gap-2">
                                     <Button variant="outline" className="flex-1 gap-1.5 border-gray-200 text-sm font-bold hidden" style={{ display: 'none' }} onClick={() => setZoomModalOpen(true)}>
                                         <Video className="w-4 h-4" /> 화상 미팅
                                     </Button>

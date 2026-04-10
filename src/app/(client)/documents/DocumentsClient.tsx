@@ -218,7 +218,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                             id: `privacy-report-${company.id}`,
                             companyId: company.id,
                             authorRole: 'lawyer',
-                            name: '개인정보보호법 기반 위험 진단 리포트 (통합본).pdf',
+                            name: '개인정보보호법 1차 검토 의견서.pdf',
                             size: 1024 * 350,
                             type: 'application/pdf',
                             category: '리포트',
@@ -300,7 +300,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
         }
         
         // 추가: 개인정보처리방침 (통합본) 은 프리뷰 모달 대신 전용 리포트 페이지로 바로 이동
-        if (doc.name.includes('개인정보보호법 기반 위험 진단 리포트 (통합본)')) {
+        if (doc.name.includes('개인정보보호법 1차 검토 의견서')) {
             router.push('/privacy-analysis');
             return;
         }
@@ -331,7 +331,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                                 {session?.companyName || '내 기업 문서함'}
                             </span>
                         </div>
-                        <h1 className="text-3xl font-black text-gray-900">문서 보관함</h1>
+                        <h1 className="text-3xl font-black text-gray-900">개인정보보호법 1차 검토 의견서</h1>
                         <p className="text-sm text-gray-500 mt-2">
                             법률 검토 의뢰, 계약서, 의견서 등 모든 양방향 문서를 한 곳에서 관리합니다.
                         </p>

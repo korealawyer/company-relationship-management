@@ -281,7 +281,7 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
                         </div>
                         <div className="text-right">
                             <div className="flex items-center justify-end gap-3 mb-2">
-                                <span className="text-sm font-black text-gray-900">{(lawyerName || '임시').replace(' 변호사', '')}</span>
+                                <span className="text-sm font-black text-gray-900">변호사 {(lawyerName || '임시').replace(' 변호사', '')}</span>
                                 {lawyerSignature && (
                                     <img src={lawyerSignature} alt="서명" className="h-[40px] w-auto object-contain opacity-80 mix-blend-multiply" />
                                 )}
