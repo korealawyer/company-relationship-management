@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         return false;
     };
 
-    if (checkMissing(body.privacyUrl) || checkMissing(manualText) || checkMissing(body.homepageUrl)) {
+    const getMissingResponse = () => {
         return NextResponse.json({
             success: true,
             isDemoMode: false,
@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
             extractedDetails: { ceo: '', companyName: '', address: '', bizNumber: '', email: '' },
             completedAt: new Date().toISOString(),
         });
+    };
+
+    if (checkMissing(body.privacyUrl) || checkMissing(manualText) || checkMissing(body.homepageUrl)) {
+        return getMissingResponse();
     }
 
     // URL 정규화 함수 (`http`가 없으면 `https://` 붙이기)
@@ -174,6 +178,10 @@ export async function POST(request: NextRequest) {
                     if (dbCompany) {
                         const existingText = dbCompany.privacy_policy_text || dbCompany.raw_text;
                         if (existingText && existingText.trim().length > 0) {
+                            if (checkMissing(existingText)) {
+                                console.log('[Analyze API] DB 텍스트가 "방침 없음/미기재" 상태이므로 빠른 예외 처리 반환.');
+                                return getMissingResponse();
+                            }
                             extractedText = existingText.trim();
                             console.log(`[Analyze API] DB에서 기존 프라이버시 텍스트 추출 완료 (${extractedText.length} bytes) - 크롤링 스킵`);
                         }
