@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
                     'x-api-key': anthropicKey as string
                 },
                 body: JSON.stringify({
-                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022',
+                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20240620',
                     max_tokens: 4096,
                     system: '반드시 순수 JSON 형식({ "riskLevel": ..., "summaryOpinion": ..., "issues": [...] })만 반환해야 하며 앞뒤에 백틱(```)이나 부가 설명을 절대 포함하지 마세요.',
                     messages: [{ role: 'user', content: prompt }]
