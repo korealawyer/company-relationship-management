@@ -1,10 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getBrowserSupabase } from '@/lib/supabase';
 import { CallLock } from '@/lib/types';
 
 export function useCallLocks() {
   const [locks, setLocks] = useState<CallLock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // 클라이언트 단에서 타이머가 지나 만료된 락은 투명하게 걸러내는 로직 추가
+  const activeLocks = useMemo(() => {
+    const now = new Date().getTime();
+    return locks.filter(l => new Date(l.lockedUntil).getTime() > now);
+  }, [locks]);
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -82,18 +88,18 @@ export function useCallLocks() {
   }, []);
 
   const isLocked = useCallback((companyId: string) => {
-    return locks.some((l) => l.companyId === companyId);
-  }, [locks]);
+    return activeLocks.some((l) => l.companyId === companyId);
+  }, [activeLocks]);
 
   const getLockInfo = useCallback((companyId: string) => {
-    return locks.find((l) => l.companyId === companyId);
-  }, [locks]);
+    return activeLocks.find((l) => l.companyId === companyId);
+  }, [activeLocks]);
 
   const isLockedByMe = useCallback((companyId: string, myUserId: string) => {
-    const lock = locks.find((l) => l.companyId === companyId);
+    const lock = activeLocks.find((l) => l.companyId === companyId);
     if (!lock) return false;
     return lock.userId === myUserId;
-  }, [locks]);
+  }, [activeLocks]);
 
-  return { locks, isLoading, isLocked, getLockInfo, isLockedByMe };
+  return { locks: activeLocks, isLoading, isLocked, getLockInfo, isLockedByMe };
 }

@@ -57,14 +57,6 @@ export default function ClaimPopup() {
 
                     <div className="p-7 flex flex-col items-center">
                         
-                        {/* Red Pulse Indicator */}
-                        <div className="inline-flex items-center justify-center space-x-2 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full mb-4">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                            </span>
-                            <span className="text-[11px] font-bold text-red-400 tracking-wide">긴급 진단 알림</span>
-                        </div>
 
                         {/* Heading Text */}
                         <h3 className="text-lg font-extrabold text-white text-center leading-snug mb-3 tracking-tight word-break-keep">
