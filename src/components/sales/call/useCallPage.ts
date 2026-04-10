@@ -236,7 +236,12 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
         return () => clearInterval(poll);
     }, [refresh, dbCompanies, updateCompany, setToast]);
 
-    const isToday = (dateStr?: string) => dateStr && dateStr.startsWith(new Date().toISOString().split('T')[0]);
+    const isToday = (dateStr?: string) => {
+        if (!dateStr) return false;
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        return new Date(dateStr) >= todayStart;
+    };
 
     // 글로벌 통계를 저장 (페이지네이션과 무관하게 전체 데이터 기준)
     const [globalStats, setGlobalStats] = useState({
@@ -262,8 +267,9 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             // 오늘 나의 통화 결과 카운트
             let todayTotal = 0, connected = 0, no_answer = 0, callback = 0, rejected = 0, invalid_site = 0;
             if (userName) {
-                const todayStr = new Date().toISOString().split('T')[0];
-                const startOfToday = `${todayStr}T00:00:00.000Z`;
+                const md = new Date();
+                md.setHours(0, 0, 0, 0);
+                const startOfToday = md.toISOString();
 
                 const { data } = await sb.from('companies')
                     .select('last_call_result')
