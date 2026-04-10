@@ -82,22 +82,12 @@ export async function POST(request: NextRequest) {
         return getMissingResponse();
     }
 
-    // URL 정규화 함수 (`http`가 없으면 `https://` 붙이기)
-    const normalizeUrl = (url?: string) => {
-        if (!url || typeof url !== 'string') return '';
-        url = url.trim();
-        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
-            return `https://${url}`;
-        }
-        return url;
-    };
+    const homepageUrl = body.homepageUrl?.trim() || paramUrl?.trim() || '';
+    const privacyUrl = body.privacyUrl?.trim() || '';
 
-    const homepageUrl = normalizeUrl(body.homepageUrl || paramUrl);
-    const privacyUrl = normalizeUrl(body.privacyUrl);
-
-    if (!homepageUrl && !privacyUrl && !companyId && !manualText) {
+    if (!companyId && !manualText) {
         return NextResponse.json(
-            { success: false, error: '분석에 필요한 식별 주소나 수동 텍스트 중 하나는 필수입니다.' },
+            { success: false, error: '분석에 필요한 companyId나 수동 텍스트 중 하나는 필수입니다.' },
             { status: 400 }
         );
     }
@@ -105,70 +95,8 @@ export async function POST(request: NextRequest) {
     let extractedText = '';
     let extractedFooter: any = null;
 
-    async function crawlUrl(target: string): Promise<string> {
-        let html = '';
-        const fetchUrl = new URL(target);
-        if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-        try {
-            const scrapeDoKey = process.env.SCRAPE_DO_API_KEY;
-            const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
-            let res: Response | null = null;
-            
-            if (scrapeDoKey) {
-                console.log(`[Analyze API] Using scrape.do API for URL: ${target}`);
-                let sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&render=true`;
-
-                try {
-                    res = await fetch(sdUrl, { signal: controller.signal });
-                    if (!res.ok) {
-                        console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
-                        res = null;
-                    }
-                } catch (e) {
-                    console.warn(`[Analyze API] scrape.do network error:`, e);
-                    res = null;
-                }
-            }
-            
-            if (!res && scrapingBeeKey) {
-                console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${target}`);
-                let sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&render_js=true`;
-
-                try {
-                    res = await fetch(sbUrl, { signal: controller.signal });
-                    if (!res.ok) {
-                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
-                        res = null;
-                    }
-                } catch (e) {
-                    console.warn(`[Analyze API] ScrapingBee network error:`, e);
-                    res = null;
-                }
-            }
-            
-            if (res?.ok) {
-                html = await res.text();
-            } else {
-                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
-                throw new Error('Fetch failed in both services');
-            }
-        } finally {
-            clearTimeout(timeoutId);
-        }
-
-        let cleanHtml = html.length > 200000 ? html.slice(0, 200000) : html;
-        cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
-        cleanHtml = cleanHtml.replace(/<style[\s\S]*?<\/style>/gi, '');
-        cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
-        return cleanHtml.replace(/\s+/g, ' ').trim();
-    }
-
     try {
-        // [네트워크 Egress 최적화] DB 저장된 원문이 있는지 확인하여 Server 내부에서 처리
+        // [DB 최적화] DB 저장된 원문이 있는지 확인하여 Server 내부에서 처리
         if ((!manualText || manualText.trim().length === 0) && companyId) {
             console.log(`[Analyze API] manualText가 없어 서버에서 기존 DB 텍스트 직접 재검토 시도: ${companyId}`);
             try {
@@ -186,7 +114,7 @@ export async function POST(request: NextRequest) {
                                 return getMissingResponse();
                             }
                             extractedText = existingText.trim();
-                            console.log(`[Analyze API] DB에서 기존 프라이버시 텍스트 추출 완료 (${extractedText.length} bytes) - 크롤링 스킵`);
+                            console.log(`[Analyze API] DB에서 기존 프라이버시 텍스트 추출 완료 (${extractedText.length} bytes)`);
                         }
                     }
                 }
@@ -196,91 +124,26 @@ export async function POST(request: NextRequest) {
         }
 
         // 분기 로직
-        // Case 2-3: manualText가 최우선
         if (!extractedText && manualText && manualText.trim().length > 0) {
             extractedText = manualText.trim();
         }
-        // Case 2-2: privacyUrl이 있는 경우
-        else if (!extractedText && privacyUrl && privacyUrl.startsWith('http')) {
-            extractedText = await crawlUrl(privacyUrl);
-        } 
-        // Case 2-1: homepageUrl만 있는 경우
-        else if (!extractedText && homepageUrl && homepageUrl.startsWith('http')) {
-            console.log(`[Analyze API] 홈페이지에서 푸터 정보 추출 시도 중: ${homepageUrl}`);
-            const homeText = await crawlUrl(homepageUrl);
-            
-            // OpenAI로 사업자번호, 전화번호, 개인정보취급방침 URL 추출
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (apiKey) {
-                const aiController = new AbortController();
-                const timeoutId = setTimeout(() => aiController.abort(), 15000); // 15초 제한
-                try {
-                    const footerRes = await fetch('https://api.openai.com/v1/chat/completions', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${apiKey}`
-                        },
-                        body: JSON.stringify({
-                            model: 'gpt-4o-mini',
-                            response_format: { type: "json_object" },
-                            messages: [{ 
-                                role: 'user', 
-                                content: `다음 웹사이트 내용에서 회사 푸터 정보를 찾아 JSON 객체로 반환해. 
-                                반환 형태: {"businessNumber": "사업자번호", "phoneNumber": "고객센터 전화번호", "privacyUrl": "개인정보처리방침 링크 URL"}
-                                만약 해당 정보가 없으면 빈 문자열("")로 반환할 것.
-                                URL은 절대 경로(예: https://...)이거나 상대 경로(/privacy)일 수 있음. 상대경로라면 원래 도메인(${homepageUrl})을 붙여서 절대경로로 만들어줘.
-                                내용의 일부: ${homeText.slice(homeText.length > 50000 ? homeText.length - 10000 : 0)}` 
-                            }]
-                        }),
-                        signal: aiController.signal
-                    });
-                    
-                    if (footerRes.ok) {
-                        const jsonPayload = await footerRes.json();
-                        const resultParsed = JSON.parse(jsonPayload.choices[0].message.content);
-                        extractedFooter = {
-                            businessNumber: resultParsed.businessNumber || "",
-                            phoneNumber: resultParsed.phoneNumber || "",
-                            privacyUrl: resultParsed.privacyUrl || ""
-                        };
-                        console.log(`[Analyze API] 추출된 푸터 정보:`, extractedFooter);
-                        
-                        // privacyUrl을 찾았으면 다시 크롤링 시도
-                        if (extractedFooter.privacyUrl && extractedFooter.privacyUrl.startsWith('http')) {
-                           extractedText = await crawlUrl(extractedFooter.privacyUrl);
-                        } else {
-                            throw new Error('푸터에서 개인정보처리방침 URL을 찾을 수 없습니다.');
-                        }
-                    }
-                } catch(e) {
-                    console.warn('[Analyze API] 푸터 정보 AI 추출 또는 크롤링 실패:', e);
-                } finally {
-                    clearTimeout(timeoutId);
-                }
-            }
-        }
-
-        // 결과 검증 (manualText 우선)
-        const isMinLengthValid = (manualText && manualText.trim().length > 0) ? extractedText.length >= 5 : extractedText.length >= 50;
+        
+        // 결과 검증
+        const isMinLengthValid = extractedText.length >= 5;
         
         if (!extractedText || !isMinLengthValid) {
-            console.warn('[Analyze API] 크롤링 실패 또는 텍스트 불충분');
+            console.warn('[Analyze API] DB 텍스트 부재 또는 수동 입력 텍스트 불충분');
             return NextResponse.json(
-                { success: false, error: '웹페이지에서 개인정보처리방침 내용을 정상적으로 불러오지 못했습니다. 봇 차단이 의심되거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },
+                { success: false, error: 'DB에서 방침 텍스트를 찾을 수 없거나 내용이 너무 짧습니다. 전문 텍스트를 직접 복사하여 수동으로 입력해 주세요.' },
                 { status: 422 }
             );
         }
 
     } catch (error: any) {
-        console.error('[Analyze API] URL Fetch Error:', error);
-        const isTimeout = error.name === 'AbortError';
+        console.error('[Analyze API] DB/Text Load Error:', error);
         return NextResponse.json(
-            { success: false, error: isTimeout 
-                ? '웹사이트 응답이 없어 시간 초과되었습니다. 개인정보처리방침 텍스트를 직접 붙여넣어 주세요.'
-                : '유효한 URL 형식이 아니거나 크롤링에 실패했습니다. (예: https://example.com/privacy)' 
-            },
-            { status: isTimeout ? 504 : 422 }
+            { success: false, error: '개인정보처리방침 텍스트를 구성하는 중 오류가 발생했습니다.' },
+            { status: 500 }
         );
     }
 
@@ -398,10 +261,11 @@ export async function POST(request: NextRequest) {
             clearTimeout(aiTimeoutId);
 
             if (!response.ok) {
-                console.error('[Analyze API] OpenAI Failure:', await response.text());
+                const errText = await response.text();
+                console.error('[Analyze API] OpenAI Failure:', errText);
                 return NextResponse.json(
-                    { success: false, error: 'AI 모델(OpenAI) 호출에 실패했습니다. 관리자에게 문의하세요.' },
-                    { status: 502 }
+                    { success: false, error: `AI 모델(OpenAI) 호출에 실패했습니다 (${response.status}). 관리자에게 문의하세요.` },
+                    { status: response.status === 429 ? 429 : 500 }
                 );
             }
 
@@ -419,7 +283,7 @@ export async function POST(request: NextRequest) {
             console.error('[Analyze API] JSON Parse Error:', e, 'Raw Content was:', content);
             return NextResponse.json(
                 { success: false, error: 'AI가 반환한 결과를 파싱할 수 없습니다. 재조사를 시도해 주세요.' },
-                { status: 502 }
+                { status: 500 }
             );
         }
 
