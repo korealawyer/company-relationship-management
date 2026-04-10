@@ -890,13 +890,13 @@ function PrivacyReviewContent() {
                 )}
             </AnimatePresence>
 
-            {/* 추가 자료 요청 FAB */}
+            {/* 추가 자료 요청 FAB (블라인드 처리됨) */}
             <button
                 className="no-print"
                 onClick={() => setRequestModalOpen(true)}
                 style={{
                     position: 'fixed', right: 32, bottom: 32, zIndex: 9000,
-                    display: 'flex', alignItems: 'center', gap: 8,
+                    display: 'none', alignItems: 'center', gap: 8,
                     background: '#0f172a', color: '#fff', border: 'none', borderRadius: 30,
                     padding: '14px 24px', fontSize: 17, fontWeight: 800, cursor: 'pointer',
                     boxShadow: '0 8px 24px rgba(15, 23, 42, 0.3)',

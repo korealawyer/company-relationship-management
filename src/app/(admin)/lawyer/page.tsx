@@ -102,18 +102,15 @@ export default function LawyerPage() {
             const promptConfig = (await import('@/lib/prompts/privacy')).getPromptConfig();
             
             for (const c of assignedCases) {
-                // @ts-ignore
-                const targetUrl = c.domain || c.url || c.privacyUrl;
-                
                 try {
                     const res = await fetch('/api/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             companyId: c.id,
-                            url: targetUrl,
                             systemPrompt: promptConfig.analyzePrompt,
-                            model: promptConfig.model
+                            model: promptConfig.model,
+                            skipCrawl: true
                         })
                     });
                     const data = await res.json();

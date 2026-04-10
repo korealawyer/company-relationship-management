@@ -164,7 +164,7 @@ function SingleCasePricingView() {
                     <p className="text-blue-200/50 mt-4 font-medium">원하시는 서비스를 선택하고 즉시 검토를 요청하세요.</p>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-bold px-4 py-2 bg-white/5 rounded-xl border border-white/10 text-white/60">
-                    <AlertTriangle className="w-4 h-4 text-[#c9a84c]" /> 메뉴에 없는 사안은 전문의 상담 요청
+                    <AlertTriangle className="w-4 h-4 text-[#c9a84c]" /> 메뉴에 없는 사안은 전문 변호사 상담 요청
                 </div>
             </div>
 

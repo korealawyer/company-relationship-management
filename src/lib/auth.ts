@@ -184,6 +184,17 @@ export async function signUp(
 
     if (!data.user) return { success: false, error: '회원가입에 실패했습니다.' };
 
+    const { error: insertErr } = await sb.from('users').upsert({
+        id: data.user.id,
+        email: email,
+        name: name,
+        role: role,
+        company_id: companyId || null,
+        company_name: companyName || null,
+        created_at: new Date().toISOString()
+    });
+    if (insertErr) console.error('Failed to upsert to public.users:', insertErr);
+
     const user = supabaseUserToAuthUser(data.user);
     _setSessionCache(user);
     return { success: true, user };
@@ -247,6 +258,17 @@ export async function signUpClientPortal(args: {
     }
 
     if (!data.user) return { success: false, error: '회원가입에 실패했습니다.' };
+
+    const { error: insertErr } = await sb.from('users').upsert({
+        id: data.user.id,
+        email: args.email,
+        name: args.name,
+        role: 'client_hr',
+        company_id: match.companyId,
+        company_name: match.companyName,
+        created_at: new Date().toISOString()
+    });
+    if (insertErr) console.error('Failed to upsert to public.users:', insertErr);
 
     const user = supabaseUserToAuthUser(data.user);
     _setSessionCache(user);

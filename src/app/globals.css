@@ -73,7 +73,7 @@ body {
 /* ── 모바일 터치 최적화 ── */
 /* 최소 탭 타겟 44px 보장 */
 button, a, [role="button"] {
-  min-height: 44px;
+  min-height: 20px;
   min-width: 44px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;

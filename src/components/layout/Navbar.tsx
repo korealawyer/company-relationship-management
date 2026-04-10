@@ -229,6 +229,7 @@ export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [user, setUser] = useState<AuthUser | null>(null);
+    const [claimId, setClaimId] = useState<string | null>(null);
     const pathname = usePathname();
     const router = useRouter();
     const { initiateLogout } = useZeroTrust();
@@ -243,6 +244,11 @@ export default function Navbar() {
     useEffect(() => {
         setUser(getSession());
         startAutomationEngine(); // ⚡ 송무 자동화 엔진 시작
+        
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            setClaimId(params.get('claim'));
+        }
     }, [pathname]);
 
     // 다른 탭에서 로그아웃 시 현재 탭도 즉시 반영
@@ -339,7 +345,7 @@ export default function Navbar() {
                             </>
                         ) : (
                             <>
-                                <Link href="/login"
+                                <Link href={claimId ? `/login?claim=${claimId}&from=/privacy-analysis` : '/login'}
                                     className="text-sm font-semibold px-4 py-2 rounded-lg transition-all"
                                     style={{ color: 'rgba(240,244,255,0.8)', border: '1px solid rgba(201,168,76,0.3)' }}
                                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.7)'; e.currentTarget.style.color = '#c9a84c'; }}
@@ -427,7 +433,7 @@ export default function Navbar() {
                                 </div>
                             ) : (
                                 <div className="flex flex-col gap-2 pt-1">
-                                    <Link href="/login" onClick={() => setMobileOpen(false)}
+                                    <Link href={claimId ? `/login?claim=${claimId}&from=/privacy-analysis` : '/login'} onClick={() => setMobileOpen(false)}
                                         className="text-center py-2.5 rounded-lg text-sm font-semibold"
                                         style={{ border: '1px solid rgba(201,168,76,0.4)', color: '#c9a84c' }}>
                                         로그인

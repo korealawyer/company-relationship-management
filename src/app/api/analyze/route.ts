@@ -174,9 +174,12 @@ export async function POST(request: NextRequest) {
             try {
                 const sb = getServiceSupabase();
                 if (sb) {
-                    const { data: dbCompany } = await sb.from('companies').select('privacy_policy_text, raw_text').eq('id', companyId).single();
+                    const { data: dbCompany, error } = await sb.from('companies').select('privacy_policy_text').eq('id', companyId).single();
+                    if (error) {
+                        console.warn('[Analyze API] Supabase query error:', error);
+                    }
                     if (dbCompany) {
-                        const existingText = dbCompany.privacy_policy_text || dbCompany.raw_text;
+                        const existingText = dbCompany.privacy_policy_text;
                         if (existingText && existingText.trim().length > 0) {
                             if (checkMissing(existingText)) {
                                 console.log('[Analyze API] DB 텍스트가 "방침 없음/미기재" 상태이므로 빠른 예외 처리 반환.');

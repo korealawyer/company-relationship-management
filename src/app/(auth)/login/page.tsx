@@ -550,7 +550,7 @@ function LoginContent() {
                                                 </svg>
                                                 확인 중...
                                             </span>
-                                        ) : (<>나의 리포트 보기 <ChevronRight className="w-4 h-4" /></>)}
+                                        ) : (<>로그인 <ArrowRight className="w-4 h-4" /></>)}
                                     </button>
                                 </div>
                             )}

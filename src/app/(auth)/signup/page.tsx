@@ -39,13 +39,49 @@ export default function SignupPage() {
     const [showInvite, setShowInvite] = useState(false);
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [agreePrivacy, setAgreePrivacy] = useState(false);
+    const [agreeMarketing, setAgreeMarketing] = useState(false);
     const [infoError, setInfoError] = useState('');
     const [infoLoading, setInfoLoading] = useState(false);
+    
+    // Check duplicates state
+    const [bizNumMain, setBizNumMain] = useState('');
+    const [emailCheckLoading, setEmailCheckLoading] = useState(false);
+    const [bizCheckLoading, setBizCheckLoading] = useState(false);
+    const [emailChecked, setEmailChecked] = useState(false);
+    const [bizChecked, setBizChecked] = useState(false);
 
-    // Step 2 states
+    const checkDuplicateEmail = async () => {
+        if (!email) { setInfoError('이메일을 입력해주세요.'); return; }
+        setEmailCheckLoading(true); setInfoError('');
+        try {
+            const res = await fetch('/api/auth/check-duplicate', {
+                method: 'POST', body: JSON.stringify({ type: 'email', value: email })
+            });
+            const data = await res.json();
+            if (data.duplicate) { setEmailChecked(false); setInfoError('이미 가입된 이메일입니다.'); }
+            else { setEmailChecked(true); setInfoError(''); }
+        } catch(e) { setInfoError('이메일 중복 확인 실패'); }
+        setEmailCheckLoading(false);
+    };
+
+    const checkDuplicateBiz = async () => {
+        if (!bizNumMain) { setInfoError('사업자번호를 입력해주세요.'); return; }
+        setBizCheckLoading(true); setInfoError('');
+        try {
+            const res = await fetch('/api/auth/check-duplicate', {
+                method: 'POST', body: JSON.stringify({ type: 'bizNum', value: bizNumMain })
+            });
+            const data = await res.json();
+            if (data.duplicate) { setBizChecked(false); setInfoError('해당 사업자번호는 이미 등록되어 있습니다.'); }
+            else { setBizChecked(true); setInfoError(''); }
+        } catch(e) { setInfoError('사업자번호 중복 확인 실패'); }
+        setBizCheckLoading(false);
+    };
+
     const [method, setMethod] = useState<AffMethod>(null);
     const [affResult, setAffResult] = useState<{ companyId: string; companyName: string } | null>(null);
     const [affDone, setAffDone] = useState(false);
+    const [modalContent, setModalContent] = useState<'privacy' | 'terms' | 'marketing' | null>(null);
 
     // Code method
     const [code, setCode] = useState('');
@@ -68,10 +104,23 @@ export default function SignupPage() {
         return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
     };
 
+    const goToDashboard = () => {
+        const roleHome: Record<string, string> = {
+            sales: '/employee', lawyer: '/lawyer', litigation: '/litigation',
+            hr: '/employee', finance: '/employee', admin: '/employee',
+            super_admin: '/employee', counselor: '/counselor', client_hr: '/dashboard',
+        };
+        const session = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('ibs_auth_v1') || '{}') : {};
+        const homePath = roleHome[session.role] || '/dashboard?onboarding=1';
+        router.replace(homePath);
+    };
+
     // ── Step1 제출 ──────────────────────────────────────────────
     const handleInfoSubmit = async () => {
         if (!agreeTerms || !agreePrivacy) { setInfoError('필수 약관에 모두 동의해주세요.'); return; }
-        if (!name || !email || !password) { setInfoError('모든 항목을 입력해주세요.'); return; }
+        if (!name || !email || !password || !bizNumMain) { setInfoError('모든 항목을 입력해주세요.'); return; }
+        if (!emailChecked) { setInfoError('이메일 중복 확인을 진행해주세요.'); return; }
+        if (!bizChecked) { setInfoError('사업자번호 중복 확인을 진행해주세요.'); return; }
         if (password !== pwConfirm) { setInfoError('비밀번호가 일치하지 않습니다.'); return; }
         if (password.length < 6) { setInfoError('비밀번호는 6자 이상이어야 합니다.'); return; }
         setInfoLoading(true); setInfoError('');
@@ -80,17 +129,17 @@ export default function SignupPage() {
         const result = await signUp(name, email, password, trimmedCode);
         setInfoLoading(false);
         if (!result.success) { setInfoError(result.error); return; }
-        // 초대코드로 내부 직원이 가입한 경우 → Step 2 건너뛰고 바로 완료
+        // 초대코드로 내부 직원이 가입한 경우 → 대시보드로 바로 진입
         if (trimmedCode) {
             const codeEntry = INVITE_CODES[trimmedCode.toUpperCase()];
             if (codeEntry?.isInternal) {
-                setStep('done');
+                goToDashboard();
                 return;
             }
-            // 고객사 초대코드인 경우도 바로 완료
+            // 고객사 초대코드인 경우
             setAffResult({ companyId: codeEntry?.companyId || '', companyName: codeEntry?.companyName || '' });
             setAffDone(true);
-            setStep('done');
+            goToDashboard();
             return;
         }
         setStep('affiliation');
@@ -150,21 +199,63 @@ export default function SignupPage() {
                                     <h1 className="text-lg font-black mb-0.5" style={{ color: '#f0f4ff' }}>회원가입</h1>
                                 </div>
 
-                                {[
-                                    { label: '이름', icon: <User className="w-4 h-4" />, value: name, set: setName, type: 'text', ph: '' },
-                                    { label: '이메일', icon: <Mail className="w-4 h-4" />, value: email, set: setEmail, type: 'email', ph: 'name@company.com' },
-                                ].map(f => (
-                                    <div key={f.label}>
-                                        <label className="block text-xs font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.6)' }}>{f.label}</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(240,244,255,0.3)' }}>{f.icon}</span>
-                                            <input type={f.type} value={f.value} onChange={e => { f.set(e.target.value); setInfoError(''); }}
-                                                placeholder={f.ph}
+                                <div>
+                                    <label className="block text-xs font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.6)' }}>이름 (기업회원은 기업명)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(240,244,255,0.3)' }}><User className="w-4 h-4" /></span>
+                                        <input type="text" value={name} onChange={e => { setName(e.target.value); setInfoError(''); }}
+                                            className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
+                                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#f0f4ff' }} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.6)' }}>사업자번호</label>
+                                    <div className="flex gap-2 relative">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(240,244,255,0.3)' }}><Building2 className="w-4 h-4" /></span>
+                                            <input type="text" value={bizNumMain} onChange={e => { setBizNumMain(formatBiz(e.target.value)); setBizChecked(false); setInfoError(''); }}
+                                                placeholder="000-00-00000"
                                                 className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
                                                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#f0f4ff' }} />
                                         </div>
+                                        <button onClick={checkDuplicateBiz} disabled={bizCheckLoading || !bizNumMain || bizChecked}
+                                            className="px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center justify-center min-w-[80px]"
+                                            style={{ 
+                                                background: bizChecked ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.05)', 
+                                                color: bizChecked ? '#4ade80' : 'rgba(240,244,255,0.8)',
+                                                border: `1px solid ${bizChecked ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.09)'}`
+                                            }}
+                                        >
+                                            {bizCheckLoading ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" /> : 
+                                            bizChecked ? '확인완료' : '중복확인'}
+                                        </button>
                                     </div>
-                                ))}
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold mb-1.5" style={{ color: 'rgba(240,244,255,0.6)' }}>이메일</label>
+                                    <div className="flex gap-2 relative">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(240,244,255,0.3)' }}><Mail className="w-4 h-4" /></span>
+                                            <input type="email" value={email} onChange={e => { setEmail(e.target.value); setEmailChecked(false); setInfoError(''); }}
+                                                placeholder="name@company.com"
+                                                className="w-full pl-9 pr-4 py-2.5 rounded-xl outline-none text-sm"
+                                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: '#f0f4ff' }} />
+                                        </div>
+                                        <button onClick={checkDuplicateEmail} disabled={emailCheckLoading || !email || emailChecked}
+                                            className="px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center justify-center min-w-[80px]"
+                                            style={{ 
+                                                background: emailChecked ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.05)', 
+                                                color: emailChecked ? '#4ade80' : 'rgba(240,244,255,0.8)',
+                                                border: `1px solid ${emailChecked ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.09)'}`
+                                            }}
+                                        >
+                                            {emailCheckLoading ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" /> : 
+                                            emailChecked ? '확인완료' : '중복확인'}
+                                        </button>
+                                    </div>
+                                </div>
 
                                 {/* 비밀번호 */}
                                 <div>
@@ -198,9 +289,9 @@ export default function SignupPage() {
                                 {/* 초대코드 (선택) */}
                                 <div>
                                     <button onClick={() => setShowInvite(!showInvite)}
-                                        className="flex items-center gap-1.5 text-xs font-bold mb-1.5 transition-all"
-                                        style={{ color: showInvite ? '#c9a84c' : 'rgba(240,244,255,0.4)' }}>
-                                        <Ticket className="w-3.5 h-3.5" />
+                                        className="flex items-center gap-1.5 text-[11px] font-normal mb-1 transition-all"
+                                        style={{ color: showInvite ? '#c9a84c' : 'rgba(255,255,255,0.2)' }}>
+                                        <Ticket className={`w-3 h-3 ${!showInvite && 'opacity-60'}`} />
                                         {showInvite ? '초대코드 접기' : '내부 직원 / 초대코드가 있으신가요?'}
                                     </button>
                                     {showInvite && (
@@ -217,21 +308,43 @@ export default function SignupPage() {
                                 </div>
 
                                 {/* 약관 동의 */}
-                                <div className="space-y-3 mt-4 mb-2 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#c9a84c] border-[#c9a84c]' : 'border-white/20 group-hover:border-white/40'}`}>
-                                            {agreeTerms && <CheckCircle2 className="w-3 h-3 text-[#04091a]" />}
+                                <div className="space-y-0 !mt-2">
+                                    <div className="flex items-center justify-between">
+                                        <div onClick={() => { setAgreeTerms(!agreeTerms); setInfoError(''); }}
+                                             className="flex items-center gap-1.5 text-[11px] font-normal cursor-pointer select-none transition-all" 
+                                             style={{ color: agreeTerms ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)' }}>
+                                            <CheckCircle2 className={`w-3.5 h-3.5 transition-opacity ${agreeTerms ? 'text-[#c9a84c] opacity-50' : 'opacity-30'}`} />
+                                            [필수] 로펌 플랫폼 이용약관 동의
                                         </div>
-                                        <input type="checkbox" checked={agreeTerms} onChange={e => { setAgreeTerms(e.target.checked); setInfoError(''); }} className="hidden" />
-                                        <span className="text-xs font-bold transition-colors" style={{ color: agreeTerms ? '#f0f4ff' : 'rgba(240,244,255,0.6)' }}>[필수] 로펌 플랫폼 이용약관 동의</span>
-                                    </label>
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${agreePrivacy ? 'bg-[#c9a84c] border-[#c9a84c]' : 'border-white/20 group-hover:border-white/40'}`}>
-                                            {agreePrivacy && <CheckCircle2 className="w-3 h-3 text-[#04091a]" />}
+                                        <button 
+                                            onClick={() => setModalContent('terms')}
+                                            className="text-[10px] hover:underline transition-colors" 
+                                            style={{ color: 'rgba(255,255,255,0.15)' }}>보기</button>
+                                    </div>
+                                    <div className="flex items-center justify-between mt-2">
+                                        <div onClick={() => { setAgreePrivacy(!agreePrivacy); setInfoError(''); }}
+                                             className="flex items-center gap-1.5 text-[11px] font-normal cursor-pointer select-none transition-all" 
+                                             style={{ color: agreePrivacy ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)' }}>
+                                            <CheckCircle2 className={`w-3.5 h-3.5 transition-opacity ${agreePrivacy ? 'text-[#c9a84c] opacity-50' : 'opacity-30'}`} />
+                                            [필수] 개인정보 제3자 제공 및 수집·이용 동의
                                         </div>
-                                        <input type="checkbox" checked={agreePrivacy} onChange={e => { setAgreePrivacy(e.target.checked); setInfoError(''); }} className="hidden" />
-                                        <span className="text-xs font-bold transition-colors" style={{ color: agreePrivacy ? '#f0f4ff' : 'rgba(240,244,255,0.6)' }}>[필수] 개인정보 제3자 제공 및 수집·이용 동의</span>
-                                    </label>
+                                        <button 
+                                            onClick={() => setModalContent('privacy')}
+                                            className="text-[10px] hover:underline transition-colors" 
+                                            style={{ color: 'rgba(255,255,255,0.15)' }}>보기</button>
+                                    </div>
+                                    <div className="flex items-center justify-between mt-2">
+                                        <div onClick={() => { setAgreeMarketing(!agreeMarketing); setInfoError(''); }}
+                                             className="flex items-center gap-1.5 text-[11px] font-normal cursor-pointer select-none transition-all" 
+                                             style={{ color: agreeMarketing ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)' }}>
+                                            <CheckCircle2 className={`w-3.5 h-3.5 transition-opacity ${agreeMarketing ? 'text-[#c9a84c] opacity-50' : 'opacity-30'}`} />
+                                            [선택] 마케팅 정보 수신 동의
+                                        </div>
+                                        <button 
+                                            onClick={() => setModalContent('marketing')}
+                                            className="text-[10px] hover:underline transition-colors" 
+                                            style={{ color: 'rgba(255,255,255,0.15)' }}>보기</button>
+                                    </div>
                                 </div>
 
                                 {infoError && (
@@ -243,7 +356,7 @@ export default function SignupPage() {
                                 <button onClick={handleInfoSubmit} disabled={infoLoading}
                                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm"
                                     style={{ background: infoLoading ? 'rgba(201,168,76,0.3)' : 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                                    {infoLoading ? '처리 중...' : <>다음 단계 <ArrowRight className="w-4 h-4" /></>}
+                                    {infoLoading ? '처리 중...' : '회원가입'}
                                 </button>
 
                                 <p className="text-xs text-center" style={{ color: 'rgba(240,244,255,0.3)' }}>
@@ -256,33 +369,48 @@ export default function SignupPage() {
                     {/* ── STEP 2: 소속 인증 ── */}
                     {step === 'affiliation' && !affDone && (
                         <motion.div key="aff" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-                            <div className="p-7 rounded-2xl"
+                            <div className="p-7 rounded-2xl relative"
                                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                                <div className="mb-5">
-                                    <h2 className="text-lg font-black mb-0.5" style={{ color: '#f0f4ff' }}>소속 인증 <span className="text-sm font-normal" style={{ color: 'rgba(240,244,255,0.35)' }}>(선택)</span></h2>
-                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>프랜차이즈 소속이면 인증하면 혜택이 자동 적용됩니다.<br />소속 없으면 건너뛰고 바로 이용하실 수 있어요.</p>
+                                
+                                <button onClick={goToDashboard}
+                                    className="absolute top-5 right-5 px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-transform hover:scale-[1.02]"
+                                    style={{ background: 'rgba(201,168,76,0.1)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}>
+                                    사이트 투어 <ArrowRight className="w-3 h-3" />
+                                </button>
+
+                                <div className="mb-6 text-center mt-2">
+                                    <div className="w-12 h-12 rounded-full bg-[#c9a84c]/10 flex items-center justify-center mx-auto mb-3">
+                                        <CheckCircle2 className="w-6 h-6 text-[#c9a84c]" />
+                                    </div>
+                                    <h2 className="text-xl font-black mb-1" style={{ color: '#f0f4ff' }}>가입이 완료되었습니다!</h2>
+                                    <p className="text-xs" style={{ color: 'rgba(240,244,255,0.4)' }}>환영합니다. 지금 바로 IBS법률사무소의 서비스를 경험해 보세요.</p>
+                                </div>
+
+                                <div className="border-t pt-5 mb-5" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                                    <h3 className="text-sm font-bold mb-1" style={{ color: '#f0f4ff' }}>소속 인증 <span className="text-xs font-normal" style={{ color: 'rgba(240,244,255,0.35)' }}>(선택)</span></h3>
+                                    <p className="text-[11px]" style={{ color: 'rgba(240,244,255,0.4)' }}>프랜차이즈 소속이신가요? 인증 시 전용 혜택이 자동 적용됩니다.</p>
                                 </div>
 
                                 {/* 방법 선택 */}
                                 {!method && (
-                                    <div className="space-y-2 mb-5">
+                                    <div className="space-y-1.5 mb-5 opacity-60 hover:opacity-100 transition-opacity duration-300">
                                         {[
-                                            { key: 'code', icon: <Ticket className="w-4 h-4" />, title: '초대코드 입력', desc: '본사에서 받은 코드를 입력', color: '#c9a84c' },
-                                            { key: 'biz', icon: <Hash className="w-4 h-4" />, title: '사업자번호로 검색', desc: '가맹점 사업자번호 입력', color: '#818cf8' },
-                                            { key: 'request', icon: <Send className="w-4 h-4" />, title: '소속 신청 (HR 승인)', desc: '코드 없어도 신청 가능', color: '#34d399' },
+                                            { key: 'code', icon: <Ticket className="w-3.5 h-3.5" />, title: '초대코드 입력', desc: '본사에서 받은 코드를 입력' },
+                                            { key: 'biz', icon: <Hash className="w-3.5 h-3.5" />, title: '사업자번호로 검색', desc: '가맹점 사업자번호 입력' },
+                                            { key: 'request', icon: <Send className="w-3.5 h-3.5" />, title: '소속 신청 (HR 승인)', desc: '코드 없어도 신청 가능' },
                                         ].map(m => (
                                             <button key={m.key} onClick={() => setMethod(m.key as AffMethod)}
-                                                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all hover:scale-[1.01]"
-                                                style={{ background: `${m.color}08`, border: `1px solid ${m.color}20`, color: m.color }}>
-                                                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                                                    style={{ background: `${m.color}15` }}>
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-white/5"
+                                                style={{ border: `1px solid rgba(255,255,255,0.03)`, color: 'rgba(240,244,255,0.7)' }}>
+                                                <div className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+                                                    style={{ background: `rgba(255,255,255,0.04)` }}>
                                                     {m.icon}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="font-black text-sm">{m.title}</p>
-                                                    <p className="text-[11px] opacity-60 mt-0.5">{m.desc}</p>
+                                                    <p className="font-medium text-xs">{m.title}</p>
+                                                    <p className="text-[10px] opacity-50 mt-0.5">{m.desc}</p>
                                                 </div>
-                                                <ChevronRight className="w-4 h-4 ml-auto opacity-40 flex-shrink-0" />
+                                                <ChevronRight className="w-3 h-3 ml-auto opacity-20 flex-shrink-0" />
                                             </button>
                                         ))}
                                     </div>
@@ -375,12 +503,7 @@ export default function SignupPage() {
                                     </motion.div>
                                 )}
 
-                                {/* 건너뛰기 */}
-                                <button onClick={() => setStep('done')}
-                                    className="w-full py-2 text-xs transition-all"
-                                    style={{ color: 'rgba(240,244,255,0.3)' }}>
-                                    소속 없음 — 건너뛰고 바로 이용하기 →
-                                </button>
+
                             </div>
                         </motion.div>
                     )}
@@ -388,9 +511,15 @@ export default function SignupPage() {
                     {/* ── STEP 2 완료 (인증/신청 결과) ── */}
                     {step === 'affiliation' && affDone && (
                         <motion.div key="aff-done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-                            <div className="p-7 rounded-2xl text-center"
+                            <div className="p-7 rounded-2xl text-center relative"
                                 style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
-                                <CheckCircle2 className="w-12 h-12 mx-auto mb-3" style={{ color: method === 'request' ? '#34d399' : '#c9a84c' }} />
+                                <button onClick={goToDashboard}
+                                    className="absolute top-5 right-5 px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-transform hover:scale-[1.02]"
+                                    style={{ background: 'rgba(201,168,76,0.1)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}>
+                                    사이트 투어 <ArrowRight className="w-3 h-3" />
+                                </button>
+                                
+                                <CheckCircle2 className="w-12 h-12 mx-auto mb-3 mt-4" style={{ color: method === 'request' ? '#34d399' : '#c9a84c' }} />
                                 <p className="font-black text-lg mb-1" style={{ color: '#f0f4ff' }}>
                                     {method === 'request' ? '소속 신청 완료!' : '소속 인증 완료!'}
                                 </p>
@@ -405,60 +534,120 @@ export default function SignupPage() {
                                         본사 지원 멤버십이 자동 적용되었습니다.
                                     </p>
                                 )}
-                                <button onClick={() => setStep('done')}
-                                    className="w-full py-3 rounded-xl font-bold text-sm"
-                                    style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                                    가입 완료 →
-                                </button>
                             </div>
                         </motion.div>
                     )}
 
-                    {/* ── STEP 3: 완료 ── */}
-                    {step === 'done' && (() => {
-                        // 역할별 리다이렉트 경로
-                        const roleHome: Record<string, string> = {
-                            sales: '/employee', lawyer: '/lawyer', litigation: '/litigation',
-                            hr: '/employee', finance: '/employee', admin: '/employee',
-                            super_admin: '/employee', counselor: '/counselor', client_hr: '/dashboard',
-                        };
-                        const session = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('ibs_auth_v1') || '{}') : {};
-                        const isInternal = ['sales','lawyer','litigation','hr','finance','admin','super_admin','counselor'].includes(session.role);
-                        const homePath = roleHome[session.role] || '/dashboard?onboarding=1';
-                        return (
-                        <motion.div key="done" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-                            <div className="p-7 rounded-2xl text-center"
-                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)' }}>
-                                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                                    style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)' }}>
-                                    <CheckCircle2 className="w-8 h-8" style={{ color: '#04091a' }} />
-                                </div>
-                                <h2 className="text-xl font-black mb-2" style={{ color: '#f0f4ff' }}>가입 완료!</h2>
-                                <p className="text-sm mb-6" style={{ color: 'rgba(240,244,255,0.5)' }}>
-                                    환영합니다, <span style={{ color: '#c9a84c' }}>{name}</span>님.
-                                    {isInternal
-                                        ? <><br />내부 시스템으로 바로 이동합니다.</>
-                                        : <><br />법률 문의를 바로 시작해보세요.</>
-                                    }
-                                </p>
-                                <div className="flex flex-col gap-2">
-                                    <button onClick={() => router.replace(homePath)}
-                                        className="w-full py-3 rounded-xl font-bold text-sm"
-                                        style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}>
-                                        {isInternal ? '업무 시작하기 →' : '대시보드로 이동 →'}
+
+                </AnimatePresence>
+
+                {/* ── 약관 / 동의 모달 ── */}
+                <AnimatePresence>
+                    {modalContent && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <motion.div 
+                                initial={{ opacity: 0 }} 
+                                animate={{ opacity: 1 }} 
+                                exit={{ opacity: 0 }} 
+                                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                                onClick={() => setModalContent(null)}
+                            />
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }} 
+                                animate={{ opacity: 1, scale: 1, y: 0 }} 
+                                exit={{ opacity: 0, scale: 0.95, y: 20 }} 
+                                className="relative w-full max-w-lg rounded-2xl overflow-hidden flex flex-col"
+                                style={{
+                                    background: '#04091a', 
+                                    border: '1px solid rgba(201,168,76,0.2)',
+                                    maxHeight: '80vh'
+                                }}
+                            >
+                                <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                                    <h3 className="font-black text-lg" style={{ color: '#f0f4ff' }}>
+                                        {modalContent === 'privacy' && '개인정보 수집 및 처리방침'}
+                                        {modalContent === 'terms' && '서비스 이용약관'}
+                                    </h3>
+                                    <button 
+                                        onClick={() => setModalContent(null)}
+                                        className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: 'rgba(240,244,255,0.6)' }}
+                                    >
+                                        <X className="w-5 h-5" />
                                     </button>
-                                    {!isInternal && (
-                                        <button onClick={() => router.replace('/chat')}
-                                            className="w-full py-2.5 rounded-xl text-sm"
-                                            style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(240,244,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                            법률 문의 바로 시작하기
-                                        </button>
-                                    )}
                                 </div>
-                            </div>
-                        </motion.div>
-                        );
-                    })()}
+                                <div className="p-6 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(240,244,255,0.7)' }}>
+                                    {modalContent === 'privacy' ? `개인정보 수집 및 이용 동의 (필수)
+
+1. 수집하는 개인정보의 항목
+- 필수항목: 이름, 이메일, 비밀번호
+- 자동수집항목: 서비스 이용기록, 접속 로그, 쿠키, 접속 IP 정보
+
+2. 개인정보의 수집 및 이용 목적
+- 홈페이지 관련 회원 가입의사 확인, 법률 상담 서비스 제공, 법인 확인
+- 서비스 제공에 따른 요금 및 서비스 현황 안내
+- 불량 회원의 부정 이용 방지와 비인가 사용 방지
+
+3. 개인정보의 보유 및 이용 기간
+회원 탈퇴 처리 시까지 보유 및 이용되며, 다음의 정보에 대해서는 아래의 이유로 명시한 기간 동안 보존합니다.
+- 소비자의 불만 또는 분쟁처리에 관한 기록: 3년
+- 대금결제 및 재화 등의 공급에 관한 기록: 5년
+- 계약 또는 청약철회 등에 관한 기록: 5년
+
+4. 동의를 거부할 권리 및 거부에 따른 불이익
+귀하는 개인정보 수집 및 이용에 동의를 거부할 권리가 있으나, 필수항목 동의 거부 시 회원가입 및 서비스 이용이 제한됩니다.` 
+                                      : modalContent === 'marketing' ? `마케팅 정보 수신 동의 (선택)
+
+1. 수집 항목
+- 휴대전화번호, 이메일 주소
+
+2. 이용 목적
+- 신규 서비스 안내, 프로모션 및 이벤트 정보 제공, 뉴스레터 발송, 서비스 맞춤형 광고 전송
+
+3. 보유 및 이용 기간
+- 동의 철회 시 또는 회원 탈퇴 시까지
+
+4. 동의 거부 안내
+- 마케팅 정보 수신 동의를 거부하실 수 있으며, 거부하셔도 기본 서비스 이용에는 제한이 없습니다. 단, 이벤트 안내 및 맞춤형 혜택 정보 제공은 제한될 수 있습니다.`
+                                      : 
+`IBS 플랫폼 서비스 이용약관 (필수)
+
+제1조 (목적)
+본 약관은 IBS법률사무소(이하 "회사"라 합니다)가 제공하는 법률 인프라 서비스(이하 "서비스"라 합니다)의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+
+제2조 (용어의 정의)
+1. "서비스"란 구현되는 단말기(PC, 휴대폰 등)에 상관없이 "회원"이 이용할 수 있는 IBS 플랫폼 및 관련 제반 법무 서비스를 의미합니다.
+2. "회원"이란 회사의 "서비스"에 접속하여 본 약관에 따라 "회사"와 이용계약을 체결하고 이용하는 고객을 의미합니다.
+3. "아이디(ID)"란 회원의 식별과 서비스 이용을 위하여 회원이 정하고 회사가 승인하는 이메일 또는 사업자번호를 의미합니다.
+
+제3조 (약관의 명시와 개정)
+1. 회사는 본 약관의 내용을 회원이 쉽게 알 수 있도록 초기 화상 화면에 게시합니다.
+2. 회사는 약관의 규제에 관한 법률 등 관련 법령에 위배되지 않는 범위 내에서 이 약관을 개정할 수 있습니다.
+3. 약관이 개정된 경우, 변경 사항은 7일 전부터 플랫폼 내 게시판을 통해 공지됩니다.
+
+제4조 (회원가입 및 계정의 관리)
+1. 회원은 본 약관에 동의하고 회사에서 정한 가입 양식을 작성하여 제출함으로써 가입이 신청됩니다.
+2. 회원은 아이디와 비밀번호에 관하여 관리책임이 있으며, 제3자에게 이를 양도하거나 대여할 수 없습니다.
+
+제5조 (서비스의 제공)
+1. 회사는 회원에게 기업 법무 자문, 계약서 검토, 개인정보 진단 등 특화된 법률 서비스를 제공합니다.
+2. 서비스는 연중무휴 24시간 제공함을 원칙으로 하나, 정기점검 등의 사유로 일부 서비스가 제한될 수 있습니다.
+
+부칙
+본 약관은 2026년 3월 1일부터 시행됩니다.`
+                                    }
+                                </div>
+                                <div className="p-4 border-t flex justify-end" style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
+                                    <button 
+                                        onClick={() => setModalContent(null)}
+                                        className="px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
+                                        style={{ background: 'linear-gradient(135deg,#e8c87a,#c9a84c)', color: '#04091a' }}
+                                    >
+                                        확인
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
                 </AnimatePresence>
             </div>
         </div>

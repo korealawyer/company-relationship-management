@@ -139,6 +139,22 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
   const reportUrl = `${baseUrl}/?claim=${vars.leadId}`;
   const trackClick = `${baseUrl}/api/track?lid=${vars.leadId}&type=click&url=${encodeURIComponent(reportUrl)}`;
   const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${vars.unsubscribeToken}`;
+
+  const highRiskIssues = issues.filter((i: any) => i.level === 'HIGH');
+  const highCount = highRiskIssues.length;
+  
+  let dynamicSummary = `귀사의 개인정보처리방침을 검토한 결과, 개인정보보호법상 시정이 필요한 사항 ${vars.issueCount || issues.length}건이 확인되었습니다. `;
+  
+  if (highCount > 0) {
+    const issueTitles = highRiskIssues.slice(0, 2).map((i: any) => {
+      const lawStr = i.law ? `(${i.law.replace('위반', '').trim()} 위반)` : '';
+      return `${i.title}${lawStr}`;
+    }).join(', ');
+    
+    dynamicSummary += `특히 ${issueTitles} 등 고위험 사항 ${highCount}건은 개인정보보호위원회 정기감사 시 즉시 시정명령 및 과징금 부과 대상에 해당합니다. `;
+  }
+  
+  dynamicSummary += `최근 인터파크(44억 원), 쿠팡(55억 원) 등 개인정보보호위원회의 대규모 과징금 사례가 이어지고 있어, 개인정보처리방침 관련 미비 사항이 규제 리스크로 이어질 가능성이 높아지고 있어, 선제적인 시정 조치가 필요한 것으로 판단됩니다.`;
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Apple SD Gothic Neo',Pretendard,sans-serif">
@@ -172,12 +188,11 @@ export function buildHookEmailHtml(vars: Record<string, string>, customMsg: stri
     `}
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 16px">
-      저희 법률사무소에서는 선도적인 기업들의 리스크 선제 대응과 컴플라이언스 강화를 위해,
-      주요 기업의 개인정보처리방침에 대한 심층 법률 검토를 지원하고 있습니다.
+      저희 법률사무소는 프랜차이즈 분야에 특화된 전문 로펌으로서, 개인정보처리방침 관련 연구를 기반으로 선도적인 기업들의 리스크 선제 대응과 컴플라이언스 강화를 위한 심층 법률 검토를 지원하고 있습니다.
     </p>
 
     <p style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 20px">
-      ${vars.summaryOpinion}
+      ${dynamicSummary}
     </p>
 
 

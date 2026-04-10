@@ -39,17 +39,17 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
 
             const promptConfig = (await import('@/lib/prompts/privacy')).getPromptConfig();
             
-            // @ts-ignore
-            const targetUrlForAnalysis = c.privacyUrl || c.domain || c.url;
+            // 크롤링 URL 생성 제거됨 (DB 저장된 데이터만 활용)
             
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     companyId: c.id, 
-                    url: targetUrlForAnalysis, 
+                    // 크롤링 방지: url을 전송하지 않고 DB 저장된 데이터(rawText 등)만 활용하도록 유도
                     systemPrompt: promptConfig.analyzePrompt,
-                    model: promptConfig.model
+                    model: promptConfig.model,
+                    skipCrawl: true 
                 })
             });
             const data = await res.json();

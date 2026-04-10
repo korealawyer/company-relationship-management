@@ -55,20 +55,40 @@ export default function ClaimPopup() {
                         <X className="w-4 h-4" />
                     </button>
 
-                    <div className="p-6">
+                    <div className="p-7 flex flex-col items-center">
+                        
+                        {/* Red Pulse Indicator */}
+                        <div className="inline-flex items-center justify-center space-x-2 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full mb-4">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            </span>
+                            <span className="text-[11px] font-bold text-red-400 tracking-wide">긴급 진단 알림</span>
+                        </div>
 
-                        <p className="text-sm text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.6)', wordBreak: 'keep-all' }}>
-                            사소한 법률 위반도 막대한 과징금으로<br/>이어질 수 있습니다.
-                            <span className="block mt-2.5">귀사 홈페이지의 취약점을 분석한<br/>프라이버시 리포트를 발급했습니다.</span>
-                            <span className="block mt-2.5 font-medium" style={{ color: '#e2e8f0' }}>로그인 후 상세 진단 결과를 즉시 점검하세요.</span>
+                        {/* Heading Text */}
+                        <h3 className="text-lg font-extrabold text-white text-center leading-snug mb-3 tracking-tight word-break-keep">
+                            귀사 홈페이지의 <br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e8c87a] to-[#c9a84c]">
+                                프라이버시 리포트
+                            </span> 발급 완료
+                        </h3>
+
+                        {/* Description Text */}
+                        <p className="text-[13px] text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.7)', wordBreak: 'keep-all' }}>
+                            사소한 법률 위반도 막대한 과징금으로 이어질 수 있습니다.<br/>
+                            <span className="block mt-2 font-semibold" style={{ color: '#e8c87a' }}>로그인 후 상세 진단 결과를 즉시 점검하세요.</span>
                         </p>
 
                         <Button 
                             variant="premium" 
-                            className="w-full font-bold shadow-[0_4px_14px_0_rgba(201,168,76,0.39)]"
+                            className="w-full font-bold shadow-[0_8px_24px_-8px_rgba(201,168,76,0.6)] group relative overflow-hidden"
                             onClick={handleLoginRedirect}
                         >
-                            리스크 진단 결과 보기 <ArrowRight className="w-4 h-4 ml-1.5" />
+                            <span className="relative z-10 flex items-center justify-center">
+                                리스크 진단 결과 보기 
+                                <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
+                            </span>
                         </Button>
                     </div>
                 </motion.div>
