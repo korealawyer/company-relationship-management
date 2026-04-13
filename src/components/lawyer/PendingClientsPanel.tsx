@@ -35,7 +35,7 @@ export default function PendingClientsPanel({ onConfirm }: { onConfirm: () => vo
             // 송무 사건 자동 등록
             addLitigation({
                 companyId: 'personal',
-                companyName: confirmed.clientName,
+                companyName: confirmed.clientName || '이름 없음',
                 caseNo: '',
                 court: COURTS[0],
                 type: LITIGATION_TYPES[0],
@@ -45,13 +45,13 @@ export default function PendingClientsPanel({ onConfirm }: { onConfirm: () => vo
                 assignedLawyer: assignedLawyer,
                 deadlines: [],
                 notes: `📋 접수 경위: ${confirmed.channel === 'recording' ? '녹음 접수' : confirmed.channel === 'intake_url' ? 'URL 접수' : '회의 접수'}
-연락처: ${confirmed.clientPhone}
+연락처: ${confirmed.clientPhone || '정보 없음'}
 
 📝 AI 요약:
-${confirmed.summarySteps.map(s => s.replace(/\*\*/g, '')).join('\n')}
+${(confirmed.summarySteps || []).map((s: string) => s.replace(/\*\*/g, '')).join('\n')}
 
 📃 전체 녹취록:
-${confirmed.transcript}`,
+${confirmed.transcript || '내용 없음'}`,
                 result: '',
                 resultNote: '',
             });
@@ -129,7 +129,7 @@ ${confirmed.transcript}`,
                     <div>
                         <p className="text-xs font-black mb-2 uppercase tracking-wider" style={{ color: '#94a3b8' }}>🤖 AI 분석 요약</p>
                         <div className="space-y-2">
-                            {selected.summarySteps.map((step, i) => (
+                            {(selected.summarySteps || []).map((step: string, i: number) => (
                                 <div key={i} className="rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
                                     <button className="w-full flex items-center justify-between px-4 py-3 text-left"
                                         style={{ background: openStep === i ? '#f8faff' : '#fff' }}

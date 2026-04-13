@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
@@ -16,6 +16,7 @@ import { getSession } from '@/lib/auth';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 
 /* ───── Color Constants ───── */
@@ -417,7 +418,7 @@ export default function PrivacyAnalysisClientPage() {
                                                     prose-td:border-gray-100"
                                                 style={{ fontFamily: "'Pretendard', 'Inter', sans-serif" }}
                                             >
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{finalAuditReport}</ReactMarkdown>
+                                                <ReactMarkdown rehypePlugins={[rehypeRaw]} remarkPlugins={[remarkGfm]}>{finalAuditReport}</ReactMarkdown>
                                             </div>
                                         </div>
 
@@ -785,3 +786,4 @@ export default function PrivacyAnalysisClientPage() {
         </div>
     );
 }
+

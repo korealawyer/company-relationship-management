@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "IBS 대법원 자동 크롤러 에이전트",
+  "version": "1.0.0",
+  "description": "백그라운드에서 동작하며 대법원 나의사건검색 정보를 주기적으로 스크랩 및 서버에 연동합니다.",
+  "permissions": [
+    "alarms",
+    "offscreen",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://safind.scourt.go.kr/*",
+    "http://localhost:3000/*",
+    "https://ibsbase.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

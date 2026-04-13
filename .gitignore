@@ -28,3 +28,23 @@ franchise_notion_export/
 .env.vercel.prod
 
 _docs/ibs_legal_ai_system/data/vector_db_backup/
+# Logs and Reports
+git_log.txt
+git_history.txt
+git_commit_logs.md
+all_git_commit_logs.md
+*report.md
+*_out.json
+test_*.json
+test_*.txt
+
+# Archive Scripts
+_archive_scripts/
+check_*.mjs
+check_*.js
+fetch_*.js
+get_*.mjs
+test-*.cjs
+test-*.mjs
+test-*.js
+test-*.ts

@@ -1,10 +1,10 @@
 'use client';
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     MessageSquare, Scale, Brain, Briefcase, Clock, CheckCircle2,
     AlertCircle, ChevronRight, Search, Filter, ArrowRight,
-    Lock, Star, Phone, Bot, Calendar,
+    Lock, Star, Phone, Bot, Calendar, Gavel, Send
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRequireAuth } from '@/lib/AuthContext';
@@ -87,7 +87,31 @@ export default function ConsultationHistoryPage() {
     const [search, setSearch] = useState('');
     const [isSubscribed] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedAnswer, setSelectedAnswer] = useState<ConsultRecord | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [followupText, setFollowupText] = useState('');
+    const [modalDefaultTitle, setModalDefaultTitle] = useState('');
+    const [modalDefaultDetail, setModalDefaultDetail] = useState('');
+
+    const handleFollowupSubmit = (r: ConsultRecord) => {
+        if (!followupText.trim()) {
+            alert('추가로 문의할 내용을 입력해주세요.');
+            return;
+        }
+
+        const oldHistory = `[이전 문의 내역]
+📌 제목: ${r.title}
+❓ 원래 질문: ${r.summary}
+⚖️ 변호사 답변: ${r.lawyerAnswer}
+
+---
+[추가 문의 내용]
+${followupText}`;
+
+        setModalDefaultTitle(`[추가 문의] ${r.title}`);
+        setModalDefaultDetail(oldHistory);
+        setFollowupText('');
+        setIsModalOpen(true);
+    };
 
     if (authLoading || dataLoading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>로딩 중...</div></div>;
     if (!authorized) return null; // Or a redirect could happen inside useRequireAuth
@@ -251,9 +275,9 @@ export default function ConsultationHistoryPage() {
                                     </div>
                                     <div className="flex gap-1.5">
                                         {(r.status === 'completed' || r.status === 'closed') && (
-                                            <button onClick={() => setSelectedAnswer(r)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
-                                                style={{ background: '#111827', color: '#fff' }}>
-                                                답변 보기
+                                            <button onClick={() => setExpandedId(prev => prev === r.id ? null : r.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
+                                                style={{ background: expandedId === r.id ? '#e5e7eb' : '#111827', color: expandedId === r.id ? '#374151' : '#fff' }}>
+                                                {expandedId === r.id ? '답변 닫기' : '답변 확인'}
                                             </button>
                                         )}
                                         <Link href="/chat">
@@ -265,50 +289,65 @@ export default function ConsultationHistoryPage() {
                                         </Link>
                                     </div>
                                 </div>
+
+                                {/* ✨ 상세 답변 인라인 패널 (아코디언) ✨ */}
+                                <AnimatePresence>
+                                    {expandedId === r.id && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="border-t border-gray-100 mt-4 pt-4 ml-[52px]">
+                                                {/* 변호사 의견란 */}
+                                                <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+                                                    <h4 className="font-bold flex items-center gap-1.5 mb-2.5 text-xs text-gray-900">
+                                                        <Gavel className="w-4 h-4 text-amber-600" />
+                                                        변호사 검토 의견
+                                                    </h4>
+                                                    <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                                        {r.lawyerAnswer || "안내: 아직 답변 내용이 등록되지 않았습니다."}
+                                                    </div>
+                                                </div>
+
+                                                {/* 추가 문의란 */}
+                                                <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+                                                    <textarea
+                                                        value={followupText}
+                                                        onChange={e => setFollowupText(e.target.value)}
+                                                        placeholder="위 답변과 관련하여 추가적인 질문이나 요청사항이 있으신가요?"
+                                                        className="w-full text-xs outline-none resize-none pt-1 text-gray-800 placeholder:text-gray-400"
+                                                        rows={2}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                    <div className="flex justify-end mt-2">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleFollowupSubmit(r); }}
+                                                            disabled={!followupText.trim()}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-opacity disabled:opacity-50"
+                                                            style={{ background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe' }}
+                                                        >
+                                                            <Send className="w-3.5 h-3.5" /> 추가 문의 접수
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </motion.div>
                         );
                     })}
                 </div>
             </div>
-            <ServiceRequestModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} defaultType="consultation" />
-            
-            {/* 답변 보기 모달 */}
-            {selectedAnswer && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedAnswer(null)}>
-                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-                        className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                            <div>
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <MessageSquare size={16} className="text-blue-600" />
-                                    변호사 답변
-                                </h3>
-                                <p className="text-xs text-gray-500 mt-0.5">{selectedAnswer.caseId} | {selectedAnswer.title}</p>
-                            </div>
-                            <button onClick={() => setSelectedAnswer(null)} className="text-gray-400 hover:text-gray-600 text-2xl font-light leading-none outline-none">&times;</button>
-                        </div>
-                        <div className="p-6 max-h-[60vh] overflow-y-auto">
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700">
-                                    {selectedAnswer.lawyer?.[0] || '⚖'}
-                                </div>
-                                <div>
-                                    <div className="font-bold text-sm text-gray-900">{selectedAnswer.lawyer}</div>
-                                    <div className="text-xs text-gray-500">IBS 법률사무소 담당 변호사</div>
-                                </div>
-                            </div>
-                            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-[#f8f9fa] p-5 rounded-xl border border-gray-200">
-                                {selectedAnswer.lawyerAnswer || "안내: 아직 답변 내용이 등록되지 않았습니다."}
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50">
-                            <button onClick={() => setSelectedAnswer(null)} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-gray-800 transition-colors">
-                                확인
-                            </button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+            <ServiceRequestModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                defaultType="consultation"
+                defaultTitle={modalDefaultTitle}
+                defaultDetail={modalDefaultDetail}
+            />
         </div>
     );
 }

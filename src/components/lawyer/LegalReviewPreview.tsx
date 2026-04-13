@@ -5,6 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Scale, CheckCircle2, ChevronDown, FileSignature, FileText, Gavel, Edit3, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import dynamic from 'next/dynamic';
+
+const BlockNoteEditorWrapper = dynamic(() => import('../crm/BlockNoteEditorWrapper'), { ssr: false });
+
 
 /* ───── Color Constants ───── */
 const LVL_COLOR: Record<string, string> = { HIGH: '#ef4444', MEDIUM: '#f59e0b', LOW: '#10b981' };
@@ -124,8 +129,7 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
         }
     }, [auditReport, isEditing]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const val = e.target.value;
+    const handleReportChange = (val: string) => {
         setEditContent(val);
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
@@ -234,40 +238,59 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
                                 {onUpdateReport && (
                                     <button 
                                         onClick={() => setIsEditing(!isEditing)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded transition-colors ${
+                                            isEditing 
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' 
+                                                : 'text-gray-500 bg-gray-100 hover:bg-gray-200'
+                                        }`}
                                     >
                                         {isEditing ? <Check size={14} /> : <Edit3 size={14} />}
-                                        {isEditing ? '보기 모드' : '수정 모드'}
+                                        {isEditing ? '수정 완료' : '수정 모드'}
                                     </button>
                                 )}
                             </div>
                             
                             {isEditing ? (
-                                <textarea
-                                    value={editContent}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                    className="w-full h-[60vh] p-4 text-[14px] leading-relaxed text-gray-800 bg-gray-50 border border-gray-200 rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white resize-y"
-                                    style={{ fontFamily: "'Pretendard', 'Inter', sans-serif" }}
-                                    placeholder="마크다운 양식으로 검토안을 수정할 수 있습니다."
-                                />
+                                <div className="border border-gray-200 rounded shadow-inner bg-gray-50 overflow-auto" style={{ minHeight: '60vh', padding: '8px' }}>
+                                    <BlockNoteEditorWrapper 
+                                        initialHTML={editContent} 
+                                        onChangeHTML={handleReportChange}
+                                        onBlur={handleBlur}
+                                        isMarkdown={true}
+                                    />
+                                </div>
                             ) : (
                                 <div className="prose prose-slate max-w-none text-[15px] leading-[2] text-gray-800 prose-headings:font-black prose-headings:text-gray-900 prose-headings:tracking-tight prose-h1:text-2xl prose-h1:mt-12 prose-h1:mb-4 prose-h1:pb-3 prose-h1:border-b prose-h1:border-gray-100 prose-h2:text-xl prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-2 prose-p:text-gray-700 prose-p:leading-[2] prose-strong:text-gray-900 prose-li:text-gray-700 prose-li:leading-[1.8] prose-table:text-sm prose-th:bg-gray-50 prose-th:font-black prose-th:text-gray-900" style={{ fontFamily: "'Pretendard', 'Inter', sans-serif" }}>
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{auditReport}</ReactMarkdown>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{auditReport}</ReactMarkdown>
                                 </div>
-                            )}
-                        </div>
-
-                    </>
-                ) : (
-                    /* 보고서 생성 지연 중 표시 */
-                    <div className="px-8 md:px-16 py-12 relative z-10 text-center">
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        /* 보고서 생성 지연 중 표시 */
+                        <div className="px-8 md:px-16 py-12 relative z-10 text-center">
                         <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4 animate-pulse" />
                         <h2 className="text-lg font-black text-gray-700 mb-2">종합 실사 보고서 생성 중...</h2>
                         <p className="text-sm text-gray-500">AI가 1차 조문 검토 결과를 바탕으로 최종 검토 보고서를 작성하고 있습니다. 잠시만 기다려주세요.</p>
                         
                     </div>
                 )}
+
+                {/* 
+                {displayIssues.length > 0 && (
+                    <div className="px-8 md:px-16 py-8 relative z-10" style={{ borderTop: '1px solid #f3f4f6' }}>
+                        <div className="flex items-center gap-2 pb-4 mb-6 relative">
+                            <h2 className="text-sm font-black text-gray-400 tracking-wider uppercase bg-[#faf9f6] z-10 relative pr-4">조문별 세부 검토안</h2>
+                            <div className="flex-1 border-t border-gray-200 border-dashed absolute top-1/2 left-0 w-full -mt-[1px]"></div>
+                        </div>
+                        <div className="space-y-4">
+                            {displayIssues.map((issue, idx) => (
+                                <IssueItem key={idx} issue={issue} index={idx} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+                */}
 
                 {/* ── 페이지 끝부분 ── */}
                 <div className="px-8 md:px-16 py-12 border-t border-gray-100 relative z-10">

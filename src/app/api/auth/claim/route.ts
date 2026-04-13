@@ -78,6 +78,21 @@ export async function POST(req: Request) {
                 user_metadata: userMetaData
             });
             if (createErr) {
+                // Race condition fallback: double click or concurrent request mitigation
+                if (createErr.status === 422 || createErr.message?.includes('already exists') || createErr.code === 'user_already_exists') {
+                    console.log("Create user race condition detected, falling back to update...");
+                    const { data: listResRetry } = await sbAdmin.listUsers({ perPage: 1000 });
+                    const retryUser = listResRetry?.users?.find(u => u.email === targetEmail);
+                    if (retryUser) {
+                        const { error: updateErrRetry } = await sbAdmin.updateUserById(retryUser.id, {
+                            password: password,
+                            user_metadata: userMetaData
+                        });
+                        if (!updateErrRetry) {
+                            return NextResponse.json({ success: true, email: targetEmail }, { status: 200 });
+                        }
+                    }
+                }
                 console.error("User create error:", createErr);
                 return NextResponse.json({ error: createErr.message || '계정 생성에 실패했습니다.' }, { status: 500 });
             }

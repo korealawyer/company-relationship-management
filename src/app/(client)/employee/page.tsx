@@ -300,6 +300,8 @@ export default function EmployeePage() {
                     refresh={crm.refresh} 
                     sortBy={crm.sortBy}
                     sortAsc={crm.sortAsc}
+                    updateBulk={crm.updateBulk}
+                    showToast={crm.showToast}
                     onSort={(key) => {
                         if (crm.sortBy === key) {
                             crm.setSortAsc(!crm.sortAsc);

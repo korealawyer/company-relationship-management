@@ -123,11 +123,7 @@ export function useCompanyMutations() {
   const { mutate } = useSWRConfig();
   
   const refreshCompanies = () => {
-    mutate(
-      (key: any) => Array.isArray(key) && key[0] === 'paginated-companies',
-      undefined,
-      { revalidate: true }
-    );
+    mutate((key: any) => Array.isArray(key) && key[0] === 'paginated-companies');
     mutate('company-stats');
     mutate('companies');
   };

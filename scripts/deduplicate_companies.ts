@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Set to true to actually perform deletions and updates
-const EXECUTE_MERGE_AND_DELETE = false;
+const EXECUTE_MERGE_AND_DELETE = true;
 
 interface DuplicateGroup {
   key: string;
@@ -55,16 +55,16 @@ async function run() {
   // 1. Group companies
   const groups: Record<string, any[]> = {};
   for (const company of companies) {
-    let key = '';
-    const biz = company.biz?.trim();
-    if (biz && biz !== '-' && biz !== '') {
-      key = `BIZ_${biz}`;
-    } else {
-      // Fallback: name + domain or url
-      const name = company.name?.trim().toLowerCase() || 'noname';
-      const domain = company.domain?.trim().toLowerCase() || company.url?.trim().toLowerCase() || 'nodomain';
-      key = `NAME_${name}_DOM_${domain}`;
+    let cleanName = (company.name || '').toLowerCase();
+    cleanName = cleanName.replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+    cleanName = cleanName.replace(/\(?주\)?/g, '').replace(/주식회사/g, '').replace(/\(?유\)?/g, '').replace(/유한회사/g, '');
+    
+    // Fallback if name somehow is empty after cleaning
+    if (!cleanName) {
+      cleanName = 'noname_' + company.id;
     }
+    
+    const key = `CLEAN_NAME_${cleanName}`;
 
     if (!groups[key]) {
       groups[key] = [];
@@ -125,6 +125,26 @@ async function run() {
         mergedData.assignedSalesName = dupWithSales.assignedSalesName;
         modified = true;
       }
+    }
+    if (!master.domain) {
+      const d = duplicates.find(d => d.domain && d.domain.length > 5);
+      if (d) { mergedData.domain = d.domain; modified = true; }
+    }
+    if (!master.url || master.url === 'False') {
+      const d = duplicates.find(d => d.url && d.url !== 'False' && d.url.length > 5);
+      if (d) { mergedData.url = d.url; modified = true; }
+    }
+    if (!master.business_registration_number || master.business_registration_number === '-') {
+      const d = duplicates.find(d => d.business_registration_number && d.business_registration_number !== '-');
+      if (d) { mergedData.business_registration_number = d.business_registration_number; modified = true; }
+    }
+    if (!master.manager_name) {
+      const d = duplicates.find(d => d.manager_name);
+      if (d) { mergedData.manager_name = d.manager_name; mergedData.manager_phone = d.manager_phone; modified = true; }
+    }
+    if (!master.ceo_name) {
+      const d = duplicates.find(d => d.ceo_name);
+      if (d) { mergedData.ceo_name = d.ceo_name; modified = true; }
     }
 
     for (const dup of duplicates) {

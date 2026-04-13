@@ -323,36 +323,36 @@ function LoginContent() {
                                     </div>
 
                                     {/* 약관 동의 */}
-                                    <div className="space-y-0 pt-1">
+                                    <div className="space-y-1.5 pt-1">
                                         <div className="flex items-center justify-between">
-                                            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none" style={{ color: L.body }}>
+                                            <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: L.sub }}>
                                                 <input 
                                                     type="checkbox" 
                                                     checked={agreePrivacy}
                                                     onChange={(e) => setAgreePrivacy(e.target.checked)}
-                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                                    className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
                                                 />
                                                 [필수] 개인정보 수집 및 이용 동의
                                             </label>
                                             <button 
                                                 onClick={() => setModalContent('privacy')}
-                                                className="text-xs font-semibold hover:underline" 
-                                                style={{ color: L.gold }}>보기</button>
+                                                className="text-[10px] hover:underline" 
+                                                style={{ color: L.faint }}>보기</button>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none" style={{ color: L.body }}>
+                                            <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: L.sub }}>
                                                 <input 
                                                     type="checkbox" 
                                                     checked={agreeMarketing}
                                                     onChange={(e) => setAgreeMarketing(e.target.checked)}
-                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                                    className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
                                                 />
                                                 [선택] 마케팅 정보 수신 동의
                                             </label>
                                             <button 
                                                 onClick={() => setModalContent('marketing')}
-                                                className="text-xs font-semibold hover:underline" 
-                                                style={{ color: L.gold }}>보기</button>
+                                                className="text-[10px] hover:underline" 
+                                                style={{ color: L.faint }}>보기</button>
                                         </div>
                                     </div>
 

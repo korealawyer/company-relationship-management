@@ -115,12 +115,34 @@ export default function LawyerPage() {
                     });
                     const data = await res.json();
                     if (res.ok && data.success) {
+                        let auditReportMarkdown = null;
+                        if (data.issues && data.issues.length > 0) {
+                            try {
+                                const reportRes = await fetch('/api/analyze/report', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        issues: data.issues,
+                                        companyName: c.name,
+                                        _promptConfig: promptConfig
+                                    })
+                                });
+                                const reportData = await reportRes.json();
+                                if (reportRes.ok && reportData.success) {
+                                    auditReportMarkdown = reportData.reportMarkdown;
+                                }
+                            } catch (err) {
+                                console.error('보고서 생성 에러:', err);
+                            }
+                        }
+
                         await updateCompany(c.id, { 
                             status: 'reviewing',
                             issues: data.issues || [],
                             issueCount: data.issueCount || 0,
                             riskLevel: data.riskLevel || 'MEDIUM',
-                            privacyPolicyText: data.rawText || c.privacyPolicyText
+                            privacyPolicyText: data.rawText || (c as any).privacyPolicyText,
+                            ...(auditReportMarkdown ? { audit_report: auditReportMarkdown } : {})
                         });
                     }
                 } catch (err) {

@@ -19,6 +19,8 @@ interface ServiceRequestModalProps {
     isOpen: boolean;
     onClose: () => void;
     defaultType?: RequestType;
+    defaultTitle?: string;
+    defaultDetail?: string;
 }
 
 const SERVICE_TYPES: { value: FormRequestType; label: string; submitLabel: string; icon: React.ElementType; color: string }[] = [
@@ -31,7 +33,7 @@ function resolveType(t: RequestType): FormRequestType {
     return t === 'general' ? 'consultation' : t as FormRequestType;
 }
 
-export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }: ServiceRequestModalProps) {
+export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general', defaultTitle, defaultDetail }: ServiceRequestModalProps) {
     const { mutate: mutateConsultations } = useConsultations();
     const { mutate: mutateLitigations } = useLitigations();
     const session = typeof window !== 'undefined' ? getSession() : null;
@@ -56,8 +58,8 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
         if (isOpen) {
             setStep(1);
             setSelectedType(resolveType(defaultType));
-            setTitle('');
-            setDetail('');
+            setTitle(defaultTitle || '');
+            setDetail(defaultDetail || '');
             setOpponent('');
             setCaseType('민사');
             setClaimAmount('');

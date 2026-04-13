@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { CheckCircle2, Clock, ArrowLeft, Scale, FileText, Loader2, Download, Lock, FilePlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
-import EditableText from '@/components/crm/EditableText';
+import RichTextEditor from '@/components/crm/RichTextEditor';
 import { useRequireAuth } from '@/lib/AuthContext';
 import {
     DEFAULT_SCENARIO_CATEGORIES, CLAUSE_SCENARIO_MAP,
@@ -136,7 +136,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                         </div>
                     </div>                    {/* 시나리오 설명 */}
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>⚠ 위반 시 예상 시나리오</div>
-                    <EditableText
+                    <RichTextEditor
                         value={data[`${c.num}_scenario`] ?? c.scenario}
                         onChange={v => onChange(`${c.num}_scenario`, v)}
                         style={{ background: '#fef2f2', borderColor: '#fecaca', marginBottom: 12 }}
@@ -146,7 +146,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                         <div>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>💰 예상 제재</div>
-                            <EditableText
+                            <RichTextEditor
                                 value={data[`${c.num}_penalty`] ?? c.penalty}
                                 onChange={v => onChange(`${c.num}_penalty`, v)}
                                 style={{ background: '#fef2f2', borderColor: '#fecaca', fontWeight: 800, color: '#991b1b' }}
@@ -154,7 +154,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
                         </div>
                         <div>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>📌 수정 권고</div>
-                            <EditableText
+                            <RichTextEditor
                                 value={data[`${c.num}_recommendation`] ?? c.recommendation}
                                 onChange={v => onChange(`${c.num}_recommendation`, v)}
                                 style={{ background: '#f0f9ff', borderColor: '#bae6fd', color: '#0c4a6e' }}
@@ -182,7 +182,7 @@ function FullRevisionRow({ c, data, onChange }: {
 
             {/* ① 수정 완료본 */}
             <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 4 }}>📄 수정 완료본</div>
-            <EditableText
+            <RichTextEditor
                 value={data[`${c.num}_fixed`] ?? c.aiFixed}
                 onChange={v => onChange(`${c.num}_fixed`, v)}
                 style={{ borderColor: '#86efac', marginBottom: 12 }}
@@ -190,7 +190,7 @@ function FullRevisionRow({ c, data, onChange }: {
 
             {/* ② 변호사 검토의견 */}
             <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>⚖ 변호사 검토의견</div>
-            <EditableText
+            <RichTextEditor
                 value={data[`${c.num}_revOpinion`] ?? c.revisionOpinion}
                 onChange={v => onChange(`${c.num}_revOpinion`, v)}
                 style={{ background: '#fffbeb', borderColor: '#fde68a', marginBottom: 12 }}
@@ -527,9 +527,9 @@ function PrivacyReviewContent() {
             law: c.lawRef || '법령 미상',
             title: c.title || `검토 의견 ${i + 1}`,
             originalText: c.original || '원본 조항 데이터가 없습니다.',
-            riskDesc: data[`issue_risk_${c.num}`] || data[`clause_${c.num}_desc`] || '리스크 상세 내용이 리뷰 중입니다.',
-            customDraft: data[`custom_draft_${c.num}`] || data[`clause_${c.num}_draft`] || '수정 권고안이 준비 중입니다.',
-            lawyerNote: data[`lawyer_note_${c.num}`] || '',
+            riskDesc: data[`${c.num}_risk`] || c.riskSummary || '리스크 상세 내용이 없습니다.',
+            customDraft: data[`${c.num}_fixed`] || c.aiFixed || '수정 권고안이 없습니다.',
+            lawyerNote: data[`${c.num}_revOpinion`] || c.revisionOpinion || data[`${c.num}_opinion`] || c.lawyerOpinion || '',
         };
     });
 
@@ -656,7 +656,7 @@ function PrivacyReviewContent() {
                                 <span style={{ fontSize: 17, fontWeight: 900, color: '#92400e' }}>종합 검토의견</span>
                                 <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 20 }}>프라이버시 리포트 반영</span>
                             </div>
-                            <EditableText
+                            <RichTextEditor
                                 value={data['summary_opinion'] ?? (
                                     clauses.length === 1 && (clauses[0].title === '개인정보처리방침 누락 (매우 심각)' || clauses[0].title?.includes('방침 누락') || clauses[0].title?.includes('방침 부재') || clauses[0].original?.includes('없음 / 미기재'))
                                     ? '[긴급 법무 검토 요망] 귀사는 고객의 개인정보를 수집·처리하고 있음에도 불구하고, 이를 규제하는 "개인정보 처리방침" 자체가 전면 누락되어 있습니다. 이는 단순한 행정적 절차 누락이 아닌, 기업의 준법 경영 의지가 전혀 없는 것으로 간주되는 최고 수준의 리스크입니다.\n\n단 한 건의 해킹 사고나 악성 고객의 피싱/신고만으로도 귀사의 수집 행위 전체가 즉시 탈법으로 간주되며, 어떠한 법리적 방어권도 행사할 수 없습니다. 대표이사 형사고발, 막대한 징벌적 과징금 타격, 언론 보도로 인한 기업 신뢰도 추락을 막기 위해 오늘 당장 KISA 가이드라인에 부합하는 방침 제정 및 적용이 필수적입니다.'
@@ -723,78 +723,16 @@ function PrivacyReviewContent() {
                     />
                 </div>
             ) : (
-                <>
-                    {clauses.map((c, i) => {
-                        const col = R[c.level];
-                        const hasIssue = c.level !== 'OK';
-                        return (
-                            <div key={i} className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
-                                {/* 좌: 원문 + 법조문 (1차조문검토와 동일) */}
-                                <div style={{ padding: '20px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                    {/* 1. 위반 기준 (법령) */}
-                                    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                        <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Scale size={15} color="#d97706" />
-                                            <span style={{ fontWeight: 800, fontSize: 15, color: '#92400e' }}>위반 법조문: {c.lawRef || '법령 정보 없음'}</span>
-                                        </div>
-                                        <div style={{ padding: '14px 16px', fontSize: 14, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
-                                            {c.lawText || '법조문 텍스트가 전달되지 않았습니다.'}
-                                        </div>
-                                    </div>
-                                    
-                                    {/* 2. 회사 원문 (비교 대상) */}
-                                    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                        <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <FileText size={15} color="#475569" />
-                                                <span style={{ fontWeight: 800, fontSize: 15, color: '#334155' }}>고객사 방침 원문</span>
-                                            </div>
-                                            <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
-                                                {c.title || c.num}
-                                            </span>
-                                        </div>
-                                        <div style={{ padding: '14px 16px', fontSize: 15, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
-                                            {c.original || '회사 방침 원본 데이터가 전달되지 않았습니다.'}
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* 우: 수정완본 (의견서 스타일) */}
-                                <div style={{ background: '#f9fafb' }}>
-                                    {i === 0 && (
-                                        <div style={{ background: '#0f172a', padding: '14px 18px', color: '#fff' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <div style={{ fontSize: 17, fontWeight: 900, color: '#c9a84c' }}>⚖️ IBS 법률사무소</div>
-                                                    <div style={{ fontSize: 12, color: '#94a3b8' }}>개인정보보호 전문 법률 의견서</div>
-                                                </div>
-                                                <div style={{ textAlign: 'right', fontSize: 12, color: '#94a3b8' }}>
-                                                    <div>문서번호: IBS-PR-{new Date().getFullYear()}-{String(Math.floor(Math.random() * 1000)).padStart(3, '0')}</div>
-                                                    <div>작성일: {new Date().toLocaleDateString('ko-KR')}</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ marginTop: 8, fontSize: 14, color: '#e2e8f0' }}>
-                                                수신: <strong>{company}</strong> 귀중
-                                            </div>
-                                        </div>
-                                    )}
-                                    <FullRevisionRow c={c} data={data} onChange={upd} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {/* 서명란 (우측에만) */}
-                    <div className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                        <div style={{ background: '#fafafa', borderRight: '1px solid #e5e7eb' }} />
-                        <div style={{ padding: '20px 18px', background: '#fff', borderTop: '2px solid #e5e7eb' }}>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 15, color: '#374151', marginBottom: 4 }}>위와 같이 검토 의견을 제출합니다.</div>
-                                <div style={{ fontSize: 17, fontWeight: 900, color: '#1e293b', marginBottom: 2 }}>IBS 법률사무소</div>
-                                <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>담당 변호사: 김수현</div>
-                                <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>대한변호사협회 등록 | 개인정보관리사(CPPG)</div>
-                            </div>
-                        </div>
+                <div style={{ padding: '48px 32px', background: '#fff', margin: '24px auto', maxWidth: '800px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', marginBottom: '24px' }}>
+                        <FileText size={32} color="#64748b" />
                     </div>
-                </>
+                    <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#1e293b', margin: '0 0 12px 0' }}>전체수정완본(최종 개인정보처리방침안) 준비 중</h2>
+                    <p style={{ color: '#64748b', margin: 0, fontSize: '16px', lineHeight: 1.6 }}>
+                        법률 분석 및 1차 검토가 끝나면 <strong>「개인정보 처리방침 조문별 법적 검토안(2번째 탭)」</strong>이 고객에게 우선 제공됩니다.<br/>
+                        법률 분석 기능 작동 시 전체 수정 완본 자동 생성은 비활성화되어 있으며, 추후 에디터 고도화와 함께 제공될 예정입니다.
+                    </p>
+                </div>
             )}
 
             {/* 하단 여백 및 스크롤 확장용: 상단 좌측 UI 복제 (텍스트/요소 투명) */}
