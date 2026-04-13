@@ -263,11 +263,11 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
 
   const dbSortCol = camelToSnake(sortBy);
   if (dbSortCol !== 'health' && dbSortCol !== 'activity') {
-    query = query.order(dbSortCol, { ascending: sortAsc });
+    query = query.order(dbSortCol, { ascending: sortAsc }).order('id', { ascending: true });
   } else if (dbSortCol === 'health') {
-    query = query.order('risk_score', { ascending: sortAsc });
+    query = query.order('risk_score', { ascending: sortAsc }).order('id', { ascending: true });
   } else {
-    query = query.order('created_at', { ascending: sortAsc });
+    query = query.order('created_at', { ascending: sortAsc }).order('id', { ascending: true });
   }
 
   query = query.range(from, to);
