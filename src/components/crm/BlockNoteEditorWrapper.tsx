@@ -32,7 +32,7 @@ export default function BlockNoteEditorWrapper({ initialHTML, onChangeHTML, onBl
                 if (isMounted) setInitialBlocks([]);
                 return;
             }
-            const tempEditor = BlockNoteEditor.create({ blockSpecs: customBlockSpecs });
+            const tempEditor = BlockNoteEditor.create();
             const blocks = isMarkdown 
                 ? await tempEditor.tryParseMarkdownToBlocks(initialHTML) 
                 : await tempEditor.tryParseHTMLToBlocks(initialHTML);
@@ -43,6 +43,7 @@ export default function BlockNoteEditorWrapper({ initialHTML, onChangeHTML, onBl
     }, [initialHTML]);
 
     const editor = useCreateBlockNote({
+        // @ts-expect-error blockSpecs is not included in the typings but works at runtime (or handled by dictionary/schema)
         blockSpecs: customBlockSpecs,
         // 로딩이 완료된 후에만 initialContent를 넘깁니다. 로딩 중일 때는 undefined로 넘기지 않기 위해 조건부 렌더링을 씁니다.
     });

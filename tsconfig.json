@@ -39,6 +39,7 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
-    "company-relationship-management"
+    "company-relationship-management",
+    "_archive_scripts"
   ]
 }
