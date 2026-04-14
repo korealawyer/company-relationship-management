@@ -389,21 +389,21 @@ export default function InlinePanel({
                                                         className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_homepage' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                                                     >
-                                                        ⚠️ 홈페이지 없음
+                                                        패스(재조사)
                                                     </button>
                                                     <button 
                                                         onClick={() => handleResultAction('promo_only')}
-                                                        className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border
+                                                        className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border leading-tight flex items-center justify-center text-center
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'promo_only' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                                                     >
-                                                        ⚠️ 홍보페이지만 있음
+                                                        <span>가맹점<br/>홈페이지 필요</span>
                                                     </button>
                                                     <button 
                                                         onClick={() => handleResultAction('no_policy')}
                                                         className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border leading-tight flex items-center justify-center text-center
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_policy' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                                                     >
-                                                        <span>⚠️ 홈페이지 있음<br/>(방침 없음)</span>
+                                                        <span>개인정보<br/>처리방침 필요</span>
                                                     </button>
                                                 </div>
                                             </div>

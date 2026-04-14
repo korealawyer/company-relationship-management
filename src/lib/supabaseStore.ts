@@ -201,6 +201,7 @@ export interface PaginationOptions {
   limit: number;
   search?: string;
   status?: string;
+  userName?: string;
   plan?: string;
   health?: string;
   sortBy?: string;
@@ -224,7 +225,7 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
   const sb = getEffectiveSupabase();
   if (!sb) return { data: [], count: 0 };
 
-  const { page = 1, limit = 50, search, status, plan, health, sortBy = 'created_at', sortAsc = false } = options;
+  const { page = 1, limit = 50, search, status, userName, plan, health, sortBy = 'created_at', sortAsc = false } = options;
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -241,6 +242,14 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
     else if (status === 'crawling') query = query.in('status', ['crawling', '분석중']);
     else if (status === 'analyzed') query = query.in('status', ['analyzed', '분석완료']);
     else if (status === 'lawyer_active') query = query.in('status', ['assigned', 'reviewing', 'subscribed']);
+    else if (status === 'my_calls_today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      query = query.gte('last_call_at', today.toISOString());
+      if (userName) {
+        query = query.eq('last_called_by', userName);
+      }
+    }
     else query = query.eq('status', status);
   } else {
     // 거절 및 사이트이상은 '전체' 탭에서 보이지 않도록 제외합니다.
@@ -330,6 +339,22 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
   if (error || !data) {
     console.error('Failed to fetch company stats via RPC', error);
     return defaultStats;
+  }
+  
+  // N+1 최적화를 유지하면서, RPC에서 제외된(거절, 사이트이상) 카운트만 별도로 1번 더 가져옵니다.
+  const { data: excludedCounts } = await sb.from('companies')
+    .select('status')
+    .in('status', ['rejected', 'invalid_site']);
+
+  if (excludedCounts) {
+    const rejectedCnt = excludedCounts.filter(r => r.status === 'rejected').length;
+    const invalidSiteCnt = excludedCounts.filter(r => r.status === 'invalid_site').length;
+    
+    data.statusCounts = {
+      ...(data.statusCounts || {}),
+      rejected: rejectedCnt,
+      invalid_site: invalidSiteCnt
+    };
   }
   
   return data as CompanyStats;

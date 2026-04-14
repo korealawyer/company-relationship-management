@@ -118,7 +118,8 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
     }, [sortKey, sortAsc, statusFilter]);
 
     const { companies: dbCompanies, count } = usePaginatedCompanies({
-        page, limit: 50, search: debouncedSearch, status: statusFilter === 'all' || statusFilter === 'my_calls_today' ? undefined : statusFilter,
+        page, limit: 50, search: debouncedSearch, status: statusFilter === 'all' ? undefined : statusFilter,
+        userName: statusFilter === 'my_calls_today' ? userName : undefined,
         sortBy: sortKey === 'name' ? 'name' : sortKey === 'risk' ? 'risk_score' : 'created_at', sortAsc
     });
     const { stats: dbStats } = useCompanyStats();
@@ -403,7 +404,13 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
         return sortAsc ? -d : d;
     });
 
-    const statusCounts = dbStats?.statusCounts || { all: dbCompanies.length };
+    const statusCounts = useMemo(() => {
+        if (!dbStats) return { all: dbCompanies.length };
+        return {
+            ...dbStats.statusCounts,
+            all: dbStats.total || 0
+        };
+    }, [dbStats, dbCompanies.length]);
 
     const selected = companies.find(c => c.id === selectedId) || null;
     const calledCount = globalStats.calledCount;
