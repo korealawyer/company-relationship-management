@@ -36,24 +36,22 @@ export default function SalesQueuePage() {
 
     const loadData = useCallback(async () => {
         try {
-            const rawComps = await supabaseCompanyStore.getAll();
-            const comps = rawComps.filter(c => CALLABLE.includes(c.status));
+            const comps = await supabaseCompanyStore.getQueue();
             
-            // Calc stats for today
-            const todayStr = new Date().toISOString().split('T')[0];
-            let c = 0, m = 0, cb = 0, rj = 0, inv = 0;
-            comps.forEach(comp => {
-                if (comp.lastCallAt && comp.lastCallAt.startsWith(todayStr) && comp.lastCalledBy === user?.name) {
-                    if (comp.lastCallResult === 'connected') c++;
-                    else if (comp.lastCallResult === 'no_answer') m++;
-                    else if (comp.lastCallResult === 'callback') cb++;
-                    else if (comp.lastCallResult === 'rejected') rj++;
-                    else if (comp.lastCallResult === 'invalid_site') inv++;
-                }
-            });
-            setStats({ connected: c, missed: m, callback: cb, rejected: rj, invalid: inv });
+            // Calc stats for today from DB O(1) via logs
+            if (user?.name) {
+                const dbStats = await supabaseCompanyStore.getTodaySalesStats(user.name);
+                setStats({ 
+                    connected: dbStats.connected || 0, 
+                    missed: dbStats.no_answer || 0, 
+                    callback: dbStats.callback || 0, 
+                    rejected: dbStats.rejected || 0, 
+                    invalid: (dbStats.invalid_site || 0) + (dbStats.no_homepage || 0) + (dbStats.promo_only || 0) + (dbStats.no_policy || 0)
+                });
+            }
             
             // Sort by not called today first, then riskScore DESC
+            const todayStr = new Date().toISOString().split('T')[0];
             const uncalled = comps.filter(comp => {
                 const calledToday = comp.lastCallAt && comp.lastCallAt.startsWith(todayStr);
                 return !calledToday;
@@ -197,9 +195,9 @@ export default function SalesQueuePage() {
         }
     };
 
-    const handleResult = (result: '연결-메일'|'연결-콜백'|'연결-거절'|'부재중(24h)'|'사이트이상(패스)', nextAction?: 'review'|'memo') => {
+    const handleResult = (result: '연결-메일'|'연결-콜백'|'연결-거절'|'부재중(24h)'|'홈페이지없음(패스)'|'홍보전용(패스)'|'동의서없음(패스)', nextAction?: 'review'|'memo') => {
         pause(); // Stop timer
-        setSelectedResult(result);
+        setSelectedResult(result as any);
         setCallState('wrapup');
 
         if (nextAction === 'memo') {
@@ -209,7 +207,7 @@ export default function SalesQueuePage() {
             setMemoText(prev => prev ? prev + '\n[변호사 검토 요청]' : '[변호사 검토 요청]');
         }
         
-        if (result === '사이트이상(패스)') {
+        if (result === '홈페이지없음(패스)' || result === '홍보전용(패스)' || result === '동의서없음(패스)') {
             // instant complete can be done by user clicking save, but focus button so user just hits enter!
             document.querySelector<HTMLButtonElement>('.' + styles.saveWrapupBtn)?.focus();
         }
@@ -222,11 +220,13 @@ export default function SalesQueuePage() {
             // Un-claim
             await releaseCompany(activeCall.id, user.id).catch(() => {});
             
-            let callRes: 'connected'|'no_answer'|'callback'|'rejected'|'invalid_site' = 'connected';
-            if (selectedResult === '부재중(24h)') callRes = 'no_answer';
-            else if (selectedResult === '연결-콜백') callRes = 'callback';
-            else if (selectedResult === '연결-거절') callRes = 'rejected';
-            else if (selectedResult === '사이트이상(패스)') callRes = 'invalid_site';
+            let callRes: 'connected'|'no_answer'|'callback'|'rejected'|'invalid_site'|'no_homepage'|'promo_only'|'no_policy' = 'connected';
+            if (selectedResult === '부재중(24h)' as any) callRes = 'no_answer';
+            else if (selectedResult === '연결-콜백' as any) callRes = 'callback';
+            else if (selectedResult === '연결-거절' as any) callRes = 'rejected';
+            else if (selectedResult === '홈페이지없음(패스)' as any) callRes = 'no_homepage';
+            else if (selectedResult === '홍보전용(패스)' as any) callRes = 'promo_only';
+            else if (selectedResult === '동의서없음(패스)' as any) callRes = 'no_policy';
             
             const payload: Partial<Company> = {
                 lastCallResult: callRes,
@@ -237,6 +237,8 @@ export default function SalesQueuePage() {
 
             if (selectedResult === '연결-메일' && activeCall.status === 'analyzed') {
                 payload.status = 'reviewing';
+            } else if (callRes === 'rejected' || callRes === 'no_homepage' || callRes === 'promo_only' || callRes === 'no_policy') {
+                payload.status = callRes === 'rejected' ? 'rejected' : 'invalid_site';
             }
 
             // 자동 콜백 24시간 처리
@@ -540,24 +542,35 @@ export default function SalesQueuePage() {
                     
                     <div className="w-full mt-4">
                         {callState === 'calling' ? (
-                            <div className="flex flex-col gap-3 w-full">
+                            <div className="flex flex-col gap-2 w-full">
                                 <div className="flex gap-2">
-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('연결-메일')}>
-                                        ✅ 연결-메일
+                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3`} onClick={() => handleResult('연결-메일')}>
+                                        ✅ 메일 요청
                                     </button>
-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('연결-콜백')}>
-                                        🔄 연결-콜백
-                                    </button>
-                                    <button className={`${styles.resultBtn} bg-slate-200 text-slate-700 hover:bg-slate-300 flex-1 text-[13px] py-3.5`} onClick={() => handleResult('연결-거절')}>
-                                        ❌ 연결-거절
+                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3`} onClick={() => handleResult('연결-콜백')}>
+                                        🔄 콜백
                                     </button>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className={`${styles.resultBtn} ${styles.missed} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('부재중(24h)')}>
-                                        📵 부재(24h)
+                                    <button className={`${styles.resultBtn} bg-slate-200 text-slate-700 hover:bg-slate-300 flex-1 text-[13px] py-3`} onClick={() => handleResult('연결-거절')}>
+                                        ❌ 거절
                                     </button>
-                                    <button className={`${styles.resultBtn} bg-red-100 text-red-700 hover:bg-red-200 flex-1 text-[13px] py-3.5`} onClick={() => handleResult('사이트이상(패스)')}>
-                                        ⚠️ 사이트이상(패스)
+                                    <button className={`${styles.resultBtn} ${styles.missed} flex-1 text-[13px] py-3`} onClick={() => handleResult('부재중(24h)')}>
+                                        📵 부재
+                                    </button>
+                                </div>
+
+                                <div className="h-[1px] bg-slate-200 my-1"></div>
+
+                                <div className="flex gap-2">
+                                    <button className={`${styles.resultBtn} bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 flex-1 text-[11px] py-2.5 font-bold`} onClick={() => handleResult('홈페이지없음(패스)')}>
+                                        ⚠️ 홈페이지 없음
+                                    </button>
+                                    <button className={`${styles.resultBtn} bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 flex-1 text-[11px] py-2.5 font-bold`} onClick={() => handleResult('홍보전용(패스)')}>
+                                        ⚠️ 홍보페이지만 있음
+                                    </button>
+                                    <button className={`${styles.resultBtn} bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 flex-1 text-[11px] py-2.5 font-bold leading-tight`} onClick={() => handleResult('동의서없음(패스)')}>
+                                        ⚠️ 홈페이지 있음<br/>(방침 없음)
                                     </button>
                                 </div>
                             </div>
@@ -565,11 +578,11 @@ export default function SalesQueuePage() {
                             <div className={styles.wrapupSection}>
                                 <div className={styles.wrapupMsg}>
                                     현재 [<strong>{selectedResult}</strong>] 상태로 정리 중입니다. 
-                                    {(selectedResult === '부재중(24h)' || selectedResult === '연결-콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
+                                    {(selectedResult as any === '부재중(24h)' || selectedResult as any === '연결-콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
                                 </div>
                                 <button className={styles.saveWrapupBtn} onClick={() => {
                                     finishCall().then(() => {
-                                        if (selectedResult === '사이트이상(패스)') {
+                                        if (selectedResult as any === '홈페이지없음(패스)' || selectedResult as any === '홍보전용(패스)' || selectedResult as any === '동의서없음(패스)') {
                                             setTimeout(() => handleNextCall(0), 500); // 자동 다음 호출
                                         }
                                     });

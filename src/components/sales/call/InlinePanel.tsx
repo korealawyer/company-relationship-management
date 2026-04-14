@@ -117,12 +117,12 @@ export default function InlinePanel({
         }
     }, [user]);
 
-    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
+    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
         try {
             setLocalResult(res);
             
             // --- 즉각적인 UI 반영 (Optimistic UI) ---
-            co.lastCallResult = res;
+            co.lastCallResult = res as any;
             co.lastCallAt = new Date().toISOString();
             co.lastCalledBy = manualCaller;
             
@@ -130,7 +130,7 @@ export default function InlinePanel({
             if (nextAction === 'review' && co.status === 'analyzed') {
                 extraUpdate = { status: 'reviewing' };
                 co.status = 'reviewing';
-            } else if (res === 'rejected' || res === 'invalid_site') {
+            } else if (res === 'rejected' || res === 'invalid_site' || res === 'no_homepage' || res === 'promo_only' || res === 'no_policy') {
                 extraUpdate = { status: res };
                 co.status = res as unknown as 'pending'; // Hack to satisfy TS temporarily, pessimistic UI will correct it if needed, or optimistic will use it directly.
             }
@@ -156,7 +156,7 @@ export default function InlinePanel({
                     salesUserName: manualCaller,
                     fileSizeBytes: 0,
                     durationSeconds: 0,
-                    transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백요청' : res === 'rejected' ? '거절' : '사이트 이상'}`,
+                    transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백요청' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`,
                     transcriptSummary: '수동 통화 기록',
                     callResult: res as 'connected'|'no_answer'|'callback', // DB type may still need to be compatible, but keeping as res for now.
                     sttStatus: 'completed',
@@ -166,7 +166,7 @@ export default function InlinePanel({
                 });
             });
             
-            setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백' : res === 'rejected' ? '거절' : '사이트 이상'}`);
+            setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`);
             onRefresh(); // 부모 컴포넌트에 즉시 리렌더링 트리거
         } catch(e) {
             setToast('❌ 기록 처리 오류');
@@ -199,10 +199,10 @@ export default function InlinePanel({
         }
     };
 
-    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
+    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
         // 1. 콜 이력 로깅
         if (isOnCall) {
-            onCallResult(res);
+            onCallResult(res as Parameters<typeof onCallResult>[0]);
         } else {
             handleManualLog(res, nextAction);
         }
@@ -304,7 +304,7 @@ export default function InlinePanel({
                                     <div className="flex flex-col gap-3 mb-3 border-b border-gray-100 pb-3">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 제어 ({companyRecordings.length})</h3>
+                                                <h3 className="text-[11px] font-bold text-gray-800">🎙️ 통화 결과 ({companyRecordings.length})</h3>
                                                 {user?.role === 'super_admin' && (
                                                     <button onClick={handleResetCallData}
                                                         className="px-1.5 py-0.5 rounded text-[10px] font-bold border bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 transition-colors"
@@ -342,32 +342,35 @@ export default function InlinePanel({
                                         <div className="flex flex-col bg-slate-50 p-2 rounded-lg border border-slate-100 gap-2">
 
                                             
-                                            {/* 5버튼 레이아웃 */}
+                                            {/* 3단 분리 버튼 레이아웃 */}
                                             <div className="flex flex-col gap-1.5 mt-1">
+                                                {/* 1열: 메일, 콜백 */}
                                                 <div className="flex gap-1.5">
                                                     <button 
                                                         onClick={() => handleResultAction('connected', 'review')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
                                                     >
-                                                        ✅ 연결-메일
+                                                        ✅ 메일 요청
                                                     </button>
                                                     <button 
                                                         onClick={() => handleResultAction('callback', 'alarm')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
                                                     >
-                                                        🔄 연결-콜백
+                                                        🔄 콜백
                                                     </button>
+                                                </div>
+
+                                                {/* 2열: 거절, 부재 */}
+                                                <div className="flex gap-1.5">
                                                     <button 
                                                         onClick={() => handleResultAction('rejected')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'rejected' ? 'bg-slate-700 text-white border-slate-800 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
                                                     >
-                                                        ❌ 연결-거절
+                                                        ❌ 거절
                                                     </button>
-                                                </div>
-                                                <div className="flex gap-1.5">
                                                     <button 
                                                         onClick={() => handleResultAction('no_answer', 'alarm')}
                                                         className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
@@ -375,12 +378,32 @@ export default function InlinePanel({
                                                     >
                                                         📵 부재(24h)
                                                     </button>
+                                                </div>
+
+                                                <div className="h-[1px] bg-slate-200/50 my-0.5"></div>
+
+                                                {/* 3열: 사이트 문제 (패스) */}
+                                                <div className="flex gap-1.5">
                                                     <button 
-                                                        onClick={() => handleResultAction('invalid_site', 'pass')}
-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
-                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'invalid_site' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                                        onClick={() => handleResultAction('no_homepage')}
+                                                        className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_homepage' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                                                     >
-                                                        ⚠️ 사이트이상(패스)
+                                                        ⚠️ 홈페이지 없음
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResultAction('promo_only')}
+                                                        className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'promo_only' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                                    >
+                                                        ⚠️ 홍보페이지만 있음
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResultAction('no_policy')}
+                                                        className={`flex-1 px-0.5 py-1 rounded text-[10px] font-bold transition-all border leading-tight flex items-center justify-center text-center
+                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_policy' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                                    >
+                                                        <span>⚠️ 홈페이지 있음<br/>(방침 없음)</span>
                                                     </button>
                                                 </div>
                                             </div>
@@ -396,7 +419,7 @@ export default function InlinePanel({
                                             value={note}
                                             onChange={(e) => setNote(e.target.value)}
                                             placeholder="새 메모를 입력하세요 (이슈 및 특이사항 등)"
-                                            className="w-full rounded-xl text-[12px] p-3 font-medium leading-relaxed"
+                                            className="w-full rounded-xl text-[14px] p-3 font-medium leading-relaxed"
                                             style={{
                                                 background: C.surface,
                                                 border: `1px solid ${C.borderLight}`,

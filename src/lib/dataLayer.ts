@@ -23,6 +23,7 @@ import {
   type PaginationOptions,
   type CompanyStats
 } from './supabaseStore';
+import { CompanySchema, PaginatedCompaniesSchema } from './schemas';
 
 // ── 타입 ──────────────────────────────────────────────────────
 
@@ -88,10 +89,19 @@ export interface DocumentDataSource {
 // ── Supabase 래퍼 ────────────────────────────────────────────
 
 const sbCompanies: CompanyDataSource = {
-  getPaginated: supabaseCompanyStore.getPaginated,
+  getPaginated: async (options) => {
+    const raw = await supabaseCompanyStore.getPaginated(options);
+    return PaginatedCompaniesSchema.parse(raw); // Safe parsing through catch/fallback
+  },
   getStats: supabaseCompanyStore.getStats,
-  getAll: supabaseCompanyStore.getAll,
-  getById: async (id) => (await supabaseCompanyStore.getById(id)) ?? undefined,
+  getAll: async () => {
+    const raw = await supabaseCompanyStore.getAll();
+    return raw.map(comp => CompanySchema.parse(comp));
+  },
+  getById: async (id) => {
+    const raw = await supabaseCompanyStore.getById(id);
+    return raw ? CompanySchema.parse(raw) : undefined;
+  },
   update: supabaseCompanyStore.update,
   updateBulk: supabaseCompanyStore.updateBulk,
   create: supabaseCompanyStore.create,

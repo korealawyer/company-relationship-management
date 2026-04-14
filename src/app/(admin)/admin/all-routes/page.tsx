@@ -117,7 +117,7 @@ const ALL_ROUTES = [
       { path: '/payment-guide', label: '결제 방법 가이드' },
       { path: '/payment-guide/cms', label: 'CMS 자동이체 가이드' },
       { path: '/terms/privacy', label: '개인정보처리방침' },
-      { path: '/terms/service', label: '이용약관' },
+      { path: '/legal/terms', label: '이용약관' },
       { path: '/help', label: '고객 센터 및 FAQ' },
     ]
   }

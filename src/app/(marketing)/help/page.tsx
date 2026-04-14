@@ -99,7 +99,7 @@ export default function HelpPage() {
                 {/* 빠른 링크 */}
                 <div className="grid grid-cols-4 gap-3 mb-8">
                     {[
-                        { icon: <Book className="w-5 h-5" />, label: '이용 가이드', href: '/terms/service', color: '#2563eb' },
+                        { icon: <Book className="w-5 h-5" />, label: '이용 가이드', href: '/legal/terms', color: '#2563eb' },
                         { icon: <CreditCard className="w-5 h-5" />, label: '결제 안내', href: '/billing', color: '#059669' },
                         { icon: <Shield className="w-5 h-5" />, label: '보안 정책', href: '/terms/privacy', color: '#7c3aed' },
                         { icon: <Phone className="w-5 h-5" />, label: '전화 문의', href: '#', color: '#c9a84c' },

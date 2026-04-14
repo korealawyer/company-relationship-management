@@ -117,15 +117,17 @@ const DEFAULT_USERS: UserPermission[] = [
   { userId: 'staff2', userName: '정다은 (경리)', role: 'staff', permissions: { ...STAFF_DEFAULTS } },
 ];
 
+import { safeStorage } from './safeStorage';
+
 // ── localStorage 기반 저장/로드 ──────────────────────────────────
 const PERM_KEY = 'ibs_permissions_v1';
 
 function loadPermissions(): UserPermission[] {
   if (typeof window === 'undefined') return DEFAULT_USERS;
   try {
-    const raw = localStorage.getItem(PERM_KEY);
+    const raw = safeStorage.getItem(PERM_KEY);
     if (!raw) {
-      localStorage.setItem(PERM_KEY, JSON.stringify(DEFAULT_USERS));
+      safeStorage.setItem(PERM_KEY, JSON.stringify(DEFAULT_USERS));
       return DEFAULT_USERS;
     }
     return JSON.parse(raw);
@@ -134,7 +136,7 @@ function loadPermissions(): UserPermission[] {
 
 function savePermissions(users: UserPermission[]) {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(PERM_KEY, JSON.stringify(users));
+    safeStorage.setItem(PERM_KEY, JSON.stringify(users));
   }
 }
 
@@ -188,5 +190,5 @@ export function getPermissionLevel(userId: string, key: PermissionKey): Permissi
 // 현재 로그인 사용자 ID 가져오기 (간단 구현)
 export function getCurrentUserId(): string {
   if (typeof window === 'undefined') return 'lawyer1';
-  return localStorage.getItem('ibs_current_user_id') || 'lawyer1';
+  return safeStorage.getItem('ibs_current_user_id') || 'lawyer1';
 }

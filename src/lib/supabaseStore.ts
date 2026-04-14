@@ -16,9 +16,11 @@ import type { AppNotification, Document, DbContract } from './types';
 import { LAWYERS } from './mockStore';
 
 function getEffectiveSupabase() {
-  let sb = getSupabase();
-  if (!sb && typeof window === 'undefined') {
-    sb = getServiceSupabase();
+  const sb = getSupabase();
+  if (!sb) {
+    if (typeof window === 'undefined') {
+      console.warn('❌ [SECURITY WARNING] SSR Environment detected in a Client Store. getEffectiveSupabase() will NOT fallback to Service Role to prevent RLS bypass. Use createServerClient from @supabase/ssr in API routes.');
+    }
   }
   return sb;
 }
@@ -70,7 +72,7 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
   const sb = getEffectiveSupabase();
   if (!sb) return [];
 
-  const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false });
+  const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false }).limit(100);
   if (!rows) return [];
 
   // ── 배치 쿼리: 리스트뷰 로딩 속도 최적화를 위해 메모와 타임라인 전역 조회 제외 ──
@@ -324,50 +326,13 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
   const sb = getEffectiveSupabase();
   if (!sb) return defaultStats;
   
-  const { count, error } = await sb.from('companies').select('*', { count: 'exact', head: true });
-  if (error || !count) return defaultStats;
-
-  const PAGE_SIZE = 1000;
-  const totalPages = Math.ceil(count / PAGE_SIZE);
-  const promises = [];
-  
-  for (let i = 0; i < totalPages; i++) {
-    const from = i * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-    promises.push(
-      sb.from('companies').select('plan, risk_score, store_count, status').range(from, to)
-    );
+  const { data, error } = await sb.rpc('get_company_stats');
+  if (error || !data) {
+    console.error('Failed to fetch company stats via RPC', error);
+    return defaultStats;
   }
   
-  const results = await Promise.all(promises);
-  let allRows: any[] = [];
-  for (const res of results) {
-    if (res.data) allRows = allRows.concat(res.data);
-  }
-  
-  let total = 0, subscribers = 0, premium = 0, standard = 0, starter = 0, atRisk = 0, totalStores = 0;
-  const statusCounts: Record<string, number> = {};
-  
-  for (const r of allRows) {
-    let st = r.status || 'pending';
-    if (st === '등록됨') st = 'pending';
-    if (st === '분석중') st = 'crawling';
-    if (st === '분석완료') st = 'analyzed';
-    statusCounts[st] = (statusCounts[st] || 0) + 1;
-
-    // 거절, 사이트이상인 경우 메인 통계(total 등)에서 제외
-    if (st === 'rejected' || st === 'invalid_site') continue;
-
-    total++;
-    totalStores += (r.store_count || 0);
-    if (r.plan && r.plan !== 'none') subscribers++;
-    if (r.plan === 'premium') premium++;
-    if (r.plan === 'standard') standard++;
-    if (r.plan === 'starter') starter++;
-    const score = 100 - (r.risk_score || 0);
-    if (score < 50) atRisk++;
-  }
-  return { total, subscribers, premium, standard, starter, atRisk, totalStores, unreviewedIssues: 0, reviewedIssues: 0, statusCounts };
+  return data as CompanyStats;
 }
 
 function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = false): Record<string, any> {
@@ -432,6 +397,95 @@ export const supabaseCompanyStore = {
   getStats: fetchCompanyStats,
   getAll: async (): Promise<Company[]> => {
     return fetchCompaniesWithRelations();
+  },
+
+  getQueue: async (): Promise<Company[]> => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return [];
+    
+    // 오로지 세일즈 큐(Sales Queue)에서 콜 할 수 있는 컴퍼니 위주로 50개만 호출하여 Egress 최소화
+    const { data: rows } = await sb.from('companies')
+      .select('id, name, domain, url, email, phone, contact_name, contact_phone, ceo_name, biz_category, franchise_type, status, risk_score, call_note, last_call_result, last_call_at')
+      .in('status', ['analyzed', 'assigned'])
+      .order('risk_score', { ascending: false })
+      .limit(50);
+      
+    if (!rows) return [];
+    
+    // 최소한의 조인만 실행
+    const ids = rows.map(r => r.id);
+    const { data: issuesRes } = await sb.from('issues').select('company_id, level, title').in('company_id', ids);
+    const issueMap = groupBy(issuesRes, 'company_id');
+    
+    return rows.map(r => {
+      const anyC = rowToObj<Record<string, any>>(r);
+      const c = anyC as unknown as Company;
+      c.issues = (issueMap[c.id] || []).map((iss: any) => rowToObj(iss));
+      return c;
+    });
+  },
+
+  logCall: async (payload: { companyId: string, userId: string, userName: string, callResult: string }) => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return;
+    await sb.from('sales_call_logs').insert({
+      company_id: payload.companyId,
+      user_id: payload.userId,
+      user_name: payload.userName,
+      call_result: payload.callResult
+    });
+  },
+
+  getTodaySalesStats: async (userName: string): Promise<Record<string, number>> => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return {};
+    
+    // Get KST today string
+    const today = new Date();
+    today.setHours(today.getHours() + 9);
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const { data: logs } = await sb.from('sales_call_logs')
+      .select('call_result')
+      .eq('user_name', userName)
+      .gte('created_at', `${todayStr}T00:00:00Z`);
+      
+    if (!logs) return {};
+    return logs.reduce((acc, curr) => {
+      acc[curr.call_result] = (acc[curr.call_result] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  },
+  
+  getTodayActivity: async (userName: string): Promise<{ companyId: string, companyName: string, callResult: string, createdAt: string }[]> => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return [];
+    
+    // Get KST today string
+    const today = new Date();
+    today.setHours(today.getHours() + 9);
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const { data: logs } = await sb.from('sales_call_logs')
+      .select('company_id, call_result, created_at, companies (name)')
+      .eq('user_name', userName)
+      .gte('created_at', `${todayStr}T00:00:00Z`)
+      .order('created_at', { ascending: false });
+      
+    if (!logs) return [];
+    return logs.map((l: any) => ({ 
+      companyId: l.company_id, 
+      companyName: l.companies ? l.companies.name : '알수없음',
+      callResult: l.call_result,
+      createdAt: l.created_at
+    }));
+  },
+
+  getTotalCompanyCount: async (): Promise<number> => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return 0;
+    const { count } = await sb.from('companies').select('*', { count: 'exact', head: true });
+    return count || 0;
   },
 
   getById: async (id: string): Promise<Company | null> => {

@@ -62,7 +62,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                     <p className="text-[14px] font-black" style={{ color: C.heading }}>📋 기업 정보 (클릭하여 수정)</p>
                     <div className="flex items-center gap-2">
                         {co.name && (
-                            <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(co.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[12px] font-bold text-green-600 hover:text-green-800 bg-green-50 px-2 py-1 rounded-lg">
+                            <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(co.name + ' 사이트')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[12px] font-bold text-green-600 hover:text-green-800 bg-green-50 px-2 py-1 rounded-lg">
                                 <Search className="w-3.5 h-3.5" title="기업명 검색" /> 네이버 검색
                             </a>
                         )}

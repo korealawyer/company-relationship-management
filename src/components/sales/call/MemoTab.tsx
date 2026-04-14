@@ -270,18 +270,16 @@ export default function MemoTab({ co, onRefresh, setToast, refreshTrigger }: Mem
                                                 </button>
                                             </>
                                         )}
-                                        {user?.role !== 'sales' && (
-                                            <button
-                                                onClick={() => deleteMemo(memo.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
-                                                title="메모 삭제"
-                                            >
-                                                <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => deleteMemo(memo.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all ml-1"
+                                            title="메모 삭제"
+                                        >
+                                            <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
+                                        </button>
                                     </div>
                                 </div>
-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: C.body }}>
+                                <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: C.body }}>
                                     {memo.content}
                                 </p>
                             </div>

@@ -1,6 +1,8 @@
 // src/lib/callRecordingService.ts — 통화 녹음 + STT 자동 변환 서비스
 // MediaRecorder API (브라우저 마이크 녹음) → Mock STT → CRM 자동 입력
 
+import { safeStorage } from './safeStorage';
+import { eventBus } from './eventBus';
 import { store, type Company } from './store';
 
 /* ══════════════════════════════════════════════════════════════
@@ -18,7 +20,7 @@ export interface CallRecording {
     durationSeconds: number;
     transcript: string;
     transcriptSummary: string;
-    callResult: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site';
+    callResult: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy';
     sttStatus: 'pending' | 'processing' | 'completed' | 'failed';
     sttProvider: 'mock' | 'google' | 'whisper';
     contactName: string;
@@ -225,16 +227,16 @@ const RECORDINGS_KEY = 'ibs_call_recordings';
 
 export const CallRecordingStore = {
     getAll(): CallRecording[] {
-        if (typeof window === 'undefined') return [];
         try {
-            return JSON.parse(localStorage.getItem(RECORDINGS_KEY) || '[]');
+            const raw = safeStorage.getItem(RECORDINGS_KEY);
+            return raw ? JSON.parse(raw) : [];
         } catch {
             return [];
         }
     },
 
     _save(recordings: CallRecording[]): void {
-        localStorage.setItem(RECORDINGS_KEY, JSON.stringify(recordings));
+        safeStorage.setItem(RECORDINGS_KEY, JSON.stringify(recordings));
         // 실시간 동기화 이벤트 발행 (다른 탭/기기)
         this._dispatchSync();
     },
@@ -249,7 +251,7 @@ export const CallRecordingStore = {
             bc.close();
         } catch { /* BroadcastChannel 미지원 환경 무시 */ }
         // 커스텀 이벤트 (같은 탭)
-        window.dispatchEvent(new CustomEvent('voice-memo-sync'));
+        eventBus.emit('voice-memo-sync');
     },
 
     /** 새 녹음 저장 */
@@ -304,12 +306,15 @@ export const CallRecordingStore = {
     /** 통화 이력을 메모이력 기반으로도 저장 */
     _syncToMemo(entry: CallRecording): void {
         let contentStr = '';
-        const mapRes = {
+        const mapRes: Record<string, string> = {
             'connected': '연결됨',
             'no_answer': '부재중',
             'callback': '콜백요청',
             'rejected': '거절',
-            'invalid_site': '사이트이상'
+            'invalid_site': '사이트이상',
+            'no_homepage': '홈페이지없음',
+            'promo_only': '홍보전용',
+            'no_policy': '동의서없음'
         };
         const koRes = mapRes[entry.callResult] || entry.callResult;
 

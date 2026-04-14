@@ -4,6 +4,7 @@
 import { NextRequest } from 'next/server';
 import { RoleType } from './store';
 import { getBrowserSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
+import { safeStorage } from './safeStorage';
 
 // ── AuthUser 인터페이스 (SSOT) ─────────────────────────────────
 export interface AuthUser {
@@ -383,12 +384,11 @@ export async function lookupBizAffiliation(bizNum: string): Promise<{ found: tru
 
 // ── 소속신청 (HR 승인 대기) — localStorage 유지 ──────────────
 function loadPending(): PendingMember[] {
-    if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
+    try { return JSON.parse(safeStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
 }
+
 function savePending(list: PendingMember[]) {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+    safeStorage.setItem(PENDING_KEY, JSON.stringify(list));
 }
 
 export function requestAffiliation(args: { name: string; email: string; phone?: string; companyId: string; companyName: string; message?: string }): PendingMember {

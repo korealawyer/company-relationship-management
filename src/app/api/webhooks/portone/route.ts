@@ -105,6 +105,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'DB update failed' }, { status: 500 });
         }
 
+        // 5. DB Push 적용 후 서버사이드 렌더링(Server Component) 캐시 동기 화 무효화 (Task 3.9)
+        const { revalidatePath } = require('next/cache');
+        revalidatePath('/sales');
+        revalidatePath('/admin/sales-queue');
+
         return NextResponse.json({ status: 'success' });
     } catch (err: any) {
         console.error('[Webhook] Unhandled Error', err);

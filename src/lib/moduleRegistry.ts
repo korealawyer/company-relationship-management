@@ -32,14 +32,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     { id: 'personal-litigation', href: '/personal-litigation', label: '개인 소송', icon: 'UserCheck', roles: ['super_admin', 'admin', 'lawyer', 'litigation', 'finance'], status: 'active', hideable: true, phase: 1 },
 ];
 
+import { safeStorage } from './safeStorage';
+
 // 현재 사용자 역할 — Phase 2에서 실제 인증으로 교체
 const ROLE_KEY = 'ibs_role';
 export function getCurrentRole(): RoleType {
     if (typeof window === 'undefined') return 'sales';
-    return (localStorage.getItem(ROLE_KEY) as RoleType) ?? 'sales';
+    return (safeStorage.getItem(ROLE_KEY) as RoleType) ?? 'sales';
 }
 export function setCurrentRole(role: RoleType) {
-    localStorage.setItem(ROLE_KEY, role);
+    safeStorage.setItem(ROLE_KEY, role);
 }
 export function getAccessibleModules(role: RoleType): ModuleDefinition[] {
     return MODULE_REGISTRY.filter(m => m.roles.includes(role));

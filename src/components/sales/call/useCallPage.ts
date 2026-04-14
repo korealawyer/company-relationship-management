@@ -1,5 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSalesUIStore } from '@/lib/store/useSalesUIStore';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { eventBus } from '@/lib/eventBus';
+import { useAuth } from '@/lib/AuthContext';
 import {
     Company, CaseStatus,
     type AutoSettings,
@@ -101,9 +105,13 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
         return () => clearTimeout(timer);
     }, [search]);
 
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [sortKey, setSortKey] = useState<string>('risk_score');
-    const [sortAsc, setSortAsc] = useState(false);
+    const {
+        statusFilter, setStatusFilter,
+        sortKey, setSortKey,
+        sortAsc, setSortAsc,
+        activeCallId, setActiveCallId,
+        toast, setToast
+    } = useSalesUIStore();
 
     useEffect(() => {
         setPage(1);
@@ -127,10 +135,44 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
         return list;
     }, [dbCompanies, statusFilter]);
     const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
-    const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [toast, setToast] = useState('');
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    // URL 동기화: ?id= 가 있으면 초기 선택값으로 설정
+    const initId = searchParams.get('id');
+    const [selectedId, setSelectedId] = useState<string | null>(initId);
+    
+    const { user } = useAuth();
+    
+    // selectedId 변경 시 URL 쿼리 파라미터 업데이트 (Shallow routing)
+    useEffect(() => {
+        const currentId = searchParams.get('id');
+        if (selectedId !== currentId) {
+            const newParams = new URLSearchParams(searchParams.toString());
+            if (selectedId) newParams.set('id', selectedId);
+            else newParams.delete('id');
+            const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
+            window.history.replaceState(null, '', newUrl);
+        }
+    }, [selectedId, searchParams]);
+
+    // B2B 딥링크 보호 (Auth Guard)
+    useEffect(() => {
+        if (!selectedId || !user) return;
+        
+        // selectedId에 해당하는 회사가 현재 페이지네이션 데이터 목록(dbCompanies)에 있는지 확인
+        // 만약 없다면 DB나 검색을 통해서 가져온 것이 아니므로 접근 검증이 까다롭지만,
+        // 현재 목록에 있는 회사에 한정해서 검증합니다.
+        const targetTarget = dbCompanies.find(c => c.id === selectedId);
+        if (targetTarget) {
+            if (user.role === 'sales' && targetTarget.assignedSalesId && targetTarget.assignedSalesId !== user.id && targetTarget.assignedSalesName !== user.name) {
+                // 다른 영업 사원의 담당 건에 접근 시도 (권한 없음)
+                setToast('불법적 접근 차단: 다른 담당자의 영업 건입니다.');
+                setSelectedId(null);
+            }
+        }
+    }, [selectedId, dbCompanies, user, setToast]);
     const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | ''>('');
-    const [activeCallId, setActiveCallId] = useState<string | null>(null);
     const [showNews, setShowNews] = useState(false);
     const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
     const [callQueue, setCallQueue] = useState<CallQueueItem[]>([]);
@@ -175,10 +217,10 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             bc.onmessage = (e) => { if (e.data?.type === 'voice-memo-sync') { refresh(); setToast('🎙️ 모바일 음성 메모 수신됨'); } };
         } catch { /* BroadcastChannel 미지원 */ }
         const onStorage = (e: StorageEvent) => { if (e.key === 'ibs_call_recordings') refresh(); };
-        const onCustom = () => refresh();
+        const onCustom = () => { refresh(); setToast('🎙️ 모바일 음성 메모 수신됨'); };
         window.addEventListener('storage', onStorage);
-        window.addEventListener('voice-memo-sync', onCustom);
-        return () => { bc?.close(); window.removeEventListener('storage', onStorage); window.removeEventListener('voice-memo-sync', onCustom); };
+        const offCustom = eventBus.on('voice-memo-sync', onCustom);
+        return () => { bc?.close(); window.removeEventListener('storage', onStorage); offCustom(); };
     }, [refresh]);
 
     // 이메일 발송 상태인 기업에 카카오 자동 예약 + 이메일 트래킹
@@ -303,6 +345,9 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
     }, [refreshGlobalStats]);
 
     const filtered = companies.filter(c => {
+        // 현재 선택된(상세 패널이 열린) 기업은 필터 조건이 맞지 않더라도 목록에서 사라지지 않도록 유지
+        if (c.id === selectedId) return true;
+
         if (statusFilter === 'my_calls_today') {
             if (!(isToday(c.lastCallAt) && c.lastCalledBy === userName)) return false;
         } else if (statusFilter !== 'all' && c.status !== statusFilter) {
@@ -456,15 +501,17 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             callAttempts: (selected.callAttempts || 0) + 1 
         };
 
-        if (result === 'rejected' || result === 'invalid_site') {
-            patchData.status = result;
+        const isInvalidSite = ['invalid_site', 'no_homepage', 'promo_only', 'no_policy'].includes(result);
+
+        if (result === 'rejected' || isInvalidSite) {
+            patchData.status = result === 'rejected' ? 'rejected' : 'invalid_site';
         }
 
         updateCompany(selected.id, patchData);
         
         if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
         else if (result === 'callback') { setShowCallbackModal(true); }
-        else if (result === 'rejected' || result === 'invalid_site') { 
+        else if (result === 'rejected' || isInvalidSite) { 
             CallQueueManager.removeFromQueue(selected.id); 
             setToast(result === 'rejected' ? '❌ 거절 처리되었습니다.' : '⚠️ 사이트 이상 분류 완료'); 
         }

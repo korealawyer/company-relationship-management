@@ -191,7 +191,7 @@ export interface Company {
     aiMemoSummary?: string;
     aiNextAction?: string;
     aiNextActionType?: string;
-    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site';
+    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy';
     lastCallAt?: string;
     lastCalledBy?: string;
     callAttempts?: number;

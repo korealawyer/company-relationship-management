@@ -4,7 +4,7 @@
 // ================================================================
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient, createServerClient } from '@supabase/ssr';
 
 // ── 환경변수 기반 모드 결정 ───────────────────────────────────
 export const IS_SUPABASE_CONFIGURED = !!(
@@ -56,6 +56,34 @@ export const supabase = new Proxy({} as SupabaseClient, {
     return typeof val === 'function' ? val.bind(client) : val;
   }
 });
+
+// ── 서버사이드 전용 Authenticated 클라이언트 (라우터/액션 전용) ─────────
+export async function getServerSupabase(): Promise<SupabaseClient | null> {
+  if (!IS_SUPABASE_CONFIGURED) return null;
+  const { cookies } = await import('next/headers');
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options)
+            })
+          } catch {
+            // Server Component 에서는 cookie 설정이 무시될 수 있음. Route Handler, Action 에서는 작동.
+          }
+        },
+      },
+    }
+  );
+}
 
 // ── 서버사이드 전용 Service Role 클라이언트 ───────────────────
 export function getServiceSupabase(): SupabaseClient | null {

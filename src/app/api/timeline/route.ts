@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
     try {
@@ -10,8 +10,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: '필수 입력 항목 누락' }, { status: 400 });
         }
 
-        const supabase = getServiceSupabase();
-        
+        const supabase = await getServerSupabase();
         if (!supabase) {
             console.error('SUPABASE_SERVICE_ROLE_KEY is missing');
             return NextResponse.json({ error: '서버 환경 설정 오류' }, { status: 500 });

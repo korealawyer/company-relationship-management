@@ -101,7 +101,7 @@ export async function POST(req: Request) {
                 content: `PDF 저장됨: ${documentUrl}`,
                 company_id: companyId,
                 document_url: documentUrl,
-                status: 'signed'
+                status: 'both_signed'
             })
             .select()
             .single();

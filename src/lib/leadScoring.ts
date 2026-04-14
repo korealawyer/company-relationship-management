@@ -1,5 +1,6 @@
 // lib/leadScoring.ts — 리드 스코어 자동화 엔진
 // 이메일 열람, CTA 클릭, 답장, 미팅 등 이벤트별 점수 체계
+import { safeStorage } from './safeStorage';
 
 export interface TrackingEvent {
     type: 'email_open' | 'cta_click' | 'email_reply' | 'meeting' | 'call_answer';
@@ -33,7 +34,7 @@ function loadEvents(): TrackingEvent[] {
         return (globalThis as any).__ibs_tracking || [];
     }
     try {
-        const raw = localStorage.getItem(TRACKING_KEY);
+        const raw = safeStorage.getItem(TRACKING_KEY);
         return raw ? JSON.parse(raw) : [];
     } catch { return []; }
 }
@@ -43,7 +44,7 @@ function saveEvents(events: TrackingEvent[]): void {
         (globalThis as any).__ibs_tracking = events;
         return;
     }
-    try { localStorage.setItem(TRACKING_KEY, JSON.stringify(events)); } catch {}
+    try { safeStorage.setItem(TRACKING_KEY, JSON.stringify(events)); } catch {}
 }
 
 // 서버사이드 전용: global 메모리에서 로드/저장
@@ -71,7 +72,7 @@ function loadScores(): Record<string, LeadScoreData> {
         return (globalThis as any).__ibs_scores || {};
     }
     try {
-        const raw = localStorage.getItem(SCORE_KEY);
+        const raw = safeStorage.getItem(SCORE_KEY);
         return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
 }
@@ -81,7 +82,7 @@ function saveScores(scores: Record<string, LeadScoreData>): void {
         (globalThis as any).__ibs_scores = scores;
         return;
     }
-    try { localStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch {}
+    try { safeStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch {}
 }
 
 // ── Push 구독 저장소 ─────────────────────────────────────
@@ -98,7 +99,7 @@ function loadPushSubs(): PushSubscriptionData[] {
         return (globalThis as any).__ibs_push_subs || [];
     }
     try {
-        const raw = localStorage.getItem(PUSH_SUBS_KEY);
+        const raw = safeStorage.getItem(PUSH_SUBS_KEY);
         return raw ? JSON.parse(raw) : [];
     } catch { return []; }
 }
@@ -108,7 +109,7 @@ function savePushSubs(subs: PushSubscriptionData[]): void {
         (globalThis as any).__ibs_push_subs = subs;
         return;
     }
-    try { localStorage.setItem(PUSH_SUBS_KEY, JSON.stringify(subs)); } catch {}
+    try { safeStorage.setItem(PUSH_SUBS_KEY, JSON.stringify(subs)); } catch {}
 }
 
 // ── 메인 서비스 ──────────────────────────────────────────

@@ -32,7 +32,7 @@ interface CompanyTableRowProps {
   onSelect: (id: string) => void;
   onStartCall: () => void;
   onEndCall: () => Promise<void>;
-  onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
+  onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy') => void;
   onRefresh: () => void;
   setToast: (s: string) => void;
   onOpenKakao: (c: Company) => void;
@@ -123,13 +123,13 @@ export default function CompanyTableRow({
     <React.Fragment>
       <tr onClick={() => onSelect(c.id)} className="cursor-pointer transition-all"
           style={{
-            background: (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? '#f1f5f9' : isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
+            background: (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site' || c.lastCallResult === 'no_homepage' || c.lastCallResult === 'promo_only' || c.lastCallResult === 'no_policy') ? '#f1f5f9' : isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
             borderBottom: `1px solid ${C.borderLight}`,
             borderLeft: isLockedByMe ? '3px solid #10b981' : isLockedByOther ? '3px solid #ef4444' : isCall ? '3px solid #059669' : isSel ? '3px solid #4f46e5' : '3px solid transparent',
-            opacity: isLockedByOther ? 0.7 : (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? 0.5 : 1
+            opacity: isLockedByOther ? 0.7 : (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site' || c.lastCallResult === 'no_homepage' || c.lastCallResult === 'promo_only' || c.lastCallResult === 'no_policy') ? 0.5 : 1
           }}
           onMouseEnter={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.rowHover; }}
-          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? '#f1f5f9' : C.surface; }}>
+          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site' || c.lastCallResult === 'no_homepage' || c.lastCallResult === 'promo_only' || c.lastCallResult === 'no_policy') ? '#f1f5f9' : C.surface; }}>
           <td className="py-2.5 px-3 text-[14px] font-mono" style={{color:C.faint}}>{index + 1}</td>
           <td className="py-2.5 px-3">
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -156,7 +156,7 @@ export default function CompanyTableRow({
                                         color: c.lastCallResult === 'connected' ? '#059669' : c.lastCallResult === 'no_answer' ? '#dc2626' : c.lastCallResult === 'callback' ? '#d97706' : '#475569',
                                         border: `1px solid ${c.lastCallResult === 'connected' ? '#a7f3d0' : c.lastCallResult === 'no_answer' ? '#fecaca' : c.lastCallResult === 'callback' ? '#fde68a' : '#cbd5e1'}`
                                     }}>
-                                  {c.lastCallResult === 'connected' ? '✅연결됨' : c.lastCallResult === 'no_answer' ? '📵부재중' : c.lastCallResult === 'callback' ? '🔄콜백' : c.lastCallResult === 'rejected' ? '❌거절' : '⚠️패스'}
+                                  {c.lastCallResult === 'connected' ? '✅연결됨' : c.lastCallResult === 'no_answer' ? '📵부재중' : c.lastCallResult === 'callback' ? '🔄콜백' : c.lastCallResult === 'rejected' ? '❌거절' : c.lastCallResult === 'no_homepage' ? '⚠️홈지없음' : c.lastCallResult === 'promo_only' ? '⚠️홍보전용' : c.lastCallResult === 'no_policy' ? '⚠️동의없음' : '⚠️패스'}
                               </span>
                           )}
                           {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[11px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="카카오 알림톡 발송 완료">💬</span>}

@@ -441,7 +441,7 @@ export default function AdminClientsPage() {
                                                         setDetailTab('info');
                                                         if (!detailsCache[c.id]) {
                                                             import('@/lib/supabaseStore').then(({ supabaseCompanyStore }) => {
-                                                                supabaseCompanyStore.getById(c.id).then(full => {
+                                                                supabaseCompanyStore.getById(c.id).then((full: any) => {
                                                                     if (full) {
                                                                         setDetailsCache(prev => ({
                                                                             ...prev, 
@@ -551,7 +551,7 @@ export default function AdminClientsPage() {
                                                         setDetailTab('info');
                                                         if (!detailsCache[c.id]) {
                                                             import('@/lib/supabaseStore').then(({ supabaseCompanyStore }) => {
-                                                                supabaseCompanyStore.getById(c.id).then(full => {
+                                                                supabaseCompanyStore.getById(c.id).then((full: any) => {
                                                                     if (full) {
                                                                         setDetailsCache(prev => ({
                                                                             ...prev, 
