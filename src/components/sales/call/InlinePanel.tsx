@@ -56,7 +56,7 @@ export interface InlinePanelProps {
     onPass?: () => void;
     timer: UseTimerReturn;
     callResult: string;
-    onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
+    onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy') => void;
     onRefresh: () => void;
     setToast: (s: string) => void;
     isRecording: boolean;

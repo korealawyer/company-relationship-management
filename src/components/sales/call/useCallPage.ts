@@ -84,7 +84,7 @@ export interface UseCallPageReturn {
     selectCompany: (id: string) => void;
     startCall: () => Promise<void>;
     endCall: () => Promise<void>;
-    handleCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
+    handleCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy') => void;
     confirmCallback: () => void;
     toggleSort: (k: string) => void;
     refresh: () => void;
@@ -172,7 +172,7 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             }
         }
     }, [selectedId, dbCompanies, user, setToast]);
-    const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | ''>('');
+    const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy' | ''>('');
     const [showNews, setShowNews] = useState(false);
     const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
     const [callQueue, setCallQueue] = useState<CallQueueItem[]>([]);
@@ -485,9 +485,9 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
         }
     };
 
-    const handleCallResult = (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => {
+    const handleCallResult = (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy') => {
         setCallResult(r);
-        setToast(r === 'connected' ? '✅ 연결됨' : r === 'no_answer' ? '📵 부재중' : r === 'callback' ? '📋 콜백요청' : r === 'rejected' ? '❌ 거절' : '⚠️ 사이트 이상(패스)');
+        setToast(r === 'connected' ? '✅ 연결됨' : r === 'no_answer' ? '📵 부재중' : r === 'callback' ? '📋 콜백요청' : r === 'rejected' ? '❌ 거절' : r === 'no_homepage' ? '⚠️ 홈지없음' : r === 'promo_only' ? '⚠️ 홍보전용' : r === 'no_policy' ? '⚠️ 동의없음' : '⚠️ 사이트 이상(패스)');
     };
 
     const endCall = async () => {

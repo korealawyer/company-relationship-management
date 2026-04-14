@@ -1,0 +1,273 @@
+﻿diff --git a/src/app/api/analyze/route.ts b/src/app/api/analyze/route.ts
+index cfbac8e..608cf3b 100644
+--- a/src/app/api/analyze/route.ts
++++ b/src/app/api/analyze/route.ts
+@@ -82,22 +82,12 @@ export async function POST(request: NextRequest) {
+         return getMissingResponse();
+     }
+ 
+-    // URL ?뺢퇋???⑥닔 (`http`媛 ?놁쑝硫?`https://` 遺숈씠湲?
+-    const normalizeUrl = (url?: string) => {
+-        if (!url || typeof url !== 'string') return '';
+-        url = url.trim();
+-        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+-            return `https://${url}`;
+-        }
+-        return url;
+-    };
++    const homepageUrl = body.homepageUrl?.trim() || paramUrl?.trim() || '';
++    const privacyUrl = body.privacyUrl?.trim() || '';
+ 
+-    const homepageUrl = normalizeUrl(body.homepageUrl || paramUrl);
+-    const privacyUrl = normalizeUrl(body.privacyUrl);
+-
+-    if (!homepageUrl && !privacyUrl && !companyId && !manualText) {
++    if (!companyId && !manualText) {
+         return NextResponse.json(
+-            { success: false, error: '遺꾩꽍???꾩슂???앸퀎 二쇱냼???섎룞 ?띿뒪??以??섎굹???꾩닔?낅땲??' },
++            { success: false, error: '遺꾩꽍???꾩슂??companyId???섎룞 ?띿뒪??以??섎굹???꾩닔?낅땲??' },
+             { status: 400 }
+         );
+     }
+@@ -105,70 +95,8 @@ export async function POST(request: NextRequest) {
+     let extractedText = '';
+     let extractedFooter: any = null;
+ 
+-    async function crawlUrl(target: string): Promise<string> {
+-        let html = '';
+-        const fetchUrl = new URL(target);
+-        if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
+-        
+-        const controller = new AbortController();
+-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+-
+-        try {
+-            const scrapeDoKey = process.env.SCRAPE_DO_API_KEY;
+-            const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+-            let res: Response | null = null;
+-            
+-            if (scrapeDoKey) {
+-                console.log(`[Analyze API] Using scrape.do API for URL: ${target}`);
+-                let sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&render=true`;
+-
+-                try {
+-                    res = await fetch(sdUrl, { signal: controller.signal });
+-                    if (!res.ok) {
+-                        console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
+-                        res = null;
+-                    }
+-                } catch (e) {
+-                    console.warn(`[Analyze API] scrape.do network error:`, e);
+-                    res = null;
+-                }
+-            }
+-            
+-            if (!res && scrapingBeeKey) {
+-                console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${target}`);
+-                let sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&render_js=true`;
+-
+-                try {
+-                    res = await fetch(sbUrl, { signal: controller.signal });
+-                    if (!res.ok) {
+-                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
+-                        res = null;
+-                    }
+-                } catch (e) {
+-                    console.warn(`[Analyze API] ScrapingBee network error:`, e);
+-                    res = null;
+-                }
+-            }
+-            
+-            if (res?.ok) {
+-                html = await res.text();
+-            } else {
+-                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
+-                throw new Error('Fetch failed in both services');
+-            }
+-        } finally {
+-            clearTimeout(timeoutId);
+-        }
+-
+-        let cleanHtml = html.length > 200000 ? html.slice(0, 200000) : html;
+-        cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+-        cleanHtml = cleanHtml.replace(/<style[\s\S]*?<\/style>/gi, '');
+-        cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
+-        return cleanHtml.replace(/\s+/g, ' ').trim();
+-    }
+-
+     try {
+-        // [?ㅽ듃?뚰겕 Egress 理쒖쟻?? DB ??λ맂 ?먮Ц???덈뒗吏 ?뺤씤?섏뿬 Server ?대??먯꽌 泥섎━
++        // [DB 理쒖쟻?? DB ??λ맂 ?먮Ц???덈뒗吏 ?뺤씤?섏뿬 Server ?대??먯꽌 泥섎━
+         if ((!manualText || manualText.trim().length === 0) && companyId) {
+             console.log(`[Analyze API] manualText媛 ?놁뼱 ?쒕쾭?먯꽌 湲곗〈 DB ?띿뒪??吏곸젒 ?ш????쒕룄: ${companyId}`);
+             try {
+@@ -186,7 +114,7 @@ export async function POST(request: NextRequest) {
+                                 return getMissingResponse();
+                             }
+                             extractedText = existingText.trim();
+-                            console.log(`[Analyze API] DB?먯꽌 湲곗〈 ?꾨씪?대쾭???띿뒪??異붿텧 ?꾨즺 (${extractedText.length} bytes) - ?щ·留??ㅽ궢`);
++                            console.log(`[Analyze API] DB?먯꽌 湲곗〈 ?꾨씪?대쾭???띿뒪??異붿텧 ?꾨즺 (${extractedText.length} bytes)`);
+                         }
+                     }
+                 }
+@@ -196,91 +124,26 @@ export async function POST(request: NextRequest) {
+         }
+ 
+         // 遺꾧린 濡쒖쭅
+-        // Case 2-3: manualText媛 理쒖슦??         if (!extractedText && manualText && manualText.trim().length > 0) {
+             extractedText = manualText.trim();
+         }
+-        // Case 2-2: privacyUrl???덈뒗 寃쎌슦
+-        else if (!extractedText && privacyUrl && privacyUrl.startsWith('http')) {
+-            extractedText = await crawlUrl(privacyUrl);
+-        } 
+-        // Case 2-1: homepageUrl留??덈뒗 寃쎌슦
+-        else if (!extractedText && homepageUrl && homepageUrl.startsWith('http')) {
+-            console.log(`[Analyze API] ?덊럹?댁??먯꽌 ?명꽣 ?뺣낫 異붿텧 ?쒕룄 以? ${homepageUrl}`);
+-            const homeText = await crawlUrl(homepageUrl);
+-            
+-            // OpenAI濡??ъ뾽?먮쾲?? ?꾪솕踰덊샇, 媛쒖씤?뺣낫痍④툒諛⑹묠 URL 異붿텧
+-            const apiKey = process.env.OPENAI_API_KEY;
+-            if (apiKey) {
+-                const aiController = new AbortController();
+-                const timeoutId = setTimeout(() => aiController.abort(), 15000); // 15珥??쒗븳
+-                try {
+-                    const footerRes = await fetch('https://api.openai.com/v1/chat/completions', {
+-                        method: 'POST',
+-                        headers: {
+-                            'Content-Type': 'application/json',
+-                            'Authorization': `Bearer ${apiKey}`
+-                        },
+-                        body: JSON.stringify({
+-                            model: 'gpt-4o-mini',
+-                            response_format: { type: "json_object" },
+-                            messages: [{ 
+-                                role: 'user', 
+-                                content: `?ㅼ쓬 ?뱀궗?댄듃 ?댁슜?먯꽌 ?뚯궗 ?명꽣 ?뺣낫瑜?李얠븘 JSON 媛앹껜濡?諛섑솚?? 
+-                                諛섑솚 ?뺥깭: {"businessNumber": "?ъ뾽?먮쾲??, "phoneNumber": "怨좉컼?쇳꽣 ?꾪솕踰덊샇", "privacyUrl": "媛쒖씤?뺣낫泥섎━諛⑹묠 留곹겕 URL"}
+-                                留뚯빟 ?대떦 ?뺣낫媛 ?놁쑝硫?鍮?臾몄옄??"")濡?諛섑솚??寃?
+-                                URL? ?덈? 寃쎈줈(?? https://...)?닿굅???곷? 寃쎈줈(/privacy)?????덉쓬. ?곷?寃쎈줈?쇰㈃ ?먮옒 ?꾨찓??${homepageUrl})??遺숈뿬???덈?寃쎈줈濡?留뚮뱾?댁쨾.
+-                                ?댁슜???쇰?: ${homeText.slice(homeText.length > 50000 ? homeText.length - 10000 : 0)}` 
+-                            }]
+-                        }),
+-                        signal: aiController.signal
+-                    });
+-                    
+-                    if (footerRes.ok) {
+-                        const jsonPayload = await footerRes.json();
+-                        const resultParsed = JSON.parse(jsonPayload.choices[0].message.content);
+-                        extractedFooter = {
+-                            businessNumber: resultParsed.businessNumber || "",
+-                            phoneNumber: resultParsed.phoneNumber || "",
+-                            privacyUrl: resultParsed.privacyUrl || ""
+-                        };
+-                        console.log(`[Analyze API] 異붿텧???명꽣 ?뺣낫:`, extractedFooter);
+-                        
+-                        // privacyUrl??李얠븯?쇰㈃ ?ㅼ떆 ?щ·留??쒕룄
+-                        if (extractedFooter.privacyUrl && extractedFooter.privacyUrl.startsWith('http')) {
+-                           extractedText = await crawlUrl(extractedFooter.privacyUrl);
+-                        } else {
+-                            throw new Error('?명꽣?먯꽌 媛쒖씤?뺣낫泥섎━諛⑹묠 URL??李얠쓣 ???놁뒿?덈떎.');
+-                        }
+-                    }
+-                } catch(e) {
+-                    console.warn('[Analyze API] ?명꽣 ?뺣낫 AI 異붿텧 ?먮뒗 ?щ·留??ㅽ뙣:', e);
+-                } finally {
+-                    clearTimeout(timeoutId);
+-                }
+-            }
+-        }
+-
+-        // 寃곌낵 寃利?(manualText ?곗꽑)
+-        const isMinLengthValid = (manualText && manualText.trim().length > 0) ? extractedText.length >= 5 : extractedText.length >= 50;
++        
++        // 寃곌낵 寃利?+        const isMinLengthValid = extractedText.length >= 5;
+         
+         if (!extractedText || !isMinLengthValid) {
+-            console.warn('[Analyze API] ?щ·留??ㅽ뙣 ?먮뒗 ?띿뒪??遺덉땐遺?);
++            console.warn('[Analyze API] DB ?띿뒪??遺???먮뒗 ?섎룞 ?낅젰 ?띿뒪??遺덉땐遺?);
+             return NextResponse.json(
+-                { success: false, error: '?뱁럹?댁??먯꽌 媛쒖씤?뺣낫泥섎━諛⑹묠 ?댁슜???뺤긽?곸쑝濡?遺덈윭?ㅼ? 紐삵뻽?듬땲?? 遊?李⑤떒???섏떖?섍굅???댁슜???덈Т 吏㏃뒿?덈떎. ?꾨Ц ?띿뒪?몃? 吏곸젒 蹂듭궗?섏뿬 ?섎룞?쇰줈 ?낅젰??二쇱꽭??' },
++                { success: false, error: 'DB?먯꽌 諛⑹묠 ?띿뒪?몃? 李얠쓣 ???녾굅???댁슜???덈Т 吏㏃뒿?덈떎. ?꾨Ц ?띿뒪?몃? 吏곸젒 蹂듭궗?섏뿬 ?섎룞?쇰줈 ?낅젰??二쇱꽭??' },
+                 { status: 422 }
+             );
+         }
+ 
+     } catch (error: any) {
+-        console.error('[Analyze API] URL Fetch Error:', error);
+-        const isTimeout = error.name === 'AbortError';
++        console.error('[Analyze API] DB/Text Load Error:', error);
+         return NextResponse.json(
+-            { success: false, error: isTimeout 
+-                ? '?뱀궗?댄듃 ?묐떟???놁뼱 ?쒓컙 珥덇낵?섏뿀?듬땲?? 媛쒖씤?뺣낫泥섎━諛⑹묠 ?띿뒪?몃? 吏곸젒 遺숈뿬?ｌ뼱 二쇱꽭??'
+-                : '?좏슚??URL ?뺤떇???꾨땲嫄곕굹 ?щ·留곸뿉 ?ㅽ뙣?덉뒿?덈떎. (?? https://example.com/privacy)' 
+-            },
+-            { status: isTimeout ? 504 : 422 }
++            { success: false, error: '媛쒖씤?뺣낫泥섎━諛⑹묠 ?띿뒪?몃? 援ъ꽦?섎뒗 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.' },
++            { status: 500 }
+         );
+     }
+ 
+@@ -329,7 +192,7 @@ export async function POST(request: NextRequest) {
+                     'x-api-key': anthropicKey as string
+                 },
+                 body: JSON.stringify({
+-                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022',
++                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20240620',
+                     max_tokens: 4096,
+                     system: '諛섎뱶???쒖닔 JSON ?뺤떇({ "riskLevel": ..., "summaryOpinion": ..., "issues": [...] })留?諛섑솚?댁빞 ?섎ŉ ?욌뮘??諛깊떛(```)?대굹 遺媛 ?ㅻ챸???덈? ?ы븿?섏? 留덉꽭??',
+                     messages: [{ role: 'user', content: prompt }]
+@@ -339,10 +202,11 @@ export async function POST(request: NextRequest) {
+             clearTimeout(aiTimeoutId);
+ 
+             if (!response.ok) {
+-                console.error('[Analyze API] Anthropic Failure:', await response.text());
++                const errText = await response.text();
++                console.error('[Analyze API] Anthropic Failure:', errText);
+                 return NextResponse.json(
+-                    { success: false, error: 'AI 紐⑤뜽(Anthropic) ?몄텧???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??' },
+-                    { status: 502 }
++                    { success: false, error: `AI 紐⑤뜽(Anthropic) ?몄텧???ㅽ뙣?덉뒿?덈떎 (${response.status}). 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??` },
++                    { status: response.status === 429 ? 429 : 500 }
+                 );
+             }
+             const aiData = await response.json();
+@@ -371,8 +235,12 @@ export async function POST(request: NextRequest) {
+             clearTimeout(aiTimeoutId);
+ 
+             if (!response.ok) {
+-                console.error('[Analyze API] Gemini Failure:', await response.text());
+-                return NextResponse.json({ success: false, error: 'AI 紐⑤뜽(Gemini) ?몄텧???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??' }, { status: 502 });
++                const errText = await response.text();
++                console.error('[Analyze API] Gemini Failure:', errText);
++                return NextResponse.json(
++                    { success: false, error: `AI 紐⑤뜽(Gemini) ?몄텧???ㅽ뙣?덉뒿?덈떎 (${response.status}). 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??` },
++                    { status: response.status === 429 ? 429 : 500 }
++                );
+             }
+             const aiData = await response.json();
+             content = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+@@ -398,10 +266,11 @@ export async function POST(request: NextRequest) {
+             clearTimeout(aiTimeoutId);
+ 
+             if (!response.ok) {
+-                console.error('[Analyze API] OpenAI Failure:', await response.text());
++                const errText = await response.text();
++                console.error('[Analyze API] OpenAI Failure:', errText);
+                 return NextResponse.json(
+-                    { success: false, error: 'AI 紐⑤뜽(OpenAI) ?몄텧???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??' },
+-                    { status: 502 }
++                    { success: false, error: `AI 紐⑤뜽(OpenAI) ?몄텧???ㅽ뙣?덉뒿?덈떎 (${response.status}). 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??` },
++                    { status: response.status === 429 ? 429 : 500 }
+                 );
+             }
+ 
+@@ -419,7 +288,7 @@ export async function POST(request: NextRequest) {
+             console.error('[Analyze API] JSON Parse Error:', e, 'Raw Content was:', content);
+             return NextResponse.json(
+                 { success: false, error: 'AI媛 諛섑솚??寃곌낵瑜??뚯떛?????놁뒿?덈떎. ?ъ“?щ? ?쒕룄??二쇱꽭??' },
+-                { status: 502 }
++                { status: 500 }
+             );
+         }
+ 

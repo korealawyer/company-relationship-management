@@ -1,0 +1,1500 @@
+﻿diff --git a/src/app/(admin)/admin/all-routes/page.tsx b/src/app/(admin)/admin/all-routes/page.tsx
+index 0a70efb..caae1a8 100644
+--- a/src/app/(admin)/admin/all-routes/page.tsx
++++ b/src/app/(admin)/admin/all-routes/page.tsx
+@@ -117,7 +117,7 @@ const ALL_ROUTES = [
+       { path: '/payment-guide', label: '寃곗젣 諛⑸쾿 媛?대뱶' },
+       { path: '/payment-guide/cms', label: 'CMS ?먮룞?댁껜 媛?대뱶' },
+       { path: '/terms/privacy', label: '媛쒖씤?뺣낫泥섎━諛⑹묠' },
+-      { path: '/terms/service', label: '?댁슜?쎄?' },
++      { path: '/legal/terms', label: '?댁슜?쎄?' },
+       { path: '/help', label: '怨좉컼 ?쇳꽣 諛?FAQ' },
+     ]
+   }
+diff --git a/src/app/(admin)/admin/clients/page.tsx b/src/app/(admin)/admin/clients/page.tsx
+index 0accfc5..6b776da 100644
+--- a/src/app/(admin)/admin/clients/page.tsx
++++ b/src/app/(admin)/admin/clients/page.tsx
+@@ -441,7 +441,7 @@ export default function AdminClientsPage() {
+                                                         setDetailTab('info');
+                                                         if (!detailsCache[c.id]) {
+                                                             import('@/lib/supabaseStore').then(({ supabaseCompanyStore }) => {
+-                                                                supabaseCompanyStore.getById(c.id).then(full => {
++                                                                supabaseCompanyStore.getById(c.id).then((full: any) => {
+                                                                     if (full) {
+                                                                         setDetailsCache(prev => ({
+                                                                             ...prev, 
+@@ -551,7 +551,7 @@ export default function AdminClientsPage() {
+                                                         setDetailTab('info');
+                                                         if (!detailsCache[c.id]) {
+                                                             import('@/lib/supabaseStore').then(({ supabaseCompanyStore }) => {
+-                                                                supabaseCompanyStore.getById(c.id).then(full => {
++                                                                supabaseCompanyStore.getById(c.id).then((full: any) => {
+                                                                     if (full) {
+                                                                         setDetailsCache(prev => ({
+                                                                             ...prev, 
+diff --git a/src/app/(admin)/sales-queue/page.tsx b/src/app/(admin)/sales-queue/page.tsx
+index aeaf7da..5f91d2b 100644
+--- a/src/app/(admin)/sales-queue/page.tsx
++++ b/src/app/(admin)/sales-queue/page.tsx
+@@ -36,24 +36,22 @@ export default function SalesQueuePage() {
+ 
+     const loadData = useCallback(async () => {
+         try {
+-            const rawComps = await supabaseCompanyStore.getAll();
+-            const comps = rawComps.filter(c => CALLABLE.includes(c.status));
++            const comps = await supabaseCompanyStore.getQueue();
+             
+-            // Calc stats for today
+-            const todayStr = new Date().toISOString().split('T')[0];
+-            let c = 0, m = 0, cb = 0, rj = 0, inv = 0;
+-            comps.forEach(comp => {
+-                if (comp.lastCallAt && comp.lastCallAt.startsWith(todayStr) && comp.lastCalledBy === user?.name) {
+-                    if (comp.lastCallResult === 'connected') c++;
+-                    else if (comp.lastCallResult === 'no_answer') m++;
+-                    else if (comp.lastCallResult === 'callback') cb++;
+-                    else if (comp.lastCallResult === 'rejected') rj++;
+-                    else if (comp.lastCallResult === 'invalid_site') inv++;
+-                }
+-            });
+-            setStats({ connected: c, missed: m, callback: cb, rejected: rj, invalid: inv });
++            // Calc stats for today from DB O(1) via logs
++            if (user?.name) {
++                const dbStats = await supabaseCompanyStore.getTodaySalesStats(user.name);
++                setStats({ 
++                    connected: dbStats.connected || 0, 
++                    missed: dbStats.no_answer || 0, 
++                    callback: dbStats.callback || 0, 
++                    rejected: dbStats.rejected || 0, 
++                    invalid: (dbStats.invalid_site || 0) + (dbStats.no_homepage || 0) + (dbStats.promo_only || 0) + (dbStats.no_policy || 0)
++                });
++            }
+             
+             // Sort by not called today first, then riskScore DESC
++            const todayStr = new Date().toISOString().split('T')[0];
+             const uncalled = comps.filter(comp => {
+                 const calledToday = comp.lastCallAt && comp.lastCallAt.startsWith(todayStr);
+                 return !calledToday;
+@@ -197,9 +195,9 @@ export default function SalesQueuePage() {
+         }
+     };
+ 
+-    const handleResult = (result: '?곌껐-硫붿씪'|'?곌껐-肄쒕갚'|'?곌껐-嫄곗젅'|'遺?ъ쨷(24h)'|'?ъ씠?몄씠???⑥뒪)', nextAction?: 'review'|'memo') => {
++    const handleResult = (result: '?곌껐-硫붿씪'|'?곌껐-肄쒕갚'|'?곌껐-嫄곗젅'|'遺?ъ쨷(24h)'|'?덊럹?댁??놁쓬(?⑥뒪)'|'?띾낫?꾩슜(?⑥뒪)'|'?숈쓽?쒖뾾???⑥뒪)', nextAction?: 'review'|'memo') => {
+         pause(); // Stop timer
+-        setSelectedResult(result);
++        setSelectedResult(result as any);
+         setCallState('wrapup');
+ 
+         if (nextAction === 'memo') {
+@@ -209,7 +207,7 @@ export default function SalesQueuePage() {
+             setMemoText(prev => prev ? prev + '\n[蹂?몄궗 寃???붿껌]' : '[蹂?몄궗 寃???붿껌]');
+         }
+         
+-        if (result === '?ъ씠?몄씠???⑥뒪)') {
++        if (result === '?덊럹?댁??놁쓬(?⑥뒪)' || result === '?띾낫?꾩슜(?⑥뒪)' || result === '?숈쓽?쒖뾾???⑥뒪)') {
+             // instant complete can be done by user clicking save, but focus button so user just hits enter!
+             document.querySelector<HTMLButtonElement>('.' + styles.saveWrapupBtn)?.focus();
+         }
+@@ -222,11 +220,13 @@ export default function SalesQueuePage() {
+             // Un-claim
+             await releaseCompany(activeCall.id, user.id).catch(() => {});
+             
+-            let callRes: 'connected'|'no_answer'|'callback'|'rejected'|'invalid_site' = 'connected';
+-            if (selectedResult === '遺?ъ쨷(24h)') callRes = 'no_answer';
+-            else if (selectedResult === '?곌껐-肄쒕갚') callRes = 'callback';
+-            else if (selectedResult === '?곌껐-嫄곗젅') callRes = 'rejected';
+-            else if (selectedResult === '?ъ씠?몄씠???⑥뒪)') callRes = 'invalid_site';
++            let callRes: 'connected'|'no_answer'|'callback'|'rejected'|'invalid_site'|'no_homepage'|'promo_only'|'no_policy' = 'connected';
++            if (selectedResult === '遺?ъ쨷(24h)' as any) callRes = 'no_answer';
++            else if (selectedResult === '?곌껐-肄쒕갚' as any) callRes = 'callback';
++            else if (selectedResult === '?곌껐-嫄곗젅' as any) callRes = 'rejected';
++            else if (selectedResult === '?덊럹?댁??놁쓬(?⑥뒪)' as any) callRes = 'no_homepage';
++            else if (selectedResult === '?띾낫?꾩슜(?⑥뒪)' as any) callRes = 'promo_only';
++            else if (selectedResult === '?숈쓽?쒖뾾???⑥뒪)' as any) callRes = 'no_policy';
+             
+             const payload: Partial<Company> = {
+                 lastCallResult: callRes,
+@@ -540,24 +540,35 @@ export default function SalesQueuePage() {
+                     
+                     <div className="w-full mt-4">
+                         {callState === 'calling' ? (
+-                            <div className="flex flex-col gap-3 w-full">
++                            <div className="flex flex-col gap-2 w-full">
+                                 <div className="flex gap-2">
+-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('?곌껐-硫붿씪')}>
+-                                        ???곌껐-硫붿씪
++                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3`} onClick={() => handleResult('?곌껐-硫붿씪')}>
++                                        ??硫붿씪 ?붿껌
+                                     </button>
+-                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('?곌껐-肄쒕갚')}>
+-                                        ?봽 ?곌껐-肄쒕갚
++                                    <button className={`${styles.resultBtn} ${styles.connected} flex-1 text-[13px] py-3`} onClick={() => handleResult('?곌껐-肄쒕갚')}>
++                                        ?봽 肄쒕갚
+                                     </button>
+-                                    <button className={`${styles.resultBtn} bg-slate-200 text-slate-700 hover:bg-slate-300 flex-1 text-[13px] py-3.5`} onClick={() => handleResult('?곌껐-嫄곗젅')}>
+-                                        ???곌껐-嫄곗젅
++                                </div>
++                                <div className="flex gap-2">
++                                    <button className={`${styles.resultBtn} bg-slate-200 text-slate-700 hover:bg-slate-300 flex-1 text-[13px] py-3`} onClick={() => handleResult('?곌껐-嫄곗젅')}>
++                                        ??嫄곗젅
++                                    </button>
++                                    <button className={`${styles.resultBtn} ${styles.missed} flex-1 text-[13px] py-3`} onClick={() => handleResult('遺?ъ쨷(24h)')}>
++                                        ?벘 遺??                                     </button>
+                                 </div>
++
++                                <div className="h-[1px] bg-slate-200 my-1"></div>
++
+                                 <div className="flex gap-2">
+-                                    <button className={`${styles.resultBtn} ${styles.missed} flex-1 text-[13px] py-3.5`} onClick={() => handleResult('遺?ъ쨷(24h)')}>
+-                                        ?벘 遺??24h)
++                                    <button className={`${styles.resultBtn} bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 flex-1 text-[11px] py-2.5 font-bold`} onClick={() => handleResult('?덊럹?댁??놁쓬(?⑥뒪)')}>
++                                        ?좑툘 ?덊럹?댁? ?놁쓬
++                                    </button>
++                                    <button className={`${styles.resultBtn} bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 flex-1 text-[11px] py-2.5 font-bold`} onClick={() => handleResult('?띾낫?꾩슜(?⑥뒪)')}>
++                                        ?좑툘 ?띾낫?섏씠吏留??덉쓬
+                                     </button>
+-                                    <button className={`${styles.resultBtn} bg-red-100 text-red-700 hover:bg-red-200 flex-1 text-[13px] py-3.5`} onClick={() => handleResult('?ъ씠?몄씠???⑥뒪)')}>
+-                                        ?좑툘 ?ъ씠?몄씠???⑥뒪)
++                                    <button className={`${styles.resultBtn} bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200 flex-1 text-[11px] py-2.5 font-bold leading-tight`} onClick={() => handleResult('?숈쓽?쒖뾾???⑥뒪)')}>
++                                        ?좑툘 ?덊럹?댁? ?덉쓬<br/>(諛⑹묠 ?놁쓬)
+                                     </button>
+                                 </div>
+                             </div>
+@@ -565,11 +576,11 @@ export default function SalesQueuePage() {
+                             <div className={styles.wrapupSection}>
+                                 <div className={styles.wrapupMsg}>
+                                     ?꾩옱 [<strong>{selectedResult}</strong>] ?곹깭濡??뺣━ 以묒엯?덈떎. 
+-                                    {(selectedResult === '遺?ъ쨷(24h)' || selectedResult === '?곌껐-肄쒕갚') && ' (24?쒓컙 ???먮룞 肄쒕갚 ?덉빟??'}
++                                    {(selectedResult as any === '遺?ъ쨷(24h)' || selectedResult as any === '?곌껐-肄쒕갚') && ' (24?쒓컙 ???먮룞 肄쒕갚 ?덉빟??'}
+                                 </div>
+                                 <button className={styles.saveWrapupBtn} onClick={() => {
+                                     finishCall().then(() => {
+-                                        if (selectedResult === '?ъ씠?몄씠???⑥뒪)') {
++                                        if (selectedResult as any === '?덊럹?댁??놁쓬(?⑥뒪)' || selectedResult as any === '?띾낫?꾩슜(?⑥뒪)' || selectedResult as any === '?숈쓽?쒖뾾???⑥뒪)') {
+                                             setTimeout(() => handleNextCall(0), 500); // ?먮룞 ?ㅼ쓬 ?몄텧
+                                         }
+                                     });
+diff --git a/src/app/(client)/settings/page.tsx b/src/app/(client)/settings/page.tsx
+index a583d38..e225b05 100644
+--- a/src/app/(client)/settings/page.tsx
++++ b/src/app/(client)/settings/page.tsx
+@@ -322,7 +322,7 @@ export default function SettingsPage() {
+                                 <span className="text-sm" style={{ color: '#374151' }}>媛쒖씤?뺣낫泥섎━諛⑹묠</span>
+                                 <ArrowRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
+                             </Link>
+-                            <Link href="/terms/service" className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-all"
++                            <Link href="/legal/terms" className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-all"
+                                 style={{ border: '1px solid #f0ede6' }}>
+                                 <span className="text-sm" style={{ color: '#374151' }}>?댁슜?쎄?</span>
+                                 <ArrowRight className="w-4 h-4" style={{ color: '#9ca3af' }} />
+diff --git a/src/app/(marketing)/help/page.tsx b/src/app/(marketing)/help/page.tsx
+index 46988ce..5acd80c 100644
+--- a/src/app/(marketing)/help/page.tsx
++++ b/src/app/(marketing)/help/page.tsx
+@@ -99,7 +99,7 @@ export default function HelpPage() {
+                 {/* 鍮좊Ⅸ 留곹겕 */}
+                 <div className="grid grid-cols-4 gap-3 mb-8">
+                     {[
+-                        { icon: <Book className="w-5 h-5" />, label: '?댁슜 媛?대뱶', href: '/terms/service', color: '#2563eb' },
++                        { icon: <Book className="w-5 h-5" />, label: '?댁슜 媛?대뱶', href: '/legal/terms', color: '#2563eb' },
+                         { icon: <CreditCard className="w-5 h-5" />, label: '寃곗젣 ?덈궡', href: '/billing', color: '#059669' },
+                         { icon: <Shield className="w-5 h-5" />, label: '蹂댁븞 ?뺤콉', href: '/terms/privacy', color: '#7c3aed' },
+                         { icon: <Phone className="w-5 h-5" />, label: '?꾪솕 臾몄쓽', href: '#', color: '#c9a84c' },
+diff --git a/src/app/(marketing)/terms/service/page.tsx b/src/app/(marketing)/terms/service/page.tsx
+deleted file mode 100644
+index b13e327..0000000
+--- a/src/app/(marketing)/terms/service/page.tsx
++++ /dev/null
+@@ -1,154 +0,0 @@
+-export const metadata = {
+-  title: '?댁슜?쎄?',
+-  description: 'IBS 踰뺣쪧?щТ???뚯썝 ?댁슜?쎄??낅땲??',
+-};
+-
+-export default function TermsOfServicePage() {
+-  return (
+-    <div className="max-w-4xl mx-auto px-6 py-16 md:py-24 text-[var(--foreground)]">
+-      <div className="space-y-4 mb-12 border-b border-white/10 pb-6">
+-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+-          IBS 踰뺣쪧?щТ???뚯썝 ?댁슜?쎄?
+-        </h1>
+-        <p className="text-white/60">?쒗뻾?? 2026??3??1??/p>
+-      </div>
+-
+-      <div className="space-y-12">
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(紐⑹쟻)</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            蹂??쎄?? IBS怨듬룞踰뺣쪧?щТ????쒕??몄궗 ?좎젙?? ?댄븯 ?쁈BS?숇씪 ?⑸땲??媛 ?댁쁺?섎뒗 踰뺣쪧, ?〓Т 諛??뚯썝 ?쒕퉬?????댁슜怨?愿?⑦븯??IBS? ?뚯썝 媛꾩쓽 沅뚮━, ?섎Т 諛?梨낆엫 ?ы빆??洹쒖젙?⑥쓣 紐⑹쟻?쇰줈 ?⑸땲??
+-          </p>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?⑹뼱???뺤쓽)</h2>
+-          <ol className="list-decimal pl-6 space-y-3 text-white/80 leading-relaxed text-lg marker:text-white/50 marker:font-bold">
+-            <li><strong className="text-white font-semibold">?뚯썝</strong> : 蹂??쎄????숈쓽?섍퀬 IBS ?덊럹?댁????뚯썝?쇰줈 媛?낇븯???쒕퉬?ㅻ? ?댁슜?섎뒗 湲곗뾽 ?먮뒗 湲곗뾽 ?대떦??諛?媛쒖씤???섎??⑸땲??</li>
+-            <li><strong className="text-white font-semibold">?뚯썝 怨꾩젙</strong> : ?뚯썝??IBS ?덊럹?댁???濡쒓렇?명븯湲??꾪븯???ъ슜?섎뒗 ?대찓??湲곕컲 怨꾩젙???섎??⑸땲??</li>
+-            <li><strong className="text-white font-semibold">?댁슜怨꾩빟</strong> : ?뚯썝??蹂??쎄????숈쓽?섍퀬 IBS媛 ?대? ?뱀씤?⑥쑝濡쒖뜥 泥닿껐?섎뒗 ?쒕퉬???댁슜 怨꾩빟???섎??⑸땲??</li>
+-            <li><strong className="text-white font-semibold">踰뺣쪧 由ы룷??/strong> : IBS媛 湲곗뾽???낆쥌, 寃쎌쁺?섍꼍 諛?踰뺣쪧 ?섍꼍??遺꾩꽍?섏뿬 ?쒓났?섎뒗 踰뺣쪧 愿??蹂닿퀬?쒕? ?섎??⑸땲??</li>
+-          </ol>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?뚯궗 ?뺣낫???쒓났)</h2>
+-          <p className="text-white/80 leading-relaxed mb-3 text-lg">IBS???ㅼ쓬 ?뺣낫瑜??덊럹?댁???寃뚯떆?⑸땲??</p>
+-          <ul className="list-disc pl-6 space-y-2 text-white/80 leading-relaxed text-lg marker:text-[#c9a84c]">
+-            <li>?곹샇</li>
+-            <li>??쒖옄</li>
+-            <li>?ъ뾽?먮벑濡앸쾲??/li>
+-            <li>二쇱냼</li>
+-            <li>?곕씫泥?/li>
+-            <li>?대찓??/li>
+-            <li>媛쒖씤?뺣낫 蹂댄샇梨낆엫??/li>
+-          </ul>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?쎄????⑤젰 諛?蹂寃?</h2>
+-          <ol className="list-decimal pl-6 space-y-3 text-white/80 leading-relaxed text-lg marker:text-white/50 marker:font-bold">
+-            <li>蹂??쎄?? ?덊럹?댁???寃뚯떆?섍굅??湲고? 諛⑸쾿?쇰줈 ?뚯썝?먭쾶 怨듭??⑥쑝濡쒖뜥 ?⑤젰??諛쒖깮?⑸땲??</li>
+-            <li>IBS??愿??踰뺣졊???꾨컲?섏? ?딅뒗 踰붿쐞?먯꽌 蹂??쎄???蹂寃쏀븷 ???덉뒿?덈떎.</li>
+-            <li>?쎄???蹂寃쎈릺??寃쎌슦 ?곸슜?쇱옄 諛?蹂寃??ъ쑀瑜?紐낆떆?섏뿬 ?쒗뻾??7???댁쟾??怨듭??⑸땲??</li>
+-            <li>?뚯썝?먭쾶 遺덈━???댁슜??蹂寃쎈릺??寃쎌슦?먮뒗 ?쒗뻾??30???꾩뿉 怨듭??⑸땲??</li>
+-          </ol>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?뚯썝媛??</h2>
+-          <p className="text-white/80 leading-relaxed mb-3 text-lg">?뚯썝媛???덉감???ㅼ쓬怨?媛숈뒿?덈떎.</p>
+-          <ol className="list-decimal pl-6 space-y-3 text-white/80 leading-relaxed text-lg marker:text-white/50 marker:font-bold">
+-            <li>湲곗뾽 ?뺣낫 ?낅젰</li>
+-            <li>?댁슜?쎄? 諛?媛쒖씤?뺣낫 泥섎━諛⑹묠 ?숈쓽</li>
+-            <li>?대찓?쇰줈 ?꾩떆 鍮꾨?踰덊샇 諛쒖넚???곕Ⅸ ?덊럹?댁? 濡쒓렇??/li>
+-            <li>留덉????뺣낫 ?섏떊 ?숈쓽 (?좏깮)</li>
+-          </ol>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?뚯썝怨꾩젙??愿由?</h2>
+-          <ol className="list-decimal pl-6 space-y-3 text-white/80 leading-relaxed text-lg marker:text-white/50 marker:font-bold">
+-            <li>?뚯썝? ?먯떊??怨꾩젙 ?뺣낫瑜??덉쟾?섍쾶 愿由ы븷 梨낆엫???덉뒿?덈떎.</li>
+-            <li>?뚯썝? 怨꾩젙?????먯뿉寃??묐룄, ????먮뒗 怨듭쑀?????놁뒿?덈떎.</li>
+-            <li>怨꾩젙 ?꾩슜???몄???寃쎌슦 利됱떆 IBS???듭??섏뿬???⑸땲??</li>
+-            <li>?뚯썝??愿由??뚰?濡?諛쒖깮??臾몄젣????댁꽌 IBS??梨낆엫??吏吏 ?딆뒿?덈떎.</li>
+-          </ol>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?뚯썝?뺣낫??蹂寃?</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            ?뚯썝? ?몄젣?좎? ?먯떊???뚯썝?뺣낫瑜??대엺?섍퀬 ?섏젙?????덉쑝硫? 蹂寃쏀븯吏 ?딆븘 諛쒖깮?섎뒗 遺덉씠?듭? ?뚯썝??梨낆엫?낅땲??
+-          </p>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?뚯썝 ?덊눜)</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            ?뚯썝? ?몄젣?좎? ?덊럹?댁? ?먮뒗 ?대찓?쇱쓣 ?듯빐 ?덊눜瑜??붿껌?????덉쑝硫?IBS??吏泥??놁씠 ?덊눜瑜?泥섎━?⑸땲??
+-          </p>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??議?(?뚯썝???섎Т)</h2>
+-          <p className="text-white/80 leading-relaxed mb-3 text-lg">?뚯썝? ?ㅼ쓬 ?됱쐞瑜??섏뿬?쒕뒗 ???⑸땲??</p>
+-          <ol className="list-decimal pl-6 space-y-3 text-white/80 leading-relaxed text-lg marker:text-white/50 marker:font-bold">
+-            <li>??몄쓽 怨꾩젙 ?ъ슜</li>
+-            <li>?덉쐞 ?뺣낫 ?낅젰</li>
+-            <li>?쒕퉬???댁쁺 諛⑺빐 ?됱쐞</li>
+-            <li>IBS ?먮뒗 ???먯쓽 沅뚮━瑜?移⑦빐?섎뒗 ?됱쐞</li>
+-            <li>踰뺣졊 ?먮뒗 蹂??쎄????꾨컲?섎뒗 ?됱쐞</li>
+-          </ol>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??0議?(?뚯썝?먭꺽 ?쒗븳 諛??뺤?)</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            IBS???쎄? ?꾨컲, ?쒕퉬???댁쁺 諛⑺빐, 遺덈쾿 ?됱쐞 ?먮뒗 ??몄쓽 沅뚮━ 移⑦빐媛 諛쒖깮??寃쎌슦 ?뚯썝???쒕퉬???댁슜???쒗븳?섍굅???뚯썝?먭꺽???뺤??????덉뒿?덈떎.
+-          </p>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??1議?(?뚯썝??????듭?)</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            IBS???대찓?? ?덊럹?댁? 怨듭? ?먮뒗 ?쒕퉬???뚮┝ ?깆쓽 諛⑸쾿?쇰줈 ?뚯썝?먭쾶 ?듭??????덉뒿?덈떎.
+-          </p>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??2議?(媛쒖씤?뺣낫 蹂댄샇)</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            IBS???뚯썝??媛쒖씤?뺣낫 蹂댄샇瑜??꾪빐 媛쒖씤?뺣낫 泥섎━諛⑹묠???섎┰?섏뿬 ?댁쁺?섎ŉ 媛쒖씤?뺣낫 愿???ы빆? 媛쒖씤?뺣낫 泥섎━諛⑹묠???곕쫭?덈떎.
+-          </p>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??3議?(硫댁콉)</h2>
+-          <div className="space-y-4">
+-            <p className="text-white/80 leading-relaxed text-lg">
+-              IBS???뚯썝??洹梨??ъ쑀, ?쒖뒪???μ븷, 遺덇???젰???ъ쑀 ?먮뒗 ?쒕퉬???댁슜 怨쇱젙?먯꽌 諛쒖깮??媛꾩젒 ?먰빐?????梨낆엫??吏吏 ?딆뒿?덈떎.
+-            </p>
+-            <p className="text-white/80 leading-relaxed text-lg">
+-              ?먰븳 IBS媛 ?쒓났?섎뒗 踰뺣쪧 由ы룷??諛??뺣낫???쇰컲?곸씤 踰뺣쪧 ?뺣낫 ?쒓났??紐⑹쟻?쇰줈 ?섎ŉ 媛쒕퀎 ?ш굔?????踰뺣쪧 ?먮Ц???泥댄븯吏 ?딆뒿?덈떎.
+-            </p>
+-          </div>
+-        </section>
+-
+-        <section>
+-          <h2 className="text-2xl font-bold mb-4 text-white">??4議?(遺꾩웳 ?닿껐 諛?愿??踰뺤썝)</h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            IBS? ?뚯썝 媛?遺꾩웳??諛쒖깮??寃쎌슦 ?곹샇 ?묒쓽瑜??듯빐 ?닿껐?섎ŉ ?묒쓽媛 ?대（?댁?吏 ?딅뒗 寃쎌슦 IBS 蹂몄젏 ?뚯옱吏 愿??踰뺤썝???꾩냽 愿?좊줈 ?⑸땲??
+-          </p>
+-        </section>
+-
+-        <section className="pt-8 border-t border-white/10">
+-          <h2 className="text-xl font-bold mb-4 text-white">遺移?/h2>
+-          <p className="text-white/80 leading-relaxed text-lg">
+-            蹂??쎄?? <strong className="text-white font-semibold">2026??3??1??/strong>遺???쒗뻾?⑸땲??
+-          </p>
+-        </section>
+-      </div>
+-    </div>
+-  );
+-}
+\ No newline at end of file
+diff --git a/src/app/api/contracts/finalize/route.ts b/src/app/api/contracts/finalize/route.ts
+index 47c9dbf..4adef48 100644
+--- a/src/app/api/contracts/finalize/route.ts
++++ b/src/app/api/contracts/finalize/route.ts
+@@ -101,7 +101,7 @@ export async function POST(req: Request) {
+                 content: `PDF ??λ맖: ${documentUrl}`,
+                 company_id: companyId,
+                 document_url: documentUrl,
+-                status: 'signed'
++                status: 'both_signed'
+             })
+             .select()
+             .single();
+diff --git a/src/app/api/memos/route.ts b/src/app/api/memos/route.ts
+index 2d72906..106e6ad 100644
+--- a/src/app/api/memos/route.ts
++++ b/src/app/api/memos/route.ts
+@@ -1,5 +1,5 @@
+ import { NextRequest, NextResponse } from 'next/server';
+-import { getServiceSupabase } from '@/lib/supabase';
++import { getServerSupabase } from '@/lib/supabase';
+ 
+ // POST /api/memos ??Add a memo to a company
+ export async function POST(req: NextRequest) {
+@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
+             return NextResponse.json({ error: 'Missing companyId or content' }, { status: 400 });
+         }
+ 
+-        const sb = getServiceSupabase();
++        const sb = await getServerSupabase();
+         if (!sb) {
+             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+         }
+@@ -60,7 +60,7 @@ export async function DELETE(req: NextRequest) {
+             return NextResponse.json({ error: 'Missing memo id' }, { status: 400 });
+         }
+ 
+-        const sb = getServiceSupabase();
++        const sb = await getServerSupabase();
+         if (!sb) {
+             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+         }
+@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
+             return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
+         }
+ 
+-        const sb = getServiceSupabase();
++        const sb = await getServerSupabase();
+         if (!sb) {
+             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+         }
+diff --git a/src/app/api/timeline/route.ts b/src/app/api/timeline/route.ts
+index 3deff06..5b173dd 100644
+--- a/src/app/api/timeline/route.ts
++++ b/src/app/api/timeline/route.ts
+@@ -1,5 +1,5 @@
+ import { NextResponse } from 'next/server';
+-import { getServiceSupabase } from '@/lib/supabase';
++import { getServerSupabase } from '@/lib/supabase';
+ 
+ export async function POST(request: Request) {
+     try {
+@@ -10,8 +10,7 @@ export async function POST(request: Request) {
+             return NextResponse.json({ error: '?꾩닔 ?낅젰 ??ぉ ?꾨씫' }, { status: 400 });
+         }
+ 
+-        const supabase = getServiceSupabase();
+-        
++        const supabase = await getServerSupabase();
+         if (!supabase) {
+             console.error('SUPABASE_SERVICE_ROLE_KEY is missing');
+             return NextResponse.json({ error: '?쒕쾭 ?섍꼍 ?ㅼ젙 ?ㅻ쪟' }, { status: 500 });
+diff --git a/src/app/api/webhooks/portone/route.ts b/src/app/api/webhooks/portone/route.ts
+index d253c48..8a58785 100644
+--- a/src/app/api/webhooks/portone/route.ts
++++ b/src/app/api/webhooks/portone/route.ts
+@@ -105,6 +105,11 @@ export async function POST(req: NextRequest) {
+             return NextResponse.json({ error: 'DB update failed' }, { status: 500 });
+         }
+ 
++        // 5. DB Push ?곸슜 ???쒕쾭?ъ씠???뚮뜑留?Server Component) 罹먯떆 ?숆린 ??臾댄슚??(Task 3.9)
++        const { revalidatePath } = require('next/cache');
++        revalidatePath('/sales');
++        revalidatePath('/admin/sales-queue');
++
+         return NextResponse.json({ status: 'success' });
+     } catch (err: any) {
+         console.error('[Webhook] Unhandled Error', err);
+diff --git a/src/components/sales/call/CompanyTableRow.tsx b/src/components/sales/call/CompanyTableRow.tsx
+index de8332e..32538f3 100644
+--- a/src/components/sales/call/CompanyTableRow.tsx
++++ b/src/components/sales/call/CompanyTableRow.tsx
+@@ -32,7 +32,7 @@ interface CompanyTableRowProps {
+   onSelect: (id: string) => void;
+   onStartCall: () => void;
+   onEndCall: () => Promise<void>;
+-  onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site') => void;
++  onCallResult: (r: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy') => void;
+   onRefresh: () => void;
+   setToast: (s: string) => void;
+   onOpenKakao: (c: Company) => void;
+@@ -123,13 +123,13 @@ export default function CompanyTableRow({
+     <React.Fragment>
+       <tr onClick={() => onSelect(c.id)} className="cursor-pointer transition-all"
+           style={{
+-            background: (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? '#f1f5f9' : isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
++            background: (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site' || c.lastCallResult === 'no_homepage' || c.lastCallResult === 'promo_only' || c.lastCallResult === 'no_policy') ? '#f1f5f9' : isLockedByMe ? '#f0fdf4' : isLockedByOther ? '#fef2f2' : isCall ? '#f0fdf4' : isSel ? '#eef2ff' : C.surface,
+             borderBottom: `1px solid ${C.borderLight}`,
+             borderLeft: isLockedByMe ? '3px solid #10b981' : isLockedByOther ? '3px solid #ef4444' : isCall ? '3px solid #059669' : isSel ? '3px solid #4f46e5' : '3px solid transparent',
+-            opacity: isLockedByOther ? 0.7 : (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? 0.5 : 1
++            opacity: isLockedByOther ? 0.7 : (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site' || c.lastCallResult === 'no_homepage' || c.lastCallResult === 'promo_only' || c.lastCallResult === 'no_policy') ? 0.5 : 1
+           }}
+           onMouseEnter={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = C.rowHover; }}
+-          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site') ? '#f1f5f9' : C.surface; }}>
++          onMouseLeave={e => { if (!isSel && !isCall && !isLockedByMe && !isLockedByOther) (e.currentTarget as HTMLElement).style.background = (c.lastCallResult === 'rejected' || c.lastCallResult === 'invalid_site' || c.lastCallResult === 'no_homepage' || c.lastCallResult === 'promo_only' || c.lastCallResult === 'no_policy') ? '#f1f5f9' : C.surface; }}>
+           <td className="py-2.5 px-3 text-[14px] font-mono" style={{color:C.faint}}>{index + 1}</td>
+           <td className="py-2.5 px-3">
+               <div className="flex items-center gap-1.5 flex-wrap">
+@@ -156,7 +156,7 @@ export default function CompanyTableRow({
+                                         color: c.lastCallResult === 'connected' ? '#059669' : c.lastCallResult === 'no_answer' ? '#dc2626' : c.lastCallResult === 'callback' ? '#d97706' : '#475569',
+                                         border: `1px solid ${c.lastCallResult === 'connected' ? '#a7f3d0' : c.lastCallResult === 'no_answer' ? '#fecaca' : c.lastCallResult === 'callback' ? '#fde68a' : '#cbd5e1'}`
+                                     }}>
+-                                  {c.lastCallResult === 'connected' ? '?낆뿰寃곕맖' : c.lastCallResult === 'no_answer' ? '?벘遺?ъ쨷' : c.lastCallResult === 'callback' ? '?봽肄쒕갚' : c.lastCallResult === 'rejected' ? '?뚭굅?? : '?좑툘?⑥뒪'}
++                                  {c.lastCallResult === 'connected' ? '?낆뿰寃곕맖' : c.lastCallResult === 'no_answer' ? '?벘遺?ъ쨷' : c.lastCallResult === 'callback' ? '?봽肄쒕갚' : c.lastCallResult === 'rejected' ? '?뚭굅?? : c.lastCallResult === 'no_homepage' ? '?좑툘?덉??놁쓬' : c.lastCallResult === 'promo_only' ? '?좑툘?띾낫?꾩슜' : c.lastCallResult === 'no_policy' ? '?좑툘?숈쓽?놁쓬' : '?좑툘?⑥뒪'}
+                               </span>
+                           )}
+                           {kakaoStatuses[c.id]?.status === 'sent' && <span className="inline-flex items-center px-1 py-0.5 rounded text-[11px] font-bold cursor-default" style={{background:'#FFFDE7',color:'#2E7D32',border:'1px solid #C8E6C9'}} title="移댁뭅???뚮┝??諛쒖넚 ?꾨즺">?뮠</span>}
+diff --git a/src/components/sales/call/InfoTab.tsx b/src/components/sales/call/InfoTab.tsx
+index 8c667ce..a74ed64 100644
+--- a/src/components/sales/call/InfoTab.tsx
++++ b/src/components/sales/call/InfoTab.tsx
+@@ -62,7 +62,7 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
+                     <p className="text-[14px] font-black" style={{ color: C.heading }}>?뱥 湲곗뾽 ?뺣낫 (?대┃?섏뿬 ?섏젙)</p>
+                     <div className="flex items-center gap-2">
+                         {co.name && (
+-                            <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(co.name)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[12px] font-bold text-green-600 hover:text-green-800 bg-green-50 px-2 py-1 rounded-lg">
++                            <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(co.name + ' ?ъ씠??)}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[12px] font-bold text-green-600 hover:text-green-800 bg-green-50 px-2 py-1 rounded-lg">
+                                 <Search className="w-3.5 h-3.5" title="湲곗뾽紐?寃?? /> ?ㅼ씠踰?寃??                             </a>
+                         )}
+diff --git a/src/components/sales/call/InlinePanel.tsx b/src/components/sales/call/InlinePanel.tsx
+index 04680fd..69f6b71 100644
+--- a/src/components/sales/call/InlinePanel.tsx
++++ b/src/components/sales/call/InlinePanel.tsx
+@@ -117,12 +117,12 @@ export default function InlinePanel({
+         }
+     }, [user]);
+ 
+-    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
++    const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
+         try {
+             setLocalResult(res);
+             
+             // --- 利됯컖?곸씤 UI 諛섏쁺 (Optimistic UI) ---
+-            co.lastCallResult = res;
++            co.lastCallResult = res as any;
+             co.lastCallAt = new Date().toISOString();
+             co.lastCalledBy = manualCaller;
+             
+@@ -130,7 +130,7 @@ export default function InlinePanel({
+             if (nextAction === 'review' && co.status === 'analyzed') {
+                 extraUpdate = { status: 'reviewing' };
+                 co.status = 'reviewing';
+-            } else if (res === 'rejected' || res === 'invalid_site') {
++            } else if (res === 'rejected' || res === 'invalid_site' || res === 'no_homepage' || res === 'promo_only' || res === 'no_policy') {
+                 extraUpdate = { status: res };
+                 co.status = res as unknown as 'pending'; // Hack to satisfy TS temporarily, pessimistic UI will correct it if needed, or optimistic will use it directly.
+             }
+@@ -156,7 +156,7 @@ export default function InlinePanel({
+                     salesUserName: manualCaller,
+                     fileSizeBytes: 0,
+                     durationSeconds: 0,
+-                    transcript: `?섎룞 ?곹깭 蹂寃? ${res === 'connected' ? '?곌껐?? : res === 'no_answer' ? '遺?ъ쨷' : res === 'callback' ? '肄쒕갚?붿껌' : res === 'rejected' ? '嫄곗젅' : '?ъ씠???댁긽'}`,
++                    transcript: `?섎룞 ?곹깭 蹂寃? ${res === 'connected' ? '?곌껐?? : res === 'no_answer' ? '遺?ъ쨷' : res === 'callback' ? '肄쒕갚?붿껌' : res === 'rejected' ? '嫄곗젅' : res === 'no_homepage' ? '?덊럹?댁? ?놁쓬' : res === 'promo_only' ? '?띾낫 ?꾩슜' : res === 'no_policy' ? '?숈쓽???놁쓬' : '?ъ씠???댁긽'}`,
+                     transcriptSummary: '?섎룞 ?듯솕 湲곕줉',
+                     callResult: res as 'connected'|'no_answer'|'callback', // DB type may still need to be compatible, but keeping as res for now.
+                     sttStatus: 'completed',
+@@ -166,7 +166,7 @@ export default function InlinePanel({
+                 });
+             });
+             
+-            setToast(`???섎룞 湲곕줉?? ${res === 'connected' ? '?곌껐?? : res === 'no_answer' ? '遺?ъ쨷' : res === 'callback' ? '肄쒕갚' : res === 'rejected' ? '嫄곗젅' : '?ъ씠???댁긽'}`);
++            setToast(`???섎룞 湲곕줉?? ${res === 'connected' ? '?곌껐?? : res === 'no_answer' ? '遺?ъ쨷' : res === 'callback' ? '肄쒕갚' : res === 'rejected' ? '嫄곗젅' : res === 'no_homepage' ? '?덊럹?댁? ?놁쓬' : res === 'promo_only' ? '?띾낫 ?꾩슜' : res === 'no_policy' ? '?숈쓽???놁쓬' : '?ъ씠???댁긽'}`);
+             onRefresh(); // 遺紐?而댄룷?뚰듃??利됱떆 由щ젋?붾쭅 ?몃━嫄?         } catch(e) {
+             setToast('??湲곕줉 泥섎━ ?ㅻ쪟');
+@@ -199,10 +199,10 @@ export default function InlinePanel({
+         }
+     };
+ 
+-    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
++    const handleResultAction = (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
+         // 1. 肄??대젰 濡쒓퉭
+         if (isOnCall) {
+-            onCallResult(res);
++            onCallResult(res as Parameters<typeof onCallResult>[0]);
+         } else {
+             handleManualLog(res, nextAction);
+         }
+@@ -304,7 +304,7 @@ export default function InlinePanel({
+                                     <div className="flex flex-col gap-3 mb-3 border-b border-gray-100 pb-3">
+                                         <div className="flex items-center justify-between">
+                                             <div className="flex items-center gap-2">
+-                                                <h3 className="text-[11px] font-bold text-gray-800">?럺截??듯솕 ?쒖뼱 ({companyRecordings.length})</h3>
++                                                <h3 className="text-[11px] font-bold text-gray-800">?럺截??듯솕 寃곌낵 ({companyRecordings.length})</h3>
+                                                 {user?.role === 'super_admin' && (
+                                                     <button onClick={handleResetCallData}
+                                                         className="px-1.5 py-0.5 rounded text-[10px] font-bold border bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+@@ -342,45 +342,64 @@ export default function InlinePanel({
+                                         <div className="flex flex-col bg-slate-50 p-2 rounded-lg border border-slate-100 gap-2">
+ 
+                                             
+-                                            {/* 5踰꾪듉 ?덉씠?꾩썐 */}
+-                                            <div className="flex flex-col gap-1.5 mt-1">
+-                                                <div className="flex gap-1.5">
++                                            {/* 3??遺꾨━ 踰꾪듉 ?덉씠?꾩썐 */}
++                                            <div className="flex flex-col gap-2 mt-1">
++                                                <div className="flex gap-2">
+                                                     <button 
+                                                         onClick={() => handleResultAction('connected', 'review')}
+-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
++                                                        className={`flex-1 px-1 py-1.5 rounded text-[11px] font-bold transition-all border
+                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'connected' ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                     >
+-                                                        ???곌껐-硫붿씪
++                                                        ??硫붿씪 ?붿껌
+                                                     </button>
+                                                     <button 
+                                                         onClick={() => handleResultAction('callback', 'alarm')}
+-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
++                                                        className={`flex-1 px-1 py-1.5 rounded text-[11px] font-bold transition-all border
+                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'callback' ? 'bg-amber-600 text-white border-amber-700 shadow-sm' : 'bg-white text-amber-600 border-amber-200 hover:bg-amber-50'}`}
+                                                     >
+-                                                        ?봽 ?곌껐-肄쒕갚
++                                                        ?봽 肄쒕갚
+                                                     </button>
++                                                </div>
++                                                <div className="flex gap-2">
+                                                     <button 
+                                                         onClick={() => handleResultAction('rejected')}
+-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
++                                                        className={`flex-1 px-1 py-1.5 rounded text-[11px] font-bold transition-all border
+                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'rejected' ? 'bg-slate-700 text-white border-slate-800 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                                     >
+-                                                        ???곌껐-嫄곗젅
++                                                        ??嫄곗젅
+                                                     </button>
+-                                                </div>
+-                                                <div className="flex gap-1.5">
+                                                     <button 
+                                                         onClick={() => handleResultAction('no_answer', 'alarm')}
+-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
++                                                        className={`flex-1 px-1 py-1.5 rounded text-[11px] font-bold transition-all border
+                                                             ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_answer' ? 'bg-rose-600 text-white border-rose-700 shadow-sm' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}
+                                                     >
+-                                                        ?벘 遺??24h)
++                                                        ?벘 遺??+                                                    </button>
++                                                </div>
++
++                                                <div className="h-[1px] bg-slate-200 my-0.5"></div>
++
++                                                <div className="flex gap-2">
++                                                    <button 
++                                                        onClick={() => handleResultAction('no_homepage', 'pass')}
++                                                        className={`flex-1 px-0.5 py-1.5 rounded text-[10px] font-bold transition-all border
++                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_homepage' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
++                                                    >
++                                                        ?좑툘 ?덊럹?댁? ?놁쓬
++                                                    </button>
++                                                    <button 
++                                                        onClick={() => handleResultAction('promo_only', 'pass')}
++                                                        className={`flex-1 px-0.5 py-1.5 rounded text-[10px] font-bold transition-all border
++                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'promo_only' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
++                                                    >
++                                                        ?좑툘 ?띾낫?섏씠吏留??덉쓬
+                                                     </button>
+                                                     <button 
+-                                                        onClick={() => handleResultAction('invalid_site', 'pass')}
+-                                                        className={`flex-1 px-1 py-1 rounded text-[10px] font-bold transition-all border
+-                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'invalid_site' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
++                                                        onClick={() => handleResultAction('no_policy', 'pass')}
++                                                        className={`flex-1 px-0.5 py-1.5 rounded text-[10px] font-bold transition-all border leading-tight
++                                                            ${(isOnCall ? callResult : (localResult || co.lastCallResult)) === 'no_policy' ? 'bg-gray-400 text-white border-gray-500 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                                                     >
+-                                                        ?좑툘 ?ъ씠?몄씠???⑥뒪)
++                                                        ?좑툘 ?덊럹?댁? ?덉쓬<br/>(諛⑹묠 ?놁쓬)
+                                                     </button>
+                                                 </div>
+                                             </div>
+@@ -396,7 +415,7 @@ export default function InlinePanel({
+                                             value={note}
+                                             onChange={(e) => setNote(e.target.value)}
+                                             placeholder="??硫붾え瑜??낅젰?섏꽭??(?댁뒋 諛??뱀씠?ы빆 ??"
+-                                            className="w-full rounded-xl text-[12px] p-3 font-medium leading-relaxed"
++                                            className="w-full rounded-xl text-[14px] p-3 font-medium leading-relaxed"
+                                             style={{
+                                                 background: C.surface,
+                                                 border: `1px solid ${C.borderLight}`,
+diff --git a/src/components/sales/call/MemoTab.tsx b/src/components/sales/call/MemoTab.tsx
+index f2a2c54..ddaee3e 100644
+--- a/src/components/sales/call/MemoTab.tsx
++++ b/src/components/sales/call/MemoTab.tsx
+@@ -270,18 +270,16 @@ export default function MemoTab({ co, onRefresh, setToast, refreshTrigger }: Mem
+                                                 </button>
+                                             </>
+                                         )}
+-                                        {user?.role !== 'sales' && (
+-                                            <button
+-                                                onClick={() => deleteMemo(memo.id)}
+-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all"
+-                                                title="硫붾え ??젣"
+-                                            >
+-                                                <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
+-                                            </button>
+-                                        )}
++                                        <button
++                                            onClick={() => deleteMemo(memo.id)}
++                                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 transition-all ml-1"
++                                            title="硫붾え ??젣"
++                                        >
++                                            <Trash2 className="w-3 h-3" style={{ color: '#dc2626' }} />
++                                        </button>
+                                     </div>
+                                 </div>
+-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: C.body }}>
++                                <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: C.body }}>
+                                     {memo.content}
+                                 </p>
+                             </div>
+diff --git a/src/components/sales/call/useCallPage.ts b/src/components/sales/call/useCallPage.ts
+index 97e2e90..0540d3f 100644
+--- a/src/components/sales/call/useCallPage.ts
++++ b/src/components/sales/call/useCallPage.ts
+@@ -1,5 +1,9 @@
+ 'use client';
+ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
++import { useSalesUIStore } from '@/lib/store/useSalesUIStore';
++import { useRouter, useSearchParams } from 'next/navigation';
++import { eventBus } from '@/lib/eventBus';
++import { useAuth } from '@/lib/AuthContext';
+ import {
+     Company, CaseStatus,
+     type AutoSettings,
+@@ -101,9 +105,13 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
+         return () => clearTimeout(timer);
+     }, [search]);
+ 
+-    const [statusFilter, setStatusFilter] = useState<string>('all');
+-    const [sortKey, setSortKey] = useState<string>('risk_score');
+-    const [sortAsc, setSortAsc] = useState(false);
++    const {
++        statusFilter, setStatusFilter,
++        sortKey, setSortKey,
++        sortAsc, setSortAsc,
++        activeCallId, setActiveCallId,
++        toast, setToast
++    } = useSalesUIStore();
+ 
+     useEffect(() => {
+         setPage(1);
+@@ -127,10 +135,44 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
+         return list;
+     }, [dbCompanies, statusFilter]);
+     const [columnFilters, setColumnFilters] = useState<Record<string, string[]>>({});
+-    const [selectedId, setSelectedId] = useState<string | null>(null);
+-    const [toast, setToast] = useState('');
++    const router = useRouter();
++    const searchParams = useSearchParams();
++    
++    // URL ?숆린?? ?id= 媛 ?덉쑝硫?珥덇린 ?좏깮媛믪쑝濡??ㅼ젙
++    const initId = searchParams.get('id');
++    const [selectedId, setSelectedId] = useState<string | null>(initId);
++    
++    const { user } = useAuth();
++    
++    // selectedId 蹂寃???URL 荑쇰━ ?뚮씪誘명꽣 ?낅뜲?댄듃 (Shallow routing)
++    useEffect(() => {
++        const currentId = searchParams.get('id');
++        if (selectedId !== currentId) {
++            const newParams = new URLSearchParams(searchParams.toString());
++            if (selectedId) newParams.set('id', selectedId);
++            else newParams.delete('id');
++            const newUrl = window.location.pathname + (newParams.toString() ? `?${newParams.toString()}` : '');
++            window.history.replaceState(null, '', newUrl);
++        }
++    }, [selectedId, searchParams]);
++
++    // B2B ?λ쭅??蹂댄샇 (Auth Guard)
++    useEffect(() => {
++        if (!selectedId || !user) return;
++        
++        // selectedId???대떦?섎뒗 ?뚯궗媛 ?꾩옱 ?섏씠吏?ㅼ씠???곗씠??紐⑸줉(dbCompanies)???덈뒗吏 ?뺤씤
++        // 留뚯빟 ?녿떎硫?DB??寃?됱쓣 ?듯빐??媛?몄삩 寃껋씠 ?꾨땲誘濡??묎렐 寃利앹씠 源뚮떎濡??留?
++        // ?꾩옱 紐⑸줉???덈뒗 ?뚯궗???쒖젙?댁꽌 寃利앺빀?덈떎.
++        const targetTarget = dbCompanies.find(c => c.id === selectedId);
++        if (targetTarget) {
++            if (user.role === 'sales' && targetTarget.assignedSalesId && targetTarget.assignedSalesId !== user.id && targetTarget.assignedSalesName !== user.name) {
++                // ?ㅻⅨ ?곸뾽 ?ъ썝???대떦 嫄댁뿉 ?묎렐 ?쒕룄 (沅뚰븳 ?놁쓬)
++                setToast('遺덈쾿???묎렐 李⑤떒: ?ㅻⅨ ?대떦?먯쓽 ?곸뾽 嫄댁엯?덈떎.');
++                setSelectedId(null);
++            }
++        }
++    }, [selectedId, dbCompanies, user, setToast]);
+     const [callResult, setCallResult] = useState<'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | ''>('');
+-    const [activeCallId, setActiveCallId] = useState<string | null>(null);
+     const [showNews, setShowNews] = useState(false);
+     const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
+     const [callQueue, setCallQueue] = useState<CallQueueItem[]>([]);
+@@ -175,10 +217,10 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
+             bc.onmessage = (e) => { if (e.data?.type === 'voice-memo-sync') { refresh(); setToast('?럺截?紐⑤컮???뚯꽦 硫붾え ?섏떊??); } };
+         } catch { /* BroadcastChannel 誘몄???*/ }
+         const onStorage = (e: StorageEvent) => { if (e.key === 'ibs_call_recordings') refresh(); };
+-        const onCustom = () => refresh();
++        const onCustom = () => { refresh(); setToast('?럺截?紐⑤컮???뚯꽦 硫붾え ?섏떊??); };
+         window.addEventListener('storage', onStorage);
+-        window.addEventListener('voice-memo-sync', onCustom);
+-        return () => { bc?.close(); window.removeEventListener('storage', onStorage); window.removeEventListener('voice-memo-sync', onCustom); };
++        const offCustom = eventBus.on('voice-memo-sync', onCustom);
++        return () => { bc?.close(); window.removeEventListener('storage', onStorage); offCustom(); };
+     }, [refresh]);
+ 
+     // ?대찓??諛쒖넚 ?곹깭??湲곗뾽??移댁뭅???먮룞 ?덉빟 + ?대찓???몃옒??diff --git a/src/hooks/useDataLayer.ts b/src/hooks/useDataLayer.ts
+index f936cc8..3e30822 100644
+--- a/src/hooks/useDataLayer.ts
++++ b/src/hooks/useDataLayer.ts
+@@ -27,6 +27,21 @@ const SWR_OPTS = {
+   revalidateOnFocus: false,       // ???꾪솚 ??遺덊븘?뷀븳 ?ъ슂泥?諛⑹?
+   revalidateOnReconnect: true,    // ?ㅽ듃?뚰겕 ?ъ뿰寃??쒕쭔 ?ш?利?   errorRetryCount: 2,             // ?먮윭 ???ъ떆??2???쒗븳
++  onError: (error: any) => {
++    // 401 ?먮윭 媛먯? ???쒗궥 釉뚮젅?댁빱 ?묐룞 (臾댄븳 由щ줈???ㅻ줈?留?
++    if (error?.status === 401 || error?.message?.includes('401') || error?.message?.includes('JWT')) {
++      if (typeof window !== 'undefined') {
++        const lastRedirect = window.sessionStorage.getItem('reauth_redirected');
++        const now = Date.now();
++        // 5珥??대궡???곗냽 由щ떎?대젆??諛⑹?
++        if (!lastRedirect || (now - parseInt(lastRedirect, 10)) > 5000) {
++          window.sessionStorage.setItem('reauth_redirected', now.toString());
++          // 媛뺤젣 濡쒓렇?꾩썐 UI ?뚮줈???곌껐 (?몄쬆 ?댁젣 ?덈궡)
++          window.location.href = '/login?session_expired=true';
++        }
++      }
++    }
++  }
+ };
+ 
+ const EMPTY_COMPANIES: Company[] = [];
+@@ -37,10 +52,28 @@ const EMPTY_PERSONAL_LITIGATIONS: PersonalLitigation[] = [];
+ const EMPTY_AUTO_LOGS: AutoLog[] = [];
+ const EMPTY_DOCUMENTS: Document[] = [];
+ const EMPTY_CONTRACTS: DbContract[] = [];
++const EMPTY_PERSONAL_CLIENTS: PersonalClient[] = [];
+ 
++// =========================================================================
++// SWR CACHE DICTIONARY (Task 4.3)
++// ?꾩뿭 罹먯떆 ?ㅻ? ?섎굹???ъ쟾?쇰줈 愿由ы븯???ㅽ?瑜?諛⑹??섍퀬 臾댄슚??愿由щ? ?⑹씠?섍쾶 ?⑸땲??
++// =========================================================================
++export const CACHE_KEYS = {
++  COMPANIES: 'companies',
++  PAGINATED_COMPANIES: 'paginated-companies',
++  LITIGATIONS: 'litigations',
++  CONSULTATIONS: 'consultations',
++  PERSONAL_CLIENTS: 'personal-clients',
++  PERSONAL_LITIGATIONS: 'personal-litigations',
++  AUTO_SETTINGS: 'auto-settings',
++  AUTO_LOGS: 'auto-logs',
++  NOTIFICATIONS: 'notifications',
++  CONTRACTS: 'contracts',
++  DOCUMENTS: 'documents',
++};
+ export function useCompanies() {
+   const { data, error, isLoading, mutate } = useSWR<Company[]>(
+-    'companies',
++    CACHE_KEYS.COMPANIES,
+     async () => await dataLayer.companies.getAll(),
+     { fallbackData: EMPTY_COMPANIES, ...SWR_OPTS }
+   );
+@@ -53,11 +86,19 @@ export function useCompanies() {
+   const { mutate: globalMutate } = useSWRConfig();
+ 
+   const updateCompany = async (id: string, patch: Partial<Company>, skipMutate: boolean = false) => {
++    // Optimistic Concurrency Control (OCC): ?꾩옱 SWR??罹먯떆??理쒖떊 踰꾩쟾??湲곗??쇰줈 ?쇱쓬
++    let currentData = data?.find(c => c.id === id);
++    if (!currentData) {
++      // ?먮굹 湲고? ?ㅽ넗?댁뿉???낅뜲?댄듃 ?섎뒗 寃쎌슦
++      // ?꾩떆濡??고쉶
++    }
++    const expectedUpdatedAt = currentData?.updatedAt || (patch as any).updatedAt;
++    
+     // ?숆????낅뜲?댄듃
+     if (!skipMutate) {
+-      globalMutate('companies', (cur: Company[] | undefined) => cur?.map(c => c.id === id ? { ...c, ...patch } : c), { revalidate: false });
++      globalMutate(CACHE_KEYS.COMPANIES, (cur: Company[] | undefined) => cur?.map(c => c.id === id ? { ...c, ...patch } : c), { revalidate: false });
+       globalMutate(
+-        (key: any) => Array.isArray(key) && key[0] === 'paginated-companies',
++        (key: any) => Array.isArray(key) && key[0] === CACHE_KEYS.PAGINATED_COMPANIES,
+         (cur: any) => {
+           if (!cur || !cur.data) return cur;
+           return {
+@@ -69,16 +110,47 @@ export function useCompanies() {
+       );
+     }
+     
+-    await dataLayer.companies.update(id, patch);
++    try {
++      // ?⑥튂 ?뚮씪誘명꽣???④꺼吏??대? ?꾨뱶濡??덉긽 ??꾩뒪?ы봽瑜?蹂대깄?덈떎.
++      if (expectedUpdatedAt) {
++        (patch as any)._expected_updated_at = expectedUpdatedAt;
++      }
++      await dataLayer.companies.update(id, patch);
++    } catch (err: any) {
++      // ?숆????낅뜲?댄듃 濡ㅻ갚
++      console.error(err);
++      if (!skipMutate) {
++        globalMutate(CACHE_KEYS.COMPANIES);
++        globalMutate((key: any) => Array.isArray(key) && key[0] === CACHE_KEYS.PAGINATED_COMPANIES);
++      }
++      if (err.message === 'VERSION_CONFLICT') {
++        alert('?ㅻⅨ ?ъ슜?먭? ?대? ?곗씠?곕? ?낅뜲?댄듃?덉뒿?덈떎. ?붾㈃???덈줈怨좎묠?섏뿬 理쒖떊 ?곗씠?곕? ?뺤씤?댁＜?몄슂.');
++      }
++      throw err;
++    }
+     
++    // 遺덊븘?뷀븳 ?꾩껜 ?ш?利?諛⑹?:
++    // ?숆????낅뜲?댄듃(?듯떚誘몄뒪??罹먯떆)媛 ?대? ?곸슜?섏뿀?쇰?濡?+    // ?깃났 ?쒖뿉??globalMutate瑜??듯빐 ?ㅼ떆 ?쒕쾭?먯꽌 由ъ뼹??꾩쑝濡?媛?몄삱 ?꾩슂媛 ?놁뒿?덈떎. (Egrees 珥덇낵 ?몃옒??諛⑹?)
++    // ?쒕쾭媛 ?뚮젮以 理쒖떊 updatedAt???덈떎硫?濡쒖뺄 罹먯떆留?議곗슜??媛깆떊?⑸땲??
++    /*
+     if (!skipMutate) {
+-      globalMutate('companies');
+-      globalMutate((key: any) => Array.isArray(key) && key[0] === 'paginated-companies');
++      globalMutate(CACHE_KEYS.COMPANIES);
++      globalMutate((key: any) => Array.isArray(key) && key[0] === CACHE_KEYS.PAGINATED_COMPANIES);
+     }
++    */
+   };
+ 
+   const deleteCompany = async (id: string) => {
++    // ??젣 ?붿껌 ?꾩뿉 濡쒖뺄 UI?먯꽌 利됱떆 ??젣 ?④? 泥섎━
++    globalMutate(CACHE_KEYS.COMPANIES, (cur: Company[] | undefined) => cur?.filter(c => c.id !== id), { revalidate: false });
++    globalMutate(
++      (key: any) => Array.isArray(key) && key[0] === CACHE_KEYS.PAGINATED_COMPANIES,
++      (cur: any) => cur ? { ...cur, data: cur.data.filter((c: any) => c.id !== id) } : cur,
++      { revalidate: false }
++    );
+     await dataLayer.companies.delete(id);
++    // 諛깃렇?쇱슫???щ룞湲고솕???섏?留? 泥닿컧 ?띾룄??利됯컖??     mutate();
+   };
+ 
+@@ -100,7 +172,7 @@ export function useCompanies() {
+ export function usePaginatedCompanies(options: PaginationOptions) {
+   const keyStr = JSON.stringify(options);
+   const { data, error, isLoading, mutate } = useSWR<{data: Company[], count: number}>(
+-    ['paginated-companies', keyStr],
++    [CACHE_KEYS.PAGINATED_COMPANIES, keyStr],
+     async () => await dataLayer.companies.getPaginated(options),
+     { fallbackData: { data: [], count: 0 }, ...SWR_OPTS }
+   );
+@@ -174,7 +246,7 @@ export function useCompanyMutations() {
+ 
+ export function useLitigations() {
+   const { data, error, isLoading, mutate } = useSWR<LitigationCase[]>(
+-    'litigations',
++    CACHE_KEYS.LITIGATIONS,
+     async () => await dataLayer.litigation.getAll(),
+     { fallbackData: EMPTY_LITIGATIONS, ...SWR_OPTS }
+   );
+@@ -194,7 +266,7 @@ export function useLitigations() {
+ 
+ export function useConsultations() {
+   const { data, error, isLoading, mutate } = useSWR<Consultation[]>(
+-    'consultations',
++    CACHE_KEYS.CONSULTATIONS,
+     async () => await dataLayer.consult.getAll(),
+     { fallbackData: EMPTY_CONSULTATIONS, ...SWR_OPTS }
+   );
+@@ -221,9 +293,19 @@ export function useConsultations() {
+   return { consultations: data || EMPTY_CONSULTATIONS, isLoading, error, mutate, addConsultation, updateConsultation };
+ }
+ 
++export function usePersonalClients() {
++  const { data, error, isLoading, mutate } = useSWR<PersonalClient[]>(
++    CACHE_KEYS.PERSONAL_CLIENTS,
++    async () => await dataLayer.personal.getClients(),
++    { fallbackData: EMPTY_PERSONAL_CLIENTS, ...SWR_OPTS }
++  );
++
++  return { clients: data || EMPTY_PERSONAL_CLIENTS, isLoading, error, mutate };
++}
++
+ export function useDocuments() {
+   const { data, error, isLoading, mutate } = useSWR<Document[]>(
+-    'documents',
++    CACHE_KEYS.DOCUMENTS,
+     async () => await dataLayer.documents.getAll(),
+     { fallbackData: EMPTY_DOCUMENTS, ...SWR_OPTS }
+   );
+@@ -233,7 +315,7 @@ export function useDocuments() {
+ 
+ export function useContracts() {
+   const { data, error, isLoading, mutate } = useSWR<DbContract[]>(
+-    'contracts',
++    CACHE_KEYS.CONTRACTS,
+     async () => await dataLayer.contracts.getAll(),
+     { fallbackData: EMPTY_CONTRACTS, ...SWR_OPTS }
+   );
+@@ -243,7 +325,7 @@ export function useContracts() {
+ 
+ export function useNotifications() {
+   const { data, error, isLoading, mutate } = useSWR<AppNotification[]>(
+-    'notifications',
++    CACHE_KEYS.NOTIFICATIONS,
+     async () => await dataLayer.notifications.getAll(),
+     { fallbackData: EMPTY_NOTIFICATIONS, ...SWR_OPTS }
+   );
+@@ -268,7 +350,7 @@ export function useNotifications() {
+ 
+ export function usePersonalLitigations() {
+   const { data, error, isLoading, mutate } = useSWR<PersonalLitigation[]>(
+-    'personal-litigations',
++    CACHE_KEYS.PERSONAL_LITIGATIONS,
+     async () => await dataLayer.personal.getAll(),
+     { fallbackData: EMPTY_PERSONAL_LITIGATIONS, ...SWR_OPTS }
+   );
+@@ -278,7 +360,7 @@ export function usePersonalLitigations() {
+ 
+ export function useAutoSettings() {
+   const { data, error, isLoading, mutate } = useSWR<AutoSettings>(
+-    'auto-settings',
++    CACHE_KEYS.AUTO_SETTINGS,
+     async () => await dataLayer.auto.getSettings(),
+     SWR_OPTS
+   );
+@@ -308,7 +390,7 @@ export function useUsers() {
+ 
+ export function useAutoLogs() {
+   const { data, error, isLoading, mutate } = useSWR<AutoLog[]>(
+-    'auto-logs',
++    CACHE_KEYS.AUTO_LOGS,
+     async () => await dataLayer.auto.getLogs(),
+     { fallbackData: EMPTY_AUTO_LOGS, ...SWR_OPTS }
+   );
+diff --git a/src/lib/auth.ts b/src/lib/auth.ts
+index 700f2f3..38a2ff5 100644
+--- a/src/lib/auth.ts
++++ b/src/lib/auth.ts
+@@ -4,6 +4,7 @@
+ import { NextRequest } from 'next/server';
+ import { RoleType } from './store';
+ import { getBrowserSupabase, IS_SUPABASE_CONFIGURED } from './supabase';
++import { safeStorage } from './safeStorage';
+ 
+ // ?? AuthUser ?명꽣?섏씠??(SSOT) ?????????????????????????????????
+ export interface AuthUser {
+@@ -383,12 +384,11 @@ export async function lookupBizAffiliation(bizNum: string): Promise<{ found: tru
+ 
+ // ?? ?뚯냽?좎껌 (HR ?뱀씤 ?湲? ??localStorage ?좎? ??????????????
+ function loadPending(): PendingMember[] {
+-    if (typeof window === 'undefined') return [];
+-    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
++    try { return JSON.parse(safeStorage.getItem(PENDING_KEY) || '[]'); } catch { return []; }
+ }
++
+ function savePending(list: PendingMember[]) {
+-    if (typeof window === 'undefined') return;
+-    localStorage.setItem(PENDING_KEY, JSON.stringify(list));
++    safeStorage.setItem(PENDING_KEY, JSON.stringify(list));
+ }
+ 
+ export function requestAffiliation(args: { name: string; email: string; phone?: string; companyId: string; companyName: string; message?: string }): PendingMember {
+diff --git a/src/lib/callRecordingService.ts b/src/lib/callRecordingService.ts
+index 2da4d1d..ac60a61 100644
+--- a/src/lib/callRecordingService.ts
++++ b/src/lib/callRecordingService.ts
+@@ -1,6 +1,8 @@
+ // src/lib/callRecordingService.ts ???듯솕 ?뱀쓬 + STT ?먮룞 蹂???쒕퉬?? // MediaRecorder API (釉뚮씪?곗? 留덉씠???뱀쓬) ??Mock STT ??CRM ?먮룞 ?낅젰
+ 
++import { safeStorage } from './safeStorage';
++import { eventBus } from './eventBus';
+ import { store, type Company } from './store';
+ 
+ /* ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧
+@@ -18,7 +20,7 @@ export interface CallRecording {
+     durationSeconds: number;
+     transcript: string;
+     transcriptSummary: string;
+-    callResult: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site';
++    callResult: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy';
+     sttStatus: 'pending' | 'processing' | 'completed' | 'failed';
+     sttProvider: 'mock' | 'google' | 'whisper';
+     contactName: string;
+@@ -225,16 +227,16 @@ const RECORDINGS_KEY = 'ibs_call_recordings';
+ 
+ export const CallRecordingStore = {
+     getAll(): CallRecording[] {
+-        if (typeof window === 'undefined') return [];
+         try {
+-            return JSON.parse(localStorage.getItem(RECORDINGS_KEY) || '[]');
++            const raw = safeStorage.getItem(RECORDINGS_KEY);
++            return raw ? JSON.parse(raw) : [];
+         } catch {
+             return [];
+         }
+     },
+ 
+     _save(recordings: CallRecording[]): void {
+-        localStorage.setItem(RECORDINGS_KEY, JSON.stringify(recordings));
++        safeStorage.setItem(RECORDINGS_KEY, JSON.stringify(recordings));
+         // ?ㅼ떆媛??숆린???대깽??諛쒗뻾 (?ㅻⅨ ??湲곌린)
+         this._dispatchSync();
+     },
+@@ -249,7 +251,7 @@ export const CallRecordingStore = {
+             bc.close();
+         } catch { /* BroadcastChannel 誘몄????섍꼍 臾댁떆 */ }
+         // 而ㅼ뒪? ?대깽??(媛숈? ??
+-        window.dispatchEvent(new CustomEvent('voice-memo-sync'));
++        eventBus.emit('voice-memo-sync');
+     },
+ 
+     /** ???뱀쓬 ???*/
+@@ -304,12 +306,15 @@ export const CallRecordingStore = {
+     /** ?듯솕 ?대젰??硫붾え?대젰 湲곕컲?쇰줈?????*/
+     _syncToMemo(entry: CallRecording): void {
+         let contentStr = '';
+-        const mapRes = {
++        const mapRes: Record<string, string> = {
+             'connected': '?곌껐??,
+             'no_answer': '遺?ъ쨷',
+             'callback': '肄쒕갚?붿껌',
+             'rejected': '嫄곗젅',
+-            'invalid_site': '?ъ씠?몄씠??
++            'invalid_site': '?ъ씠?몄씠??,
++            'no_homepage': '?덊럹?댁??놁쓬',
++            'promo_only': '?띾낫?꾩슜',
++            'no_policy': '?숈쓽?쒖뾾??
+         };
+         const koRes = mapRes[entry.callResult] || entry.callResult;
+ 
+diff --git a/src/lib/dataLayer.ts b/src/lib/dataLayer.ts
+index 23bbb41..57f1762 100644
+--- a/src/lib/dataLayer.ts
++++ b/src/lib/dataLayer.ts
+@@ -23,6 +23,7 @@ import {
+   type PaginationOptions,
+   type CompanyStats
+ } from './supabaseStore';
++import { CompanySchema, PaginatedCompaniesSchema } from './schemas';
+ 
+ // ?? ?????????????????????????????????????????????????????????
+ 
+@@ -88,10 +89,19 @@ export interface DocumentDataSource {
+ // ?? Supabase ?섑띁 ????????????????????????????????????????????
+ 
+ const sbCompanies: CompanyDataSource = {
+-  getPaginated: supabaseCompanyStore.getPaginated,
++  getPaginated: async (options) => {
++    const raw = await supabaseCompanyStore.getPaginated(options);
++    return PaginatedCompaniesSchema.parse(raw); // Safe parsing through catch/fallback
++  },
+   getStats: supabaseCompanyStore.getStats,
+-  getAll: supabaseCompanyStore.getAll,
+-  getById: async (id) => (await supabaseCompanyStore.getById(id)) ?? undefined,
++  getAll: async () => {
++    const raw = await supabaseCompanyStore.getAll();
++    return raw.map(comp => CompanySchema.parse(comp));
++  },
++  getById: async (id) => {
++    const raw = await supabaseCompanyStore.getById(id);
++    return raw ? CompanySchema.parse(raw) : undefined;
++  },
+   update: supabaseCompanyStore.update,
+   updateBulk: supabaseCompanyStore.updateBulk,
+   create: supabaseCompanyStore.create,
+diff --git a/src/lib/leadScoring.ts b/src/lib/leadScoring.ts
+index 0b3598a..bcde0b4 100644
+--- a/src/lib/leadScoring.ts
++++ b/src/lib/leadScoring.ts
+@@ -1,5 +1,6 @@
+ // lib/leadScoring.ts ??由щ뱶 ?ㅼ퐫???먮룞???붿쭊
+ // ?대찓???대엺, CTA ?대┃, ?듭옣, 誘명똿 ???대깽?몃퀎 ?먯닔 泥닿퀎
++import { safeStorage } from './safeStorage';
+ 
+ export interface TrackingEvent {
+     type: 'email_open' | 'cta_click' | 'email_reply' | 'meeting' | 'call_answer';
+@@ -33,7 +34,7 @@ function loadEvents(): TrackingEvent[] {
+         return (globalThis as any).__ibs_tracking || [];
+     }
+     try {
+-        const raw = localStorage.getItem(TRACKING_KEY);
++        const raw = safeStorage.getItem(TRACKING_KEY);
+         return raw ? JSON.parse(raw) : [];
+     } catch { return []; }
+ }
+@@ -43,7 +44,7 @@ function saveEvents(events: TrackingEvent[]): void {
+         (globalThis as any).__ibs_tracking = events;
+         return;
+     }
+-    try { localStorage.setItem(TRACKING_KEY, JSON.stringify(events)); } catch {}
++    try { safeStorage.setItem(TRACKING_KEY, JSON.stringify(events)); } catch {}
+ }
+ 
+ // ?쒕쾭?ъ씠???꾩슜: global 硫붾え由ъ뿉??濡쒕뱶/???@@ -71,7 +72,7 @@ function loadScores(): Record<string, LeadScoreData> {
+         return (globalThis as any).__ibs_scores || {};
+     }
+     try {
+-        const raw = localStorage.getItem(SCORE_KEY);
++        const raw = safeStorage.getItem(SCORE_KEY);
+         return raw ? JSON.parse(raw) : {};
+     } catch { return {}; }
+ }
+@@ -81,7 +82,7 @@ function saveScores(scores: Record<string, LeadScoreData>): void {
+         (globalThis as any).__ibs_scores = scores;
+         return;
+     }
+-    try { localStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch {}
++    try { safeStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch {}
+ }
+ 
+ // ?? Push 援щ룆 ??μ냼 ?????????????????????????????????????
+@@ -98,7 +99,7 @@ function loadPushSubs(): PushSubscriptionData[] {
+         return (globalThis as any).__ibs_push_subs || [];
+     }
+     try {
+-        const raw = localStorage.getItem(PUSH_SUBS_KEY);
++        const raw = safeStorage.getItem(PUSH_SUBS_KEY);
+         return raw ? JSON.parse(raw) : [];
+     } catch { return []; }
+ }
+@@ -108,7 +109,7 @@ function savePushSubs(subs: PushSubscriptionData[]): void {
+         (globalThis as any).__ibs_push_subs = subs;
+         return;
+     }
+-    try { localStorage.setItem(PUSH_SUBS_KEY, JSON.stringify(subs)); } catch {}
++    try { safeStorage.setItem(PUSH_SUBS_KEY, JSON.stringify(subs)); } catch {}
+ }
+ 
+ // ?? 硫붿씤 ?쒕퉬????????????????????????????????????????????
+diff --git a/src/lib/moduleRegistry.ts b/src/lib/moduleRegistry.ts
+index 46d1836..125b609 100644
+--- a/src/lib/moduleRegistry.ts
++++ b/src/lib/moduleRegistry.ts
+@@ -32,14 +32,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
+     { id: 'personal-litigation', href: '/personal-litigation', label: '媛쒖씤 ?뚯넚', icon: 'UserCheck', roles: ['super_admin', 'admin', 'lawyer', 'litigation', 'finance'], status: 'active', hideable: true, phase: 1 },
+ ];
+ 
++import { safeStorage } from './safeStorage';
++
+ // ?꾩옱 ?ъ슜????븷 ??Phase 2?먯꽌 ?ㅼ젣 ?몄쬆?쇰줈 援먯껜
+ const ROLE_KEY = 'ibs_role';
+ export function getCurrentRole(): RoleType {
+     if (typeof window === 'undefined') return 'sales';
+-    return (localStorage.getItem(ROLE_KEY) as RoleType) ?? 'sales';
++    return (safeStorage.getItem(ROLE_KEY) as RoleType) ?? 'sales';
+ }
+ export function setCurrentRole(role: RoleType) {
+-    localStorage.setItem(ROLE_KEY, role);
++    safeStorage.setItem(ROLE_KEY, role);
+ }
+ export function getAccessibleModules(role: RoleType): ModuleDefinition[] {
+     return MODULE_REGISTRY.filter(m => m.roles.includes(role));
+diff --git a/src/lib/permissions.ts b/src/lib/permissions.ts
+index 1214784..2115c6e 100644
+--- a/src/lib/permissions.ts
++++ b/src/lib/permissions.ts
+@@ -117,15 +117,17 @@ const DEFAULT_USERS: UserPermission[] = [
+   { userId: 'staff2', userName: '?뺣떎? (寃쎈━)', role: 'staff', permissions: { ...STAFF_DEFAULTS } },
+ ];
+ 
++import { safeStorage } from './safeStorage';
++
+ // ?? localStorage 湲곕컲 ???濡쒕뱶 ??????????????????????????????????
+ const PERM_KEY = 'ibs_permissions_v1';
+ 
+ function loadPermissions(): UserPermission[] {
+   if (typeof window === 'undefined') return DEFAULT_USERS;
+   try {
+-    const raw = localStorage.getItem(PERM_KEY);
++    const raw = safeStorage.getItem(PERM_KEY);
+     if (!raw) {
+-      localStorage.setItem(PERM_KEY, JSON.stringify(DEFAULT_USERS));
++      safeStorage.setItem(PERM_KEY, JSON.stringify(DEFAULT_USERS));
+       return DEFAULT_USERS;
+     }
+     return JSON.parse(raw);
+@@ -134,7 +136,7 @@ function loadPermissions(): UserPermission[] {
+ 
+ function savePermissions(users: UserPermission[]) {
+   if (typeof window !== 'undefined') {
+-    localStorage.setItem(PERM_KEY, JSON.stringify(users));
++    safeStorage.setItem(PERM_KEY, JSON.stringify(users));
+   }
+ }
+ 
+@@ -188,5 +190,5 @@ export function getPermissionLevel(userId: string, key: PermissionKey): Permissi
+ // ?꾩옱 濡쒓렇???ъ슜??ID 媛?몄삤湲?(媛꾨떒 援ы쁽)
+ export function getCurrentUserId(): string {
+   if (typeof window === 'undefined') return 'lawyer1';
+-  return localStorage.getItem('ibs_current_user_id') || 'lawyer1';
++  return safeStorage.getItem('ibs_current_user_id') || 'lawyer1';
+ }
+diff --git a/src/lib/supabase.ts b/src/lib/supabase.ts
+index ccabb89..8e7b30a 100644
+--- a/src/lib/supabase.ts
++++ b/src/lib/supabase.ts
+@@ -4,7 +4,7 @@
+ // ================================================================
+ 
+ import { createClient, SupabaseClient } from '@supabase/supabase-js';
+-import { createBrowserClient } from '@supabase/ssr';
++import { createBrowserClient, createServerClient } from '@supabase/ssr';
+ 
+ // ?? ?섍꼍蹂??湲곕컲 紐⑤뱶 寃곗젙 ???????????????????????????????????
+ export const IS_SUPABASE_CONFIGURED = !!(
+@@ -57,6 +57,34 @@ export const supabase = new Proxy({} as SupabaseClient, {
+   }
+ });
+ 
++// ?? ?쒕쾭?ъ씠???꾩슜 Authenticated ?대씪?댁뼵??(?쇱슦???≪뀡 ?꾩슜) ?????????
++export async function getServerSupabase(): Promise<SupabaseClient | null> {
++  if (!IS_SUPABASE_CONFIGURED) return null;
++  const { cookies } = await import('next/headers');
++  const cookieStore = await cookies();
++
++  return createServerClient(
++    process.env.NEXT_PUBLIC_SUPABASE_URL!,
++    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
++    {
++      cookies: {
++        getAll() {
++          return cookieStore.getAll()
++        },
++        setAll(cookiesToSet) {
++          try {
++            cookiesToSet.forEach(({ name, value, options }) => {
++              cookieStore.set(name, value, options)
++            })
++          } catch {
++            // Server Component ?먯꽌??cookie ?ㅼ젙??臾댁떆?????덉쓬. Route Handler, Action ?먯꽌???묐룞.
++          }
++        },
++      },
++    }
++  );
++}
++
+ // ?? ?쒕쾭?ъ씠???꾩슜 Service Role ?대씪?댁뼵?????????????????????
+ export function getServiceSupabase(): SupabaseClient | null {
+   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+diff --git a/src/lib/supabaseStore.ts b/src/lib/supabaseStore.ts
+index 9e47e0d..2163ffc 100644
+--- a/src/lib/supabaseStore.ts
++++ b/src/lib/supabaseStore.ts
+@@ -16,9 +16,11 @@ import type { AppNotification, Document, DbContract } from './types';
+ import { LAWYERS } from './mockStore';
+ 
+ function getEffectiveSupabase() {
+-  let sb = getSupabase();
+-  if (!sb && typeof window === 'undefined') {
+-    sb = getServiceSupabase();
++  const sb = getSupabase();
++  if (!sb) {
++    if (typeof window === 'undefined') {
++      console.warn('??[SECURITY WARNING] SSR Environment detected in a Client Store. getEffectiveSupabase() will NOT fallback to Service Role to prevent RLS bypass. Use createServerClient from @supabase/ssr in API routes.');
++    }
+   }
+   return sb;
+ }
+@@ -70,7 +72,7 @@ async function fetchCompaniesWithRelations(): Promise<Company[]> {
+   const sb = getEffectiveSupabase();
+   if (!sb) return [];
+ 
+-  const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false });
++  const { data: rows } = await sb.from('companies').select('*').order('created_at', { ascending: false }).limit(100);
+   if (!rows) return [];
+ 
+   // ?? 諛곗튂 荑쇰━: 由ъ뒪?몃럭 濡쒕뵫 ?띾룄 理쒖쟻?붾? ?꾪빐 硫붾え? ??꾨씪???꾩뿭 議고쉶 ?쒖쇅 ??
+@@ -324,50 +326,13 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
+   const sb = getEffectiveSupabase();
+   if (!sb) return defaultStats;
+   
+-  const { count, error } = await sb.from('companies').select('*', { count: 'exact', head: true });
+-  if (error || !count) return defaultStats;
+-
+-  const PAGE_SIZE = 1000;
+-  const totalPages = Math.ceil(count / PAGE_SIZE);
+-  const promises = [];
+-  
+-  for (let i = 0; i < totalPages; i++) {
+-    const from = i * PAGE_SIZE;
+-    const to = from + PAGE_SIZE - 1;
+-    promises.push(
+-      sb.from('companies').select('plan, risk_score, store_count, status').range(from, to)
+-    );
+-  }
+-  
+-  const results = await Promise.all(promises);
+-  let allRows: any[] = [];
+-  for (const res of results) {
+-    if (res.data) allRows = allRows.concat(res.data);
++  const { data, error } = await sb.rpc('get_company_stats');
++  if (error || !data) {
++    console.error('Failed to fetch company stats via RPC', error);
++    return defaultStats;
+   }
+   
+-  let total = 0, subscribers = 0, premium = 0, standard = 0, starter = 0, atRisk = 0, totalStores = 0;
+-  const statusCounts: Record<string, number> = {};
+-  
+-  for (const r of allRows) {
+-    let st = r.status || 'pending';
+-    if (st === '?깅줉??) st = 'pending';
+-    if (st === '遺꾩꽍以?) st = 'crawling';
+-    if (st === '遺꾩꽍?꾨즺') st = 'analyzed';
+-    statusCounts[st] = (statusCounts[st] || 0) + 1;
+-
+-    // 嫄곗젅, ?ъ씠?몄씠?곸씤 寃쎌슦 硫붿씤 ?듦퀎(total ???먯꽌 ?쒖쇅
+-    if (st === 'rejected' || st === 'invalid_site') continue;
+-
+-    total++;
+-    totalStores += (r.store_count || 0);
+-    if (r.plan && r.plan !== 'none') subscribers++;
+-    if (r.plan === 'premium') premium++;
+-    if (r.plan === 'standard') standard++;
+-    if (r.plan === 'starter') starter++;
+-    const score = 100 - (r.risk_score || 0);
+-    if (score < 50) atRisk++;
+-  }
+-  return { total, subscribers, premium, standard, starter, atRisk, totalStores, unreviewedIssues: 0, reviewedIssues: 0, statusCounts };
++  return data as CompanyStats;
+ }
+ 
+ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = false): Record<string, any> {
+@@ -434,6 +399,95 @@ export const supabaseCompanyStore = {
+     return fetchCompaniesWithRelations();
+   },
+ 
++  getQueue: async (): Promise<Company[]> => {
++    const sb = getEffectiveSupabase();
++    if (!sb) return [];
++    
++    // ?ㅻ줈吏 ?몄씪利???Sales Queue)?먯꽌 肄??????덈뒗 而댄띁???꾩＜濡?50媛쒕쭔 ?몄텧?섏뿬 Egress 理쒖냼??+    const { data: rows } = await sb.from('companies')
++      .select('id, name, domain, url, email, phone, contact_name, contact_phone, ceo_name, biz_category, franchise_type, status, risk_score, call_note, last_call_result, last_call_at')
++      .in('status', ['analyzed', 'assigned'])
++      .order('risk_score', { ascending: false })
++      .limit(50);
++      
++    if (!rows) return [];
++    
++    // 理쒖냼?쒖쓽 議곗씤留??ㅽ뻾
++    const ids = rows.map(r => r.id);
++    const { data: issuesRes } = await sb.from('issues').select('company_id, level, title').in('company_id', ids);
++    const issueMap = groupBy(issuesRes, 'company_id');
++    
++    return rows.map(r => {
++      const anyC = rowToObj<Record<string, any>>(r);
++      const c = anyC as unknown as Company;
++      c.issues = (issueMap[c.id] || []).map((iss: any) => rowToObj(iss));
++      return c;
++    });
++  },
++
++  logCall: async (payload: { companyId: string, userId: string, userName: string, callResult: string }) => {
++    const sb = getEffectiveSupabase();
++    if (!sb) return;
++    await sb.from('sales_call_logs').insert({
++      company_id: payload.companyId,
++      user_id: payload.userId,
++      user_name: payload.userName,
++      call_result: payload.callResult
++    });
++  },
++
++  getTodaySalesStats: async (userName: string): Promise<Record<string, number>> => {
++    const sb = getEffectiveSupabase();
++    if (!sb) return {};
++    
++    // Get KST today string
++    const today = new Date();
++    today.setHours(today.getHours() + 9);
++    const todayStr = today.toISOString().split('T')[0];
++    
++    const { data: logs } = await sb.from('sales_call_logs')
++      .select('call_result')
++      .eq('user_name', userName)
++      .gte('created_at', `${todayStr}T00:00:00Z`);
++      
++    if (!logs) return {};
++    return logs.reduce((acc, curr) => {
++      acc[curr.call_result] = (acc[curr.call_result] || 0) + 1;
++      return acc;
++    }, {} as Record<string, number>);
++  },
++  
++  getTodayActivity: async (userName: string): Promise<{ companyId: string, companyName: string, callResult: string, createdAt: string }[]> => {
++    const sb = getEffectiveSupabase();
++    if (!sb) return [];
++    
++    // Get KST today string
++    const today = new Date();
++    today.setHours(today.getHours() + 9);
++    const todayStr = today.toISOString().split('T')[0];
++    
++    const { data: logs } = await sb.from('sales_call_logs')
++      .select('company_id, call_result, created_at, companies (name)')
++      .eq('user_name', userName)
++      .gte('created_at', `${todayStr}T00:00:00Z`)
++      .order('created_at', { ascending: false });
++      
++    if (!logs) return [];
++    return logs.map((l: any) => ({ 
++      companyId: l.company_id, 
++      companyName: l.companies ? l.companies.name : '?뚯닔?놁쓬',
++      callResult: l.call_result,
++      createdAt: l.created_at
++    }));
++  },
++
++  getTotalCompanyCount: async (): Promise<number> => {
++    const sb = getEffectiveSupabase();
++    if (!sb) return 0;
++    const { count } = await sb.from('companies').select('*', { count: 'exact', head: true });
++    return count || 0;
++  },
++
+   getById: async (id: string): Promise<Company | null> => {
+     return fetchCompanyById(id);
+   },
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index ce656f2..3951032 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -191,7 +191,7 @@ export interface Company {
+     aiMemoSummary?: string;
+     aiNextAction?: string;
+     aiNextActionType?: string;
+-    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site';
++    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy';
+     lastCallAt?: string;
+     lastCalledBy?: string;
+     callAttempts?: number;

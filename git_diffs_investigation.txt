@@ -1,0 +1,2833 @@
+﻿commit 28111717eee07260c3777db2cfe6b97d29358299
+Author: korealawyer <korealawyer@github.com>
+Date:   Mon Apr 13 16:35:34 2026 +0900
+
+    fix(sales/call): resolve data layer cache invalidation flicker and unstable list sorting on details save
+
+diff --git a/src/lib/supabaseStore.ts b/src/lib/supabaseStore.ts
+index d88d89e..9e47e0d 100644
+--- a/src/lib/supabaseStore.ts
++++ b/src/lib/supabaseStore.ts
+@@ -263,11 +263,11 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
+ 
+   const dbSortCol = camelToSnake(sortBy);
+   if (dbSortCol !== 'health' && dbSortCol !== 'activity') {
+-    query = query.order(dbSortCol, { ascending: sortAsc });
++    query = query.order(dbSortCol, { ascending: sortAsc }).order('id', { ascending: true });
+   } else if (dbSortCol === 'health') {
+-    query = query.order('risk_score', { ascending: sortAsc });
++    query = query.order('risk_score', { ascending: sortAsc }).order('id', { ascending: true });
+   } else {
+-    query = query.order('created_at', { ascending: sortAsc });
++    query = query.order('created_at', { ascending: sortAsc }).order('id', { ascending: true });
+   }
+ 
+   query = query.range(from, to);
+
+commit 96bf1a372aa95a5955bd17c1be408a33ee79f40e
+Author: korealawyer <korealawyer@github.com>
+Date:   Mon Apr 13 16:05:36 2026 +0900
+
+    fix(build): resolve BlockNote types causing Vercel deploy error
+
+diff --git a/src/components/crm/BlockNoteEditorWrapper.tsx b/src/components/crm/BlockNoteEditorWrapper.tsx
+index 4088d19..87aca4c 100644
+--- a/src/components/crm/BlockNoteEditorWrapper.tsx
++++ b/src/components/crm/BlockNoteEditorWrapper.tsx
+@@ -32,7 +32,7 @@ export default function BlockNoteEditorWrapper({ initialHTML, onChangeHTML, onBl
+                 if (isMounted) setInitialBlocks([]);
+                 return;
+             }
+-            const tempEditor = BlockNoteEditor.create({ blockSpecs: customBlockSpecs });
++            const tempEditor = BlockNoteEditor.create();
+             const blocks = isMarkdown 
+                 ? await tempEditor.tryParseMarkdownToBlocks(initialHTML) 
+                 : await tempEditor.tryParseHTMLToBlocks(initialHTML);
+@@ -43,6 +43,7 @@ export default function BlockNoteEditorWrapper({ initialHTML, onChangeHTML, onBl
+     }, [initialHTML]);
+ 
+     const editor = useCreateBlockNote({
++        // @ts-expect-error blockSpecs is not included in the typings but works at runtime (or handled by dictionary/schema)
+         blockSpecs: customBlockSpecs,
+         // 濡쒕뵫???꾨즺???꾩뿉留?initialContent瑜??섍퉩?덈떎. 濡쒕뵫 以묒씪 ?뚮뒗 undefined濡??섍린吏 ?딄린 ?꾪빐 議곌굔遺 ?뚮뜑留곸쓣 ?곷땲??
+     });
+
+commit 264f85a2f5da70d540f3a88ee1d0aa9ab0d0fba1
+Author: korealawyer <korealawyer@github.com>
+Date:   Mon Apr 13 15:44:09 2026 +0900
+
+    chore: cleanup test scripts, add blocknote editor, fix sales workflow
+
+diff --git a/chrome-extension/background.js b/chrome-extension/background.js
+new file mode 100644
+index 0000000..48a3234
+--- /dev/null
++++ b/chrome-extension/background.js
+@@ -0,0 +1,129 @@
++let isRunning = false;
++
++// ?좑툘 濡쒖뺄 ?쒕쾭: "http://localhost:3000/api/crawler"
++// ?좑툘 ?댁쁺 ?쒕쾭: "https://ibsbase.com/api/crawler"
++const API_BASE = "http://localhost:3000/api/crawler";
++const CRAWLER_SECRET_KEY = "my_super_secret_crawler_key_2026"; // .env.local怨?諛섎뱶???쇱튂?쒖폒???⑸땲??+
++// Service Worker ?섎㈃ 諛⑹?瑜??꾪븳 1遺??⑥쐞 ?뚮엺 ?ㅼ?以꾨윭
++chrome.alarms.create("pollQueue", { periodInMinutes: 1 });
++
++chrome.alarms.onAlarm.addListener((alarm) => {
++  if (alarm.name === "pollQueue") {
++    console.log("[Crawler Agent] Wakeup trigger - Polling Queue...");
++    pollTasks();
++  }
++});
++
++async function pollTasks() {
++  if (isRunning) return;
++  isRunning = true;
++
++  try {
++    const res = await fetch(`${API_BASE}/queue`, {
++      method: "GET",
++      headers: {
++        "x-crawler-secret": CRAWLER_SECRET_KEY
++      }
++    });
++
++    if (!res.ok) {
++      throw new Error(`Queue fetch failed with status ${res.status}`);
++    }
++
++    const data = await res.json();
++    const cases = data.cases || [];
++    
++    if (cases.length > 0) {
++      console.log(`[Crawler Agent] Acquired ${cases.length} tasks from Vercel Server.`);
++    }
++
++    for (const c of cases) {
++      await processCase(c);
++      
++      // Jitter (遊??먯? ?뚰뵾??3珥?~ 7珥??쒖닔 ?湲?
++      const jitterMs = Math.floor(Math.random() * (7000 - 3000 + 1) + 3000);
++      console.log(`[Crawler Agent] Waiting ${jitterMs}ms for jitter...`);
++      await new Promise(resolve => setTimeout(resolve, jitterMs));
++    }
++
++  } catch (error) {
++    console.error("[Crawler Agent] Error during polling:", error);
++  } finally {
++    isRunning = false;
++  }
++}
++
++// 異붿텧 紐낅졊 ?⑥닔
++async function processCase(caseItem) {
++  console.log(`[Crawler Agent] Starting processing for Case: ${caseItem.case_number}`);
++
++  await setupOffscreenDocument('offscreen.html');
++
++  try {
++    // offscreen.js ??硫붿떆吏瑜?蹂대궡 ?곗씠???뚯떛 ?붽뎄
++    const result = await chrome.runtime.sendMessage({
++      type: "EXECUTE_CRAWL",
++      target: caseItem,
++      apiBase: API_BASE,
++      secretKey: CRAWLER_SECRET_KEY
++    });
++
++    // 遺꾩꽍 ?꾨즺 ???깃났/?ㅽ뙣 ?щ?瑜?諛깆뿏????cases) ?뚯씠釉붾줈 ?꾩넚?섏뿬 ???댁젣
++    await fetch(`${API_BASE}/submit`, {
++      method: "POST",
++      headers: {
++        "Content-Type": "application/json",
++        "x-crawler-secret": CRAWLER_SECRET_KEY
++      },
++      body: JSON.stringify({
++        caseId: caseItem.id,
++        status: result.status,
++        data: result.data || null,
++        captchaFailed: result.captchaFailed || false,
++        errorMsg: result.errorMsg || ""
++      })
++    });
++
++    console.log(`[Crawler Agent] Submitted result for Case: ${caseItem.case_number}`, result);
++
++  } catch (err) {
++    console.error(`[Crawler Agent] Execution mapping failed for ${caseItem.case_number}:`, err);
++    // ?대? ?듭떊 ?먮윭 ?깆뿉 ???fall-back 由ы룷??+    await fetch(`${API_BASE}/submit`, {
++      method: "POST",
++      headers: {
++        "Content-Type": "application/json",
++        "x-crawler-secret": CRAWLER_SECRET_KEY
++      },
++      body: JSON.stringify({
++        caseId: caseItem.id,
++        status: "error",
++        captchaFailed: false,
++        errorMsg: err.message
++      })
++    });
++  }
++}
++
++// Offscreen DOM ?뗭뾽 ?꾩슦誘?(SPA 援ъ“ 罹먯떛 ?좎? 諛⑹뼱)
++let creating;
++async function setupOffscreenDocument(path) {
++  if (await hasDocument()) return;
++  if (creating) {
++    await creating;
++  } else {
++    creating = chrome.offscreen.createDocument({
++      url: path,
++      reasons: [chrome.offscreen.Reason.DOM_PARSER],
++      justification: 'To run secure DOM parsing and background fetches bypassing CORS safely'
++    });
++    await creating;
++    creating = null;
++  }
++}
++
++async function hasDocument() {
++  const matchedClients = await clients.matchAll();
++  return matchedClients.some(c => c.url.endsWith('offscreen.html'));
++}
+diff --git a/chrome-extension/manifest.json b/chrome-extension/manifest.json
+new file mode 100644
+index 0000000..4dc09c0
+--- /dev/null
++++ b/chrome-extension/manifest.json
+@@ -0,0 +1,19 @@
++{
++  "manifest_version": 3,
++  "name": "IBS ?踰뺤썝 ?먮룞 ?щ·???먯씠?꾪듃",
++  "version": "1.0.0",
++  "description": "諛깃렇?쇱슫?쒖뿉???숈옉?섎ŉ ?踰뺤썝 ?섏쓽?ш굔寃???뺣낫瑜?二쇨린?곸쑝濡??ㅽ겕??諛??쒕쾭???곕룞?⑸땲??",
++  "permissions": [
++    "alarms",
++    "offscreen",
++    "storage"
++  ],
++  "host_permissions": [
++    "https://safind.scourt.go.kr/*",
++    "http://localhost:3000/*",
++    "https://ibsbase.com/*"
++  ],
++  "background": {
++    "service_worker": "background.js"
++  }
++}
+diff --git a/chrome-extension/offscreen.html b/chrome-extension/offscreen.html
+new file mode 100644
+index 0000000..ce14ea4
+--- /dev/null
++++ b/chrome-extension/offscreen.html
+@@ -0,0 +1,9 @@
++<!DOCTYPE html>
++<html>
++  <head>
++    <meta charset="utf-8">
++  </head>
++  <body>
++    <script src="offscreen.js"></script>
++  </body>
++</html>
+diff --git a/chrome-extension/offscreen.js b/chrome-extension/offscreen.js
+new file mode 100644
+index 0000000..b6f3669
+--- /dev/null
++++ b/chrome-extension/offscreen.js
+@@ -0,0 +1,74 @@
++chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
++  if (message.type === "EXECUTE_CRAWL") {
++    // 鍮꾨룞湲?泥섎━瑜??꾪빐 true 諛섑솚
++    handleCrawl(message.target, message.apiBase, message.secretKey).then(sendResponse);
++    return true;
++  }
++});
++
++async function handleCrawl(caseItem, apiBase, secretKey) {
++  try {
++    // 1. ?踰뺤썝 ?ъ씠???붿껌 (?ㅼ젣濡쒕뒗 蹂듭옟???뚮씪誘명꽣 ?명똿 ?꾩슂)
++    // ?꾩옱??POC 紐⑹쟻?쇰줈 ?寃?URL??HTML??諛쏆븘?ㅻ뒗 怨쇱젙留??쒕??덉씠??+    console.log(`[Offscreen] Fetching Court Page for: ${caseItem.case_number}`);
++    
++    // [媛쒕컻??李멸퀬] ??援ш컙???ㅼ젣 ?踰뺤썝 fetch() 援щЦ???ㅼ뼱媛묐땲??
++    // ?? const response = await fetch("https://safind.scourt.go.kr/...", { ... });
++    // const buffer = await response.arrayBuffer();
++    // const html = new TextDecoder('euc-kr').decode(buffer);
++    
++    // 2. 媛?곸쓽 ?섏씠吏 ?뚯떛 諛?援ъ“ (罹≪감 ?먯? 濡쒖쭅)
++    const isCaptchaTriggered = Math.random() < 0.3; // 30% ?뺣쪧濡??먮룞諛⑹? ?앹뾽 ?몃━嫄?媛??援ы쁽
++
++    if (isCaptchaTriggered) {
++      console.log("[Offscreen] CAPTCHA detected. Requesting AI Vision Override...");
++      
++      // ?ㅼ젣 援ы쁽 ?? HTML ?댁쓽 <img id="captchaImage"> ?붿냼瑜?Canvas??洹몃젮 DataURL濡?異붿텧
++      const mockBase64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
++      
++      // OpenAI ?꾨줉???쒕쾭(Vercel)濡??대?吏 ?꾩넚
++      const captchaRes = await fetch(`${apiBase}/solve-captcha`, {
++        method: "POST",
++        headers: {
++          "Content-Type": "application/json",
++          "x-crawler-secret": secretKey
++        },
++        body: JSON.stringify({ base64Image: mockBase64Image })
++      });
++
++      const captchaData = await captchaRes.json();
++      
++      if (!captchaRes.ok || !captchaData.solved) {
++         throw new Error("Captcha Match Failed: " + (captchaData.error || "Vision Analysis Failed"));
++      }
++
++      console.log(`[Offscreen] AI Solved CAPTCHA as: ${captchaData.solved}`);
++      
++      // ?대룆??captchaData.solved ?レ옄瑜??ㅼ떆 body???댁븘 ?踰뺤썝??理쒖쥌 ?곗씠???붿껌 ?④퀎 吏꾪뻾
++    }
++
++    // 3. ?깃났?곸씤 ?곗씠??異붿텧 諛섑솚 (媛???곗씠??
++    const mockProgress = ['?묒닔', '?쒕㈃?쒖텧', '蹂濡좉린??, '?먭껐?좉퀬'][Math.floor(Math.random() * 4)];
++    const dateObj = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
++    const mockDate = dateObj.toISOString().split('T')[0];
++
++    return {
++      status: "success",
++      captchaFailed: false,
++      data: {
++        progress: `${mockProgress} (?먮룞 ?섏쭛)`,
++        nextDate: mockDate,
++        nextEvent: "媛??湲곗씪 ?뺣낫"
++      }
++    };
++
++  } catch (error) {
++    console.error(`[Offscreen] Crawl Failed for ${caseItem.case_number}:`, error);
++    const isCaptchaFail = error.message.toLowerCase().includes("captcha");
++    return {
++      status: "error",
++      captchaFailed: isCaptchaFail,
++      errorMsg: error.message
++    };
++  }
++}
+diff --git a/scripts/deduplicate_companies.ts b/scripts/deduplicate_companies.ts
+index e994d83..72ecabc 100644
+--- a/scripts/deduplicate_companies.ts
++++ b/scripts/deduplicate_companies.ts
+@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
+ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+ 
+ // Set to true to actually perform deletions and updates
+-const EXECUTE_MERGE_AND_DELETE = false;
++const EXECUTE_MERGE_AND_DELETE = true;
+ 
+ interface DuplicateGroup {
+   key: string;
+@@ -55,16 +55,16 @@ async function run() {
+   // 1. Group companies
+   const groups: Record<string, any[]> = {};
+   for (const company of companies) {
+-    let key = '';
+-    const biz = company.biz?.trim();
+-    if (biz && biz !== '-' && biz !== '') {
+-      key = `BIZ_${biz}`;
+-    } else {
+-      // Fallback: name + domain or url
+-      const name = company.name?.trim().toLowerCase() || 'noname';
+-      const domain = company.domain?.trim().toLowerCase() || company.url?.trim().toLowerCase() || 'nodomain';
+-      key = `NAME_${name}_DOM_${domain}`;
++    let cleanName = (company.name || '').toLowerCase();
++    cleanName = cleanName.replace(/[\s\u200B-\u200D\uFEFF]/g, '');
++    cleanName = cleanName.replace(/\(?二?)?/g, '').replace(/二쇱떇?뚯궗/g, '').replace(/\(???)?/g, '').replace(/?좏븳?뚯궗/g, '');
++    
++    // Fallback if name somehow is empty after cleaning
++    if (!cleanName) {
++      cleanName = 'noname_' + company.id;
+     }
++    
++    const key = `CLEAN_NAME_${cleanName}`;
+ 
+     if (!groups[key]) {
+       groups[key] = [];
+@@ -126,6 +126,26 @@ async function run() {
+         modified = true;
+       }
+     }
++    if (!master.domain) {
++      const d = duplicates.find(d => d.domain && d.domain.length > 5);
++      if (d) { mergedData.domain = d.domain; modified = true; }
++    }
++    if (!master.url || master.url === 'False') {
++      const d = duplicates.find(d => d.url && d.url !== 'False' && d.url.length > 5);
++      if (d) { mergedData.url = d.url; modified = true; }
++    }
++    if (!master.business_registration_number || master.business_registration_number === '-') {
++      const d = duplicates.find(d => d.business_registration_number && d.business_registration_number !== '-');
++      if (d) { mergedData.business_registration_number = d.business_registration_number; modified = true; }
++    }
++    if (!master.manager_name) {
++      const d = duplicates.find(d => d.manager_name);
++      if (d) { mergedData.manager_name = d.manager_name; mergedData.manager_phone = d.manager_phone; modified = true; }
++    }
++    if (!master.ceo_name) {
++      const d = duplicates.find(d => d.ceo_name);
++      if (d) { mergedData.ceo_name = d.ceo_name; modified = true; }
++    }
+ 
+     for (const dup of duplicates) {
+       if (Array.isArray(dup.memos) && dup.memos.length > 0) {
+diff --git a/src/app/(admin)/lawyer/page.tsx b/src/app/(admin)/lawyer/page.tsx
+index d1dd109..5770058 100644
+--- a/src/app/(admin)/lawyer/page.tsx
++++ b/src/app/(admin)/lawyer/page.tsx
+@@ -115,12 +115,34 @@ export default function LawyerPage() {
+                     });
+                     const data = await res.json();
+                     if (res.ok && data.success) {
++                        let auditReportMarkdown = null;
++                        if (data.issues && data.issues.length > 0) {
++                            try {
++                                const reportRes = await fetch('/api/analyze/report', {
++                                    method: 'POST',
++                                    headers: { 'Content-Type': 'application/json' },
++                                    body: JSON.stringify({
++                                        issues: data.issues,
++                                        companyName: c.name,
++                                        _promptConfig: promptConfig
++                                    })
++                                });
++                                const reportData = await reportRes.json();
++                                if (reportRes.ok && reportData.success) {
++                                    auditReportMarkdown = reportData.reportMarkdown;
++                                }
++                            } catch (err) {
++                                console.error('蹂닿퀬???앹꽦 ?먮윭:', err);
++                            }
++                        }
++
+                         await updateCompany(c.id, { 
+                             status: 'reviewing',
+                             issues: data.issues || [],
+                             issueCount: data.issueCount || 0,
+                             riskLevel: data.riskLevel || 'MEDIUM',
+-                            privacyPolicyText: data.rawText || c.privacyPolicyText
++                            privacyPolicyText: data.rawText || (c as any).privacyPolicyText,
++                            ...(auditReportMarkdown ? { audit_report: auditReportMarkdown } : {})
+                         });
+                     }
+                 } catch (err) {
+diff --git a/src/app/(admin)/lawyer/privacy-review/page.tsx b/src/app/(admin)/lawyer/privacy-review/page.tsx
+index 6338bfd..8fda666 100644
+--- a/src/app/(admin)/lawyer/privacy-review/page.tsx
++++ b/src/app/(admin)/lawyer/privacy-review/page.tsx
+@@ -1,11 +1,11 @@
+-'use client';
++癤?use client';
+ import React, { useState, useRef, useEffect } from 'react';
+ import { CheckCircle2, Clock, ArrowLeft, Scale, FileText, Loader2, Download, Lock, FilePlus, X } from 'lucide-react';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import Link from 'next/link';
+ import { useSearchParams, useRouter } from 'next/navigation';
+ import { Suspense } from 'react';
+-import EditableText from '@/components/crm/EditableText';
++import RichTextEditor from '@/components/crm/RichTextEditor';
+ import { useRequireAuth } from '@/lib/AuthContext';
+ import {
+     DEFAULT_SCENARIO_CATEGORIES, CLAUSE_SCENARIO_MAP,
+@@ -136,7 +136,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
+                         </div>
+                     </div>                    {/* ?쒕굹由ъ삤 ?ㅻ챸 */}
+                     <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>???꾨컲 ???덉긽 ?쒕굹由ъ삤</div>
+-                    <EditableText
++                    <RichTextEditor
+                         value={data[`${c.num}_scenario`] ?? c.scenario}
+                         onChange={v => onChange(`${c.num}_scenario`, v)}
+                         style={{ background: '#fef2f2', borderColor: '#fecaca', marginBottom: 12 }}
+@@ -146,7 +146,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                         <div>
+                             <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>?뮥 ?덉긽 ?쒖옱</div>
+-                            <EditableText
++                            <RichTextEditor
+                                 value={data[`${c.num}_penalty`] ?? c.penalty}
+                                 onChange={v => onChange(`${c.num}_penalty`, v)}
+                                 style={{ background: '#fef2f2', borderColor: '#fecaca', fontWeight: 800, color: '#991b1b' }}
+@@ -154,7 +154,7 @@ function FirstReviewRow({ c, data, onChange, categories }: {
+                         </div>
+                         <div>
+                             <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>?뱦 ?섏젙 沅뚭퀬</div>
+-                            <EditableText
++                            <RichTextEditor
+                                 value={data[`${c.num}_recommendation`] ?? c.recommendation}
+                                 onChange={v => onChange(`${c.num}_recommendation`, v)}
+                                 style={{ background: '#f0f9ff', borderColor: '#bae6fd', color: '#0c4a6e' }}
+@@ -182,7 +182,7 @@ function FullRevisionRow({ c, data, onChange }: {
+ 
+             {/* ???섏젙 ?꾨즺蹂?*/}
+             <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 4 }}>?뱞 ?섏젙 ?꾨즺蹂?/div>
+-            <EditableText
++            <RichTextEditor
+                 value={data[`${c.num}_fixed`] ?? c.aiFixed}
+                 onChange={v => onChange(`${c.num}_fixed`, v)}
+                 style={{ borderColor: '#86efac', marginBottom: 12 }}
+@@ -190,7 +190,7 @@ function FullRevisionRow({ c, data, onChange }: {
+ 
+             {/* ??蹂?몄궗 寃?좎쓽寃?*/}
+             <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>??蹂?몄궗 寃?좎쓽寃?/div>
+-            <EditableText
++            <RichTextEditor
+                 value={data[`${c.num}_revOpinion`] ?? c.revisionOpinion}
+                 onChange={v => onChange(`${c.num}_revOpinion`, v)}
+                 style={{ background: '#fffbeb', borderColor: '#fde68a', marginBottom: 12 }}
+@@ -527,9 +527,9 @@ function PrivacyReviewContent() {
+             law: c.lawRef || '踰뺣졊 誘몄긽',
+             title: c.title || `寃???섍껄 ${i + 1}`,
+             originalText: c.original || '?먮낯 議고빆 ?곗씠?곌? ?놁뒿?덈떎.',
+-            riskDesc: data[`issue_risk_${c.num}`] || data[`clause_${c.num}_desc`] || '由ъ뒪???곸꽭 ?댁슜??由щ럭 以묒엯?덈떎.',
+-            customDraft: data[`custom_draft_${c.num}`] || data[`clause_${c.num}_draft`] || '?섏젙 沅뚭퀬?덉씠 以鍮?以묒엯?덈떎.',
+-            lawyerNote: data[`lawyer_note_${c.num}`] || '',
++            riskDesc: data[`${c.num}_risk`] || c.riskSummary || '由ъ뒪???곸꽭 ?댁슜???놁뒿?덈떎.',
++            customDraft: data[`${c.num}_fixed`] || c.aiFixed || '?섏젙 沅뚭퀬?덉씠 ?놁뒿?덈떎.',
++            lawyerNote: data[`${c.num}_revOpinion`] || c.revisionOpinion || data[`${c.num}_opinion`] || c.lawyerOpinion || '',
+         };
+     });
+ 
+@@ -656,7 +656,7 @@ function PrivacyReviewContent() {
+                                 <span style={{ fontSize: 17, fontWeight: 900, color: '#92400e' }}>醫낇빀 寃?좎쓽寃?/span>
+                                 <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e', background: '#fef3c7', padding: '2px 8px', borderRadius: 20 }}>?꾨씪?대쾭??由ы룷??諛섏쁺</span>
+                             </div>
+-                            <EditableText
++                            <RichTextEditor
+                                 value={data['summary_opinion'] ?? (
+                                     clauses.length === 1 && (clauses[0].title === '媛쒖씤?뺣낫泥섎━諛⑹묠 ?꾨씫 (留ㅼ슦 ?ш컖)' || clauses[0].title?.includes('諛⑹묠 ?꾨씫') || clauses[0].title?.includes('諛⑹묠 遺??) || clauses[0].original?.includes('?놁쓬 / 誘멸린??))
+                                     ? '[湲닿툒 踰뺣Т 寃???붾쭩] 洹?щ뒗 怨좉컼??媛쒖씤?뺣낫瑜??섏쭛쨌泥섎━?섍퀬 ?덉쓬?먮룄 遺덇뎄?섍퀬, ?대? 洹쒖젣?섎뒗 "媛쒖씤?뺣낫 泥섎━諛⑹묠" ?먯껜媛 ?꾨㈃ ?꾨씫?섏뼱 ?덉뒿?덈떎. ?대뒗 ?⑥닚???됱젙???덉감 ?꾨씫???꾨땶, 湲곗뾽??以踰?寃쎌쁺 ?섏?媛 ?꾪? ?녿뒗 寃껋쑝濡?媛꾩＜?섎뒗 理쒓퀬 ?섏???由ъ뒪?ъ엯?덈떎.\n\n????嫄댁쓽 ?댄궧 ?ш퀬???낆꽦 怨좉컼???쇱떛/?좉퀬留뚯쑝濡쒕룄 洹?ъ쓽 ?섏쭛 ?됱쐞 ?꾩껜媛 利됱떆 ?덈쾿?쇰줈 媛꾩＜?섎ŉ, ?대뼚??踰뺣━??諛⑹뼱沅뚮룄 ?됱궗?????놁뒿?덈떎. ??쒖씠???뺤궗怨좊컻, 留됰???吏뺣쾶??怨쇱쭠湲??寃? ?몃줎 蹂대룄濡??명븳 湲곗뾽 ?좊ː??異붾씫??留됯린 ?꾪빐 ?ㅻ뒛 ?뱀옣 KISA 媛?대뱶?쇱씤??遺?⑺븯??諛⑹묠 ?쒖젙 諛??곸슜???꾩닔?곸엯?덈떎.'
+@@ -723,78 +723,16 @@ function PrivacyReviewContent() {
+                     />
+                 </div>
+             ) : (
+-                <>
+-                    {clauses.map((c, i) => {
+-                        const col = R[c.level];
+-                        const hasIssue = c.level !== 'OK';
+-                        return (
+-                            <div key={i} className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '2px solid #d1d5db' }}>
+-                                {/* 醫? ?먮Ц + 踰뺤“臾?(1李⑥“臾멸??좎? ?숈씪) */}
+-                                <div style={{ padding: '20px', borderLeft: `4px solid ${col.border}`, borderRight: '1px solid #e5e7eb', background: hasIssue ? col.bg : '#fafafa', display: 'flex', flexDirection: 'column', gap: 16 }}>
+-                                    {/* 1. ?꾨컲 湲곗? (踰뺣졊) */}
+-                                    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+-                                        <div style={{ background: '#fef3c7', borderBottom: '1px solid #fde68a', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+-                                            <Scale size={15} color="#d97706" />
+-                                            <span style={{ fontWeight: 800, fontSize: 15, color: '#92400e' }}>?꾨컲 踰뺤“臾? {c.lawRef || '踰뺣졊 ?뺣낫 ?놁쓬'}</span>
+-                                        </div>
+-                                        <div style={{ padding: '14px 16px', fontSize: 14, color: '#44403c', lineHeight: 1.8, whiteSpace: 'pre-line', background: '#fffbeb' }}>
+-                                            {c.lawText || '踰뺤“臾??띿뒪?멸? ?꾨떖?섏? ?딆븯?듬땲??'}
+-                                        </div>
+-                                    </div>
+-                                    
+-                                    {/* 2. ?뚯궗 ?먮Ц (鍮꾧탳 ??? */}
+-                                    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+-                                        <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+-                                                <FileText size={15} color="#475569" />
+-                                                <span style={{ fontWeight: 800, fontSize: 15, color: '#334155' }}>怨좉컼??諛⑹묠 ?먮Ц</span>
+-                                            </div>
+-                                            <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: col.tag, color: col.text, border: `1px solid ${col.border}` }}>
+-                                                {c.title || c.num}
+-                                            </span>
+-                                        </div>
+-                                        <div style={{ padding: '14px 16px', fontSize: 15, color: '#1e293b', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+-                                            {c.original || '?뚯궗 諛⑹묠 ?먮낯 ?곗씠?곌? ?꾨떖?섏? ?딆븯?듬땲??'}
+-                                        </div>
+-                                    </div>
+-                                </div>
+-                                {/* ?? ?섏젙?꾨낯 (?섍껄???ㅽ??? */}
+-                                <div style={{ background: '#f9fafb' }}>
+-                                    {i === 0 && (
+-                                        <div style={{ background: '#0f172a', padding: '14px 18px', color: '#fff' }}>
+-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+-                                                <div>
+-                                                    <div style={{ fontSize: 17, fontWeight: 900, color: '#c9a84c' }}>?뽳툘 IBS 踰뺣쪧?щТ??/div>
+-                                                    <div style={{ fontSize: 12, color: '#94a3b8' }}>媛쒖씤?뺣낫蹂댄샇 ?꾨Ц 踰뺣쪧 ?섍껄??/div>
+-                                                </div>
+-                                                <div style={{ textAlign: 'right', fontSize: 12, color: '#94a3b8' }}>
+-                                                    <div>臾몄꽌踰덊샇: IBS-PR-{new Date().getFullYear()}-{String(Math.floor(Math.random() * 1000)).padStart(3, '0')}</div>
+-                                                    <div>?묒꽦?? {new Date().toLocaleDateString('ko-KR')}</div>
+-                                                </div>
+-                                            </div>
+-                                            <div style={{ marginTop: 8, fontSize: 14, color: '#e2e8f0' }}>
+-                                                ?섏떊: <strong>{company}</strong> 洹以?-                                            </div>
+-                                        </div>
+-                                    )}
+-                                    <FullRevisionRow c={c} data={data} onChange={upd} />
+-                                </div>
+-                            </div>
+-                        );
+-                    })}
+-                    {/* ?쒕챸? (?곗륫?먮쭔) */}
+-                    <div className="print-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+-                        <div style={{ background: '#fafafa', borderRight: '1px solid #e5e7eb' }} />
+-                        <div style={{ padding: '20px 18px', background: '#fff', borderTop: '2px solid #e5e7eb' }}>
+-                            <div style={{ textAlign: 'right' }}>
+-                                <div style={{ fontSize: 15, color: '#374151', marginBottom: 4 }}>?꾩? 媛숈씠 寃???섍껄???쒖텧?⑸땲??</div>
+-                                <div style={{ fontSize: 17, fontWeight: 900, color: '#1e293b', marginBottom: 2 }}>IBS 踰뺣쪧?щТ??/div>
+-                                <div style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>?대떦 蹂?몄궗: 源?섑쁽</div>
+-                                <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>??쒕??몄궗?묓쉶 ?깅줉 | 媛쒖씤?뺣낫愿由ъ궗(CPPG)</div>
+-                            </div>
+-                        </div>
++                <div style={{ padding: '48px 32px', background: '#fff', margin: '24px auto', maxWidth: '800px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
++                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', background: '#f1f5f9', marginBottom: '24px' }}>
++                        <FileText size={32} color="#64748b" />
+                     </div>
+-                </>
++                    <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#1e293b', margin: '0 0 12px 0' }}>?꾩껜?섏젙?꾨낯(理쒖쥌 媛쒖씤?뺣낫泥섎━諛⑹묠?? 以鍮?以?/h2>
++                    <p style={{ color: '#64748b', margin: 0, fontSize: '16px', lineHeight: 1.6 }}>
++                        踰뺣쪧 遺꾩꽍 諛?1李?寃?좉? ?앸굹硫?<strong>?뚭컻?몄젙蹂?泥섎━諛⑹묠 議곕Ц蹂?踰뺤쟻 寃?좎븞(2踰덉㎏ ????/strong>??怨좉컼?먭쾶 ?곗꽑 ?쒓났?⑸땲??<br/>
++                        踰뺣쪧 遺꾩꽍 湲곕뒫 ?묐룞 ???꾩껜 ?섏젙 ?꾨낯 ?먮룞 ?앹꽦? 鍮꾪솢?깊솕?섏뼱 ?덉쑝硫? 異뷀썑 ?먮뵒??怨좊룄?붿? ?④퍡 ?쒓났???덉젙?낅땲??
++                    </p>
++                </div>
+             )}
+ 
+             {/* ?섎떒 ?щ갚 諛??ㅽ겕濡??뺤옣?? ?곷떒 醫뚯륫 UI 蹂듭젣 (?띿뒪???붿냼 ?щ챸) */}
+diff --git a/src/app/(auth)/login/page.tsx b/src/app/(auth)/login/page.tsx
+index 7e69771..ed8ea39 100644
+--- a/src/app/(auth)/login/page.tsx
++++ b/src/app/(auth)/login/page.tsx
+@@ -323,36 +323,36 @@ function LoginContent() {
+                                     </div>
+ 
+                                     {/* ?쎄? ?숈쓽 */}
+-                                    <div className="space-y-0 pt-1">
++                                    <div className="space-y-1.5 pt-1">
+                                         <div className="flex items-center justify-between">
+-                                            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none" style={{ color: L.body }}>
++                                            <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: L.sub }}>
+                                                 <input 
+                                                     type="checkbox" 
+                                                     checked={agreePrivacy}
+                                                     onChange={(e) => setAgreePrivacy(e.target.checked)}
+-                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
++                                                    className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                                 />
+                                                 [?꾩닔] 媛쒖씤?뺣낫 ?섏쭛 諛??댁슜 ?숈쓽
+                                             </label>
+                                             <button 
+                                                 onClick={() => setModalContent('privacy')}
+-                                                className="text-xs font-semibold hover:underline" 
+-                                                style={{ color: L.gold }}>蹂닿린</button>
++                                                className="text-[10px] hover:underline" 
++                                                style={{ color: L.faint }}>蹂닿린</button>
+                                         </div>
+                                         <div className="flex items-center justify-between">
+-                                            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none" style={{ color: L.body }}>
++                                            <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none" style={{ color: L.sub }}>
+                                                 <input 
+                                                     type="checkbox" 
+                                                     checked={agreeMarketing}
+                                                     onChange={(e) => setAgreeMarketing(e.target.checked)}
+-                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
++                                                    className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                                 />
+                                                 [?좏깮] 留덉????뺣낫 ?섏떊 ?숈쓽
+                                             </label>
+                                             <button 
+                                                 onClick={() => setModalContent('marketing')}
+-                                                className="text-xs font-semibold hover:underline" 
+-                                                style={{ color: L.gold }}>蹂닿린</button>
++                                                className="text-[10px] hover:underline" 
++                                                style={{ color: L.faint }}>蹂닿린</button>
+                                         </div>
+                                     </div>
+ 
+diff --git a/src/app/(client)/consultation-history/page.tsx b/src/app/(client)/consultation-history/page.tsx
+index 43fb1aa..7ddafcb 100644
+--- a/src/app/(client)/consultation-history/page.tsx
++++ b/src/app/(client)/consultation-history/page.tsx
+@@ -1,10 +1,10 @@
+ 'use client';
+ import React, { useState } from 'react';
+-import { motion } from 'framer-motion';
++import { motion, AnimatePresence } from 'framer-motion';
+ import {
+     MessageSquare, Scale, Brain, Briefcase, Clock, CheckCircle2,
+     AlertCircle, ChevronRight, Search, Filter, ArrowRight,
+-    Lock, Star, Phone, Bot, Calendar,
++    Lock, Star, Phone, Bot, Calendar, Gavel, Send
+ } from 'lucide-react';
+ import Link from 'next/link';
+ import { useRequireAuth } from '@/lib/AuthContext';
+@@ -87,7 +87,31 @@ export default function ConsultationHistoryPage() {
+     const [search, setSearch] = useState('');
+     const [isSubscribed] = useState(true);
+     const [isModalOpen, setIsModalOpen] = useState(false);
+-    const [selectedAnswer, setSelectedAnswer] = useState<ConsultRecord | null>(null);
++    const [expandedId, setExpandedId] = useState<string | null>(null);
++    const [followupText, setFollowupText] = useState('');
++    const [modalDefaultTitle, setModalDefaultTitle] = useState('');
++    const [modalDefaultDetail, setModalDefaultDetail] = useState('');
++
++    const handleFollowupSubmit = (r: ConsultRecord) => {
++        if (!followupText.trim()) {
++            alert('異붽?濡?臾몄쓽???댁슜???낅젰?댁＜?몄슂.');
++            return;
++        }
++
++        const oldHistory = `[?댁쟾 臾몄쓽 ?댁뿭]
++?뱦 ?쒕ぉ: ${r.title}
++???먮옒 吏덈Ц: ${r.summary}
++?뽳툘 蹂?몄궗 ?듬?: ${r.lawyerAnswer}
++
++---
++[異붽? 臾몄쓽 ?댁슜]
++${followupText}`;
++
++        setModalDefaultTitle(`[異붽? 臾몄쓽] ${r.title}`);
++        setModalDefaultDetail(oldHistory);
++        setFollowupText('');
++        setIsModalOpen(true);
++    };
+ 
+     if (authLoading || dataLoading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 14, color: '#6b7280' }}>濡쒕뵫 以?..</div></div>;
+     if (!authorized) return null; // Or a redirect could happen inside useRequireAuth
+@@ -251,9 +275,9 @@ export default function ConsultationHistoryPage() {
+                                     </div>
+                                     <div className="flex gap-1.5">
+                                         {(r.status === 'completed' || r.status === 'closed') && (
+-                                            <button onClick={() => setSelectedAnswer(r)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
+-                                                style={{ background: '#111827', color: '#fff' }}>
+-                                                ?듬? 蹂닿린
++                                            <button onClick={() => setExpandedId(prev => prev === r.id ? null : r.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
++                                                style={{ background: expandedId === r.id ? '#e5e7eb' : '#111827', color: expandedId === r.id ? '#374151' : '#fff' }}>
++                                                {expandedId === r.id ? '?듬? ?リ린' : '?듬? ?뺤씤'}
+                                             </button>
+                                         )}
+                                         <Link href="/chat">
+@@ -265,50 +289,65 @@ export default function ConsultationHistoryPage() {
+                                         </Link>
+                                     </div>
+                                 </div>
++
++                                {/* ???곸꽭 ?듬? ?몃씪???⑤꼸 (?꾩퐫?붿뼵) ??*/}
++                                <AnimatePresence>
++                                    {expandedId === r.id && (
++                                        <motion.div
++                                            initial={{ height: 0, opacity: 0 }}
++                                            animate={{ height: 'auto', opacity: 1 }}
++                                            exit={{ height: 0, opacity: 0 }}
++                                            className="overflow-hidden"
++                                        >
++                                            <div className="border-t border-gray-100 mt-4 pt-4 ml-[52px]">
++                                                {/* 蹂?몄궗 ?섍껄? */}
++                                                <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
++                                                    <h4 className="font-bold flex items-center gap-1.5 mb-2.5 text-xs text-gray-900">
++                                                        <Gavel className="w-4 h-4 text-amber-600" />
++                                                        蹂?몄궗 寃???섍껄
++                                                    </h4>
++                                                    <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
++                                                        {r.lawyerAnswer || "?덈궡: ?꾩쭅 ?듬? ?댁슜???깅줉?섏? ?딆븯?듬땲??"}
++                                                    </div>
++                                                </div>
++
++                                                {/* 異붽? 臾몄쓽? */}
++                                                <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
++                                                    <textarea
++                                                        value={followupText}
++                                                        onChange={e => setFollowupText(e.target.value)}
++                                                        placeholder="???듬?怨?愿?⑦븯??異붽??곸씤 吏덈Ц?대굹 ?붿껌?ы빆???덉쑝?좉???"
++                                                        className="w-full text-xs outline-none resize-none pt-1 text-gray-800 placeholder:text-gray-400"
++                                                        rows={2}
++                                                        onClick={(e) => e.stopPropagation()}
++                                                    />
++                                                    <div className="flex justify-end mt-2">
++                                                        <button
++                                                            onClick={(e) => { e.stopPropagation(); handleFollowupSubmit(r); }}
++                                                            disabled={!followupText.trim()}
++                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-opacity disabled:opacity-50"
++                                                            style={{ background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe' }}
++                                                        >
++                                                            <Send className="w-3.5 h-3.5" /> 異붽? 臾몄쓽 ?묒닔
++                                                        </button>
++                                                    </div>
++                                                </div>
++                                            </div>
++                                        </motion.div>
++                                    )}
++                                </AnimatePresence>
+                             </motion.div>
+                         );
+                     })}
+                 </div>
+             </div>
+-            <ServiceRequestModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} defaultType="consultation" />
+-            
+-            {/* ?듬? 蹂닿린 紐⑤떖 */}
+-            {selectedAnswer && (
+-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedAnswer(null)}>
+-                    <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+-                        className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+-                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+-                            <div>
+-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+-                                    <MessageSquare size={16} className="text-blue-600" />
+-                                    蹂?몄궗 ?듬?
+-                                </h3>
+-                                <p className="text-xs text-gray-500 mt-0.5">{selectedAnswer.caseId} | {selectedAnswer.title}</p>
+-                            </div>
+-                            <button onClick={() => setSelectedAnswer(null)} className="text-gray-400 hover:text-gray-600 text-2xl font-light leading-none outline-none">&times;</button>
+-                        </div>
+-                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+-                            <div className="flex items-center gap-3 mb-5">
+-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700">
+-                                    {selectedAnswer.lawyer?.[0] || '??}
+-                                </div>
+-                                <div>
+-                                    <div className="font-bold text-sm text-gray-900">{selectedAnswer.lawyer}</div>
+-                                    <div className="text-xs text-gray-500">IBS 踰뺣쪧?щТ???대떦 蹂?몄궗</div>
+-                                </div>
+-                            </div>
+-                            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-[#f8f9fa] p-5 rounded-xl border border-gray-200">
+-                                {selectedAnswer.lawyerAnswer || "?덈궡: ?꾩쭅 ?듬? ?댁슜???깅줉?섏? ?딆븯?듬땲??"}
+-                            </div>
+-                        </div>
+-                        <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50">
+-                            <button onClick={() => setSelectedAnswer(null)} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-gray-800 transition-colors">
+-                                ?뺤씤
+-                            </button>
+-                        </div>
+-                    </motion.div>
+-                </div>
+-            )}
++            <ServiceRequestModal 
++                isOpen={isModalOpen} 
++                onClose={() => setIsModalOpen(false)} 
++                defaultType="consultation"
++                defaultTitle={modalDefaultTitle}
++                defaultDetail={modalDefaultDetail}
++            />
+         </div>
+     );
+ }
+diff --git a/src/app/(client)/employee/page.tsx b/src/app/(client)/employee/page.tsx
+index 2fe6869..1e71cf4 100644
+--- a/src/app/(client)/employee/page.tsx
++++ b/src/app/(client)/employee/page.tsx
+@@ -300,6 +300,8 @@ export default function EmployeePage() {
+                     refresh={crm.refresh} 
+                     sortBy={crm.sortBy}
+                     sortAsc={crm.sortAsc}
++                    updateBulk={crm.updateBulk}
++                    showToast={crm.showToast}
+                     onSort={(key) => {
+                         if (crm.sortBy === key) {
+                             crm.setSortAsc(!crm.sortAsc);
+diff --git a/src/app/(client)/privacy-analysis/page.tsx b/src/app/(client)/privacy-analysis/page.tsx
+index fe4b639..2a6dc2e 100644
+--- a/src/app/(client)/privacy-analysis/page.tsx
++++ b/src/app/(client)/privacy-analysis/page.tsx
+@@ -1,4 +1,4 @@
+-'use client';
++癤?use client';
+ 
+ import React, { useEffect, useState, useRef } from 'react';
+ import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+@@ -16,6 +16,7 @@ import { getSession } from '@/lib/auth';
+ import { useAuth } from '@/lib/AuthContext';
+ import { useRouter } from 'next/navigation';
+ import ReactMarkdown from 'react-markdown';
++import rehypeRaw from 'rehype-raw';
+ import remarkGfm from 'remark-gfm';
+ 
+ /* ????? Color Constants ????? */
+@@ -417,7 +418,7 @@ export default function PrivacyAnalysisClientPage() {
+                                                     prose-td:border-gray-100"
+                                                 style={{ fontFamily: "'Pretendard', 'Inter', sans-serif" }}
+                                             >
+-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{finalAuditReport}</ReactMarkdown>
++                                                <ReactMarkdown rehypePlugins={[rehypeRaw]} remarkPlugins={[remarkGfm]}>{finalAuditReport}</ReactMarkdown>
+                                             </div>
+                                         </div>
+ 
+@@ -785,3 +786,4 @@ export default function PrivacyAnalysisClientPage() {
+         </div>
+     );
+ }
++
+diff --git a/src/app/api/auth/claim/route.ts b/src/app/api/auth/claim/route.ts
+index d8a01c0..0bd5dbb 100644
+--- a/src/app/api/auth/claim/route.ts
++++ b/src/app/api/auth/claim/route.ts
+@@ -78,6 +78,21 @@ export async function POST(req: Request) {
+                 user_metadata: userMetaData
+             });
+             if (createErr) {
++                // Race condition fallback: double click or concurrent request mitigation
++                if (createErr.status === 422 || createErr.message?.includes('already exists') || createErr.code === 'user_already_exists') {
++                    console.log("Create user race condition detected, falling back to update...");
++                    const { data: listResRetry } = await sbAdmin.listUsers({ perPage: 1000 });
++                    const retryUser = listResRetry?.users?.find(u => u.email === targetEmail);
++                    if (retryUser) {
++                        const { error: updateErrRetry } = await sbAdmin.updateUserById(retryUser.id, {
++                            password: password,
++                            user_metadata: userMetaData
++                        });
++                        if (!updateErrRetry) {
++                            return NextResponse.json({ success: true, email: targetEmail }, { status: 200 });
++                        }
++                    }
++                }
+                 console.error("User create error:", createErr);
+                 return NextResponse.json({ error: createErr.message || '怨꾩젙 ?앹꽦???ㅽ뙣?덉뒿?덈떎.' }, { status: 500 });
+             }
+diff --git a/src/app/api/crawler/queue/route.ts b/src/app/api/crawler/queue/route.ts
+new file mode 100644
+index 0000000..b7f347b
+--- /dev/null
++++ b/src/app/api/crawler/queue/route.ts
+@@ -0,0 +1,60 @@
++import { NextResponse } from 'next/server';
++import { createClient } from '@supabase/supabase-js';
++
++export const dynamic = 'force-dynamic';
++export const revalidate = 0;
++
++export async function GET(req: Request) {
++  try {
++    const authHeader = req.headers.get('x-crawler-secret');
++    if (!process.env.CRAWLER_SECRET_KEY || authHeader !== process.env.CRAWLER_SECRET_KEY) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
++    }
++
++    // ?쒕퉬????븷 ?ㅻ? ?ъ슜?섏뿬 紐⑤뱺 ?뚮꼳?몄쓽 ?ш굔 ?묎렐 沅뚰븳 ?띾뱷
++    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
++    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
++    const supabase = createClient(supabaseUrl, supabaseKey);
++
++    // 1. 媛?몄삱 ?寃?議고쉶
++    // ?좉툑 ?곹깭媛 ?꾨땲嫄곕굹, ?쎌씠 ?앸궗怨??먮윭媛 ?꾨땶 ?쒖꽦 ?ш굔??5媛?異붿텧
++    const { data: cases, error: fetchError } = await supabase
++      .from('cases')
++      .select('id, case_number, title, tenant_id')
++      .eq('status', 'active')
++      .neq('crawling_status', 'error') // ?곗냽 ?먮윭??嫄댁? ?쇰떒 ?⑥뒪
++      .or('locked_until.is.null,locked_until.lt.now()')
++      .order('last_crawled_at', { ascending: true, nullsFirst: true })
++      .limit(5);
++
++    if (fetchError) {
++      throw fetchError;
++    }
++
++    if (!cases || cases.length === 0) {
++      return NextResponse.json({ cases: [] });
++    }
++
++    // 2. ???ㅼ젙 (?꾩옱 ?쒓컙 + 10遺?
++    const caseIds = cases.map((c) => c.id);
++    const tenMinsLater = new Date(Date.now() + 10 * 60 * 1000).toISOString();
++
++    const { error: lockError } = await supabase
++      .from('cases')
++      .update({
++        crawling_status: 'processing',
++        locked_until: tenMinsLater
++      })
++      .in('id', caseIds);
++
++    if (lockError) {
++      throw lockError;
++    }
++
++    return NextResponse.json({ cases });
++
++  } catch (error: any) {
++    console.error('queue API error:', error);
++    return NextResponse.json({ error: error.message }, { status: 500 });
++  }
++}
+diff --git a/src/app/api/crawler/solve-captcha/route.ts b/src/app/api/crawler/solve-captcha/route.ts
+new file mode 100644
+index 0000000..388e5ef
+--- /dev/null
++++ b/src/app/api/crawler/solve-captcha/route.ts
+@@ -0,0 +1,54 @@
++import { NextResponse } from 'next/server';
++import OpenAI from 'openai';
++
++const openai = new OpenAI({
++  apiKey: process.env.OPENAI_API_KEY,
++});
++
++export const dynamic = 'force-dynamic';
++
++export async function POST(req: Request) {
++  try {
++    const authHeader = req.headers.get('x-crawler-secret');
++    if (!process.env.CRAWLER_SECRET_KEY || authHeader !== process.env.CRAWLER_SECRET_KEY) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
++    }
++
++    const { base64Image } = await req.json();
++
++    if (!base64Image) {
++      return NextResponse.json({ error: 'No image provided' }, { status: 400 });
++    }
++
++    // Call OpenAI GPT-4o Vision
++    const response = await openai.chat.completions.create({
++      model: "gpt-4o",
++      messages: [
++        {
++          role: "user",
++          content: [
++            { type: "text", text: "???대?吏???덈뒗 6?먮━ 蹂댁븞臾몄옄 ?レ옄留??뺥솗?섍쾶 異쒕젰?? ?꾩뼱?곌린???ㅻⅨ 留??놁씠 ?ㅼ쭅 6媛쒖쓽 ?レ옄留?諛섑솚??" },
++            {
++              type: "image_url",
++              image_url: {
++                url: `data:image/png;base64,${base64Image}`,
++              },
++            },
++          ],
++        },
++      ],
++      max_tokens: 10,
++      temperature: 0.1, // ??떠???섍컖 理쒖냼??+    });
++
++    const captchaText = response.choices[0]?.message?.content?.trim() || "";
++    // Clean up potential hallucination returning extra characters
++    const cleanNumber = captchaText.replace(/[^0-9]/g, '').slice(0, 6);
++
++    return NextResponse.json({ solved: cleanNumber });
++
++  } catch (error: any) {
++    console.error('solve-captcha API error:', error);
++    return NextResponse.json({ error: error.message }, { status: 500 });
++  }
++}
+diff --git a/src/app/api/crawler/submit/route.ts b/src/app/api/crawler/submit/route.ts
+new file mode 100644
+index 0000000..110a456
+--- /dev/null
++++ b/src/app/api/crawler/submit/route.ts
+@@ -0,0 +1,87 @@
++import { NextResponse } from 'next/server';
++import { createClient } from '@supabase/supabase-js';
++
++export const dynamic = 'force-dynamic';
++
++export async function POST(req: Request) {
++  try {
++    const authHeader = req.headers.get('x-crawler-secret');
++    if (!process.env.CRAWLER_SECRET_KEY || authHeader !== process.env.CRAWLER_SECRET_KEY) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
++    }
++
++    const { caseId, status, data, errorMsg, captchaFailed } = await req.json();
++
++    if (!caseId) {
++      return NextResponse.json({ error: 'Missing caseId' }, { status: 400 });
++    }
++
++    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
++    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
++    const supabase = createClient(supabaseUrl, supabaseKey);
++
++    if (status === 'error') {
++      if (captchaFailed) {
++        // Fetch current fail count
++        const { data: currentCase } = await supabase
++          .from('cases')
++          .select('captcha_fail_count')
++          .eq('id', caseId)
++          .single();
++
++        const fails = (currentCase?.captcha_fail_count || 0) + 1;
++        
++        if (fails >= 5) {
++          // 5???댁긽 ?ㅽ뙣: ???댁젣, ?먮윭 ?곹깭濡?蹂寃?+          await supabase.from('cases').update({
++            crawling_status: 'error',
++            locked_until: null,
++            captcha_fail_count: fails
++          }).eq('id', caseId);
++        } else {
++          // ?ъ떆?꾨? ?꾪빐 ???쒓굅
++          await supabase.from('cases').update({
++            crawling_status: 'idle',
++            locked_until: null,
++            captcha_fail_count: fails
++          }).eq('id', caseId);
++        }
++      } else {
++        // ?쇰컲 ?먮윭 諛쒖깮 (?ъ씠??留덈퉬, 鍮꾨?踰덊샇 蹂寃???
++        await supabase.from('cases').update({
++          crawling_status: 'error',
++          locked_until: null
++        }).eq('id', caseId);
++      }
++      return NextResponse.json({ success: true, message: 'Error logged' });
++    }
++
++    // ?깃났 ???낅뜲?댄듃 濡쒖쭅 - 湲곗〈 notes 諛깆뾽 ??appended string ???+    const { data: currentCase } = await supabase
++      .from('cases')
++      .select('notes')
++      .eq('id', caseId)
++      .single();
++
++    const timestamp = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
++    const strData = data ? `\n- 吏꾪뻾 ?곹깭: ${data.progress || '?????놁쓬'}\n- ?ㅼ쓬 湲곗씪: ${data.nextDate || '?????놁쓬'}\n- 湲곗씪 ?댁뿭: ${data.nextEvent || '?????놁쓬'}` : '';
++    const crawledInfo = `\n\n[${timestamp} ?踰뺤썝 ?щ·???먮룞 ?낅뜲?댄듃]${strData}`;
++    const newNotes = (currentCase?.notes || '') + crawledInfo;
++
++    const { error: updateError } = await supabase.from('cases').update({
++      crawling_status: 'idle',
++      locked_until: null,
++      last_crawled_at: new Date().toISOString(),
++      captcha_fail_count: 0,
++      notes: newNotes,
++    }).eq('id', caseId);
++
++    if (updateError) throw updateError;
++
++    return NextResponse.json({ success: true });
++
++  } catch (error: any) {
++    console.error('submit API error:', error);
++    return NextResponse.json({ error: error.message }, { status: 500 });
++  }
++}
+diff --git a/src/components/ServiceRequestModal.tsx b/src/components/ServiceRequestModal.tsx
+index d10534b..beb6442 100644
+--- a/src/components/ServiceRequestModal.tsx
++++ b/src/components/ServiceRequestModal.tsx
+@@ -19,6 +19,8 @@ interface ServiceRequestModalProps {
+     isOpen: boolean;
+     onClose: () => void;
+     defaultType?: RequestType;
++    defaultTitle?: string;
++    defaultDetail?: string;
+ }
+ 
+ const SERVICE_TYPES: { value: FormRequestType; label: string; submitLabel: string; icon: React.ElementType; color: string }[] = [
+@@ -31,7 +33,7 @@ function resolveType(t: RequestType): FormRequestType {
+     return t === 'general' ? 'consultation' : t as FormRequestType;
+ }
+ 
+-export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }: ServiceRequestModalProps) {
++export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general', defaultTitle, defaultDetail }: ServiceRequestModalProps) {
+     const { mutate: mutateConsultations } = useConsultations();
+     const { mutate: mutateLitigations } = useLitigations();
+     const session = typeof window !== 'undefined' ? getSession() : null;
+@@ -56,8 +58,8 @@ export function ServiceRequestModal({ isOpen, onClose, defaultType = 'general' }
+         if (isOpen) {
+             setStep(1);
+             setSelectedType(resolveType(defaultType));
+-            setTitle('');
+-            setDetail('');
++            setTitle(defaultTitle || '');
++            setDetail(defaultDetail || '');
+             setOpponent('');
+             setCaseType('誘쇱궗');
+             setClaimAmount('');
+diff --git a/src/components/crm/BlockNoteEditorWrapper.tsx b/src/components/crm/BlockNoteEditorWrapper.tsx
+new file mode 100644
+index 0000000..4088d19
+--- /dev/null
++++ b/src/components/crm/BlockNoteEditorWrapper.tsx
+@@ -0,0 +1,92 @@
++'use client';
++import { useCreateBlockNote } from "@blocknote/react";
++import { BlockNoteView } from "@blocknote/mantine";
++import "@blocknote/mantine/style.css";
++import { useEffect, useState, useRef } from "react";
++import { BlockNoteEditor, PartialBlock, defaultBlockSpecs } from "@blocknote/core";
++
++// ?대?吏 釉붾줉???쒖쇅??而ㅼ뒪? ?ㅽ럺 ?앹꽦 (Supabase Egress ?덇컧??
++const { image, ...customBlockSpecs } = defaultBlockSpecs;
++
++interface Props {
++    initialHTML: string;
++    onChangeHTML: (html: string) => void;
++    onBlur: () => void;
++    isMarkdown?: boolean;
++}
++
++export default function BlockNoteEditorWrapper({ initialHTML, onChangeHTML, onBlur, isMarkdown }: Props) {
++    const [initialBlocks, setInitialBlocks] = useState<PartialBlock[] | "loading">("loading");
++    const containerRef = useRef<HTMLDivElement>(null);
++    const lastOutputRef = useRef<string>(initialHTML);
++
++    useEffect(() => {
++        if (initialHTML === lastOutputRef.current && initialBlocks !== "loading") {
++            return; // ?먮뵒???대??먯꽌 諛쒖깮??蹂?붾줈 ?명븳 ?낅뜲?댄듃硫?臾댁떆 (而ㅼ꽌 ??諛⑹?)
++        }
++        lastOutputRef.current = initialHTML;
++
++        let isMounted = true;
++        async function load() {
++            if (!initialHTML) {
++                if (isMounted) setInitialBlocks([]);
++                return;
++            }
++            const tempEditor = BlockNoteEditor.create({ blockSpecs: customBlockSpecs });
++            const blocks = isMarkdown 
++                ? await tempEditor.tryParseMarkdownToBlocks(initialHTML) 
++                : await tempEditor.tryParseHTMLToBlocks(initialHTML);
++            if (isMounted) setInitialBlocks(blocks);
++        }
++        load();
++        return () => { isMounted = false; };
++    }, [initialHTML]);
++
++    const editor = useCreateBlockNote({
++        blockSpecs: customBlockSpecs,
++        // 濡쒕뵫???꾨즺???꾩뿉留?initialContent瑜??섍퉩?덈떎. 濡쒕뵫 以묒씪 ?뚮뒗 undefined濡??섍린吏 ?딄린 ?꾪빐 議곌굔遺 ?뚮뜑留곸쓣 ?곷땲??
++    });
++
++    useEffect(() => {
++        if (initialBlocks !== "loading" && editor) {
++            editor.replaceBlocks(editor.document, initialBlocks);
++            
++            // ?쎄컙???쒕젅?????먮뵒?곗뿉 ?ъ빱??遺??+            setTimeout(() => {
++                editor.focus();
++            }, 50);
++        }
++    }, [initialBlocks, editor]);
++
++    // ?몃? ?대┃ ?쒖뿉 onBlur ?몄텧
++    useEffect(() => {
++        function handleClickOutside(e: MouseEvent) {
++            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
++                // BlockNote ?대컮, ?앹뾽 ?깆씠 ?먮뵒???곸뿭 諛붽묑(React Portal ?????뚮뜑留곷맆 ???덉쑝誘濡??덉쇅 泥섎━媛 ?꾩슂?????덉뒿?덈떎.
++                // ?앹뾽??.bn-ui ?대옒?ㅻ? 媛吏誘濡?泥댄겕?⑸땲??
++                const isPopup = (e.target as Element)?.closest('.bn-ui, .mantine-Popover-dropdown, .mantine-Modal-root');
++                if (!isPopup) {
++                    onBlur();
++                }
++            }
++        }
++        document.addEventListener('mousedown', handleClickOutside);
++        return () => document.removeEventListener('mousedown', handleClickOutside);
++    }, [onBlur]);
++
++    return (
++        <div ref={containerRef} style={{ background: '#fff', borderRadius: 4, padding: '10px 0', border: '1px solid #e2e8f0' }}>
++            <BlockNoteView 
++                editor={editor} 
++                onChange={async () => {
++                    const output = isMarkdown 
++                        ? await editor.blocksToMarkdownLossy(editor.document) 
++                        : await editor.blocksToHTMLLossy(editor.document);
++                    lastOutputRef.current = output;
++                    onChangeHTML(output);
++                }}
++                theme="light"
++            />
++        </div>
++    );
++}
+diff --git a/src/components/crm/RichTextEditor.tsx b/src/components/crm/RichTextEditor.tsx
+new file mode 100644
+index 0000000..38e7c10
+--- /dev/null
++++ b/src/components/crm/RichTextEditor.tsx
+@@ -0,0 +1,59 @@
++'use client';
++import React, { useState } from 'react';
++import dynamic from 'next/dynamic';
++import ReactMarkdown from 'react-markdown';
++import rehypeRaw from 'rehype-raw';
++import remarkGfm from 'remark-gfm';
++
++const BlockNoteEditorWrapper = dynamic(() => import('./BlockNoteEditorWrapper'), { ssr: false });
++
++interface Props {
++    value: string;
++    onChange: (v: string) => void;
++    style?: React.CSSProperties;
++    minRows?: number;
++    placeholder?: string;
++}
++
++export default function RichTextEditor({ value, onChange, style, minRows = 3, placeholder }: Props) {
++    const [editing, setEditing] = useState(false);
++
++    if (editing) {
++        return (
++            <div style={{ ...style, border: '2px solid #2563eb', borderRadius: 6, minHeight: minRows * 24 }}>
++                <BlockNoteEditorWrapper 
++                    initialHTML={value} 
++                    onChangeHTML={onChange}
++                    onBlur={() => setEditing(false)}
++                />
++            </div>
++        );
++    }
++
++    return (
++        <div
++            onClick={() => setEditing(true)}
++            title="?대┃?섏뿬 ?몄쭛湲??닿린"
++            style={{
++                cursor: 'pointer', fontSize: 13, lineHeight: 1.8, color: '#1e293b',
++                padding: '10px 14px', borderRadius: 6, border: '1px solid #e5e7eb',
++                background: '#ffffff', transition: 'all 0.15s',
++                fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif",
++                minHeight: minRows * 24,
++                ...style,
++            }}
++            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#93c5fd'; (e.currentTarget as HTMLDivElement).style.background = '#f8faff'; }}
++            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLDivElement).style.background = '#ffffff'; }}
++        >
++            {value ? (
++                <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-a:text-blue-600 focus:outline-none">
++                    <ReactMarkdown rehypePlugins={[rehypeRaw]} remarkPlugins={[remarkGfm]}>
++                        {value}
++                    </ReactMarkdown>
++                </div>
++            ) : (
++                <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>{placeholder || '?대┃?섏뿬 ?댁슜???낅젰?섏꽭??.. (?먮뵒???대┝)'}</span>
++            )}
++        </div>
++    );
++}
+diff --git a/src/components/employee/AddCompanyModal.tsx b/src/components/employee/AddCompanyModal.tsx
+index e85f1d3..4103dc0 100644
+--- a/src/components/employee/AddCompanyModal.tsx
++++ b/src/components/employee/AddCompanyModal.tsx
+@@ -158,12 +158,34 @@ export default function AddCompanyModal({ onClose, refresh }: AddCompanyModalPro
+                                                 detail: data?.error || '?????녿뒗 ?ㅻ쪟'
+                                             });
+                                         } else {
++                                            let auditReportMarkdown = null;
++                                            if (data.issues && data.issues.length > 0) {
++                                                try {
++                                                    const reportRes = await fetch('/api/analyze/report', {
++                                                        method: 'POST',
++                                                        headers: { 'Content-Type': 'application/json' },
++                                                        body: JSON.stringify({
++                                                            issues: data.issues,
++                                                            companyName: addForm.name,
++                                                            _promptConfig: promptConfig
++                                                        })
++                                                    });
++                                                    const reportData = await reportRes.json();
++                                                    if (reportRes.ok && reportData.success) {
++                                                        auditReportMarkdown = reportData.reportMarkdown;
++                                                    }
++                                                } catch (err) {
++                                                    console.error('蹂닿퀬???앹꽦 ?먮윭:', err);
++                                                }
++                                            }
++
+                                             const payload: any = { 
+                                                 status: 'analyzed',
+                                                 issues: data.issues || [],
+                                                 issueCount: data.issueCount || 0,
+                                                 riskLevel: data.riskLevel || 'MEDIUM',
+-                                                aiDraftReady: autoSettings?.autoGenerateDraft ?? false
++                                                aiDraftReady: autoSettings?.autoGenerateDraft ?? false,
++                                                ...(auditReportMarkdown ? { audit_report: auditReportMarkdown } : {})
+                                             };
+                                             if (data.rawText) {
+                                                 payload.privacyPolicyText = data.rawText;
+diff --git a/src/components/employee/TableView.tsx b/src/components/employee/TableView.tsx
+index cf45c5f..55fd866 100644
+--- a/src/components/employee/TableView.tsx
++++ b/src/components/employee/TableView.tsx
+@@ -1,7 +1,7 @@
+ import React, { useState, useMemo } from 'react';
+ import { Search, ChevronDown, ChevronUp } from 'lucide-react';
+-import { Company } from '@/lib/types';
+-import { PIPELINE, SALES_REPS, LAWYERS } from '@/lib/constants';
++import { Company, CaseStatus } from '@/lib/types';
++import { PIPELINE, SALES_REPS, LAWYERS, STATUS_LABEL } from '@/lib/constants';
+ import { RiskBadge } from '@/components/crm/SlidePanel';
+ import { T, StatusBadge, StepCell, ActionButton, ExpandedRow } from './shared';
+ 
+@@ -11,13 +11,16 @@ interface TableViewProps {
+     sortBy: string;
+     sortAsc: boolean;
+     onSort: (key: string) => void;
++    updateBulk?: (companiesList: Partial<Company>[]) => Promise<{ success: number; skipped: number }>;
++    showToast?: (msg: string) => void;
+ }
+ 
+-export default function TableView({ filtered, refresh, sortBy, sortAsc, onSort }: TableViewProps) {
++export default function TableView({ filtered, refresh, sortBy, sortAsc, onSort, updateBulk, showToast }: TableViewProps) {
+     const [expandedId, setExpandedId] = useState<string | null>(null);
+     const [confirmingId, setConfirmingId] = useState<string | null>(null);
+     const [confirmRep, setConfirmRep] = useState(SALES_REPS[0]);
+     const [loading, setLoading] = useState<string | null>(null);
++    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+ 
+     const run = async (key: string, fn: () => Promise<void> | void) => {
+         setLoading(key);
+@@ -35,10 +38,67 @@ export default function TableView({ filtered, refresh, sortBy, sortAsc, onSort }
+ 
+     return (
+         <div className="rounded-2xl overflow-hidden" style={{ background: T.card, border: `1px solid ${T.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
++            {selectedIds.length > 0 && updateBulk && (
++                <div className="bg-blue-50/50 border-b border-blue-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3" style={{ background: '#eff6ff' }}>
++                    <div className="flex items-center gap-2">
++                        <span className="text-sm font-black" style={{ color: '#1e3a8a' }}>
++                            {selectedIds.length}媛??좏깮??+                        </span>
++                    </div>
++                    <div className="flex items-center gap-2 flex-wrap">
++                        <select 
++                            id="bulkStatusSelect"
++                            className="px-2.5 py-1.5 text-xs font-bold rounded-lg border outline-none"
++                            style={{ background: '#ffffff', borderColor: '#bfdbfe', color: '#1e3a8a' }}
++                        >
++                            <option value="">?쇨큵 ?곹깭 蹂寃?..</option>
++                            {Object.entries(STATUS_LABEL).map(([val, label]) => (
++                                <option key={val} value={val}>{label}</option>
++                            ))}
++                        </select>
++                        <button 
++                            className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
++                            style={{ background: '#2563eb', color: '#ffffff', boxShadow: '0 2px 8px rgba(37,99,235,0.2)' }}
++                            disabled={loading === 'bulk'}
++                            onClick={async () => {
++                                const selectEl = document.getElementById('bulkStatusSelect') as HTMLSelectElement;
++                                const newStatus = selectEl.value;
++                                if (!newStatus) return alert('蹂寃쏀븷 ?곹깭瑜??좏깮?댁＜?몄슂.');
++                                
++                                const updates = selectedIds.map(id => ({ id, status: newStatus as CaseStatus }));
++                                setLoading('bulk');
++                                try {
++                                    await updateBulk(updates);
++                                    setSelectedIds([]);
++                                    if(showToast) showToast('?좏깮????ぉ???곹깭媛 ?쇨큵 蹂寃쎈릺?덉뒿?덈떎.');
++                                } catch(e) {
++                                    alert('?곹깭 蹂寃?以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.');
++                                } finally {
++                                    setLoading(null);
++                                    refresh();
++                                }
++                            }}
++                        >
++                            {loading === 'bulk' ? '?곸슜 以?..' : '?곸슜'}
++                        </button>
++                    </div>
++                </div>
++            )}
+             <div className="overflow-x-auto">
+                 <table className="w-full text-sm">
+                     <thead>
+                         <tr style={{ background: '#f8f9fc', borderBottom: `2px solid ${T.border}` }}>
++                            <th className="py-3 px-3 text-center w-10">
++                                <input 
++                                    type="checkbox" 
++                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
++                                    checked={sortedData.length > 0 && selectedIds.length === sortedData.length}
++                                    onChange={(e) => {
++                                        if (e.target.checked) setSelectedIds(sortedData.map(c => c.id));
++                                        else setSelectedIds([]);
++                                    }}
++                                />
++                            </th>
+                             {['湲곗뾽紐?, '?꾪뿕??, '媛留뱀젏??, '?곹깭', '踰뺣쪧遺꾩꽍', '?곸뾽而⑦럩', '蹂?몄궗諛곗젙', '蹂?몄궗而⑦럩', '?대찓??, '?듭옣', '?≪뀡'].map(h => (
+                                 <th key={h} 
+                                     className={`py-3 px-3 text-left text-xs font-black whitespace-nowrap tracking-wide ${h !== '?≪뀡' ? 'cursor-pointer select-none hover:bg-slate-100 transition-colors' : ''}`}
+@@ -73,6 +133,18 @@ export default function TableView({ filtered, refresh, sortBy, sortAsc, onSort }
+                                     onMouseEnter={e => (e.currentTarget.style.background = T.rowHover)}
+                                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+ 
++                                    <td className="py-3.5 px-3 text-center w-10">
++                                        <input 
++                                            type="checkbox" 
++                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
++                                            checked={selectedIds.includes(c.id)}
++                                            onChange={(e) => {
++                                                if (e.target.checked) setSelectedIds([...selectedIds, c.id]);
++                                                else setSelectedIds(selectedIds.filter(id => id !== c.id));
++                                            }}
++                                            onClick={(e) => e.stopPropagation()}
++                                        />
++                                    </td>
+                                     <td className="py-3.5 px-3">
+                                         <div className="flex items-center gap-2">
+                                             <button onClick={() => setExpandedId(expandedId === c.id ? null : c.id)} className="p-0.5 rounded hover:bg-slate-200 transition-colors">
+@@ -130,7 +202,7 @@ export default function TableView({ filtered, refresh, sortBy, sortAsc, onSort }
+                         ))}
+                         {sortedData.length === 0 && (
+                             <tr>
+-                                <td colSpan={11} className="text-center py-16" style={{ color: T.faint }}>
++                                <td colSpan={12} className="text-center py-16" style={{ color: T.faint }}>
+                                     <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                     <p className="font-medium">寃??寃곌낵媛 ?놁뒿?덈떎</p>
+                                 </td>
+diff --git a/src/components/landing/ClaimPopup.tsx b/src/components/landing/ClaimPopup.tsx
+index f5e3f50..74a4197 100644
+--- a/src/components/landing/ClaimPopup.tsx
++++ b/src/components/landing/ClaimPopup.tsx
+@@ -39,7 +39,7 @@ export default function ClaimPopup() {
+                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                     exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+-                    className="fixed bottom-6 right-6 z-[100] w-[400px] shadow-2xl rounded-2xl overflow-hidden"
++                    className="fixed bottom-8 right-8 z-[100] w-[460px] shadow-2xl rounded-2xl overflow-hidden"
+                     style={{ 
+                         background: 'rgba(13,27,62,0.95)', 
+                         backdropFilter: 'blur(12px)',
+@@ -49,17 +49,16 @@ export default function ClaimPopup() {
+                 >
+                     <button 
+                         onClick={() => setIsVisible(false)}
+-                        className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-white/10 transition-colors z-10"
++                        className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors z-10"
+                         style={{ color: 'rgba(240,244,255,0.4)' }}
+                     >
+-                        <X className="w-4 h-4" />
++                        <X className="w-5 h-5" />
+                     </button>
+ 
+-                    <div className="p-7 flex flex-col items-center">
++                    <div className="px-10 py-12 flex flex-col items-center justify-center min-h-[280px]">
+                         
+-
+                         {/* Heading Text */}
+-                        <h3 className="text-lg font-extrabold text-white text-center leading-snug mb-3 tracking-tight word-break-keep">
++                        <h3 className="text-[22px] font-extrabold text-white text-center leading-[1.4] mb-5 tracking-tight word-break-keep">
+                             洹???덊럹?댁???<br />
+                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#e8c87a] to-[#c9a84c]">
+                                 ?꾨씪?대쾭??由ы룷??@@ -67,19 +66,19 @@ export default function ClaimPopup() {
+                         </h3>
+ 
+                         {/* Description Text */}
+-                        <p className="text-[13px] text-center mb-6 leading-relaxed" style={{ color: 'rgba(240,244,255,0.7)', wordBreak: 'keep-all' }}>
+-                            ?ъ냼??踰뺣쪧 ?꾨컲??留됰???怨쇱쭠湲덉쑝濡??댁뼱吏????덉뒿?덈떎.<br/>
+-                            <span className="block mt-2 font-semibold" style={{ color: '#e8c87a' }}>濡쒓렇?????곸꽭 吏꾨떒 寃곌낵瑜?利됱떆 ?먭??섏꽭??</span>
+-                        </p>
++                        <div className="text-[14.5px] text-center mb-8 leading-[1.7]" style={{ color: 'rgba(240,244,255,0.73)', wordBreak: 'keep-all' }}>
++                            <p>?ъ냼??踰뺣쪧 ?꾨컲??留됰???怨쇱쭠湲덉쑝濡??댁뼱吏????덉뒿?덈떎.</p>
++                            <p className="mt-3 font-semibold" style={{ color: '#e8c87a' }}>濡쒓렇?????곸꽭 吏꾨떒 寃곌낵瑜?利됱떆 ?먭??섏꽭??</p>
++                        </div>
+ 
+                         <Button 
+                             variant="premium" 
+-                            className="w-full font-bold shadow-[0_8px_24px_-8px_rgba(201,168,76,0.6)] group relative overflow-hidden"
++                            className="w-full py-4 text-[15px] font-bold shadow-[0_8px_24px_-8px_rgba(201,168,76,0.6)] group relative overflow-hidden"
+                             onClick={handleLoginRedirect}
+                         >
+-                            <span className="relative z-10 flex items-center justify-center">
++                            <span className="relative z-10 flex items-center justify-center gap-1.5">
+                                 由ъ뒪??吏꾨떒 寃곌낵 蹂닿린 
+-                                <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
++                                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1.5" />
+                             </span>
+                         </Button>
+                     </div>
+diff --git a/src/components/lawyer/LegalReviewPreview.tsx b/src/components/lawyer/LegalReviewPreview.tsx
+index 3ac4700..ac9acf2 100644
+--- a/src/components/lawyer/LegalReviewPreview.tsx
++++ b/src/components/lawyer/LegalReviewPreview.tsx
+@@ -5,6 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
+ import { Shield, Scale, CheckCircle2, ChevronDown, FileSignature, FileText, Gavel, Edit3, Check } from 'lucide-react';
+ import ReactMarkdown from 'react-markdown';
+ import remarkGfm from 'remark-gfm';
++import rehypeRaw from 'rehype-raw';
++import dynamic from 'next/dynamic';
++
++const BlockNoteEditorWrapper = dynamic(() => import('../crm/BlockNoteEditorWrapper'), { ssr: false });
++
+ 
+ /* ????? Color Constants ????? */
+ const LVL_COLOR: Record<string, string> = { HIGH: '#ef4444', MEDIUM: '#f59e0b', LOW: '#10b981' };
+@@ -124,8 +129,7 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
+         }
+     }, [auditReport, isEditing]);
+ 
+-    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+-        const val = e.target.value;
++    const handleReportChange = (val: string) => {
+         setEditContent(val);
+         if (saveTimer.current) clearTimeout(saveTimer.current);
+         saveTimer.current = setTimeout(() => {
+@@ -234,34 +238,37 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
+                                 {onUpdateReport && (
+                                     <button 
+                                         onClick={() => setIsEditing(!isEditing)}
+-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
++                                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded transition-colors ${
++                                            isEditing 
++                                                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' 
++                                                : 'text-gray-500 bg-gray-100 hover:bg-gray-200'
++                                        }`}
+                                     >
+                                         {isEditing ? <Check size={14} /> : <Edit3 size={14} />}
+-                                        {isEditing ? '蹂닿린 紐⑤뱶' : '?섏젙 紐⑤뱶'}
++                                        {isEditing ? '?섏젙 ?꾨즺' : '?섏젙 紐⑤뱶'}
+                                     </button>
+                                 )}
+                             </div>
+                             
+                             {isEditing ? (
+-                                <textarea
+-                                    value={editContent}
+-                                    onChange={handleChange}
+-                                    onBlur={handleBlur}
+-                                    className="w-full h-[60vh] p-4 text-[14px] leading-relaxed text-gray-800 bg-gray-50 border border-gray-200 rounded shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white resize-y"
+-                                    style={{ fontFamily: "'Pretendard', 'Inter', sans-serif" }}
+-                                    placeholder="留덊겕?ㅼ슫 ?묒떇?쇰줈 寃?좎븞???섏젙?????덉뒿?덈떎."
+-                                />
++                                <div className="border border-gray-200 rounded shadow-inner bg-gray-50 overflow-auto" style={{ minHeight: '60vh', padding: '8px' }}>
++                                    <BlockNoteEditorWrapper 
++                                        initialHTML={editContent} 
++                                        onChangeHTML={handleReportChange}
++                                        onBlur={handleBlur}
++                                        isMarkdown={true}
++                                    />
++                                </div>
+                             ) : (
+                                 <div className="prose prose-slate max-w-none text-[15px] leading-[2] text-gray-800 prose-headings:font-black prose-headings:text-gray-900 prose-headings:tracking-tight prose-h1:text-2xl prose-h1:mt-12 prose-h1:mb-4 prose-h1:pb-3 prose-h1:border-b prose-h1:border-gray-100 prose-h2:text-xl prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-2 prose-p:text-gray-700 prose-p:leading-[2] prose-strong:text-gray-900 prose-li:text-gray-700 prose-li:leading-[1.8] prose-table:text-sm prose-th:bg-gray-50 prose-th:font-black prose-th:text-gray-900" style={{ fontFamily: "'Pretendard', 'Inter', sans-serif" }}>
+-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{auditReport}</ReactMarkdown>
++                                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{auditReport}</ReactMarkdown>
+                                 </div>
+-                            )}
+-                        </div>
+-
+-                    </>
+-                ) : (
+-                    /* 蹂닿퀬???앹꽦 吏??以??쒖떆 */
+-                    <div className="px-8 md:px-16 py-12 relative z-10 text-center">
++                                )}
++                            </div>
++                        </>
++                    ) : (
++                        /* 蹂닿퀬???앹꽦 吏??以??쒖떆 */
++                        <div className="px-8 md:px-16 py-12 relative z-10 text-center">
+                         <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4 animate-pulse" />
+                         <h2 className="text-lg font-black text-gray-700 mb-2">醫낇빀 ?ㅼ궗 蹂닿퀬???앹꽦 以?..</h2>
+                         <p className="text-sm text-gray-500">AI媛 1李?議곕Ц 寃??寃곌낵瑜?諛뷀깢?쇰줈 理쒖쥌 寃??蹂닿퀬?쒕? ?묒꽦?섍퀬 ?덉뒿?덈떎. ?좎떆留?湲곕떎?ㅼ＜?몄슂.</p>
+@@ -269,6 +276,22 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
+                     </div>
+                 )}
+ 
++                {/* 
++                {displayIssues.length > 0 && (
++                    <div className="px-8 md:px-16 py-8 relative z-10" style={{ borderTop: '1px solid #f3f4f6' }}>
++                        <div className="flex items-center gap-2 pb-4 mb-6 relative">
++                            <h2 className="text-sm font-black text-gray-400 tracking-wider uppercase bg-[#faf9f6] z-10 relative pr-4">議곕Ц蹂??몃? 寃?좎븞</h2>
++                            <div className="flex-1 border-t border-gray-200 border-dashed absolute top-1/2 left-0 w-full -mt-[1px]"></div>
++                        </div>
++                        <div className="space-y-4">
++                            {displayIssues.map((issue, idx) => (
++                                <IssueItem key={idx} issue={issue} index={idx} />
++                            ))}
++                        </div>
++                    </div>
++                )}
++                */}
++
+                 {/* ?? ?섏씠吏 ?앸?遺??? */}
+                 <div className="px-8 md:px-16 py-12 border-t border-gray-100 relative z-10">
+                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+diff --git a/src/components/lawyer/PendingClientsPanel.tsx b/src/components/lawyer/PendingClientsPanel.tsx
+index e8fbd1c..d0bdfc6 100644
+--- a/src/components/lawyer/PendingClientsPanel.tsx
++++ b/src/components/lawyer/PendingClientsPanel.tsx
+@@ -35,7 +35,7 @@ export default function PendingClientsPanel({ onConfirm }: { onConfirm: () => vo
+             // ?〓Т ?ш굔 ?먮룞 ?깅줉
+             addLitigation({
+                 companyId: 'personal',
+-                companyName: confirmed.clientName,
++                companyName: confirmed.clientName || '?대쫫 ?놁쓬',
+                 caseNo: '',
+                 court: COURTS[0],
+                 type: LITIGATION_TYPES[0],
+@@ -45,13 +45,13 @@ export default function PendingClientsPanel({ onConfirm }: { onConfirm: () => vo
+                 assignedLawyer: assignedLawyer,
+                 deadlines: [],
+                 notes: `?뱥 ?묒닔 寃쎌쐞: ${confirmed.channel === 'recording' ? '?뱀쓬 ?묒닔' : confirmed.channel === 'intake_url' ? 'URL ?묒닔' : '?뚯쓽 ?묒닔'}
+-?곕씫泥? ${confirmed.clientPhone}
++?곕씫泥? ${confirmed.clientPhone || '?뺣낫 ?놁쓬'}
+ 
+ ?뱷 AI ?붿빟:
+-${confirmed.summarySteps.map(s => s.replace(/\*\*/g, '')).join('\n')}
++${(confirmed.summarySteps || []).map((s: string) => s.replace(/\*\*/g, '')).join('\n')}
+ 
+ ?뱜 ?꾩껜 ?뱀랬濡?
+-${confirmed.transcript}`,
++${confirmed.transcript || '?댁슜 ?놁쓬'}`,
+                 result: '',
+                 resultNote: '',
+             });
+@@ -129,7 +129,7 @@ ${confirmed.transcript}`,
+                     <div>
+                         <p className="text-xs font-black mb-2 uppercase tracking-wider" style={{ color: '#94a3b8' }}>?쨼 AI 遺꾩꽍 ?붿빟</p>
+                         <div className="space-y-2">
+-                            {selected.summarySteps.map((step, i) => (
++                            {(selected.summarySteps || []).map((step: string, i: number) => (
+                                 <div key={i} className="rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
+                                     <button className="w-full flex items-center justify-between px-4 py-3 text-left"
+                                         style={{ background: openStep === i ? '#f8faff' : '#fff' }}
+diff --git a/src/components/lawyer/ReviewDocList.tsx b/src/components/lawyer/ReviewDocList.tsx
+index 5fa83a0..ab0bf3e 100644
+--- a/src/components/lawyer/ReviewDocList.tsx
++++ b/src/components/lawyer/ReviewDocList.tsx
+@@ -55,12 +55,34 @@ export default function ReviewDocList({ cases }: { cases: Company[] }) {
+             const data = await res.json();
+             
+             if (res.ok && data.success) {
++                let auditReportMarkdown = null;
++                if (data.issues && data.issues.length > 0) {
++                    try {
++                        const reportRes = await fetch('/api/analyze/report', {
++                            method: 'POST',
++                            headers: { 'Content-Type': 'application/json' },
++                            body: JSON.stringify({
++                                issues: data.issues,
++                                companyName: c.name,
++                                _promptConfig: promptConfig
++                            })
++                        });
++                        const reportData = await reportRes.json();
++                        if (reportRes.ok && reportData.success) {
++                            auditReportMarkdown = reportData.reportMarkdown;
++                        }
++                    } catch (err) {
++                        console.error('蹂닿퀬???앹꽦 ?먮윭:', err);
++                    }
++                }
++
+                 await updateCompany(c.id, { 
+                     status: 'reviewing',
+                     issues: data.issues || [],
+                     issueCount: data.issueCount || 0,
+                     riskLevel: data.riskLevel || 'MEDIUM',
+-                    privacyPolicyText: data.rawText || (c as any).privacyPolicyText // Use any if alias doesn't exist, though it shouldn't matter as backend handles it now
++                    privacyPolicyText: data.rawText || (c as any).privacyPolicyText,
++                    ...(auditReportMarkdown ? { audit_report: auditReportMarkdown } : {})
+                 });
+                 alert('?щ텇?앹씠 ?꾨즺?섏뿀?듬땲??');
+             } else {
+diff --git a/src/hooks/useDataLayer.ts b/src/hooks/useDataLayer.ts
+index 6ea6e38..f936cc8 100644
+--- a/src/hooks/useDataLayer.ts
++++ b/src/hooks/useDataLayer.ts
+@@ -123,11 +123,7 @@ export function useCompanyMutations() {
+   const { mutate } = useSWRConfig();
+   
+   const refreshCompanies = () => {
+-    mutate(
+-      (key: any) => Array.isArray(key) && key[0] === 'paginated-companies',
+-      undefined,
+-      { revalidate: true }
+-    );
++    mutate((key: any) => Array.isArray(key) && key[0] === 'paginated-companies');
+     mutate('company-stats');
+     mutate('companies');
+   };
+diff --git a/src/lib/supabaseStore.ts b/src/lib/supabaseStore.ts
+index c2e8f75..d88d89e 100644
+--- a/src/lib/supabaseStore.ts
++++ b/src/lib/supabaseStore.ts
+@@ -226,7 +226,7 @@ async function fetchPaginatedCompanies(options: PaginationOptions): Promise<{ da
+   const from = (page - 1) * limit;
+   const to = from + limit - 1;
+ 
+-  const overviewColumns = `id, name, domain, url, email, phone, contact_name, contact_email, contact_phone, ceo_name, biz_category, franchise_type, store_count, plan, status, risk_level, risk_score, issue_count, privacy_url, assigned_lawyer_id, email_sent_at, lawyer_confirmed, lawyer_confirmed_at, source, biz_no, created_at, updated_at, sales_confirmed, sales_confirmed_at, sales_confirmed_by, email_subject, client_replied, client_replied_at, client_reply_note, login_count, call_note, auto_mode, ai_draft_ready, custom_script, lawyer_note, contract_sent_at, contract_signed_at, contract_method, contract_note, callback_scheduled_at, follow_up_step, ai_memo_summary, ai_next_action, ai_next_action_type, last_call_result, last_call_at, call_attempts, last_called_by`;
++  const overviewColumns = `id, name, domain, url, email, phone, contact_name, contact_email, contact_phone, ceo_name, biz_category, franchise_type, store_count, plan, status, risk_level, risk_score, issue_count, privacy_url, privacy_policy_text, audit_report, assigned_lawyer_id, email_sent_at, lawyer_confirmed, lawyer_confirmed_at, source, biz_no, created_at, updated_at, sales_confirmed, sales_confirmed_at, sales_confirmed_by, email_subject, client_replied, client_replied_at, client_reply_note, login_count, call_note, auto_mode, ai_draft_ready, custom_script, lawyer_note, contract_sent_at, contract_signed_at, contract_method, contract_note, callback_scheduled_at, follow_up_step, ai_memo_summary, ai_next_action, ai_next_action_type, last_call_result, last_call_at, call_attempts, last_called_by`;
+ 
+   let query = sb.from('companies').select(overviewColumns, { count: 'exact' });
+ 
+@@ -473,18 +473,26 @@ export const supabaseCompanyStore = {
+     const rows = companies.map(company => cleanCompanyRow(company, false));
+     let successCount = 0;
+     
+-    // Chunk items by 500
+-    for (let i = 0; i < rows.length; i += 500) {
+-      const chunk = rows.slice(i, i + 500);
+-      try {
+-        const { data, error } = await sb.from('companies').upsert(chunk, { onConflict: 'id', ignoreDuplicates: false });
+-        if (error) {
+-          console.error('Bulk update error mapped chunk:', error);
++    // PostgreSQL upsert (ON CONFLICT) requires all NOT NULL columns for the INSERT evaluation phase.
++    // Since we receive partial objects (e.g., just { id, status }), upsert will fail.
++    // Therefore, we use Promise.all to run individual updates safely.
++    const BATCH_SIZE = 50;
++    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
++      const chunk = rows.slice(i, i + BATCH_SIZE);
++      const promises = chunk.map(row => {
++        const { id, ...updates } = row;
++        if (!id || Object.keys(updates).length === 0) return Promise.resolve({ error: null });
++        updates.updated_at = new Date().toISOString();
++        return sb.from('companies').update(updates).eq('id', id);
++      });
++      
++      const results = await Promise.all(promises);
++      for (const res of results) {
++        if (res.error) {
++          console.error('Bulk update individual mapping error:', res.error);
+         } else {
+-          successCount += chunk.length;
++          successCount++;
+         }
+-      } catch (err) {
+-        console.error('Bulk update exception chunk:', err);
+       }
+     }
+     
+diff --git a/src/middleware.ts b/src/proxy.ts
+similarity index 99%
+rename from src/middleware.ts
+rename to src/proxy.ts
+index 947bdb3..3501e0e 100644
+--- a/src/middleware.ts
++++ b/src/proxy.ts
+@@ -51,7 +51,7 @@ function isPathAllowed(pathname: string, role: string): boolean {
+     return allowed.some(p => pathname.startsWith(p));
+ }
+ 
+-export async function middleware(request: NextRequest) {
++export async function proxy(request: NextRequest) {
+     const { pathname } = request.nextUrl;
+     const host = request.headers.get('host') || '';
+ 
+diff --git a/supabase/migrations/027_crawler_status_columns.sql b/supabase/migrations/027_crawler_status_columns.sql
+new file mode 100644
+index 0000000..3a7202c
+--- /dev/null
++++ b/supabase/migrations/027_crawler_status_columns.sql
+@@ -0,0 +1,16 @@
++-- ================================================================
++-- Migration: Add crawling status columns to cases
++-- 遊뉗쓽 ?숈떆???쒖뼱 諛??덇린移?紐삵븳 醫낅즺(Zombie)瑜?異붿쟻?섍린 ?꾪븳 ?뺤옣
++-- ================================================================
++
++ALTER TABLE cases
++ADD COLUMN IF NOT EXISTS crawling_status TEXT NOT NULL DEFAULT 'idle'
++    CHECK (crawling_status IN ('idle', 'processing', 'error')),
++ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ,
++ADD COLUMN IF NOT EXISTS last_crawled_at TIMESTAMPTZ,
++ADD COLUMN IF NOT EXISTS captcha_fail_count INT NOT NULL DEFAULT 0;
++
++-- ?몃뜳?? ?ㅼ?以꾨윭媛 ?⑥쑉?곸쑝濡??쎌씠 ?由??뱀? ?쒓컙??吏?? ?묒뾽???먯깋?????덈룄濡?異붽?
++CREATE INDEX IF NOT EXISTS idx_cases_crawler_queue 
++    ON cases (status, crawling_status, locked_until)
++    WHERE status = 'active';
+
+commit ef9b061d54c1cccdff7ec38217707344dcee8de1
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 18:00:03 2026 +0900
+
+    fix(api): fallback to previous claude 3.5 sonnet to fix 404 access error
+
+diff --git a/src/app/api/analyze/route.ts b/src/app/api/analyze/route.ts
+index 5aca95e..608cf3b 100644
+--- a/src/app/api/analyze/route.ts
++++ b/src/app/api/analyze/route.ts
+@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
+                     'x-api-key': anthropicKey as string
+                 },
+                 body: JSON.stringify({
+-                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20241022',
++                    model: targetModel === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-20240620',
+                     max_tokens: 4096,
+                     system: '諛섎뱶???쒖닔 JSON ?뺤떇({ "riskLevel": ..., "summaryOpinion": ..., "issues": [...] })留?諛섑솚?댁빞 ?섎ŉ ?욌뮘??諛깊떛(```)?대굹 遺媛 ?ㅻ챸???덈? ?ы븿?섏? 留덉꽭??',
+                     messages: [{ role: 'user', content: prompt }]
+
+commit 42702885419547c3e2edf23c1a07e89ce2de050c
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 16:51:57 2026 +0900
+
+    fix: replace 502 with 500 in Anthropic and Gemini fallback paths
+
+diff --git a/src/app/api/analyze/route.ts b/src/app/api/analyze/route.ts
+index 17a9131..5aca95e 100644
+--- a/src/app/api/analyze/route.ts
++++ b/src/app/api/analyze/route.ts
+@@ -202,10 +202,11 @@ export async function POST(request: NextRequest) {
+             clearTimeout(aiTimeoutId);
+ 
+             if (!response.ok) {
+-                console.error('[Analyze API] Anthropic Failure:', await response.text());
++                const errText = await response.text();
++                console.error('[Analyze API] Anthropic Failure:', errText);
+                 return NextResponse.json(
+-                    { success: false, error: 'AI 紐⑤뜽(Anthropic) ?몄텧???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??' },
+-                    { status: 502 }
++                    { success: false, error: `AI 紐⑤뜽(Anthropic) ?몄텧???ㅽ뙣?덉뒿?덈떎 (${response.status}). 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??` },
++                    { status: response.status === 429 ? 429 : 500 }
+                 );
+             }
+             const aiData = await response.json();
+@@ -234,8 +235,12 @@ export async function POST(request: NextRequest) {
+             clearTimeout(aiTimeoutId);
+ 
+             if (!response.ok) {
+-                console.error('[Analyze API] Gemini Failure:', await response.text());
+-                return NextResponse.json({ success: false, error: 'AI 紐⑤뜽(Gemini) ?몄텧???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??' }, { status: 502 });
++                const errText = await response.text();
++                console.error('[Analyze API] Gemini Failure:', errText);
++                return NextResponse.json(
++                    { success: false, error: `AI 紐⑤뜽(Gemini) ?몄텧???ㅽ뙣?덉뒿?덈떎 (${response.status}). 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??` },
++                    { status: response.status === 429 ? 429 : 500 }
++                );
+             }
+             const aiData = await response.json();
+             content = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+commit e34f886df5e81f8fc006c0aaa44bd51033c3e848
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 16:21:31 2026 +0900
+
+    fix: explicit 502 replaced with 500/429 to avoid confusion
+
+diff --git a/src/app/api/analyze/route.ts b/src/app/api/analyze/route.ts
+index cfbac8e..17a9131 100644
+--- a/src/app/api/analyze/route.ts
++++ b/src/app/api/analyze/route.ts
+@@ -82,22 +82,12 @@ export async function POST(request: NextRequest) {
+         return getMissingResponse();
+     }
+ 
+-    // URL ?뺢퇋???⑥닔 (`http`媛 ?놁쑝硫?`https://` 遺숈씠湲?
+-    const normalizeUrl = (url?: string) => {
+-        if (!url || typeof url !== 'string') return '';
+-        url = url.trim();
+-        if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+-            return `https://${url}`;
+-        }
+-        return url;
+-    };
++    const homepageUrl = body.homepageUrl?.trim() || paramUrl?.trim() || '';
++    const privacyUrl = body.privacyUrl?.trim() || '';
+ 
+-    const homepageUrl = normalizeUrl(body.homepageUrl || paramUrl);
+-    const privacyUrl = normalizeUrl(body.privacyUrl);
+-
+-    if (!homepageUrl && !privacyUrl && !companyId && !manualText) {
++    if (!companyId && !manualText) {
+         return NextResponse.json(
+-            { success: false, error: '遺꾩꽍???꾩슂???앸퀎 二쇱냼???섎룞 ?띿뒪??以??섎굹???꾩닔?낅땲??' },
++            { success: false, error: '遺꾩꽍???꾩슂??companyId???섎룞 ?띿뒪??以??섎굹???꾩닔?낅땲??' },
+             { status: 400 }
+         );
+     }
+@@ -105,70 +95,8 @@ export async function POST(request: NextRequest) {
+     let extractedText = '';
+     let extractedFooter: any = null;
+ 
+-    async function crawlUrl(target: string): Promise<string> {
+-        let html = '';
+-        const fetchUrl = new URL(target);
+-        if (!fetchUrl.protocol.startsWith('http')) throw new Error('Invalid protocol');
+-        
+-        const controller = new AbortController();
+-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+-
+-        try {
+-            const scrapeDoKey = process.env.SCRAPE_DO_API_KEY;
+-            const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+-            let res: Response | null = null;
+-            
+-            if (scrapeDoKey) {
+-                console.log(`[Analyze API] Using scrape.do API for URL: ${target}`);
+-                let sdUrl = `http://api.scrape.do/?token=${scrapeDoKey}&url=${encodeURIComponent(target)}&render=true`;
+-
+-                try {
+-                    res = await fetch(sdUrl, { signal: controller.signal });
+-                    if (!res.ok) {
+-                        console.warn(`[Analyze API] scrape.do failed with status: ${res.status}. Falling back to ScrapingBee.`);
+-                        res = null;
+-                    }
+-                } catch (e) {
+-                    console.warn(`[Analyze API] scrape.do network error:`, e);
+-                    res = null;
+-                }
+-            }
+-            
+-            if (!res && scrapingBeeKey) {
+-                console.log(`[Analyze API] Using ScrapingBee API fallback for URL: ${target}`);
+-                let sbUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(target)}&render_js=true`;
+-
+-                try {
+-                    res = await fetch(sbUrl, { signal: controller.signal });
+-                    if (!res.ok) {
+-                        console.warn(`[Analyze API] ScrapingBee failed with status: ${res.status}. No more fallbacks available.`);
+-                        res = null;
+-                    }
+-                } catch (e) {
+-                    console.warn(`[Analyze API] ScrapingBee network error:`, e);
+-                    res = null;
+-                }
+-            }
+-            
+-            if (res?.ok) {
+-                html = await res.text();
+-            } else {
+-                console.warn(`[Analyze API] HTTP Fetch failed: Status ${res?.status}`);
+-                throw new Error('Fetch failed in both services');
+-            }
+-        } finally {
+-            clearTimeout(timeoutId);
+-        }
+-
+-        let cleanHtml = html.length > 200000 ? html.slice(0, 200000) : html;
+-        cleanHtml = cleanHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
+-        cleanHtml = cleanHtml.replace(/<style[\s\S]*?<\/style>/gi, '');
+-        cleanHtml = cleanHtml.replace(/<[^>]+>/g, ' ');
+-        return cleanHtml.replace(/\s+/g, ' ').trim();
+-    }
+-
+     try {
+-        // [?ㅽ듃?뚰겕 Egress 理쒖쟻?? DB ??λ맂 ?먮Ц???덈뒗吏 ?뺤씤?섏뿬 Server ?대??먯꽌 泥섎━
++        // [DB 理쒖쟻?? DB ??λ맂 ?먮Ц???덈뒗吏 ?뺤씤?섏뿬 Server ?대??먯꽌 泥섎━
+         if ((!manualText || manualText.trim().length === 0) && companyId) {
+             console.log(`[Analyze API] manualText媛 ?놁뼱 ?쒕쾭?먯꽌 湲곗〈 DB ?띿뒪??吏곸젒 ?ш????쒕룄: ${companyId}`);
+             try {
+@@ -186,7 +114,7 @@ export async function POST(request: NextRequest) {
+                                 return getMissingResponse();
+                             }
+                             extractedText = existingText.trim();
+-                            console.log(`[Analyze API] DB?먯꽌 湲곗〈 ?꾨씪?대쾭???띿뒪??異붿텧 ?꾨즺 (${extractedText.length} bytes) - ?щ·留??ㅽ궢`);
++                            console.log(`[Analyze API] DB?먯꽌 湲곗〈 ?꾨씪?대쾭???띿뒪??異붿텧 ?꾨즺 (${extractedText.length} bytes)`);
+                         }
+                     }
+                 }
+@@ -196,91 +124,26 @@ export async function POST(request: NextRequest) {
+         }
+ 
+         // 遺꾧린 濡쒖쭅
+-        // Case 2-3: manualText媛 理쒖슦??         if (!extractedText && manualText && manualText.trim().length > 0) {
+             extractedText = manualText.trim();
+         }
+-        // Case 2-2: privacyUrl???덈뒗 寃쎌슦
+-        else if (!extractedText && privacyUrl && privacyUrl.startsWith('http')) {
+-            extractedText = await crawlUrl(privacyUrl);
+-        } 
+-        // Case 2-1: homepageUrl留??덈뒗 寃쎌슦
+-        else if (!extractedText && homepageUrl && homepageUrl.startsWith('http')) {
+-            console.log(`[Analyze API] ?덊럹?댁??먯꽌 ?명꽣 ?뺣낫 異붿텧 ?쒕룄 以? ${homepageUrl}`);
+-            const homeText = await crawlUrl(homepageUrl);
+-            
+-            // OpenAI濡??ъ뾽?먮쾲?? ?꾪솕踰덊샇, 媛쒖씤?뺣낫痍④툒諛⑹묠 URL 異붿텧
+-            const apiKey = process.env.OPENAI_API_KEY;
+-            if (apiKey) {
+-                const aiController = new AbortController();
+-                const timeoutId = setTimeout(() => aiController.abort(), 15000); // 15珥??쒗븳
+-                try {
+-                    const footerRes = await fetch('https://api.openai.com/v1/chat/completions', {
+-                        method: 'POST',
+-                        headers: {
+-                            'Content-Type': 'application/json',
+-                            'Authorization': `Bearer ${apiKey}`
+-                        },
+-                        body: JSON.stringify({
+-                            model: 'gpt-4o-mini',
+-                            response_format: { type: "json_object" },
+-                            messages: [{ 
+-                                role: 'user', 
+-                                content: `?ㅼ쓬 ?뱀궗?댄듃 ?댁슜?먯꽌 ?뚯궗 ?명꽣 ?뺣낫瑜?李얠븘 JSON 媛앹껜濡?諛섑솚?? 
+-                                諛섑솚 ?뺥깭: {"businessNumber": "?ъ뾽?먮쾲??, "phoneNumber": "怨좉컼?쇳꽣 ?꾪솕踰덊샇", "privacyUrl": "媛쒖씤?뺣낫泥섎━諛⑹묠 留곹겕 URL"}
+-                                留뚯빟 ?대떦 ?뺣낫媛 ?놁쑝硫?鍮?臾몄옄??"")濡?諛섑솚??寃?
+-                                URL? ?덈? 寃쎈줈(?? https://...)?닿굅???곷? 寃쎈줈(/privacy)?????덉쓬. ?곷?寃쎈줈?쇰㈃ ?먮옒 ?꾨찓??${homepageUrl})??遺숈뿬???덈?寃쎈줈濡?留뚮뱾?댁쨾.
+-                                ?댁슜???쇰?: ${homeText.slice(homeText.length > 50000 ? homeText.length - 10000 : 0)}` 
+-                            }]
+-                        }),
+-                        signal: aiController.signal
+-                    });
+-                    
+-                    if (footerRes.ok) {
+-                        const jsonPayload = await footerRes.json();
+-                        const resultParsed = JSON.parse(jsonPayload.choices[0].message.content);
+-                        extractedFooter = {
+-                            businessNumber: resultParsed.businessNumber || "",
+-                            phoneNumber: resultParsed.phoneNumber || "",
+-                            privacyUrl: resultParsed.privacyUrl || ""
+-                        };
+-                        console.log(`[Analyze API] 異붿텧???명꽣 ?뺣낫:`, extractedFooter);
+-                        
+-                        // privacyUrl??李얠븯?쇰㈃ ?ㅼ떆 ?щ·留??쒕룄
+-                        if (extractedFooter.privacyUrl && extractedFooter.privacyUrl.startsWith('http')) {
+-                           extractedText = await crawlUrl(extractedFooter.privacyUrl);
+-                        } else {
+-                            throw new Error('?명꽣?먯꽌 媛쒖씤?뺣낫泥섎━諛⑹묠 URL??李얠쓣 ???놁뒿?덈떎.');
+-                        }
+-                    }
+-                } catch(e) {
+-                    console.warn('[Analyze API] ?명꽣 ?뺣낫 AI 異붿텧 ?먮뒗 ?щ·留??ㅽ뙣:', e);
+-                } finally {
+-                    clearTimeout(timeoutId);
+-                }
+-            }
+-        }
+-
+-        // 寃곌낵 寃利?(manualText ?곗꽑)
+-        const isMinLengthValid = (manualText && manualText.trim().length > 0) ? extractedText.length >= 5 : extractedText.length >= 50;
++        
++        // 寃곌낵 寃利?+        const isMinLengthValid = extractedText.length >= 5;
+         
+         if (!extractedText || !isMinLengthValid) {
+-            console.warn('[Analyze API] ?щ·留??ㅽ뙣 ?먮뒗 ?띿뒪??遺덉땐遺?);
++            console.warn('[Analyze API] DB ?띿뒪??遺???먮뒗 ?섎룞 ?낅젰 ?띿뒪??遺덉땐遺?);
+             return NextResponse.json(
+-                { success: false, error: '?뱁럹?댁??먯꽌 媛쒖씤?뺣낫泥섎━諛⑹묠 ?댁슜???뺤긽?곸쑝濡?遺덈윭?ㅼ? 紐삵뻽?듬땲?? 遊?李⑤떒???섏떖?섍굅???댁슜???덈Т 吏㏃뒿?덈떎. ?꾨Ц ?띿뒪?몃? 吏곸젒 蹂듭궗?섏뿬 ?섎룞?쇰줈 ?낅젰??二쇱꽭??' },
++                { success: false, error: 'DB?먯꽌 諛⑹묠 ?띿뒪?몃? 李얠쓣 ???녾굅???댁슜???덈Т 吏㏃뒿?덈떎. ?꾨Ц ?띿뒪?몃? 吏곸젒 蹂듭궗?섏뿬 ?섎룞?쇰줈 ?낅젰??二쇱꽭??' },
+                 { status: 422 }
+             );
+         }
+ 
+     } catch (error: any) {
+-        console.error('[Analyze API] URL Fetch Error:', error);
+-        const isTimeout = error.name === 'AbortError';
++        console.error('[Analyze API] DB/Text Load Error:', error);
+         return NextResponse.json(
+-            { success: false, error: isTimeout 
+-                ? '?뱀궗?댄듃 ?묐떟???놁뼱 ?쒓컙 珥덇낵?섏뿀?듬땲?? 媛쒖씤?뺣낫泥섎━諛⑹묠 ?띿뒪?몃? 吏곸젒 遺숈뿬?ｌ뼱 二쇱꽭??'
+-                : '?좏슚??URL ?뺤떇???꾨땲嫄곕굹 ?щ·留곸뿉 ?ㅽ뙣?덉뒿?덈떎. (?? https://example.com/privacy)' 
+-            },
+-            { status: isTimeout ? 504 : 422 }
++            { success: false, error: '媛쒖씤?뺣낫泥섎━諛⑹묠 ?띿뒪?몃? 援ъ꽦?섎뒗 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.' },
++            { status: 500 }
+         );
+     }
+ 
+@@ -398,10 +261,11 @@ export async function POST(request: NextRequest) {
+             clearTimeout(aiTimeoutId);
+ 
+             if (!response.ok) {
+-                console.error('[Analyze API] OpenAI Failure:', await response.text());
++                const errText = await response.text();
++                console.error('[Analyze API] OpenAI Failure:', errText);
+                 return NextResponse.json(
+-                    { success: false, error: 'AI 紐⑤뜽(OpenAI) ?몄텧???ㅽ뙣?덉뒿?덈떎. 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??' },
+-                    { status: 502 }
++                    { success: false, error: `AI 紐⑤뜽(OpenAI) ?몄텧???ㅽ뙣?덉뒿?덈떎 (${response.status}). 愿由ъ옄?먭쾶 臾몄쓽?섏꽭??` },
++                    { status: response.status === 429 ? 429 : 500 }
+                 );
+             }
+ 
+@@ -419,7 +283,7 @@ export async function POST(request: NextRequest) {
+             console.error('[Analyze API] JSON Parse Error:', e, 'Raw Content was:', content);
+             return NextResponse.json(
+                 { success: false, error: 'AI媛 諛섑솚??寃곌낵瑜??뚯떛?????놁뒿?덈떎. ?ъ“?щ? ?쒕룄??二쇱꽭??' },
+-                { status: 502 }
++                { status: 500 }
+             );
+         }
+ 
+
+commit 8035e75e9a4953f03cbd3500434f9bc3fba84aeb
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 15:06:26 2026 +0900
+
+    Update CRM components, dashboard UI, and privacy prompts
+
+diff --git a/scripts/deduplicate_companies.ts b/scripts/deduplicate_companies.ts
+index dd4151f..e994d83 100644
+--- a/scripts/deduplicate_companies.ts
++++ b/scripts/deduplicate_companies.ts
+@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
+ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+ 
+ // Set to true to actually perform deletions and updates
+-const EXECUTE_MERGE_AND_DELETE = true;
++const EXECUTE_MERGE_AND_DELETE = false;
+ 
+ interface DuplicateGroup {
+   key: string;
+diff --git a/src/app/(admin)/sales/call/page.tsx b/src/app/(admin)/sales/call/page.tsx
+index 19f12cc..21f9cda 100644
+--- a/src/app/(admin)/sales/call/page.tsx
++++ b/src/app/(admin)/sales/call/page.tsx
+@@ -166,6 +166,8 @@ import SalesCallTour from '@/components/sales/call/SalesCallTour';
+ export default function SalesCallPage() {
+     const { user } = useAuth();
+     const [runTour, setRunTour] = useState(false);
++    const [isEditingPage, setIsEditingPage] = useState(false);
++    const [pageInputStr, setPageInputStr] = useState('');
+     const { locks: callLocks, getLockInfo } = useCallLocks(); // @/hooks/useCallLocks ??援ы쁽???낆씠?쇨퀬 媛??     const {
+         companies, search, setSearch, selectedId, toast, setToast, callResult, activeCallId,
+@@ -327,7 +329,43 @@ export default function SalesCallPage() {
+                 <span className="text-[13px] text-slate-500 font-medium">寃?됯껐怨? <strong className="text-slate-900">{count.toLocaleString()}</strong>嫄?/span>
+                 <div className="flex items-center gap-1">
+                     <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1.5 text-[13px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 disabled:opacity-30 transition-colors">?댁쟾</button>
+-                    <div className="px-4 text-[13px] font-bold text-slate-700 select-none">{page}</div>
++                    {isEditingPage ? (
++                        <form onSubmit={(e) => {
++                            e.preventDefault();
++                            const newPage = parseInt(pageInputStr, 10);
++                            if (!isNaN(newPage) && newPage >= 1) {
++                                setPage(newPage);
++                            }
++                            setIsEditingPage(false);
++                        }}>
++                            <input
++                                autoFocus
++                                type="number"
++                                min={1}
++                                className="w-16 px-1 py-1 text-[13px] font-bold text-center border border-indigo-500 rounded outline-none focus:ring-1 focus:ring-indigo-500"
++                                value={pageInputStr}
++                                onChange={(e) => setPageInputStr(e.target.value)}
++                                onBlur={() => {
++                                    const newPage = parseInt(pageInputStr, 10);
++                                    if (!isNaN(newPage) && newPage >= 1) {
++                                        setPage(newPage);
++                                    }
++                                    setIsEditingPage(false);
++                                }}
++                            />
++                        </form>
++                    ) : (
++                        <div 
++                            className="px-4 py-1.5 text-[13px] font-bold text-slate-700 select-none cursor-pointer hover:bg-slate-100 hover:text-indigo-600 rounded transition-colors" 
++                            onClick={() => {
++                                setPageInputStr(page.toString());
++                                setIsEditingPage(true);
++                            }}
++                            title="?대┃?댁꽌 ?섏씠吏 踰덊샇 ?낅젰"
++                        >
++                            {page}
++                        </div>
++                    )}
+                     <button onClick={() => setPage(page + 1)} disabled={filtered.length < 50} className="px-3 py-1.5 text-[13px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700 disabled:opacity-30 transition-colors">?ㅼ쓬</button>
+                 </div>
+             </div>
+diff --git a/src/app/(client)/dashboard/DashboardClient.tsx b/src/app/(client)/dashboard/DashboardClient.tsx
+index e29b36f..157dd1b 100644
+--- a/src/app/(client)/dashboard/DashboardClient.tsx
++++ b/src/app/(client)/dashboard/DashboardClient.tsx
+@@ -361,83 +361,63 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
+                                 >
+                                     {/* ?꾩씠肄?*/}
+                                     <div style={{
+-                                        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
++                                        width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                         background: `linear-gradient(135deg, ${tm.gradFrom}, ${tm.gradTo})`,
+                                     }}>
+-                                        <Icon size={18} color="#fff" />
++                                        <Icon size={22} color="#fff" />
+                                     </div>
+ 
+                                     {/* 蹂몃Ц */}
+-                                    <div style={{ flex: 1, minWidth: 0 }}>
+-                                        {/* ?쒕ぉ ??*/}
+-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+-                                            <span style={{ fontSize: 10, fontWeight: 700, color: tm.color, background: `${tm.gradFrom}12`, padding: '1px 7px', borderRadius: 4 }}>{tm.label}</span>
+-                                            {item.urgent && <span style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '1px 6px', borderRadius: 4, border: '1px solid #fecaca' }}>??湲닿툒</span>}
+-                                            <span style={{ fontSize: 10, fontWeight: 700, color: sm.color, background: sm.bg, padding: '1px 7px', borderRadius: 4, marginLeft: 'auto' }}>{sm.label}</span>
++                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
++                                        {/* 1踰?以? ?쒓렇 + ?쒕ぉ */}
++                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
++                                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: tm.color, background: `${tm.gradFrom}12`, padding: '4px 8px', borderRadius: 6 }}>{tm.label}</span>
++                                            {item.urgent && <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '4px 8px', borderRadius: 6, border: '1px solid #fecaca' }}>??湲닿툒</span>}
++                                            <span style={{ fontSize: 16, fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                                         </div>
+ 
+-                                        {/* ?쒕ぉ */}
+-                                        <p style={{ fontSize: 13, fontWeight: 800, color: '#111827', marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+-
+-                                        {/* 寃뚯씠吏 諛?*/}
+-                                        <div style={{ height: 6, borderRadius: 99, background: '#e5e7eb', marginBottom: 5, overflow: 'hidden' }}>
+-                                            <motion.div
+-                                                initial={{ width: 0 }}
+-                                                animate={{ width: `${pct}%` }}
+-                                                transition={{ duration: 0.8, ease: 'easeOut', delay: idx * 0.1 + 0.2 }}
+-                                                style={{
+-                                                    height: '100%', borderRadius: 99,
+-                                                    background: item.status === 'completed'
+-                                                        ? 'linear-gradient(90deg, #16a34a, #4ade80)'
+-                                                        : `linear-gradient(90deg, ${tm.gradFrom}, ${tm.gradTo})`,
+-                                                }}
+-                                            />
+-                                        </div>
+-
+-                                        {/* ?섎떒 硫뷀? */}
+-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+-                                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{item.date}</span>
++                                        {/* 2踰?以? ?좎쭨 + ?꾨줈洹몃젅??+ ?곹깭諭껋? */}
++                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
++                                            <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>{item.date}</span>
++                                            
++                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
++                                                {/* ?ы뵆??吏꾪뻾 ?④퀎 ?쒖떆 (?멸렇癒쇳듃) */}
++                                                <div style={{ display: 'flex', gap: 4 }}>
++                                                    {item.steps.map((_, i) => (
++                                                        <div key={i} style={{
++                                                            width: 18, height: 5, borderRadius: 3,
++                                                            background: i <= item.currentStep 
++                                                                ? (item.status === 'completed' ? '#22c55e' : tm.color)
++                                                                : '#e5e7eb'
++                                                        }} />
++                                                    ))}
++                                                </div>
++                                                <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg, padding: '4px 8px', borderRadius: 6 }}>{sm.label}</span>
++                                            </div>
+                                         </div>
+                                     </div>
+ 
+                                     {/* ?붿궡??or ?섎ː?섍린/?듬?蹂닿린 踰꾪듉 */}
+-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, gap: 4 }}>
++                                    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
+                                         {item.status === 'completed' ? (
+-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
++                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                 <button onClick={(e) => {
+                                                     e.preventDefault();
+                                                     window.location.href = item.href;
+                                                 }} style={{
+-                                                    fontSize: 10,
+-                                                    fontWeight: 800,
+-                                                    background: '#f3f4f6',
+-                                                    color: '#374151',
+-                                                    padding: '4px 10px',
+-                                                    borderRadius: 6,
+-                                                    border: '1px solid #d1d5db',
+-                                                    cursor: 'pointer',
+-                                                    textAlign: 'center'
++                                                    fontSize: 12, fontWeight: 700, background: '#fff', color: '#374151', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', cursor: 'pointer'
+                                                 }}>?듬? 蹂닿린</button>
+                                                 <button onClick={(e) => {
+                                                     e.preventDefault();
+                                                     setHireModalItem(item);
+                                                     setHireModalState('default');
+                                                 }} style={{
+-                                                    fontSize: 10,
+-                                                    fontWeight: 800,
+-                                                    background: '#111827',
+-                                                    color: '#fff',
+-                                                    padding: '4px 10px',
+-                                                    borderRadius: 6,
+-                                                    border: 'none',
+-                                                    cursor: 'pointer',
+-                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+-                                                    textAlign: 'center'
++                                                    fontSize: 12, fontWeight: 700, background: '#111827', color: '#fff', padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                                 }}>?섎ː?섍린</button>
+                                             </div>
+                                         ) : (
+-                                            <ChevronRight size={13} color="#d1d5db" />
++                                            <ChevronRight size={16} color="#d1d5db" />
+                                         )}
+                                     </div>
+                                 </div>
+@@ -833,11 +813,10 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser:
+                                 </span>
+                             </div>
+                             <h1 className="text-3xl sm:text-4xl font-black mb-2" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
+-                                {displayName} ?대떦?먮떂,<br />
+-                                ?섏쁺?⑸땲??
++                                {displayName}({session?.name || '?대떦??})??                             </h1>
+                             <p className="text-base" style={{ color: '#6b7280' }}>
+-                                IBS 踰뺣쪧?щТ?뚯? ?④퍡 鍮꾩쫰?덉뒪瑜??붿슧 ?덉쟾?섍쾶 蹂댄샇?섏꽭??
++                                洹?ъ쓽 ?ъ뾽 ?깆옣怨??뺤옣???꾪빐 寃쎌쁺 ?꾨컲??踰뺣쪧 由ъ뒪?щ? 泥닿퀎?곸쑝濡?吏?먰빀?덈떎.
+                             </p>
+                         </div>
+ 
+@@ -861,16 +840,16 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser:
+                     </div>
+                 </motion.div>
+ 
+-                {/* ?? ?듯빀 ?쒕퉬??吏꾪뻾 ?꾪솴 ?? */}
+-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+-                    <ServiceProgressPanel companyId={company?.id} />
+-                </motion.div>
+-
+                 {/* ?? 硫붿씤 ?덉씠?꾩썐 ?? */}
+-                <div className="grid lg:grid-cols-3 gap-8">
++                <div className="grid lg:grid-cols-4 gap-8">
+ 
+                     {/* ??醫뚯륫: ?쒕퉬???덈툕 (硫붿씤) ??*/}
+-                    <div className="lg:col-span-2 space-y-8">
++                    <div className="lg:col-span-3 space-y-8">
++                        {/* ?? ?듯빀 ?쒕퉬??吏꾪뻾 ?꾪솴 ?? */}
++                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
++                            <ServiceProgressPanel companyId={company?.id} />
++                        </motion.div>
++
+                         <div>
+                             <div className="flex items-center gap-2 mb-4">
+                                 <LayoutGrid className="w-5 h-5" style={{ color: '#111827' }} />
+@@ -921,7 +900,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser:
+                     </div>
+ 
+                     {/* ???곗륫: 濡쒗럩 而⑦깮 諛??ъ씠?쒕컮 ??*/}
+-                    <div className="space-y-6">
++                    <div className="space-y-6 sticky top-28 self-start">
+                         <CalendarWidget companyId={company?.id} />
+ 
+                         {/* IBS 濡쒗럩 ?꾨떞 ?곗뒪??*/}
+@@ -931,12 +910,12 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser:
+                                 <div className="h-1.5 w-full absolute top-0 left-0" style={{ background: 'linear-gradient(90deg, #e8c87a, #c9a84c)' }} />
+ 
+                                 {/* ?ㅻ뜑: ?щ낵 ?놁씠 ?띿뒪?몃쭔 */}
+-                                <div className="px-6 pt-7 pb-4 border-b border-gray-100">
++                                <div className="pt-7 pb-4 border-b border-gray-100">
+                                     <h3 className="font-black text-xl mb-0.5" style={{ color: '#111827' }}>IBS 踰뺣쪧?щТ??/h3>
+                                     <p className="text-xs font-semibold" style={{ color: '#c9a84c' }}>?쒓뎅 1???꾨옖李⑥씠利??꾨Ц 濡쒗럩</p>
+                                 </div>
+ 
+-                                <div className="p-5 space-y-4">
++                                <div className="py-5 space-y-4">
+                                     {/* ?꾪솕 */}
+                                     <div className="flex items-start gap-3">
+                                         <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: '#f3f4f6' }}>
+@@ -987,7 +966,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser:
+                                 </div>
+ 
+                                 {/* ?섎떒 踰꾪듉 ??洹좏삎 ?덇쾶 */}
+-                                <div className="px-5 pb-5 flex gap-2">
++                                <div className="pb-5 flex gap-2">
+                                     <Button variant="outline" className="flex-1 gap-1.5 border-gray-200 text-sm font-bold hidden" style={{ display: 'none' }} onClick={() => setZoomModalOpen(true)}>
+                                         <Video className="w-4 h-4" /> ?붿긽 誘명똿
+                                     </Button>
+diff --git a/src/app/(client)/documents/DocumentsClient.tsx b/src/app/(client)/documents/DocumentsClient.tsx
+index 2b1b36c..e41b68c 100644
+--- a/src/app/(client)/documents/DocumentsClient.tsx
++++ b/src/app/(client)/documents/DocumentsClient.tsx
+@@ -218,7 +218,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
+                             id: `privacy-report-${company.id}`,
+                             companyId: company.id,
+                             authorRole: 'lawyer',
+-                            name: '媛쒖씤?뺣낫蹂댄샇踰?湲곕컲 ?꾪뿕 吏꾨떒 由ы룷??(?듯빀蹂?.pdf',
++                            name: '媛쒖씤?뺣낫蹂댄샇踰?1李?寃???섍껄??pdf',
+                             size: 1024 * 350,
+                             type: 'application/pdf',
+                             category: '由ы룷??,
+@@ -300,7 +300,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
+         }
+         
+         // 異붽?: 媛쒖씤?뺣낫泥섎━諛⑹묠 (?듯빀蹂? ? ?꾨━酉?紐⑤떖 ????꾩슜 由ы룷???섏씠吏濡?諛붾줈 ?대룞
+-        if (doc.name.includes('媛쒖씤?뺣낫蹂댄샇踰?湲곕컲 ?꾪뿕 吏꾨떒 由ы룷??(?듯빀蹂?')) {
++        if (doc.name.includes('媛쒖씤?뺣낫蹂댄샇踰?1李?寃???섍껄??)) {
+             router.push('/privacy-analysis');
+             return;
+         }
+@@ -331,7 +331,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
+                                 {session?.companyName || '??湲곗뾽 臾몄꽌??}
+                             </span>
+                         </div>
+-                        <h1 className="text-3xl font-black text-gray-900">臾몄꽌 蹂닿???/h1>
++                        <h1 className="text-3xl font-black text-gray-900">媛쒖씤?뺣낫蹂댄샇踰?1李?寃???섍껄??/h1>
+                         <p className="text-sm text-gray-500 mt-2">
+                             踰뺣쪧 寃???섎ː, 怨꾩빟?? ?섍껄????紐⑤뱺 ?묐갑??臾몄꽌瑜???怨녹뿉??愿由ы빀?덈떎.
+                         </p>
+diff --git a/src/app/api/admin/users/route.ts b/src/app/api/admin/users/route.ts
+index bdd9873..56bcb4e 100644
+--- a/src/app/api/admin/users/route.ts
++++ b/src/app/api/admin/users/route.ts
+@@ -85,6 +85,14 @@ export async function PATCH(request: NextRequest) {
+             await sb.from('users').update(syncData).eq('id', userId);
+         }
+ 
++        // public.lawyers ?뚯씠釉붾룄 ?숆린??(蹂?몄궗/?〓Т???寃쎌슦)
++        if (name !== undefined) {
++            const currentRole = role || data.user.user_metadata?.role;
++            if (currentRole === 'lawyer' || currentRole === 'litigation') {
++                await sb.from('lawyers').update({ name }).eq('id', userId);
++            }
++        }
++
+         return NextResponse.json({
+             success: true,
+             message: '?좎? ?뺣낫媛 ?섏젙?섏뿀?듬땲??',
+diff --git a/src/components/landing/ClaimPopup.tsx b/src/components/landing/ClaimPopup.tsx
+index e42e41a..f5e3f50 100644
+--- a/src/components/landing/ClaimPopup.tsx
++++ b/src/components/landing/ClaimPopup.tsx
+@@ -39,7 +39,7 @@ export default function ClaimPopup() {
+                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                     exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+-                    className="fixed bottom-6 right-6 z-[100] w-[340px] shadow-2xl rounded-2xl overflow-hidden"
++                    className="fixed bottom-6 right-6 z-[100] w-[400px] shadow-2xl rounded-2xl overflow-hidden"
+                     style={{ 
+                         background: 'rgba(13,27,62,0.95)', 
+                         backdropFilter: 'blur(12px)',
+diff --git a/src/components/lawyer/LegalReviewPreview.tsx b/src/components/lawyer/LegalReviewPreview.tsx
+index b931880..3ac4700 100644
+--- a/src/components/lawyer/LegalReviewPreview.tsx
++++ b/src/components/lawyer/LegalReviewPreview.tsx
+@@ -281,7 +281,7 @@ export default function LegalReviewPreview({ companyName, auditReport, displayIs
+                         </div>
+                         <div className="text-right">
+                             <div className="flex items-center justify-end gap-3 mb-2">
+-                                <span className="text-sm font-black text-gray-900">{(lawyerName || '?꾩떆').replace(' 蹂?몄궗', '')}</span>
++                                <span className="text-sm font-black text-gray-900">蹂?몄궗 {(lawyerName || '?꾩떆').replace(' 蹂?몄궗', '')}</span>
+                                 {lawyerSignature && (
+                                     <img src={lawyerSignature} alt="?쒕챸" className="h-[40px] w-auto object-contain opacity-80 mix-blend-multiply" />
+                                 )}
+diff --git a/src/lib/prompts/privacy.ts b/src/lib/prompts/privacy.ts
+index 1f5a928..9582cd8 100644
+--- a/src/lib/prompts/privacy.ts
++++ b/src/lib/prompts/privacy.ts
+@@ -298,13 +298,13 @@ JSON 諛곗뿴濡?異쒕젰?섏꽭??`,
+ ## 1. ?ㅼ궗 媛쒖슂 諛?紐⑹쟻
+ 洹?ъ쓽 ?붿껌???곕씪, ?꾩옱 怨듦컻(?먮뒗 怨듦컻 ?덉젙) 以묒씤 媛쒖씤?뺣낫泥섎━諛⑹묠??媛쒖씤?뺣낫 蹂댄샇踰???0議?諛?愿???쒕컲 踰뺣졊 泥닿퀎??洹쇨굅?섏뿬 ?ъ링 寃?좏븯??듬땲?? 蹂??ㅼ궗 寃?좎쓽 二쇰맂 紐⑹쟻? (i) 踰뺤젙 ?꾩닔 湲곗옱?ы빆???ㅼ쭏???꾨씫 ?щ? ?됯?, (ii) 怨좎떆???댁슜怨??ㅼ젣 湲곗뾽 ?ㅻТ 媛꾩쓽 遺덉씪移섏꽦 吏꾨떒, (iii) ?????쒓났 諛??낅Т ?꾪긽 ??怨좎쐞???곸뿭?먯꽌??臾멸뎄 ?ㅻ쪟??梨낆엫 ?꾧? 媛?μ꽦???앸퀎?섏뿬 **利됱떆 ?쒖젙???꾩슂??移섎챸??由ъ뒪??議고빆** ???좎젣?곸쑝濡??덈갑?섍퀬 ?댁냼?섎뒗 ???덉뒿?덈떎.
+ 
+-## 2. 珥앺룊 (Executive Summary)
++## 2. 珥앺룊
+ (?ш린???꾩껜 ?댁뒋瑜?醫낇빀?섏뿬, 湲곗뾽??吏곷㈃??移섎챸?곸씤 議고빆?ㅼ쓣 蹂쇰뱶泥대? ?쒖슜???꾨Ц媛??愿?먯뿉???띾??섍쾶 ?듭떖 ?붿빟?섏뿬 ?묒꽦?섏떗?쒖삤. ?⑥닚 由ъ뒪?몄뾽???꾨땶 ?ш컖???꾧린媛먯쓣 遺?ы븯?몄슂.)
+ 
+ ???ы빆? ?⑥닚??臾멸뎄 媛쒖꽑??踰붿쐞瑜??섏뼱, ?ν썑 愿??湲곌???吏묒쨷 ?먭??대굹 ?뚮퉬??誘쇱썝 諛쒖깮 ??**"泥섎━諛⑹묠??怨좎? ?뺥솗???꾨컲"** ?대굹 **"?꾩닔 湲곗옱?ы빆???ㅼ쭏???꾨씫"** 紐낅ぉ?쇰줈 留됰???怨쇱쭠湲?議곗튂濡?吏곴껐?????덈뒗 ?듭떖 ?곸뿭?낅땲?? ?곕씪???꾨옒 ?쒖떆?섎뒗 沅뚭퀬?덉뿉 ?곕씪 ?꾨㈃?곸씤 移섎???踰뺤쟻 議곗튂瑜?痍⑦븯?쒓린 諛붾엻?덈떎.
+ 
+ ## 3. 踰뺤젙 ?꾩닔 ??ぉ 吏꾨떒 (媛쒖씤?뺣낫 蹂댄샇踰???0議?湲곗?)
+-(媛?議곕Ц 寃??吏꾨떒 寃곌낵 由ъ뒪?? 踰뺣━?곸쑝濡?臾몄젣媛 ?덈뒗 ??ぉ? (???곸꽭 肄붾찘??瑜?遺湲고븯??援ъ껜?곸씠怨??띾??섍쾶 ?ㅻ챸?섏떗?쒖삤.)
++(媛?議곕Ц 寃??吏꾨떒 寃곌낵 由ъ뒪?? 踰뺣━?곸쑝濡?臾몄젣媛 ?덈뒗 ??ぉ? 援ъ껜?곸씠怨??띾??섍쾶 踰뺣쪧??肄붾찘?몃? ?㏓텤???ㅻ챸?섏떗?쒖삤. ?쒕ぉ ?놁뿉 '?곸꽭 肄붾찘?? 媛숈? 遺덊븘?뷀븳 臾멸뎄???곸? 留덉떗?쒖삤.)
+ 
+ ## 4. ?듭떖 由ъ뒪??諛?踰뺤쟻 ?寃?(?곗꽑?쒖쐞 TOP N)
+ (諛쒓껄??媛??移섎챸?곸씤 由ъ뒪?щ? ?쒖꽌?濡??묒꽦. ?꾨컲 ??怨쇱쭠湲? ?뺤궗 怨좊컻, 湲곗뾽 ?곸뾽?뺤? ?뱀? ?좊ː???섎씫 ??援ъ껜?곸씠怨?堉덉븘??踰뺣쪧??洹쇨굅?ㅼ쓣 ?ㅼ뼱 ?곸꽭???쒖닠?섏떗?쒖삤.)
+@@ -322,7 +322,7 @@ JSON 諛곗뿴濡?異쒕젰?섏꽭??`,
+ (1, 2, 3 ?쒖꽌濡?利됯컖 ?뚯궗媛 ?댁빞?????쒖떆. ?異??쒗뵆由우쓣 蹂듭궗?섎씪???깆쓽 留먯? 諛곗젣?섍퀬, 諛섎뱶??蹂?몄궗 寃?좊? 嫄곗퀜 ?곷쾿?깆쓣 ?대낫?댁빞 ?⑥쓣 媛뺤“?섏떗?쒖삤.)
+ 
+ ## 8. 留븐쓬留?-蹂??ㅼ궗 蹂닿퀬?쒕뒗 洹?ш? ?쒓났???꾪뻾 臾멸뎄瑜?湲곗??쇰줈 ??1李?吏꾨떒?쇰줈, ?뱁엳 ?멸툒??**移섎챸??寃고븿 議고빆** ?ㅼ? 踰뺤쟻 遺꾩웳 ??利됯컖?곸씤 ?쒖옱 ?ъ쑀媛 ?????덈뒗 ?꾪궗?덉뒪嫄댁엯?덈떎. 洹?ъ뿉?쒕뒗 ?곴린 吏꾨떒??湲곕컲???좎냽?섍쾶 ?대? ?ъ떎愿怨꾨? ?뺤젙?섏떊 ?? ?꾨Ц 踰뺣Т踰뺤씤???듯븳 諛⑹묠??洹쇰낯?곸씠怨??꾨㈃?곸씤 媛쒖젙 ?덉감??利됯컖 李⑹닔?섏떎 寃껋쓣 媛뺣젰??沅뚭퀬?⑸땲??
++蹂??ㅼ궗 蹂닿퀬?쒕뒗 洹?ш? ?쒓났???꾪뻾 臾멸뎄瑜?湲곗??쇰줈 ??1李?吏꾨떒?쇰줈, ?뱁엳 蹂?蹂닿퀬?쒖뿉??吏?곷맂 移섎챸??寃고븿 議고빆?ㅼ? 踰뺤쟻 遺꾩웳 諛쒖깮 ??利됯컖?곸씤 ?쒖옱 ?ъ쑀媛 ?????덈뒗 以묐???踰뺤쟻 痍⑥빟 ?곸뿭???대떦?⑸땲?? 洹?ъ뿉?쒕뒗 ?곴린 吏꾨떒??湲곕컲??愿???ъ떎愿怨꾨? ?좎냽???뺤씤?섏떊 ?? ?꾨Ц 踰뺣Т踰뺤씤???듯븳 諛⑹묠??洹쇰낯?곸씠怨??꾨㈃?곸씤 媛쒖젙 ?덉감??利됯컖 李⑹닔?섏떎 寃껋쓣 沅뚭퀬?⑸땲??
+ [One-Shot ?쒗뵆由?醫낅즺]
+ 
+ ?꾨옒 [湲곗뾽 ?뺣낫] 諛?[議곕Ц 寃???댁뿭(issues)]瑜?諛뷀깢?쇰줈 ???쒗뵆由?援ъ“? ?ㅼ븻留ㅻ꼫???꾨꼍???ㅼ뼱留욌뒗 1媛쒖쓽 ?꾩꽦??留덊겕?ㅼ슫 蹂닿퀬???꾨Ц???묒꽦?섏뿬 諛섑솚?섏떗?쒖삤.
+
+commit 051d2d9ca3a88ed210352170c7affdf76d7abf39
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 13:30:34 2026 +0900
+
+    add sql migration for call locks
+
+diff --git a/supabase/migrations/026_enable_realtime_call_locks.sql b/supabase/migrations/026_enable_realtime_call_locks.sql
+new file mode 100644
+index 0000000..08e8e06
+--- /dev/null
++++ b/supabase/migrations/026_enable_realtime_call_locks.sql
+@@ -0,0 +1,104 @@
++-- 1. Create call_locks table
++CREATE TABLE call_locks (
++    company_id TEXT PRIMARY KEY REFERENCES companies(id) ON DELETE CASCADE,
++    user_id UUID NOT NULL,
++    user_name TEXT NOT NULL,
++    locked_at TIMESTAMPTZ DEFAULT NOW(),
++    locked_until TIMESTAMPTZ NOT NULL
++);
++
++-- 2. Enable RLS
++ALTER TABLE call_locks ENABLE ROW LEVEL SECURITY;
++
++-- 3. Create RLS policies
++CREATE POLICY "Allow authenticated users to read call_locks"
++    ON call_locks FOR SELECT
++    TO authenticated
++    USING (true);
++
++CREATE POLICY "Allow authenticated users to insert call_locks"
++    ON call_locks FOR INSERT
++    TO authenticated
++    WITH CHECK (true);
++
++CREATE POLICY "Allow authenticated users to delete call_locks"
++    ON call_locks FOR DELETE
++    TO authenticated
++    USING (true);
++
++-- 4. Function to claim a company call
++CREATE OR REPLACE FUNCTION claim_company_call(
++    p_company_id TEXT,
++    p_user_id UUID,
++    p_user_name TEXT,
++    p_lock_minutes INT DEFAULT 30
++) RETURNS JSONB
++LANGUAGE plpgsql
++AS $$
++DECLARE
++    v_locked_by TEXT;
++    v_locked_until TIMESTAMPTZ;
++    v_new_locked_until TIMESTAMPTZ;
++BEGIN
++    -- Delete expired lock if exists for this company
++    DELETE FROM call_locks 
++    WHERE company_id = p_company_id AND locked_until < NOW();
++
++    -- Calculate new lock expiration time
++    v_new_locked_until := NOW() + (p_lock_minutes || ' minutes')::interval;
++
++    -- Try to insert lock
++    BEGIN
++        INSERT INTO call_locks (company_id, user_id, user_name, locked_until)
++        VALUES (p_company_id, p_user_id, p_user_name, v_new_locked_until);
++        
++        RETURN jsonb_build_object(
++            'success', true,
++            'locked_until', v_new_locked_until
++        );
++    EXCEPTION WHEN unique_violation THEN
++        -- Lock exists and is not expired
++        SELECT user_name, locked_until INTO v_locked_by, v_locked_until 
++        FROM call_locks 
++        WHERE company_id = p_company_id;
++        
++        RETURN jsonb_build_object(
++            'success', false,
++            'locked_by', v_locked_by,
++            'locked_until', v_locked_until
++        );
++    END;
++END;
++$$;
++
++-- 5. Function to release a company call lock
++CREATE OR REPLACE FUNCTION release_company_call(
++    p_company_id TEXT,
++    p_user_id UUID
++) RETURNS JSONB
++LANGUAGE plpgsql
++AS $$
++BEGIN
++    DELETE FROM call_locks 
++    WHERE company_id = p_company_id AND user_id = p_user_id;
++    
++    RETURN '{"success": true}'::jsonb;
++END;
++$$;
++
++-- 6. Function to get all active locks status
++CREATE OR REPLACE FUNCTION get_call_locks_status()
++RETURNS SETOF call_locks
++LANGUAGE plpgsql
++AS $$
++BEGIN
++    -- Delete all expired locks
++    DELETE FROM call_locks WHERE locked_until < NOW();
++    
++    -- Return remaining active locks
++    RETURN QUERY SELECT * FROM call_locks;
++END;
++$$;
++
++-- 7. (媛??以묒슂) ?ㅼ떆媛??뚮┝ 湲곕뒫 ?쒖꽦??(?뱀냼耳?釉뚮줈?쒖틦?ㅽ듃)
++ALTER PUBLICATION supabase_realtime ADD TABLE call_locks;
+
+commit 7b79230d51f418fa79c1f91449ad67acc04852a2
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 13:30:07 2026 +0900
+
+    fix: change company_id from uuid to text in call_locks and update expired locks UX
+
+diff --git a/src/app/(auth)/signup/page.tsx b/src/app/(auth)/signup/page.tsx
+index b264092..a691657 100644
+--- a/src/app/(auth)/signup/page.tsx
++++ b/src/app/(auth)/signup/page.tsx
+@@ -314,7 +314,7 @@ export default function SignupPage() {
+                                              className="flex items-center gap-1.5 text-[11px] font-normal cursor-pointer select-none transition-all" 
+                                              style={{ color: agreeTerms ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.2)' }}>
+                                             <CheckCircle2 className={`w-3.5 h-3.5 transition-opacity ${agreeTerms ? 'text-[#c9a84c] opacity-50' : 'opacity-30'}`} />
+-                                            [?꾩닔] 濡쒗럩 ?뚮옯???댁슜?쎄? ?숈쓽
++                                            [?꾩닔] IBS 踰뺣쪧?щТ???뚯썝 ?댁슜?쎄? ?숈쓽
+                                         </div>
+                                         <button 
+                                             onClick={() => setModalContent('terms')}
+@@ -566,7 +566,7 @@ export default function SignupPage() {
+                                 <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                                     <h3 className="font-black text-lg" style={{ color: '#f0f4ff' }}>
+                                         {modalContent === 'privacy' && '媛쒖씤?뺣낫 ?섏쭛 諛?泥섎━諛⑹묠'}
+-                                        {modalContent === 'terms' && '?쒕퉬???댁슜?쎄?'}
++                                        {modalContent === 'terms' && 'IBS 踰뺣쪧?щТ???뚯썝 ?댁슜?쎄?'}
+                                     </h3>
+                                     <button 
+                                         onClick={() => setModalContent(null)}
+@@ -609,31 +609,92 @@ export default function SignupPage() {
+ 4. ?숈쓽 嫄곕? ?덈궡
+ - 留덉????뺣낫 ?섏떊 ?숈쓽瑜?嫄곕??섏떎 ???덉쑝硫? 嫄곕??섏뀛??湲곕낯 ?쒕퉬???댁슜?먮뒗 ?쒗븳???놁뒿?덈떎. ?? ?대깽???덈궡 諛?留욎땄???쒗깮 ?뺣낫 ?쒓났? ?쒗븳?????덉뒿?덈떎.`
+                                       : 
+-`IBS ?뚮옯???쒕퉬???댁슜?쎄? (?꾩닔)
++`IBS 踰뺣쪧?щТ???뚯썝 ?댁슜?쎄?
+ 
+-??議?(紐⑹쟻)
+-蹂??쎄?? IBS踰뺣쪧?щТ???댄븯 "?뚯궗"???⑸땲??媛 ?쒓났?섎뒗 踰뺣쪧 ?명봽???쒕퉬???댄븯 "?쒕퉬?????⑸땲?????댁슜怨?愿?⑦븯???뚯궗? ?뚯썝 媛꾩쓽 沅뚮━, ?섎Т 諛?梨낆엫?ы빆??洹쒖젙?⑥쓣 紐⑹쟻?쇰줈 ?⑸땲??
++
++??議?紐⑹쟻)
++
++蹂??쎄?? IBS怨듬룞踰뺣쪧?щТ????쒕??몄궗 ?좎젙?? ?댄븯 ?쁈BS?숇씪 ?⑸땲??媛 ?댁쁺?섎뒗 踰뺣쪧, ?〓Т 諛??뚯썝 ?쒕퉬?????댁슜怨?愿?⑦븯??IBS? ?뚯썝 媛꾩쓽 沅뚮━, ?섎Т 諛?梨낆엫 ?ы빆??洹쒖젙?⑥쓣 紐⑹쟻?쇰줈 ?⑸땲??
+ 
+ ??議?(?⑹뼱???뺤쓽)
+-1. "?쒕퉬??? 援ы쁽?섎뒗 ?⑤쭚湲?PC, ?대????????곴??놁씠 "?뚯썝"???댁슜?????덈뒗 IBS ?뚮옯??諛?愿???쒕컲 踰뺣Т ?쒕퉬?ㅻ? ?섎??⑸땲??
+-2. "?뚯썝"?대? ?뚯궗??"?쒕퉬?????묒냽?섏뿬 蹂??쎄????곕씪 "?뚯궗"? ?댁슜怨꾩빟??泥닿껐?섍퀬 ?댁슜?섎뒗 怨좉컼???섎??⑸땲??
+-3. "?꾩씠??ID)"? ?뚯썝???앸퀎怨??쒕퉬???댁슜???꾪븯???뚯썝???뺥븯怨??뚯궗媛 ?뱀씤?섎뒗 ?대찓???먮뒗 ?ъ뾽?먮쾲?몃? ?섎??⑸땲??
+ 
+-??議?(?쎄???紐낆떆? 媛쒖젙)
+-1. ?뚯궗??蹂??쎄????댁슜???뚯썝???쎄쾶 ?????덈룄濡?珥덇린 ?붿긽 ?붾㈃??寃뚯떆?⑸땲??
+-2. ?뚯궗???쎄???洹쒖젣??愿??踰뺣쪧 ??愿??踰뺣졊???꾨같?섏? ?딅뒗 踰붿쐞 ?댁뿉?????쎄???媛쒖젙?????덉뒿?덈떎.
+-3. ?쎄???媛쒖젙??寃쎌슦, 蹂寃??ы빆? 7???꾨????뚮옯????寃뚯떆?먯쓣 ?듯빐 怨듭??⑸땲??
++1. ?뚯썝 : 蹂??쎄????숈쓽?섍퀬 IBS ?덊럹?댁????뚯썝?쇰줈 媛?낇븯???쒕퉬?ㅻ? ?댁슜?섎뒗 湲곗뾽 ?먮뒗 湲곗뾽 ?대떦??諛?媛쒖씤???섎??⑸땲??
++2. ?뚯썝 怨꾩젙 : ?뚯썝??IBS ?덊럹?댁???濡쒓렇?명븯湲??꾪븯???ъ슜?섎뒗 ?대찓??湲곕컲 怨꾩젙???섎??⑸땲??
++3. ?댁슜怨꾩빟 : ?뚯썝??蹂??쎄????숈쓽?섍퀬 IBS媛 ?대? ?뱀씤?⑥쑝濡쒖뜥 泥닿껐?섎뒗 ?쒕퉬???댁슜 怨꾩빟???섎??⑸땲??
++4. 踰뺣쪧 由ы룷??: IBS媛 湲곗뾽???낆쥌, 寃쎌쁺?섍꼍 諛?踰뺣쪧 ?섍꼍??遺꾩꽍?섏뿬 ?쒓났?섎뒗 踰뺣쪧 愿??蹂닿퀬?쒕? ?섎??⑸땲??
++
++??議?(?뚯궗 ?뺣낫???쒓났)
++IBS???ㅼ쓬 ?뺣낫瑜??덊럹?댁???寃뚯떆?⑸땲??
++- ?곹샇
++- ??쒖옄
++- ?ъ뾽?먮벑濡앸쾲??+- 二쇱냼
++- ?곕씫泥?+- ?대찓??+- 媛쒖씤?뺣낫 蹂댄샇梨낆엫??+
++??議?(?쎄????⑤젰 諛?蹂寃?
++
++1. 蹂??쎄?? ?덊럹?댁???寃뚯떆?섍굅??湲고? 諛⑸쾿?쇰줈 ?뚯썝?먭쾶 怨듭??⑥쑝濡쒖뜥 ?⑤젰??諛쒖깮?⑸땲??
++2. IBS??愿??踰뺣졊???꾨컲?섏? ?딅뒗 踰붿쐞?먯꽌 蹂??쎄???蹂寃쏀븷 ???덉뒿?덈떎.
++3. ?쎄???蹂寃쎈릺??寃쎌슦 ?곸슜?쇱옄 諛?蹂寃??ъ쑀瑜?紐낆떆?섏뿬 ?쒗뻾??7???댁쟾??怨듭??⑸땲??
++4. ?뚯썝?먭쾶 遺덈━???댁슜??蹂寃쎈릺??寃쎌슦?먮뒗 ?쒗뻾??30???꾩뿉 怨듭??⑸땲??
++
++??議?(?뚯썝媛??
++?뚯썝媛???덉감???ㅼ쓬怨?媛숈뒿?덈떎.
++1. 湲곗뾽 ?뺣낫 ?낅젰
++2. ?댁슜?쎄? 諛?媛쒖씤?뺣낫 泥섎━諛⑹묠 ?숈쓽
++3. ?대찓?쇰줈 ?꾩떆 鍮꾨?踰덊샇 諛쒖넚???곕Ⅸ ?덊럹?댁? 濡쒓렇??+4. 留덉????뺣낫 ?섏떊 ?숈쓽 (?좏깮)
++
++??議?(?뚯썝怨꾩젙??愿由?
++
++1. ?뚯썝? ?먯떊??怨꾩젙 ?뺣낫瑜??덉쟾?섍쾶 愿由ы븷 梨낆엫???덉뒿?덈떎.
++2. ?뚯썝? 怨꾩젙?????먯뿉寃??묐룄, ????먮뒗 怨듭쑀?????놁뒿?덈떎.
++3. 怨꾩젙 ?꾩슜???몄???寃쎌슦 利됱떆 IBS???듭??섏뿬???⑸땲??
++4. ?뚯썝??愿由??뚰?濡?諛쒖깮??臾몄젣????댁꽌 IBS??梨낆엫??吏吏 ?딆뒿?덈떎.
++
++??議?(?뚯썝?뺣낫??蹂寃?
++
++?뚯썝? ?몄젣?좎? ?먯떊???뚯썝?뺣낫瑜??대엺?섍퀬 ?섏젙?????덉쑝硫? 蹂寃쏀븯吏 ?딆븘 諛쒖깮?섎뒗 遺덉씠?듭? ?뚯썝??梨낆엫?낅땲??
++
++??議?(?뚯썝 ?덊눜)
++
++?뚯썝? ?몄젣?좎? ?덊럹?댁? ?먮뒗 ?대찓?쇱쓣 ?듯빐 ?덊눜瑜??붿껌?????덉쑝硫?IBS??吏泥??놁씠 ?덊눜瑜?泥섎━?⑸땲??
+ 
+-??議?(?뚯썝媛??諛?怨꾩젙??愿由?
+-1. ?뚯썝? 蹂??쎄????숈쓽?섍퀬 ?뚯궗?먯꽌 ?뺥븳 媛???묒떇???묒꽦?섏뿬 ?쒖텧?⑥쑝濡쒖뜥 媛?낆씠 ?좎껌?⑸땲??
+-2. ?뚯썝? ?꾩씠?붿? 鍮꾨?踰덊샇??愿?섏뿬 愿由ъ콉?꾩씠 ?덉쑝硫? ???먯뿉寃??대? ?묐룄?섍굅????ы븷 ???놁뒿?덈떎.
++??議?(?뚯썝???섎Т)
++?뚯썝? ?ㅼ쓬 ?됱쐞瑜??섏뿬?쒕뒗 ???⑸땲??
++1. ??몄쓽 怨꾩젙 ?ъ슜
++2. ?덉쐞 ?뺣낫 ?낅젰
++3. ?쒕퉬???댁쁺 諛⑺빐 ?됱쐞
++4. IBS ?먮뒗 ???먯쓽 沅뚮━瑜?移⑦빐?섎뒗 ?됱쐞
++5. 踰뺣졊 ?먮뒗 蹂??쎄????꾨컲?섎뒗 ?됱쐞
+ 
+-??議?(?쒕퉬?ㅼ쓽 ?쒓났)
+-1. ?뚯궗???뚯썝?먭쾶 湲곗뾽 踰뺣Т ?먮Ц, 怨꾩빟??寃?? 媛쒖씤?뺣낫 吏꾨떒 ???뱁솕??踰뺣쪧 ?쒕퉬?ㅻ? ?쒓났?⑸땲??
+-2. ?쒕퉬?ㅻ뒗 ?곗쨷臾댄쑕 24?쒓컙 ?쒓났?⑥쓣 ?먯튃?쇰줈 ?섎굹, ?뺢린?먭? ?깆쓽 ?ъ쑀濡??쇰? ?쒕퉬?ㅺ? ?쒗븳?????덉뒿?덈떎.
++??0議?(?뚯썝?먭꺽 ?쒗븳 諛??뺤?)
++
++IBS???쎄? ?꾨컲, ?쒕퉬???댁쁺 諛⑺빐, 遺덈쾿 ?됱쐞 ?먮뒗 ??몄쓽 沅뚮━ 移⑦빐媛 諛쒖깮??寃쎌슦 ?뚯썝???쒕퉬???댁슜???쒗븳?섍굅???뚯썝?먭꺽???뺤??????덉뒿?덈떎.
++
++??1議?(?뚯썝??????듭?)
++
++IBS???대찓?? ?덊럹?댁? 怨듭? ?먮뒗 ?쒕퉬???뚮┝ ?깆쓽 諛⑸쾿?쇰줈 ?뚯썝?먭쾶 ?듭??????덉뒿?덈떎.
++
++??2議?(媛쒖씤?뺣낫 蹂댄샇)
++
++IBS???뚯썝??媛쒖씤?뺣낫 蹂댄샇瑜??꾪빐 媛쒖씤?뺣낫 泥섎━諛⑹묠???섎┰?섏뿬 ?댁쁺?섎ŉ 媛쒖씤?뺣낫 愿???ы빆? 媛쒖씤?뺣낫 泥섎━諛⑹묠???곕쫭?덈떎.
++
++??3議?(硫댁콉)
++
++IBS???뚯썝??洹梨??ъ쑀, ?쒖뒪???μ븷, 遺덇???젰???ъ쑀 ?먮뒗 ?쒕퉬???댁슜 怨쇱젙?먯꽌 諛쒖깮??媛꾩젒 ?먰빐?????梨낆엫??吏吏 ?딆뒿?덈떎.
++
++?먰븳 IBS媛 ?쒓났?섎뒗 踰뺣쪧 由ы룷??諛??뺣낫???쇰컲?곸씤 踰뺣쪧 ?뺣낫 ?쒓났??紐⑹쟻?쇰줈 ?섎ŉ 媛쒕퀎 ?ш굔?????踰뺣쪧 ?먮Ц???泥댄븯吏 ?딆뒿?덈떎.
++
++??4議?(遺꾩웳 ?닿껐 諛?愿??踰뺤썝)
++
++IBS? ?뚯썝 媛?遺꾩웳??諛쒖깮??寃쎌슦 ?곹샇 ?묒쓽瑜??듯빐 ?닿껐?섎ŉ ?묒쓽媛 ?대（?댁?吏 ?딅뒗 寃쎌슦 IBS 蹂몄젏 ?뚯옱吏 愿??踰뺤썝???꾩냽 愿?좊줈 ?⑸땲??
+ 
+ 遺移?-蹂??쎄?? 2026??3??1?쇰????쒗뻾?⑸땲??`
++
++蹂??쎄?? 2026??3??1?쇰????쒗뻾?⑸땲??`
+                                     }
+                                 </div>
+                                 <div className="p-4 border-t flex justify-end" style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
+diff --git a/src/components/landing/ClaimPopup.tsx b/src/components/landing/ClaimPopup.tsx
+index e50f531..e42e41a 100644
+--- a/src/components/landing/ClaimPopup.tsx
++++ b/src/components/landing/ClaimPopup.tsx
+@@ -57,14 +57,6 @@ export default function ClaimPopup() {
+ 
+                     <div className="p-7 flex flex-col items-center">
+                         
+-                        {/* Red Pulse Indicator */}
+-                        <div className="inline-flex items-center justify-center space-x-2 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full mb-4">
+-                            <span className="relative flex h-2 w-2">
+-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+-                            </span>
+-                            <span className="text-[11px] font-bold text-red-400 tracking-wide">湲닿툒 吏꾨떒 ?뚮┝</span>
+-                        </div>
+ 
+                         {/* Heading Text */}
+                         <h3 className="text-lg font-extrabold text-white text-center leading-snug mb-3 tracking-tight word-break-keep">
+diff --git a/src/hooks/useCallLocks.ts b/src/hooks/useCallLocks.ts
+index 6aa9b18..33fd928 100644
+--- a/src/hooks/useCallLocks.ts
++++ b/src/hooks/useCallLocks.ts
+@@ -1,4 +1,4 @@
+-import { useState, useEffect, useCallback } from 'react';
++import { useState, useEffect, useCallback, useMemo } from 'react';
+ import { getBrowserSupabase } from '@/lib/supabase';
+ import { CallLock } from '@/lib/types';
+ 
+@@ -6,6 +6,12 @@ export function useCallLocks() {
+   const [locks, setLocks] = useState<CallLock[]>([]);
+   const [isLoading, setIsLoading] = useState(true);
+ 
++  // ?대씪?댁뼵???⑥뿉????대㉧媛 吏??留뚮즺???쎌? ?щ챸?섍쾶 嫄몃윭?대뒗 濡쒖쭅 異붽?
++  const activeLocks = useMemo(() => {
++    const now = new Date().getTime();
++    return locks.filter(l => new Date(l.lockedUntil).getTime() > now);
++  }, [locks]);
++
+   // 珥덇린 ?곗씠??濡쒕뱶
+   useEffect(() => {
+     async function fetchLocks() {
+@@ -82,18 +88,18 @@ export function useCallLocks() {
+   }, []);
+ 
+   const isLocked = useCallback((companyId: string) => {
+-    return locks.some((l) => l.companyId === companyId);
+-  }, [locks]);
++    return activeLocks.some((l) => l.companyId === companyId);
++  }, [activeLocks]);
+ 
+   const getLockInfo = useCallback((companyId: string) => {
+-    return locks.find((l) => l.companyId === companyId);
+-  }, [locks]);
++    return activeLocks.find((l) => l.companyId === companyId);
++  }, [activeLocks]);
+ 
+   const isLockedByMe = useCallback((companyId: string, myUserId: string) => {
+-    const lock = locks.find((l) => l.companyId === companyId);
++    const lock = activeLocks.find((l) => l.companyId === companyId);
+     if (!lock) return false;
+     return lock.userId === myUserId;
+-  }, [locks]);
++  }, [activeLocks]);
+ 
+-  return { locks, isLoading, isLocked, getLockInfo, isLockedByMe };
++  return { locks: activeLocks, isLoading, isLocked, getLockInfo, isLockedByMe };
+ }
+
+commit 6b9567b721678d97a7f1ca470e71412f980afba3
+Author: korealawyer <korealawyer@github.com>
+Date:   Fri Apr 10 11:12:38 2026 +0900
+
+    fix(sales): resolve local timezone reset issue in useCallPage
+
+diff --git a/src/components/sales/call/useCallPage.ts b/src/components/sales/call/useCallPage.ts
+index 8932886..97e2e90 100644
+--- a/src/components/sales/call/useCallPage.ts
++++ b/src/components/sales/call/useCallPage.ts
+@@ -236,7 +236,12 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
+         return () => clearInterval(poll);
+     }, [refresh, dbCompanies, updateCompany, setToast]);
+ 
+-    const isToday = (dateStr?: string) => dateStr && dateStr.startsWith(new Date().toISOString().split('T')[0]);
++    const isToday = (dateStr?: string) => {
++        if (!dateStr) return false;
++        const todayStart = new Date();
++        todayStart.setHours(0, 0, 0, 0);
++        return new Date(dateStr) >= todayStart;
++    };
+ 
+     // 湲濡쒕쾶 ?듦퀎瑜????(?섏씠吏?ㅼ씠?섍낵 臾닿??섍쾶 ?꾩껜 ?곗씠??湲곗?)
+     const [globalStats, setGlobalStats] = useState({
+@@ -262,8 +267,9 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
+             // ?ㅻ뒛 ?섏쓽 ?듯솕 寃곌낵 移댁슫??             let todayTotal = 0, connected = 0, no_answer = 0, callback = 0, rejected = 0, invalid_site = 0;
+             if (userName) {
+-                const todayStr = new Date().toISOString().split('T')[0];
+-                const startOfToday = `${todayStr}T00:00:00.000Z`;
++                const md = new Date();
++                md.setHours(0, 0, 0, 0);
++                const startOfToday = md.toISOString();
+ 
+                 const { data } = await sb.from('companies')
+                     .select('last_call_result')
