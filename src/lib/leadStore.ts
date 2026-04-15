@@ -1,5 +1,9 @@
 // lib/leadStore.ts — 영업 리드 전담 저장소
-// Phase 3: 인메모리 → localStorage 영속화 (Phase 4: Supabase로 교체)
+// Phase 1: 로컬 전역 스토어 (Zustand + sessionStorage 영속화)
+
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { calcPrice, getRange } from './pricing';
 
 export type LeadStatus =
     | 'pending'           // 미분석
@@ -20,18 +24,16 @@ export interface LeadMemo {
     content: string;
 }
 
-// 담당자 (복수 지원)
 export interface LeadContact {
     id: string;
     name: string;
-    role?: string;        // 직책
-    department?: string; // 부서
+    role?: string;
+    department?: string;
     phone?: string;
     email?: string;
     isPrimary: boolean;
 }
 
-// 진행 타임라인
 export type TimelineEventType = 'status_change' | 'call' | 'email' | 'note' | 'meeting';
 export interface LeadTimelineEvent {
     id: string;
@@ -49,12 +51,10 @@ export interface Lead {
     domain: string;
     privacyUrl: string;
     privacyPolicyText?: string;
-    biz?: string;          // 사업자등록번호 (→ client-portal 맞춤 URL 파라미터)
-    // 레거시 단일 담당자 (호환성 유지)
+    biz?: string;
     contactName: string;
     contactEmail: string;
     contactPhone: string;
-    // 담당자 목록 (신규)
     contacts: LeadContact[];
     storeCount: number;
     bizType: string;
@@ -66,9 +66,7 @@ export interface Lead {
     analysisId?: string;
     lawyerNote?: string;
     memos: LeadMemo[];
-    // 타임라인 (신규)
     timeline: LeadTimelineEvent[];
-    // 카스톰 스크립트 (신규)
     customScript?: { call?: string; email?: string; lastEditedAt?: string };
     emailSentAt?: string;
     createdAt: string;
@@ -76,15 +74,18 @@ export interface Lead {
     source: 'excel' | 'manual' | 'crawler';
 }
 
-// ── localStorage 키 ─────────────────────────────────────────
-const LEAD_STORE_KEY = 'ibs_leads_v1';
+function genId(prefix = 'id'): string {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return `${prefix}_${crypto.randomUUID()}`;
+    }
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
-// ── Mock 초기 데이터 ──────────────────────────────────────
 function makeTimeline(events: Omit<LeadTimelineEvent, 'id'>[]): LeadTimelineEvent[] {
     return events.map((e, i) => ({ ...e, id: `t${i}` }));
 }
 
-const INITIAL_LEADS: Lead[] = [
+export const INITIAL_LEADS: Lead[] = [
     {
         id: 'lead_001', companyName: '(주)샐러디', domain: 'saladday.co.kr',
         privacyUrl: 'https://saladday.co.kr/privacy',
@@ -162,119 +163,122 @@ const INITIAL_LEADS: Lead[] = [
     },
 ];
 
-// ── localStorage 기반 영속 저장소 ─────────────────────────
-function loadLeads(): Lead[] {
-    if (typeof window === 'undefined') return [...INITIAL_LEADS];
-    try {
-        const raw = localStorage.getItem(LEAD_STORE_KEY);
-        if (!raw) {
-            // 최초 로드: 초기 데이터 저장
-            localStorage.setItem(LEAD_STORE_KEY, JSON.stringify(INITIAL_LEADS));
-            return [...INITIAL_LEADS];
+interface LeadStoreState {
+    leads: Lead[];
+    add: (leads: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'memos' | 'timeline' | 'contacts'>[]) => Lead[];
+    update: (id: string, patch: Partial<Lead>) => void;
+    updateStatus: (id: string, nextStatus: LeadStatus, author?: string) => void;
+    addMemo: (id: string, memo: Omit<LeadMemo, 'id' | 'createdAt'>) => void;
+    addTimelineEvent: (id: string, event: Omit<LeadTimelineEvent, 'id'>) => void;
+    updateContact: (leadId: string, contact: LeadContact) => void;
+    saveScript: (id: string, script: { call?: string; email?: string }) => void;
+}
+
+export const useLeadStore = create<LeadStoreState>()(
+    persist(
+        (set, get) => ({
+            leads: INITIAL_LEADS,
+            add: (leadsData) => {
+                const now = new Date().toISOString();
+                const newLeads = leadsData.map((l) => ({
+                    ...(l as unknown as Lead),
+                    id: genId('lead'),
+                    memos: [],
+                    contacts: [],
+                    timeline: [{ id: genId('t'), createdAt: now, author: '시스템', type: 'status_change' as TimelineEventType, content: '리드 생성', toStatus: l.status }],
+                    createdAt: now,
+                    updatedAt: now,
+                }));
+                set({ leads: [...newLeads, ...get().leads] });
+                return newLeads;
+            },
+            update: (id, patch) => {
+                set({
+                    leads: get().leads.map(l => l.id === id ? { ...l, ...patch, updatedAt: new Date().toISOString() } : l)
+                });
+            },
+            updateStatus: (id, nextStatus, author = '영업팀') => {
+                set({
+                    leads: get().leads.map(l => {
+                        if (l.id !== id) return l;
+                        const event: LeadTimelineEvent = {
+                            id: genId('t'),
+                            createdAt: new Date().toISOString(),
+                            author,
+                            type: 'status_change',
+                            content: `상태 변경`,
+                            fromStatus: l.status,
+                            toStatus: nextStatus,
+                        };
+                        return { ...l, status: nextStatus, timeline: [...l.timeline, event], updatedAt: new Date().toISOString() };
+                    })
+                });
+            },
+            addMemo: (id, memo) => {
+                const now = new Date().toISOString();
+                set({
+                    leads: get().leads.map(l => {
+                        if (l.id !== id) return l;
+                        const newMemo = { ...memo, id: genId('m'), createdAt: now };
+                        const event: LeadTimelineEvent = {
+                            id: genId('t'),
+                            createdAt: now,
+                            author: memo.author,
+                            type: 'note',
+                            content: memo.content,
+                        };
+                        return { ...l, memos: [...l.memos, newMemo], timeline: [...l.timeline, event], updatedAt: now };
+                    })
+                });
+            },
+            addTimelineEvent: (id, event) => {
+                set({
+                    leads: get().leads.map(l => {
+                        if (l.id !== id) return l;
+                        return { ...l, timeline: [...l.timeline, { ...event, id: genId('t') }], updatedAt: new Date().toISOString() };
+                    })
+                });
+            },
+            updateContact: (leadId, contact) => {
+                set({
+                    leads: get().leads.map(l => {
+                        if (l.id !== leadId) return l;
+                        const exists = l.contacts.find(c => c.id === contact.id);
+                        const contacts = exists ? l.contacts.map(c => c.id === contact.id ? contact : c) : [...l.contacts, contact];
+                        return { ...l, contacts, updatedAt: new Date().toISOString() };
+                    })
+                });
+            },
+            saveScript: (id, script) => {
+                set({
+                    leads: get().leads.map(l => l.id === id ? { ...l, customScript: { ...l.customScript, ...script, lastEditedAt: new Date().toISOString() }, updatedAt: new Date().toISOString() } : l)
+                });
+            }
+        }),
+        {
+            name: 'ibs_leads_v2', // 변경된 키
+            storage: createJSONStorage(() => {
+                // Ensure SSR completely ignores sessionStorage logic
+                if (typeof window !== 'undefined') return sessionStorage;
+                return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+            }),
         }
-        return JSON.parse(raw) as Lead[];
-    } catch {
-        return [...INITIAL_LEADS];
-    }
-}
+    )
+);
 
-function saveLeads(leads: Lead[]): void {
-    if (typeof window === 'undefined') return;
-    try {
-        localStorage.setItem(LEAD_STORE_KEY, JSON.stringify(leads));
-    } catch (e) {
-        console.error('[leadStore] localStorage 저장 실패:', e);
-    }
-}
-
-// ── UUID 기반 ID 생성 (Date.now() 충돌 방지) ─────────────
-function genId(prefix = 'id'): string {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return `${prefix}_${crypto.randomUUID()}`;
-    }
-    // 폴백: Date.now() + 랜덤 접미사
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
+// 레거시 하위 호환성을 위한 래퍼 (서버 동작 시 빈/초기 배열 반환)
 export const leadStore = {
-    getAll: () => loadLeads(),
-    getById: (id: string) => loadLeads().find(l => l.id === id),
-    add: (leads: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'memos' | 'timeline' | 'contacts'>[]) => {
-        const now = new Date().toISOString();
-        const newLeads: Lead[] = leads.map((l) => ({
-            ...l,
-            id: genId('lead'),
-            memos: [],
-            contacts: [],
-            timeline: [{ id: genId('t'), createdAt: now, author: '시스템', type: 'status_change' as TimelineEventType, content: '리드 생성', toStatus: l.status }],
-            createdAt: now,
-            updatedAt: now,
-        }));
-        const all = loadLeads();
-        const updated = [...newLeads, ...all];
-        saveLeads(updated);
-        return newLeads;
-    },
-    update: (id: string, patch: Partial<Lead>) => {
-        const all = loadLeads().map(l => l.id === id ? { ...l, ...patch, updatedAt: new Date().toISOString() } : l);
-        saveLeads(all);
-    },
-    updateStatus: (id: string, nextStatus: LeadStatus, author: string = '영업팀') => {
-        const all = loadLeads().map(l => {
-            if (l.id !== id) return l;
-            const event: LeadTimelineEvent = {
-                id: genId('t'),
-                createdAt: new Date().toISOString(),
-                author,
-                type: 'status_change',
-                content: `상태 변경`,
-                fromStatus: l.status,
-                toStatus: nextStatus,
-            };
-            return { ...l, status: nextStatus, timeline: [...l.timeline, event], updatedAt: new Date().toISOString() };
-        });
-        saveLeads(all);
-    },
-    addMemo: (id: string, memo: Omit<LeadMemo, 'id' | 'createdAt'>) => {
-        const now = new Date().toISOString();
-        const all = loadLeads().map(l => {
-            if (l.id !== id) return l;
-            const newMemo = { ...memo, id: genId('m'), createdAt: now };
-            const event: LeadTimelineEvent = {
-                id: genId('t'),
-                createdAt: now,
-                author: memo.author,
-                type: 'note',
-                content: memo.content,
-            };
-            return { ...l, memos: [...l.memos, newMemo], timeline: [...l.timeline, event], updatedAt: now };
-        });
-        saveLeads(all);
-    },
-    addTimelineEvent: (id: string, event: Omit<LeadTimelineEvent, 'id'>) => {
-        const all = loadLeads().map(l => {
-            if (l.id !== id) return l;
-            return { ...l, timeline: [...l.timeline, { ...event, id: genId('t') }], updatedAt: new Date().toISOString() };
-        });
-        saveLeads(all);
-    },
-    updateContact: (leadId: string, contact: LeadContact) => {
-        const all = loadLeads().map(l => {
-            if (l.id !== leadId) return l;
-            const exists = l.contacts.find(c => c.id === contact.id);
-            const contacts = exists ? l.contacts.map(c => c.id === contact.id ? contact : c) : [...l.contacts, contact];
-            return { ...l, contacts, updatedAt: new Date().toISOString() };
-        });
-        saveLeads(all);
-    },
-    saveScript: (id: string, script: { call?: string; email?: string }) => {
-        const all = loadLeads().map(l => l.id === id ? { ...l, customScript: { ...l.customScript, ...script, lastEditedAt: new Date().toISOString() }, updatedAt: new Date().toISOString() } : l);
-        saveLeads(all);
-    },
+    getAll: () => useLeadStore.getState().leads,
+    getById: (id: string) => useLeadStore.getState().leads.find(l => l.id === id),
+    add: (leads: Parameters<LeadStoreState['add']>[0]) => useLeadStore.getState().add(leads),
+    update: (id: string, patch: Partial<Lead>) => useLeadStore.getState().update(id, patch),
+    updateStatus: (id: string, nextStatus: LeadStatus, author: string = '영업팀') => useLeadStore.getState().updateStatus(id, nextStatus, author),
+    addMemo: (id: string, memo: Omit<LeadMemo, 'id' | 'createdAt'>) => useLeadStore.getState().addMemo(id, memo),
+    addTimelineEvent: (id: string, event: Omit<LeadTimelineEvent, 'id'>) => useLeadStore.getState().addTimelineEvent(id, event),
+    updateContact: (leadId: string, contact: LeadContact) => useLeadStore.getState().updateContact(leadId, contact),
+    saveScript: (id: string, script: { call?: string; email?: string }) => useLeadStore.getState().saveScript(id, script),
 };
 
-// 구독료 계산 (가맹점수 기반 산정식 v3.0)
-import { calcPrice, getRange } from './pricing';
 export function calcSubscription(storeCount: number) {
     const monthly = calcPrice(storeCount);
     const annual = monthly * 12;

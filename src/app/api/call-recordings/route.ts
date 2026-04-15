@@ -1,6 +1,6 @@
 import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, getServiceSupabase } from '@/lib/supabase';
+import { supabase, getServerSupabase } from '@/lib/supabase';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
     const fileName = `${companyId}/${Date.now()}_call.webm`;
 
-    const adminSupabase = getServiceSupabase() || supabase;
+    const adminSupabase = await getServerSupabase() || supabase;
     if (!adminSupabase) {
       throw new Error('Supabase client is not initialized.');
     }

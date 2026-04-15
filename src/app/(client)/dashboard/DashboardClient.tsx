@@ -255,7 +255,10 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
         if (!companyId || isLitLoading || isConLoading || isDocLoading) return [];
         
         const myLitigations = (litigations || []).filter((l: any) => l.companyId === companyId);
-        const myConsultations = (consultations || []).filter((c: any) => c.companyId === companyId);
+        const myConsultations = (consultations || []).filter((c: any) => 
+            c.companyId === companyId && 
+            !(c.is_read === true && ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status))
+        );
         const myDocuments = (documents || []).filter((d: any) => d.companyId === companyId);
 
         // Convert to ServiceItem
@@ -265,7 +268,7 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
             title: l.caseName || `${l.opponent} 관련 소송`,
             date: new Date(l.createdAt).toLocaleDateString() + ' 접수',
             status: l.status === 'closed' ? 'completed' : 'reviewing',
-            steps: ['접수', '검토중', '답변'],
+             steps: ['접수 완료', '검토중', '답변 완료'],
             currentStep: l.status === 'closed' ? 2 : 1,
             href: `/cases/${l.id}`,
             urgent: false
@@ -277,7 +280,7 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
              title: c.title,
              date: new Date(c.createdAt).toLocaleDateString() + ' 접수',
              status: ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status) ? 'completed' : (['in_progress', 'reviewing', '수임', '검토중'].includes(c.status) ? 'reviewing' : 'received'),
-             steps: ['접수', '검토중', '답변'],
+              steps: ['접수 완료', '검토중', '답변 완료'],
              currentStep: ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status) ? 2 : (['in_progress', 'reviewing', '수임', '검토중'].includes(c.status) ? 1 : 0),
              href: `/consultation-history`
         }));
@@ -288,7 +291,7 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
              title: d.name,
              date: new Date(d.createdAt).toLocaleDateString() + ' 업로드',
              status: ['검토 완료', '완료', 'completed'].includes(d.status) ? 'completed' : (['검토 중', 'reviewing', '변호사 열람 완료', '검토중'].includes(d.status) ? 'reviewing' : 'received'),
-             steps: ['접수', '검토중', '답변'],
+              steps: ['접수 완료', '검토중', '답변 완료'],
              currentStep: ['검토 완료', '완료', 'completed'].includes(d.status) ? 2 : (['검토 중', 'reviewing', '변호사 열람 완료', '검토중'].includes(d.status) ? 1 : 0),
              href: `/documents`
         }));
@@ -343,8 +346,8 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
                         >
                             <Link href={item.href}>
                                 <div style={{
-                                    display: 'flex', alignItems: 'center', gap: 14,
-                                    padding: '14px 16px', borderRadius: 14,
+                                    display: 'flex', alignItems: 'center', gap: 12,
+                                    padding: '10px 14px', borderRadius: 10,
                                     border: '1px solid #f3f4f6',
                                     background: '#fafafa',
                                     cursor: 'pointer',
@@ -361,64 +364,46 @@ function ServiceProgressPanel({ companyId }: { companyId?: string }) {
                                 >
                                     {/* 아이콘 */}
                                     <div style={{
-                                        width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+                                        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         background: `linear-gradient(135deg, ${tm.gradFrom}, ${tm.gradTo})`,
                                     }}>
-                                        <Icon size={22} color="#fff" />
+                                        <Icon size={18} color="#fff" />
                                     </div>
 
                                     {/* 본문 */}
-                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         {/* 1번 줄: 태그 + 제목 */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: tm.color, background: `${tm.gradFrom}12`, padding: '4px 8px', borderRadius: 6 }}>{tm.label}</span>
-                                            {item.urgent && <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '4px 8px', borderRadius: 6, border: '1px solid #fecaca' }}>⚡ 긴급</span>}
-                                            <span style={{ fontSize: 16, fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: tm.color, background: `${tm.gradFrom}12`, padding: '2px 6px', borderRadius: 4 }}>{tm.label}</span>
+                                            {item.urgent && <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: '#dc2626', background: '#fef2f2', padding: '2px 6px', borderRadius: 4, border: '1px solid #fecaca' }}>⚡ 긴급</span>}
+                                            <span style={{ fontSize: 14, fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
                                         </div>
 
                                         {/* 2번 줄: 날짜 + 프로그레스 + 상태뱃지 */}
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 12, color: '#9ca3af', fontWeight: 500 }}>{item.date}</span>
+                                            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{item.date}</span>
                                             
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 {/* 심플한 진행 단계 표시 (세그먼트) */}
-                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                <div style={{ display: 'flex', gap: 3 }}>
                                                     {item.steps.map((_, i) => (
                                                         <div key={i} style={{
-                                                            width: 18, height: 5, borderRadius: 3,
+                                                            width: 14, height: 4, borderRadius: 2,
                                                             background: i <= item.currentStep 
                                                                 ? (item.status === 'completed' ? '#22c55e' : tm.color)
                                                                 : '#e5e7eb'
                                                         }} />
                                                     ))}
                                                 </div>
-                                                <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg, padding: '4px 8px', borderRadius: 6 }}>{sm.label}</span>
+                                                <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: sm.color, background: sm.bg, padding: '2px 6px', borderRadius: 4 }}>{sm.label}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* 화살표 or 의뢰하기/답변보기 버튼 */}
-                                    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
-                                        {item.status === 'completed' ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <button onClick={(e) => {
-                                                    e.preventDefault();
-                                                    window.location.href = item.href;
-                                                }} style={{
-                                                    fontSize: 12, fontWeight: 700, background: '#fff', color: '#374151', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', cursor: 'pointer'
-                                                }}>답변 보기</button>
-                                                <button onClick={(e) => {
-                                                    e.preventDefault();
-                                                    setHireModalItem(item);
-                                                    setHireModalState('default');
-                                                }} style={{
-                                                    fontSize: 12, fontWeight: 700, background: '#111827', color: '#fff', padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                                }}>의뢰하기</button>
-                                            </div>
-                                        ) : (
-                                            <ChevronRight size={16} color="#d1d5db" />
-                                        )}
+                                    {/* 화살표 */}
+                                    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                                        <ChevronRight size={14} color="#d1d5db" />
                                     </div>
                                 </div>
                             </Link>
@@ -736,6 +721,21 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
     
     // 회사 데이터를 SWR로 백업
     const { companies } = useCompanies();
+    const { consultations } = useConsultations();
+    const { documents } = useDocuments();
+
+    const unreadAlerts = React.useMemo(() => {
+        if (!session || !session.companyId) return 0;
+        const cCount = consultations?.filter((c: any) => 
+            c.companyId === session.companyId && 
+            c.is_read === false && 
+            ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status)
+        ).length || 0;
+        const dCount = documents?.filter((d: any) => 
+            d.companyId === session.companyId && d.isNewForClient === true
+        ).length || 0;
+        return cCount + dCount;
+    }, [consultations, documents, session]);
     
     // 서버에서 넘겨준 초기 initialCompany를 최우선으로, 없으면 SWR 사용
     const [company, setCompany] = useState<any | null>(null);
@@ -813,7 +813,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                 </span>
                             </div>
                             <h1 className="text-3xl sm:text-4xl font-black mb-2" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
-                                {displayName}({session?.name || '담당자'})님
+                                {displayName}님
                             </h1>
                             <p className="text-base" style={{ color: '#6b7280' }}>
                                 귀사의 사업 성장과 확장을 위해 경영 전반의 법률 리스크를 체계적으로 지원합니다.
@@ -855,7 +855,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                 <LayoutGrid className="w-5 h-5" style={{ color: '#111827' }} />
                                 <h2 className="font-black text-lg" style={{ color: '#111827' }}>서비스 데스크</h2>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                                 {SERVICE_LINKS.map((item, idx) => (
                                     <Link key={item.href} href={item.href}>
                                         <motion.div 
@@ -880,7 +880,7 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                                 <item.icon className="w-7 h-7" style={{ color: item.color }} />
                                             </div>
                                             <h3 className="text-sm font-black mb-1.5" style={{ color: '#111827' }}>{item.label}</h3>
-                                            <p className="text-xs leading-relaxed" style={{ color: '#9ca3af' }}>{item.desc}</p>
+                                            <p className="text-xs leading-relaxed" style={{ color: '#9ca3af', wordBreak: 'keep-all' }}>{item.desc}</p>
                                         </motion.div>
                                     </Link>
                                 ))}
@@ -985,10 +985,14 @@ export function DashboardClient({ initialUser, initialCompany }: { initialUser: 
                                         <Bell className="w-4 h-4" style={{ color: '#111827' }} />
                                         <h3 className="font-bold text-sm" style={{ color: '#111827' }}>중요 알림</h3>
                                     </div>
-                                    <span className="bg-gray-100 text-gray-600 text-[10px] font-black px-2 py-0.5 rounded-full">0</span>
+                                    <span className={unreadAlerts > 0 ? "bg-red-100 text-red-600 text-[10px] font-black px-2 py-0.5 rounded-full" : "bg-gray-100 text-gray-600 text-[10px] font-black px-2 py-0.5 rounded-full"}>
+                                        {unreadAlerts}
+                                    </span>
                                 </div>
                                 <div className="py-6 text-center">
-                                    <p className="text-sm text-gray-500">새로운 알림이 없습니다.</p>
+                                    <p className="text-sm text-gray-500">
+                                        {unreadAlerts > 0 ? `새로운 법률 진행/알림건이 ${unreadAlerts}개 있습니다.` : '새로운 알림이 없습니다.'}
+                                    </p>
                                 </div>
                             </Card>
                         </motion.div>

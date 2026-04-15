@@ -377,6 +377,7 @@ export interface Consultation {
     createdAt: string;
     updatedAt: string;
     isPrivate: boolean;
+    is_read?: boolean; // 추가된 알림 확인 속성
     attachedFiles?: any[];
 }
 

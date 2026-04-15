@@ -10,11 +10,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: '슈퍼 어드민 권한이 필요합니다.' }, { status: 403 });
     }
 
-    const sb = getServiceSupabase();
-    if (!sb) return NextResponse.json({ error: 'Service Role Key가 설정되지 않았습니다.' }, { status: 500 });
+    const sbAdmin = getServiceSupabase();
+    if (!sbAdmin) return NextResponse.json({ error: 'Service Role Key가 설정되지 않았습니다.' }, { status: 500 });
+    const sbClient = await import('@/lib/supabase').then(m => m.getServerSupabase());
 
     try {
-        const { data, error } = await sb.auth.admin.listUsers({ perPage: 200 });
+        const { data, error } = await sbAdmin.auth.admin.listUsers({ perPage: 200 });
         if (error) throw error;
 
         const users = (data.users || []).map(u => ({
@@ -43,8 +44,9 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: '슈퍼 어드민 권한이 필요합니다.' }, { status: 403 });
     }
 
-    const sb = getServiceSupabase();
-    if (!sb) return NextResponse.json({ error: 'Service Role Key가 설정되지 않았습니다.' }, { status: 500 });
+    const sbAdmin = getServiceSupabase();
+    if (!sbAdmin) return NextResponse.json({ error: 'Service Role Key가 설정되지 않았습니다.' }, { status: 500 });
+    const sbClient = await import('@/lib/supabase').then(m => m.getServerSupabase());
 
     try {
         const body = await request.json();
@@ -73,7 +75,7 @@ export async function PATCH(request: NextRequest) {
             updatePayload.email = email;
         }
 
-        const { data, error } = await sb.auth.admin.updateUserById(userId, updatePayload);
+        const { data, error } = await sbAdmin.auth.admin.updateUserById(userId, updatePayload);
         if (error) throw error;
 
         // public.users 테이블도 동기화
@@ -82,14 +84,14 @@ export async function PATCH(request: NextRequest) {
         if (role !== undefined) syncData.role = role;
         if (email) syncData.email = email;
         if (Object.keys(syncData).length > 0) {
-            await sb.from('users').update(syncData).eq('id', userId);
+            await (await sbClient)?.from('users').update(syncData).eq('id', userId);
         }
 
         // public.lawyers 테이블도 동기화 (변호사/송무팀인 경우)
         if (name !== undefined) {
             const currentRole = role || data.user.user_metadata?.role;
             if (currentRole === 'lawyer' || currentRole === 'litigation') {
-                await sb.from('lawyers').update({ name }).eq('id', userId);
+                await (await sbClient)?.from('lawyers').update({ name }).eq('id', userId);
             }
         }
 
@@ -116,18 +118,19 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: '슈퍼 어드민 권한이 필요합니다.' }, { status: 403 });
     }
 
-    const sb = getServiceSupabase();
-    if (!sb) return NextResponse.json({ error: 'Service Role Key가 설정되지 않았습니다.' }, { status: 500 });
+    const sbAdmin = getServiceSupabase();
+    if (!sbAdmin) return NextResponse.json({ error: 'Service Role Key가 설정되지 않았습니다.' }, { status: 500 });
+    const sbClient = await import('@/lib/supabase').then(m => m.getServerSupabase());
 
     try {
         const { userId } = await request.json();
         if (!userId) return NextResponse.json({ error: 'userId는 필수입니다.' }, { status: 400 });
 
-        const { error } = await sb.auth.admin.deleteUser(userId);
+        const { error } = await sbAdmin.auth.admin.deleteUser(userId);
         if (error) throw error;
 
         // public.users에서도 삭제
-        await sb.from('users').delete().eq('id', userId);
+        await (await sbClient)?.from('users').delete().eq('id', userId);
 
         return NextResponse.json({ success: true, message: '유저가 삭제되었습니다.' });
     } catch (err: any) {

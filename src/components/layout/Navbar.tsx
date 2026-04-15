@@ -9,6 +9,7 @@ import { getSession, clearSession, type AuthUser } from '@/lib/auth';
 import type { RoleType } from '@/lib/types';
 import { useZeroTrust } from '@/components/ZeroTrustBriefingProvider';
 import { startAutomationEngine } from '@/lib/automationEngine';
+import { useConsultations, useDocuments } from '@/hooks/useDataLayer';
 
 // ── 역할 레이블·색상 ──────────────────────────────────────
 const ROLE_META: Record<string, { label: string; color: string }> = {
@@ -229,6 +230,24 @@ export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [user, setUser] = useState<AuthUser | null>(null);
+    const { consultations } = useConsultations();
+    const { documents } = useDocuments();
+
+    const unreadCount = React.useMemo(() => {
+        if (!user || user.role !== 'client_hr') return 0;
+        const unreadConsultations = consultations?.filter((c: any) => 
+            c.companyId === user.companyId && 
+            c.is_read === false && 
+            ['completed', 'answered', '상담완료', 'callback_done', 'callback_requested'].includes(c.status)
+        ).length || 0;
+        
+        const unreadDocs = documents?.filter((d: any) => 
+            d.companyId === user.companyId && 
+            d.isNewForClient === true
+        ).length || 0;
+        
+        return unreadConsultations + unreadDocs;
+    }, [consultations, documents, user]);
     const [claimId, setClaimId] = useState<string | null>(null);
     const pathname = usePathname();
     const router = useRouter();
@@ -333,7 +352,7 @@ export default function Navbar() {
                                     <div className="flex items-center gap-1.5 mr-2">
                                         <Link href="/notifications" className="relative p-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: 'rgba(240,244,255,0.7)' }}>
                                             <Bell className="w-5 h-5" />
-                                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: '#f87171' }}></span>
+                                            {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: '#f87171' }}></span>}
                                         </Link>
                                         <Link href="/billing" className="p-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: 'rgba(240,244,255,0.7)' }}>
                                             <CreditCard className="w-5 h-5" />

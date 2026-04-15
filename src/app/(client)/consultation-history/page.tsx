@@ -28,6 +28,7 @@ interface ConsultRecord {
     satisfaction?: number;
     messageCount: number;
     lawyerAnswer?: string;
+    is_read?: boolean;
 }
 
 const TYPE_META: Record<ConsultType, { label: string; icon: React.ElementType; color: string }> = {
@@ -37,9 +38,9 @@ const TYPE_META: Record<ConsultType, { label: string; icon: React.ElementType; c
 };
 
 const STATUS_META: Record<ConsultStatus, { label: string; color: string; bg: string }> = {
-    completed: { label: '답변 완료', color: '#059669', bg: '#ecfdf5' },
+    waiting: { label: '접수 완료', color: '#2563eb', bg: '#eff6ff' },
     in_progress: { label: '검토 중', color: '#d97706', bg: '#fffbeb' },
-    waiting: { label: '답변 대기', color: '#2563eb', bg: '#eff6ff' },
+    completed: { label: '답변 완료', color: '#059669', bg: '#ecfdf5' },
     closed: { label: '종결', color: '#6b7280', bg: '#f3f4f6' },
 };
 
@@ -81,7 +82,7 @@ function SubscribeCTA() {
 /* ── 메인 페이지 ───────────────────────────────────────── */
 export default function ConsultationHistoryPage() {
     const { loading: authLoading, authorized, user } = useRequireAuth();
-    const { consultations, isLoading: dataLoading } = useConsultations();
+    const { consultations, isLoading: dataLoading, updateConsultation } = useConsultations();
     const [filterType, setFilterType] = useState<ConsultType | 'all'>('all');
     const [filterStatus, setFilterStatus] = useState<ConsultStatus | 'all'>('all');
     const [search, setSearch] = useState('');
@@ -133,6 +134,7 @@ ${followupText}`;
             lawyer: c.managerName || '배정 대기 중',
             messageCount: Math.floor(Math.random() * 5), // Mock message count for now
             lawyerAnswer: c.lawyerAnswer || '',
+            is_read: c.is_read,
         }));
 
     const filtered = mappedRecords.filter(r => {
@@ -235,12 +237,21 @@ ${followupText}`;
                         const TypeIcon = typeMeta.icon;
                         return (
                             <motion.div key={r.id}
+                                onClick={() => {
+                                    setExpandedId(prev => prev === r.id ? null : r.id);
+                                    if (r.is_read === false && r.id) {
+                                        updateConsultation(r.id, { is_read: true });
+                                    }
+                                }}
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.05 }}
-                                className="p-5 rounded-2xl transition-all hover:shadow-md"
+                                className="p-5 rounded-2xl transition-all hover:shadow-md cursor-pointer relative"
                                 style={{ background: '#fff', border: '1px solid #e8e5de' }}
                             >
+                                {r.is_read === false && (
+                                    <div className="absolute top-4 right-4 w-2 h-2 rounded-full" style={{ background: '#ef4444' }} />
+                                )}
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -261,34 +272,6 @@ ${followupText}`;
                                 </div>
 
                                 <p className="text-xs leading-relaxed mb-3 pl-[52px]" style={{ color: '#6b7280' }}>{r.summary}</p>
-
-                                <div className="flex items-center justify-between pl-[52px]">
-                                    <div className="flex items-center gap-3 text-[11px]" style={{ color: '#9ca3af' }}>
-                                        {r.lawyer && <span>👔 {r.lawyer}</span>}
-                                        {r.responseTime && <span>⏱ {r.responseTime}</span>}
-                                        <span>💬 {r.messageCount}건</span>
-                                        {r.satisfaction && (
-                                            <span className="flex items-center gap-0.5">
-                                                {'★'.repeat(r.satisfaction)}{'☆'.repeat(5 - r.satisfaction)}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-1.5">
-                                        {(r.status === 'completed' || r.status === 'closed') && (
-                                            <button onClick={() => setExpandedId(prev => prev === r.id ? null : r.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
-                                                style={{ background: expandedId === r.id ? '#e5e7eb' : '#111827', color: expandedId === r.id ? '#374151' : '#fff' }}>
-                                                {expandedId === r.id ? '답변 닫기' : '답변 확인'}
-                                            </button>
-                                        )}
-                                        <Link href="/chat">
-                                            <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold"
-                                                style={{ background: `${typeMeta.color}10`, color: typeMeta.color }}>
-                                                {r.status === 'completed' || r.status === 'closed' ? '다시 문의' : '이어서 대화'}
-                                                <ChevronRight className="w-3 h-3" />
-                                            </button>
-                                        </Link>
-                                    </div>
-                                </div>
 
                                 {/* ✨ 상세 답변 인라인 패널 (아코디언) ✨ */}
                                 <AnimatePresence>

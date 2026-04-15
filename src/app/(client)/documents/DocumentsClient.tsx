@@ -229,10 +229,10 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                             isNewForClient: false,
                             isNewForLawyer: false,
                             isDemo: false,
-                            summary: `발견된 법적 취약점 ${company.issues?.length || 0}건에 대한 상세 진단 결과 및 시정 조치 안내서입니다.`,
-                            issueCount: company.issues?.length || 0,
+                            summary: `발견된 법적 취약점 ${company.issueCount || company.issues?.length || 0}건에 대한 상세 진단 결과 및 시정 조치 안내서입니다.`,
+                            issueCount: company.issueCount || company.issues?.length || 0,
                             highRiskCount: company.issues?.filter((i:any) => i.level === 'HIGH').length || 0,
-                            riskScore: company.issues?.length ? 100 - (company.issues.length * 5) : 100
+                            riskScore: company.riskScore || 100
                         });
                     }
                     
@@ -301,7 +301,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
         
         // 추가: 개인정보처리방침 (통합본) 은 프리뷰 모달 대신 전용 리포트 페이지로 바로 이동
         if (doc.name.includes('개인정보보호법 1차 검토 의견서')) {
-            router.push('/privacy-analysis');
+            router.push(`/privacy-analysis?targetId=${doc.companyId}`);
             return;
         }
 
@@ -331,7 +331,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
                                 {session?.companyName || '내 기업 문서함'}
                             </span>
                         </div>
-                        <h1 className="text-3xl font-black text-gray-900">개인정보보호법 1차 검토 의견서</h1>
+                        <h1 className="text-3xl font-black text-gray-900">문서함</h1>
                         <p className="text-sm text-gray-500 mt-2">
                             법률 검토 의뢰, 계약서, 의견서 등 모든 양방향 문서를 한 곳에서 관리합니다.
                         </p>

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabase } from '@/lib/supabase';
+import { requireSessionFromCookie } from '@/lib/auth';
+import { getServerSupabase } from '@/lib/supabase';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 export async function POST(req: NextRequest) {
+    const auth = await requireSessionFromCookie(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     try {
         const { memoId, transcript, memoContent } = await req.json();
         
@@ -44,7 +48,7 @@ Markdown 형식을 사용하여 짧고 직관적으로 작성해주세요.`
         const preamble = parts[0];
         const newContent = `${preamble}[통화내용 요약]\n${summary}\n\n[전문]\n${transcript}`;
 
-        const sb = getServiceSupabase();
+        const sb = await getServerSupabase();
         if (sb) {
             await sb.from('company_memos').update({ content: newContent }).eq('id', memoId);
         }

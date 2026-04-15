@@ -105,7 +105,7 @@ export default function LandingPage() {
               <p className="font-bold text-sm mb-4 text-gold">연락정보</p>
               {[
                 { text: '02-598-8518' },
-                { text: 'legal@ibs-law.co.kr' },
+                { text: 'info@ibslaw.co.kr' },
                 { text: '서울시 서초구 서초대로 272, IBS빌딩' },
                 { text: '평일 09:00‒18:00' },
               ].map((c, i) => (
@@ -126,12 +126,12 @@ export default function LandingPage() {
           </div>
           <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 border-glass-top">
             <p className="text-xs text-muted-45">
-              © 2026 IBS 법률사무소. All rights reserved. · 사업자등록번호 123-45-67890 · 대표변호사 유정훈
+              © 2026 IBS 법률사무소. All rights reserved. · 사업자등록번호 313-19-00140 · 대표변호사 유정훈
             </p>
             <div className="flex gap-4">
               <Link href="/legal/terms" className="text-xs hover:underline text-muted-45">이용약관</Link>
               <Link href="/terms/privacy" className="text-xs hover:underline text-muted-45">개인정보처리방침</Link>
-              <Link href="/legal" className="text-xs hover:underline text-muted-45">광고성 정보 수신 거부</Link>
+              {/* <Link href="/legal" className="text-xs hover:underline text-muted-45">광고성 정보 수신 거부</Link> */}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSessionFromCookie } from '@/lib/auth';
 import { DEFAULT_PROMPT_CONFIG } from '@/lib/prompts/privacy';
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase';
 
 // Pro 요금제 활용: 최대 3분 허용 (기본 15초 제한 해제)
 export const maxDuration = 180; // 3분
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         if ((!manualText || manualText.trim().length === 0) && companyId) {
             console.log(`[Analyze API] manualText가 없어 서버에서 기존 DB 텍스트 직접 재검토 시도: ${companyId}`);
             try {
-                const sb = getServiceSupabase();
+                const sb = await getServerSupabase();
                 if (sb) {
                     const { data: dbCompany, error } = await sb.from('companies').select('privacy_policy_text').eq('id', companyId).single();
                     if (error) {

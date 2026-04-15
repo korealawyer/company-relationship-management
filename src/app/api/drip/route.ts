@@ -9,7 +9,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const SMTP_CONFIGURED = !!(process.env.SMTP_HOST && process.env.SMTP_USER);
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || '';
 
-// ── 사업자번호로 회원 등록 ────────────────────────────────────
+// ── 사업자번호로 회원 등록 (이메일 발송 전용 서버 액션) ────────────────────────────────────
 export async function POST(req: NextRequest) {
     const auth = await requireSessionFromCookie(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -20,95 +20,61 @@ export async function POST(req: NextRequest) {
     } catch {
         return NextResponse.json({ error: '잘못된 요청 형식입니다.' }, { status: 400 });
     }
-    const { leadId, bizRegNo } = body;
-    if (!leadId || !bizRegNo) return NextResponse.json({ error: 'leadId, bizRegNo 필수' }, { status: 400 });
 
-    const lead = leadStore.getById(leadId);
-    if (!lead) return NextResponse.json({ error: '리드 없음' }, { status: 404 });
+    const { action, leadId, bizRegNo, companyName, contactEmail, contactName, riskLevel, riskScore, issueCount, storeCount, day } = body;
 
-    // 이미 등록된 경우 반환
-    const existing = dripStore.getByLeadId(leadId);
-    if (existing) return NextResponse.json({ member: existing, alreadyExists: true });
+    if (action === 'welcome') {
+        if (!leadId || !bizRegNo || !contactEmail) return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 });
+        
+        // 임시 비밀번호 생성
+        const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
+        const member = { 
+            id: `m_${Date.now()}`, leadId, bizRegNo, tempPassword, 
+            companyName, contactEmail, contactName, 
+            riskLevel, issueCount, joinedAt: new Date().toISOString(),
+            subscribed: false, dripStatus: 'active' as const, sentDays: [] 
+        };
+        
+        // 임시 비밀번호 이메일 발송
+        await sendEmail({
+            to: contactEmail,
+            subject: `[IBS 법률] ${companyName} 회원 등록 완료 — 임시 비밀번호 안내`,
+            html: buildWelcomeEmail(member),
+        });
 
-    const member = dripStore.register({
-        leadId, companyName: lead.companyName,
-        contactEmail: lead.contactEmail, contactName: lead.contactName,
-        bizRegNo, riskLevel: lead.riskLevel, issueCount: lead.issueCount,
-    });
-
-    // 리드 상태 → in_contact
-    leadStore.update(leadId, { status: 'in_contact' });
-
-    // 임시 비밀번호 이메일 발송
-    await sendEmail({
-        to: lead.contactEmail,
-        subject: `[IBS 법률] ${lead.companyName} 회원 등록 완료 — 임시 비밀번호 안내`,
-        html: buildWelcomeEmail(member),
-    });
-
-    return NextResponse.json({ member, mock: !SMTP_CONFIGURED });
-}
-
-// ── 드립 발송 대기 목록 조회 ─────────────────────────────────
-export async function GET(req: NextRequest) {
-    const auth = await requireSessionFromCookie(req);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-    const pending = dripStore.getPendingEmails();
-    return NextResponse.json({
-        pending: pending.map(p => ({
-            memberId: p.member.id,
-            companyName: p.member.companyName,
-            day: p.email.day,
-            subject: p.email.subject,
-            contentType: p.email.contentType,
-        }))
-    });
-}
-
-// ── 드립 이메일 즉시 발송 ────────────────────────────────────
-export async function PUT(req: NextRequest) {
-    const auth = await requireSessionFromCookie(req);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-    let body;
-    try {
-        body = await req.json();
-    } catch {
-        return NextResponse.json({ error: '잘못된 요청 형식입니다.' }, { status: 400 });
+        return NextResponse.json({ member, mock: !SMTP_CONFIGURED });
     }
-    const { memberId, day } = body;
-    const member = dripStore.getById(memberId);
-    if (!member) return NextResponse.json({ error: '멤버 없음' }, { status: 404 });
 
-    const emailTemplate = DRIP_SEQUENCE.find(e => e.day === day);
-    if (!emailTemplate) return NextResponse.json({ error: '이메일 없음' }, { status: 404 });
+    if (action === 'drip') {
+        if (!contactEmail || day === undefined) return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 });
+        const emailTemplate = DRIP_SEQUENCE.find(e => e.day === day);
+        if (!emailTemplate) return NextResponse.json({ error: '이메일 템플릿 없음' }, { status: 404 });
 
-    const lead = leadStore.getById(member.leadId);
-    const sub = calcSubscription(lead?.storeCount || 0);
-    const vars = {
-        company: member.companyName,
-        contactName: member.contactName,
-        leadId: member.leadId,
-        riskScore: String(lead?.riskScore || 0),
-        riskLevel: member.riskLevel,
-        storeCount: String(lead?.storeCount || 0),
-        bizType: lead?.bizType || '업종',
-        monthlyFee: sub.monthly.toLocaleString(),
-    };
+        const sub = calcSubscription(storeCount || 0);
+        const vars = {
+            company: companyName || '',
+            contactName: contactName || '',
+            leadId: leadId || '',
+            riskScore: String(riskScore || 0),
+            riskLevel: riskLevel || '',
+            storeCount: String(storeCount || 0),
+            bizType: '업종',
+            monthlyFee: sub.monthly.toLocaleString(),
+        };
 
-    const subject = fillTemplate(emailTemplate.subject, vars);
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ibsbase.com';
-    const html = buildDripEmailHtml(fillTemplate(emailTemplate.content, vars), {
-        subject, ctaText: emailTemplate.ctaText,
-        ctaUrl: `${baseUrl}${fillTemplate(emailTemplate.ctaUrl, vars)}`,
-        companyName: member.companyName, day, contactName: member.contactName,
-    });
+        const subject = fillTemplate(emailTemplate.subject, vars);
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ibsbase.com';
+        const html = buildDripEmailHtml(fillTemplate(emailTemplate.content, vars), {
+            subject, ctaText: emailTemplate.ctaText,
+            ctaUrl: `${baseUrl}${fillTemplate(emailTemplate.ctaUrl, vars)}`,
+            companyName: companyName || '', day, contactName: contactName || '',
+        });
 
-    await sendEmail({ to: member.contactEmail, subject, html });
-    dripStore.markSent(memberId, day);
+        await sendEmail({ to: contactEmail, subject, html });
+        return NextResponse.json({ ok: true, mock: !SMTP_CONFIGURED });
+    }
 
-    return NextResponse.json({ ok: true, mock: !SMTP_CONFIGURED });
+    return NextResponse.json({ error: '알 수 없는 액션' }, { status: 400 });
 }
 
 // ── 헬퍼 함수 ────────────────────────────────────────────────

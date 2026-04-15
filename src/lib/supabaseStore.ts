@@ -341,22 +341,6 @@ async function fetchCompanyStats(): Promise<CompanyStats> {
     return defaultStats;
   }
   
-  // N+1 최적화를 유지하면서, RPC에서 제외된(거절, 사이트이상) 카운트만 별도로 1번 더 가져옵니다.
-  const { data: excludedCounts } = await sb.from('companies')
-    .select('status')
-    .in('status', ['rejected', 'invalid_site']);
-
-  if (excludedCounts) {
-    const rejectedCnt = excludedCounts.filter(r => r.status === 'rejected').length;
-    const invalidSiteCnt = excludedCounts.filter(r => r.status === 'invalid_site').length;
-    
-    data.statusCounts = {
-      ...(data.statusCounts || {}),
-      rejected: rejectedCnt,
-      invalid_site: invalidSiteCnt
-    };
-  }
-  
   return data as CompanyStats;
 }
 

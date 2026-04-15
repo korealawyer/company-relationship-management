@@ -1,10 +1,14 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextResponse } from 'next/server';
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
+  const auth = await requireSessionFromCookie(request as any);
+  if (!auth.ok) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
   try {
     const { companyId, userId, userName } = await request.json();
-    const supabase = getServiceSupabase();
+    const supabase = await getServerSupabase();
     if (!supabase) return NextResponse.json({ success: false, error: 'Supabase is not configured' }, { status: 500 });
     
     const { data, error } = await supabase.rpc('claim_company_call', { 

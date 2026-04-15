@@ -1,5 +1,8 @@
 // src/lib/smsService.ts — SMS/문자 발송 서비스 (Mock)
-// 실제 API(예: NHN Cloud, CoolSMS) 연동 시 sendSMS() 내부만 교체
+// Phase 1: 로컬 전역 스토어 (Zustand + sessionStorage 영속화)
+
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type SmsType = 'SMS' | 'LMS' | 'MMS';
 export type SmsStatus = 'sent' | 'failed' | 'pending';
@@ -39,7 +42,6 @@ export interface SmsResult {
   logs: SmsLog[];
 }
 
-// ── 상용 문구 템플릿 ──────────────────────────────────────────
 export const SMS_TEMPLATES: SmsTemplate[] = [
   {
     id: 'tpl_date',
@@ -103,10 +105,29 @@ IBS 법률사무소 02-1234-5678`,
   },
 ];
 
-/**
- * SMS 발송
- * 실제 서버 연동 API(/api/sms/send)를 호출합니다.
- */
+interface SmsStore {
+  logs: SmsLog[];
+  addLogs: (newLogs: SmsLog[]) => void;
+  getLogsByCase: (caseId: string) => SmsLog[];
+}
+
+export const useSmsStore = create<SmsStore>()(
+  persist(
+    (set, get) => ({
+      logs: [],
+      addLogs: (newLogs) => set({ logs: [...newLogs, ...get().logs].slice(0, 500) }),
+      getLogsByCase: (caseId) => get().logs.filter(log => log.caseId === caseId)
+    }),
+    {
+      name: 'ibs_sms_logs_v2',
+      storage: createJSONStorage(() => {
+        if (typeof window !== 'undefined') return sessionStorage;
+        return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+      }),
+    }
+  )
+);
+
 export async function sendSMS(params: SendSmsParams): Promise<SmsResult> {
   const recipients = Array.isArray(params.to) ? params.to : [params.to];
   
@@ -119,7 +140,6 @@ export async function sendSMS(params: SendSmsParams): Promise<SmsResult> {
     
     const data = await res.json();
     
-    // 로컬 로그 저장 (Mock UI 호환용)
     const logs: SmsLog[] = recipients.map(to => ({
       id: `sms-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       to,
@@ -133,12 +153,7 @@ export async function sendSMS(params: SendSmsParams): Promise<SmsResult> {
     }));
 
     if (typeof window !== 'undefined') {
-      const SMS_LOG_KEY = 'ibs_sms_logs_v1';
-      try {
-        const existing: SmsLog[] = JSON.parse(localStorage.getItem(SMS_LOG_KEY) || '[]');
-        const updated = [...logs, ...existing].slice(0, 500); 
-        localStorage.setItem(SMS_LOG_KEY, JSON.stringify(updated));
-      } catch { /* ignore */ }
+      useSmsStore.getState().addLogs(logs);
     }
 
     return {

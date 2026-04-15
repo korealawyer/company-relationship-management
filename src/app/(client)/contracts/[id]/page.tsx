@@ -5,65 +5,16 @@ import { FileText, CheckCircle2, Clock, ArrowLeft, Send, Shield, AlertTriangle, 
 import Link from 'next/link';
 import { getBrowserSupabase } from '@/lib/supabase';
 import { notFound } from 'next/navigation';
-import { Document, Page, Text, View, StyleSheet, Font, Image as PDFImage, pdf } from '@react-pdf/renderer';
-
-// Register font for React PDF (Korean support)
-Font.register({
-    family: 'NotoSansKR',
-    src: 'https://fonts.gstatic.com/s/notosanskr/v36/PbykFmXiEBPT4ITcgEWnRL8DPc4szhM.ttf'
-});
-
-const pdfStyles = StyleSheet.create({
-    page: { padding: 40, fontFamily: 'NotoSansKR' },
-    title: { fontSize: 24, marginBottom: 20, textAlign: 'center', fontWeight: 'bold' },
-    meta: { fontSize: 10, color: '#666', marginBottom: 20, textAlign: 'right' },
-    content: { fontSize: 11, lineHeight: 1.6, marginBottom: 40, whiteSpace: 'pre-wrap' },
-    signatures: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 40 },
-    signBox: { width: '45%', borderTop: 1, borderTopColor: '#000', paddingTop: 10 },
-    signTitle: { fontSize: 12, marginBottom: 5 },
-    signName: { fontSize: 12, marginBottom: 10 },
-    signImage: { width: 100, height: 50 },
-    timestamp: { fontSize: 9, color: '#666', marginTop: 5 }
-});
-
-const ContractPDF = ({ contract }: { contract: any }) => (
-    <Document>
-        <Page size="A4" style={pdfStyles.page}>
-            <Text style={pdfStyles.title}>{contract.title}</Text>
-            <Text style={pdfStyles.meta}>작성일: {new Date(contract.created_at).toLocaleString('ko-KR')}</Text>
-            
-            <Text style={pdfStyles.content}>{contract.content}</Text>
-            
-            <View style={pdfStyles.signatures}>
-                <View style={pdfStyles.signBox}>
-                    <Text style={pdfStyles.signTitle}>갑 (요청자)</Text>
-                    <Text style={pdfStyles.signName}>{contract.party_a_name}</Text>
-                    <Text style={pdfStyles.timestamp}>{contract.party_a_signed ? '서명 완료' : '미서명'}</Text>
-                </View>
-                <View style={pdfStyles.signBox}>
-                    <Text style={pdfStyles.signTitle}>을 (수신자)</Text>
-                    <Text style={pdfStyles.signName}>{contract.party_b_name}</Text>
-                    {contract.signature_data_url ? (
-                        <PDFImage style={pdfStyles.signImage} src={contract.signature_data_url} />
-                    ) : (
-                         <Text style={pdfStyles.timestamp}>서명 아직 없음</Text>
-                    )}
-                    <Text style={pdfStyles.timestamp}>
-                        {contract.party_b_signed ? `서명 일자: ${new Date(contract.updated_at).toLocaleString('ko-KR')}` : '미서명'}
-                    </Text>
-                </View>
-            </View>
-        </Page>
-    </Document>
-);
 
 type Props = {
-    params: {
+    params: Promise<{
         id: string;
-    }
+    }>;
 };
 
 export default function ContractDetailPage({ params }: Props) {
+    const { id } = React.use(params);
+
     const [name, setName] = useState('');
     const [agreed, setAgreed] = useState(false);
     
@@ -87,7 +38,7 @@ export default function ContractDetailPage({ params }: Props) {
 
     useEffect(() => {
         const fetchContract = async () => {
-            if (!params?.id) return;
+            if (!id) return;
             
             const supabase = getBrowserSupabase();
             if (!supabase) return;
@@ -95,7 +46,7 @@ export default function ContractDetailPage({ params }: Props) {
             const { data, error } = await supabase
                 .from('contracts')
                 .select('*')
-                .eq('id', params.id)
+                .eq('id', id)
                 .single();
                 
             if (error || !data) {
@@ -107,7 +58,7 @@ export default function ContractDetailPage({ params }: Props) {
             setLoading(false);
         };
         fetchContract();
-    }, [params?.id]);
+    }, [id]);
 
     useEffect(() => {
         if (!canvasRef.current || loading || !contract || (contract.status === 'both_signed' || contract.party_b_signed)) return;
@@ -204,7 +155,7 @@ export default function ContractDetailPage({ params }: Props) {
                     status: 'both_signed',
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', params.id)
+                .eq('id', id)
                 .select()
                 .single();
                 
@@ -220,18 +171,35 @@ export default function ContractDetailPage({ params }: Props) {
     };
 
     const handleDownloadPDF = async () => {
+        if (contract?.document_url) {
+            window.open(contract.document_url, '_blank');
+            showToast('PDF 원본을 열었습니다.');
+            return;
+        }
+
         setDownloadingPDF(true);
         try {
-            const blob = await pdf(<ContractPDF contract={contract} />).toBlob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${contract.title.replace(/\s+/g, '_')}_서명완료.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            showToast('PDF 다운로드가 시작되었습니다.');
+            // HTML2Canvas 백업 적용 (서명 포함 깔끔한 흰 배경 계약서 컨테이너 캡처)
+            const html2canvas = (await import('html2canvas')).default;
+            const { jsPDF } = await import('jspdf');
+
+            const element = document.getElementById('pdf-export-container');
+            if (element) {
+                // To capture accurately, it shouldn't have display: none. 
+                // It is positioned absolutely off-screen.
+                const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                
+                const pdfObj = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdfObj.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                
+                pdfObj.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                pdfObj.save(`${contract.title.replace(/\s+/g, '_')}_서명완료.pdf`);
+                showToast('PDF 다운로드가 시작되었습니다.');
+            } else {
+                window.print();
+            }
         } catch (error) {
             console.error('PDF generation error:', error);
             showToast('PDF 생성 중 오류가 발생했습니다.', 'error');
@@ -310,7 +278,7 @@ export default function ContractDetailPage({ params }: Props) {
                     </div>
                 </motion.div>
 
-                <div className="p-6 rounded-2xl mb-6"
+                <div id="contract-content" className="p-6 rounded-2xl mb-6"
                     style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
                     <h2 className="font-bold text-sm mb-4" style={{ color: 'rgba(240,244,255,0.6)' }}>계약서 내용</h2>
                     <pre className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: 'rgba(240,244,255,0.85)', fontFamily: 'inherit' }}>
@@ -407,6 +375,44 @@ export default function ContractDetailPage({ params }: Props) {
                         </p>
                     </motion.div>
                 )}
+            </div>
+
+            {/* --- PDF 내보내기용 숨김 컨테이너 (정식 A4 계약서 레이아웃) --- */}
+            <div id="pdf-export-container" className="fixed top-[-9999px] left-[-9999px] bg-white text-black" style={{ width: '800px', padding: '60px 50px', boxSizing: 'border-box' }}>
+                <h1 className="text-2xl font-bold text-center mb-6">{contract.title}</h1>
+                <p className="text-right text-sm text-gray-600 mb-8 border-b pb-4">
+                    작성일: {createdDate.split(' ')[0]}<br/>
+                    {contract.template && <span>양식: {contract.template}</span>}
+                </p>
+
+                <pre className="text-sm leading-relaxed whitespace-pre-wrap mb-16" style={{ fontFamily: '"Malgun Gothic", "Apple SD Gothic Neo", sans-serif' }}>
+                    {contract.content}
+                </pre>
+
+                <div className="flex justify-between mt-12 bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <div className="w-[45%]">
+                        <p className="font-bold mb-2">당사자 [갑]</p>
+                        <p className="text-sm mb-4">성명/법인명: {contract.party_a_name}</p>
+                        <div className="mt-4 h-16 border-b border-gray-300 relative">
+                            {contract.party_a_signed ? (
+                                <span className="absolute bottom-2 text-sm text-gray-500 italic">(전자 서명 완료)</span>
+                            ) : (
+                                <span className="absolute bottom-2 text-sm text-gray-400 italic">(서명 대기)</span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="w-[45%]">
+                        <p className="font-bold mb-2">당사자 [을]</p>
+                        <p className="text-sm mb-4">성명/법인명: {contract.party_b_name}</p>
+                        <div className="mt-4 h-16 border-b border-gray-300 relative">
+                            {contract.signature_data_url ? (
+                                <img src={contract.signature_data_url} alt="signature" className="max-h-16 absolute bottom-0 mix-blend-multiply" />
+                            ) : (
+                                <span className="absolute bottom-2 text-sm text-gray-400 italic">(서명 대기)</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

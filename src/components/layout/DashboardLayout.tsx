@@ -5,6 +5,7 @@ import DashboardSidebar, { MenuOption } from './DashboardSidebar';
 import DashboardHeader from './DashboardHeader';
 import MobileTabBar from './MobileTabBar';
 import CommandPalette from './CommandPalette';
+import { getClientCookie, setClientCookie } from '@/lib/clientCookies';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -30,7 +31,19 @@ export default function DashboardLayout({
   topRightContent,
 }: DashboardLayoutProps) {
   // Sidebar state
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = getClientCookie('ibs_sidebar_open');
+    return saved ? saved === 'true' : true;
+  });
+
+  const handleToggleSidebar = () => {
+    setIsSidebarOpen((prev) => {
+      const next = !prev;
+      setClientCookie('ibs_sidebar_open', String(next));
+      return next;
+    });
+  };
+
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Command Palette listener
@@ -67,7 +80,7 @@ export default function DashboardLayout({
           role={role}
           userName={userName}
           isSidebarOpen={isSidebarOpen}
-          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          toggleSidebar={handleToggleSidebar}
           openCommandPalette={() => setIsCommandPaletteOpen(true)}
           topRightContent={topRightContent}
         />

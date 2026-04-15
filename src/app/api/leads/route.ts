@@ -70,53 +70,6 @@ export async function POST(req: NextRequest) {
     });
 }
 
-export async function GET(req: NextRequest) {
-    // 인증 검증
-    const auth = await requireSessionFromCookie(req);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status');
-    const sort = searchParams.get('sort') || 'riskScore';
-
-    let leads = leadStore.getAll();
-    if (status && status !== 'all') leads = leads.filter(l => l.status === status);
-    leads.sort((a, b) => {
-        if (sort === 'riskScore') return b.riskScore - a.riskScore;
-        if (sort === 'createdAt') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        return 0;
-    });
-    return NextResponse.json({ leads });
-}
-
-// 허용 status 화이트리스트
-const ALLOWED_STATUSES = ['new', 'analyzing', 'reviewed', 'contacted', 'emailed', 'converted', 'disqualified'];
-
-export async function PATCH(req: NextRequest) {
-    // 인증 검증
-    const auth = await requireSessionFromCookie(req);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
-
-    const body = await req.json().catch(() => null);
-    if (!body) return NextResponse.json({ error: '잘못된 요청 형식입니다.' }, { status: 400 });
-
-    const { id, status, memo } = body;
-    if (!id) return NextResponse.json({ error: 'id 필수' }, { status: 400 });
-
-    // status 화이트리스트 검증
-    if (status && !ALLOWED_STATUSES.includes(status)) {
-        return NextResponse.json({ error: `허용되지 않은 status 값입니다: ${status}` }, { status: 422 });
-    }
-
-    // IDOR (Insecure Direct Object Reference) 방어: 권한 검증
-    if (auth.role === 'client_hr' || auth.role === 'client') {
-        const lead = leadStore.getById(id);
-        if (!lead) return NextResponse.json({ error: '리드를 찾을 수 없습니다.' }, { status: 404 });
-        
-        // 기업 고객은 리드 상태를 임의로 수정할 수 없습니다 (읽기만 가능)
-        return NextResponse.json({ error: '리드를 수정할 권한이 없습니다.' }, { status: 403 });
-    }
-
-    leadStore.update(id, { status, ...(memo ? { lastMemo: memo } : {}) });
-    return NextResponse.json({ ok: true });
-}
+// Only POST is retained for Chatbot inserts via Supabase.
+// GET and PATCH have been deprecated as part of Phase 1 to prevent SSR errors
+// and enforce client-side state management using Zustand.

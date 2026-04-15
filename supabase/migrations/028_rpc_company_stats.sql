@@ -4,7 +4,7 @@ RETURNS json
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
-WITH base_data AS (
+WITH raw_data AS (
     SELECT 
         store_count,
         plan,
@@ -16,13 +16,10 @@ WITH base_data AS (
             ELSE COALESCE(status, 'pending')
         END AS st
     FROM companies
-),
-raw_data AS (
-    SELECT * FROM base_data
-    WHERE st NOT IN ('rejected', 'invalid_site', 'no_homepage', 'promo_only', 'no_policy')
+    WHERE status NOT IN ('rejected', 'invalid_site')
 ),
 status_agg AS (
-    SELECT st, count(*) as c FROM base_data GROUP BY st
+    SELECT st, count(*) as c FROM raw_data GROUP BY st
 ),
 status_json AS (
     SELECT json_object_agg(st, c) as counts FROM status_agg

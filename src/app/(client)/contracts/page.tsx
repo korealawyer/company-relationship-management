@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { FileText, Plus, CheckCircle2, Clock, AlertTriangle, Eye, Edit3, Send, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { dataLayer } from '@/lib/dataLayer';
 import { createContract, sendContractEmail } from '@/actions/contractActions';
@@ -28,6 +29,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Rea
 };
 
 export default function ContractsPage() {
+    const router = useRouter();
     const [showNew, setShowNew] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [contractTitle, setContractTitle] = useState('');
@@ -287,7 +289,8 @@ export default function ContractsPage() {
                             
                             return (
                                 <motion.div key={c.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    className="p-5 rounded-2xl flex flex-col md:flex-row md:items-center gap-4 md:gap-5"
+                                    className="p-5 rounded-2xl flex flex-col md:flex-row md:items-center gap-4 md:gap-5 cursor-pointer transition-all hover:bg-gray-50 hover:shadow-sm"
+                                    onClick={() => router.push(`/contracts/${c.id}`)}
                                     style={{ background: '#fff', border: '1px solid #e8e5de' }}>
                                     <div className="flex items-center gap-4 flex-1">
                                         <div className="p-2.5 rounded-xl shrink-0" style={{ background: '#fef3c7' }}>
@@ -305,12 +308,6 @@ export default function ContractsPage() {
                                             style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30` }}>
                                             {s.icon} {s.label}
                                         </span>
-                                        <Link href={`/contracts/${c.id}`}>
-                                            <button className="p-2 rounded-xl transition-all hover:bg-gray-200"
-                                                style={{ background: '#f3f4f6', color: '#6b7280' }}>
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                        </Link>
                                     </div>
                                 </motion.div>
                             );

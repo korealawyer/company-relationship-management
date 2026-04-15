@@ -283,7 +283,50 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
         try {
             const session = getSession();
             if (session?.companyId) {
-                // Call backend API to render PDF securely
+                // 1. Wait for typography rendering to settle
+                await document.fonts.ready;
+
+                // 2. Pick element to capture
+                const contractElement = document.getElementById('contract-document');
+                if (!contractElement) throw new Error('계약서 문서를 찾을 수 없습니다.');
+
+                // 3. Client-side PDF generation (html2canvas -> jsPDF)
+                const html2canvas = (await import('html2canvas')).default;
+                const { jsPDF } = await import('jspdf');
+
+                const canvas = await html2canvas(contractElement, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#faf9f6'
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                
+                let heightLeft = pdfHeight;
+                let position = 0;
+                
+                pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+                heightLeft -= pdf.internal.pageSize.getHeight();
+                
+                while (heightLeft >= 0) {
+                    position = heightLeft - pdfHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight);
+                    heightLeft -= pdf.internal.pageSize.getHeight();
+                }
+
+                const pdfBlob = pdf.output('blob');
+
+                // 4. API Request: Insert record & get signed URL
                 const response = await fetch('/api/contracts/finalize', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -304,12 +347,26 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
                     throw new Error(result.error || 'API Request Failed');
                 }
 
+                // 5. Upload via Signed URL
+                if (result.signedUploadUrl) {
+                    const uploadResponse = await fetch(result.signedUploadUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/pdf'
+                        },
+                        body: pdfBlob
+                    });
+
+                    if (!uploadResponse.ok) {
+                        throw new Error('PDF 업로드에 실패했습니다.');
+                    }
+                }
+
                 if (result.documentUrl) {
                     setDocumentUrl(result.documentUrl);
                 }
 
-                // Update company status directly through API if possible,
-                // but since frontend still uses dataLayer for updating status:
+                // 6. Complete status upgrade
                 await dataLayer.companies.update(session.companyId, {
                     status: 'contract_signed',
                     contract_signed_at: new Date().toISOString()
@@ -465,7 +522,7 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
                         >
                             <NoiseTexture />
                             
-                            <div className="relative z-10 px-8 md:px-16 py-12 md:py-16">
+                            <div id="contract-document" className="relative z-10 px-8 md:px-16 py-12 md:py-16" style={{ backgroundColor: '#faf9f6' }}>
                                 {/* 문서 분류 마크 */}
                                 <div className="flex items-center justify-between mb-10 border-b border-gray-100 pb-6">
                                     <div className="flex items-center gap-2">

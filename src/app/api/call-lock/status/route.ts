@@ -1,10 +1,14 @@
+import { requireSessionFromCookie } from '@/lib/auth';
 import { NextResponse } from 'next/server';
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase';
 import { CallLock } from '@/lib/types';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireSessionFromCookie(request as any);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   try {
-    const supabase = getServiceSupabase();
+    const supabase = await getServerSupabase();
     if (!supabase) return NextResponse.json({ error: 'Supabase is not configured' }, { status: 500 });
     
     const { data, error } = await supabase.rpc('get_call_locks_status');

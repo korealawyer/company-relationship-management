@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { AI_MODELS, getSelectedModel, setSelectedModel, getApiKey, setApiKey, type AIModel } from '@/lib/ai-assist';
 import { getSession } from '@/lib/auth';
 import { getBrowserSupabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 /* ── 토글 컴포넌트 ─────────────────────────────────────── */
 function Toggle({ on, onChange, label, desc }: { on: boolean; onChange: () => void; label: string; desc: string }) {
@@ -60,6 +61,7 @@ function SubscribeCTA() {
 export default function SettingsPage() {
     const [isSubscribed] = useState(true);
     const [saved, setSaved] = useState(false);
+    const router = useRouter();
 
     // 역할 체크
     const [role, setRole] = useState<string | null>(null);
@@ -142,6 +144,33 @@ export default function SettingsPage() {
         }
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+    };
+
+    const handleWithdraw = async () => {
+        if (!window.confirm('정말 계정을 삭제하시겠습니까? 삭제된 계정은 복구할 수 없습니다.')) return;
+
+        const sb = getBrowserSupabase();
+        if (!sb) return;
+
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session?.user?.id) {
+                // 1. WebSocket 리스너 클린업
+                sb.getChannels().forEach((channel: any) => {
+                    sb.removeChannel(channel);
+                });
+
+                // 2. status 업데이트 (사용자 탈퇴) - RLS 및 API에 의존, 실패해도 로그아웃 처리
+                await sb.from('companies').update({ status: 'deleted' }).eq('id', session.user.id);
+            }
+
+            // 3. 로그아웃 작동 및 세션 초기화
+            await sb.auth.signOut();
+            window.location.href = '/login';
+        } catch (e) {
+            console.error('Withdrawal error:', e);
+            alert('탈퇴 처리 중 오류가 발생했습니다. 관리자에게 문의해주세요.');
+        }
     };
 
     if (!isSubscribed) return <SubscribeCTA />;
@@ -337,7 +366,7 @@ export default function SettingsPage() {
 
                     {/* 탈퇴 */}
                     <div className="text-center py-4">
-                        <button className="text-xs" style={{ color: '#9ca3af' }}>회원 탈퇴</button>
+                        <button onClick={handleWithdraw} className="text-xs hover:text-red-500 transition-colors" style={{ color: '#9ca3af' }}>회원 탈퇴</button>
                     </div>
                 </div>
             </div>

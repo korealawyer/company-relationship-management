@@ -1,6 +1,6 @@
 import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase';
 
 // ── [가이드북 리드 수신] POST /api/leads/guide ──────────────────
 export async function POST(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: '연락처는 필수입니다.' }, { status: 422 });
         }
 
-        const sb = getServiceSupabase();
+        const sb = await getServerSupabase();
         if (sb) {
             const now = new Date().toISOString();
             const payload = {

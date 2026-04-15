@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Shield, AlertTriangle, CheckCircle2, Phone, Video, CreditCard, Lock } from 'lucide-react';
 import { leadStore, calcSubscription, type Lead } from '@/lib/leadStore';
+import { useDripStore } from '@/lib/dripStore';
 
 // ── 개인화 랜딩 페이지 (/landing?cid={leadId}) ───────────────
 // 고객이 이메일 클릭 후 처음 보는 페이지
@@ -39,11 +40,35 @@ function LandingContent() {
         if (!bizRegNo.trim()) { setLoginError('사업자번호를 입력하세요'); return; }
         setLogging(true); setLoginError('');
         try {
-            // 사업자번호로 회원 등록(또는 기존 회원 확인)
+            // 로컬 스토어에 회원가입 반영
+            const cleanBizNo = bizRegNo.replace(/-/g, '');
+            let member = useDripStore.getState().members.find(m => m.leadId === leadId);
+            if (!member) {
+                member = useDripStore.getState().register({
+                    leadId, companyName: lead.companyName,
+                    contactEmail: lead.contactEmail, contactName: lead.contactName,
+                    bizRegNo: cleanBizNo, riskLevel: lead.riskLevel, issueCount: lead.issueCount,
+                });
+            }
+
+            leadStore.update(leadId, { status: 'in_contact' });
+
+            // 이메일 발송용 페이로드 전송
             const res = await fetch('/api/drip', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ leadId, bizRegNo: bizRegNo.replace(/-/g, '') }),
+                body: JSON.stringify({ 
+                    action: 'welcome',
+                    leadId, 
+                    bizRegNo: cleanBizNo,
+                    companyName: lead.companyName,
+                    contactEmail: lead.contactEmail,
+                    contactName: lead.contactName,
+                    riskLevel: lead.riskLevel,
+                    riskScore: lead.riskScore,
+                    issueCount: lead.issueCount,
+                    storeCount: lead.storeCount,
+                }),
             });
             const data = await res.json();
             if (res.ok) {

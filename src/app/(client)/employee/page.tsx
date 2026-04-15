@@ -19,6 +19,8 @@ import ExcelUploadModal from '@/components/employee/ExcelUploadModal';
 import AddCompanyModal from '@/components/employee/AddCompanyModal';
 import PhoneView from '@/components/employee/PhoneView';
 import TableView from '@/components/employee/TableView';
+import { useMounted } from '@/hooks/useMounted';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 export default function EmployeePage() {
     const { loading: authLoading, authorized } = useRequireAuth(['super_admin', 'admin', 'sales']);
@@ -136,7 +138,8 @@ export default function EmployeePage() {
     const [phoneIdx, setPhoneIdx] = useState(0);
     const [contractModal, setContractModal] = useState<Company | null>(null);
 
-    if (authLoading || !authorized) return null;
+    const isMounted = useMounted();
+    if (!isMounted || authLoading || !authorized) return <DashboardSkeleton />;
 
     const ALL_STATUSES = Object.keys(STATUS_LABEL) as CaseStatus[];
     

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase, getServiceSupabase } from '@/lib/supabase';
+import { getServerSupabase } from '@/lib/supabase';
 
 // POST /api/memos — Add a memo to a company
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing companyId or content' }, { status: 400 });
         }
 
-        const sb = getServiceSupabase() || await getServerSupabase();
+        const sb = await getServerSupabase();
         if (!sb) {
             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
         }
@@ -60,7 +60,7 @@ export async function DELETE(req: NextRequest) {
             return NextResponse.json({ error: 'Missing memo id' }, { status: 400 });
         }
 
-        const sb = getServiceSupabase() || await getServerSupabase();
+        const sb = await getServerSupabase();
         if (!sb) {
             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
         }
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
         }
 
-        const sb = getServiceSupabase() || await getServerSupabase();
+        const sb = await getServerSupabase();
         if (!sb) {
             return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
         }

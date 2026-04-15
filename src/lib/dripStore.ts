@@ -1,12 +1,13 @@
 // lib/dripStore.ts — 미결제 회원 드립 캠페인 자동화
-// Phase 2: 실제 스케줄러(Cron/Inngest)로 교체
+// Phase 1: 로컬 전역 스토어 (Zustand + sessionStorage 영속화)
 
-const DRIP_STORE_KEY = 'ibs_drip_v1';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type DripStatus = 'active' | 'paused' | 'completed' | 'converted';
 
 export interface DripEmail {
-    day: number;          // 가입 후 N일째 발송
+    day: number;
     subject: string;
     previewText: string;
     contentType: 'legal_tip' | 'case_study' | 'risk_alert' | 'cta';
@@ -21,19 +22,18 @@ export interface DripMember {
     companyName: string;
     contactEmail: string;
     contactName: string;
-    bizRegNo: string;          // 사업자번호 (로그인 ID)
-    tempPassword: string;      // 임시 비밀번호
-    joinedAt: string;          // 가입(사업자 로그인) 일시
-    subscribed: boolean;       // 결제 여부
+    bizRegNo: string;
+    tempPassword: string;
+    joinedAt: string;
+    subscribed: boolean;
     subscribedAt?: string;
     dripStatus: DripStatus;
-    sentDays: number[];        // 발송 완료된 day 목록
+    sentDays: number[];
     lastSentAt?: string;
     riskLevel: string;
     issueCount: number;
 }
 
-// ── 드립 이메일 시퀀스 (30일) ────────────────────────────────
 export const DRIP_SEQUENCE: DripEmail[] = [
     {
         day: 1,
@@ -159,10 +159,7 @@ IBS 구독 서비스로 월 {monthlyFee}원에 관리하시면:
     },
 ];
 
-// ── localStorage 기반 드립 멤버 저장소 ───────────────────────
-// 초기 Mock 데이터: tempPassword는 실제 값 대신 플레이스홀더로 표기
-// (실제 임시 비밀번호는 register() 호출 시 생성하여 이메일 발송 후 파기 예정)
-const INITIAL_MEMBERS: DripMember[] = [
+export const INITIAL_MEMBERS: DripMember[] = [
     {
         id: 'drip_001', leadId: 'lead_002', companyName: '(주)메가커피',
         contactEmail: 'ops@megacoffee.net', contactName: '이운영',
@@ -181,86 +178,92 @@ const INITIAL_MEMBERS: DripMember[] = [
     },
 ];
 
-function loadMembers(): DripMember[] {
-    if (typeof window === 'undefined') return [...INITIAL_MEMBERS];
-    try {
-        const raw = localStorage.getItem(DRIP_STORE_KEY);
-        if (!raw) {
-            localStorage.setItem(DRIP_STORE_KEY, JSON.stringify(INITIAL_MEMBERS));
-            return [...INITIAL_MEMBERS];
-        }
-        return JSON.parse(raw) as DripMember[];
-    } catch {
-        return [...INITIAL_MEMBERS];
-    }
-}
-
-function saveMembers(members: DripMember[]): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(DRIP_STORE_KEY, JSON.stringify(members));
-}
-
-export const dripStore = {
-    getAll: () => loadMembers(),
-    getById: (id: string) => loadMembers().find(m => m.id === id),
-    getByLeadId: (leadId: string) => loadMembers().find(m => m.leadId === leadId),
-    getByBizRegNo: (bizRegNo: string) => {
-        const digits = bizRegNo.replace(/-/g, '');
-        return loadMembers().find(m => m.bizRegNo === digits);
-    },
-
+interface DripStoreState {
+    members: DripMember[];
     register: (data: {
         leadId: string; companyName: string; contactEmail: string; contactName: string;
         bizRegNo: string; riskLevel: string; issueCount: number;
-    }): DripMember => {
-        const members = loadMembers();
-        const existing = members.find(m => m.leadId === data.leadId);
-        if (existing) return existing;
+    }) => DripMember;
+    markSent: (id: string, day: number) => void;
+    markSubscribed: (id: string) => void;
+}
 
-        // 임시 비밀번호 생성 — 이메일 발송에만 사용하고 저장 안 함
-        // TODO(Phase 3): 실제 이메일 발송 API 연동 (sendEmail(data.contactEmail, tempPw))
-        const tempPw = `IBS${Math.floor(100000 + Math.random() * 900000)}`;
-        // ⚠️ tempPw를 절대 저장하지 않음: 발송 후 즉시 폐기
-        console.log(`[dripStore] 임시 비밀번호 생성 (발송 전용, 저장 안 함): ${data.contactEmail}`);
-        void tempPw; // TODO(Phase 3): await sendEmail(data.contactEmail, tempPw);
+export const useDripStore = create<DripStoreState>()(
+    persist(
+        (set, get) => ({
+            members: INITIAL_MEMBERS,
+            
+            register: (data) => {
+                const existing = get().members.find(m => m.leadId === data.leadId);
+                if (existing) return existing;
 
-        const member: DripMember = {
-            id: typeof crypto !== 'undefined' && crypto.randomUUID
-                ? `drip_${crypto.randomUUID()}`
-                : `drip_${Date.now()}`,
-            ...data,
-            bizRegNo: data.bizRegNo.replace(/-/g, ''),
-            tempPassword: '[발송 완료 — 저장 안 함]', // 항상 마스킹 상태로 저장
-            joinedAt: new Date().toISOString(),
-            subscribed: false,
-            dripStatus: 'active',
-            sentDays: [],
-        };
-        saveMembers([...members, member]);
-        return member;
+                const tempPw = `IBS${Math.floor(100000 + Math.random() * 900000)}`;
+                console.log(`[dripStore] 임시 비밀번호 생성 (발송 전용, 저장 안 함): ${data.contactEmail}`);
+                void tempPw;
+
+                const member: DripMember = {
+                    id: typeof crypto !== 'undefined' && crypto.randomUUID
+                        ? `drip_${crypto.randomUUID()}`
+                        : `drip_${Date.now()}`,
+                    ...data,
+                    bizRegNo: data.bizRegNo.replace(/-/g, ''),
+                    tempPassword: '[발송 완료 — 저장 안 함]',
+                    joinedAt: new Date().toISOString(),
+                    subscribed: false,
+                    dripStatus: 'active',
+                    sentDays: [],
+                };
+                set({ members: [...get().members, member] });
+                return member;
+            },
+
+            markSent: (id, day) => {
+                set({
+                    members: get().members.map(m => m.id !== id ? m : {
+                        ...m,
+                        sentDays: [...m.sentDays, day],
+                        lastSentAt: new Date().toISOString(),
+                    })
+                });
+            },
+
+            markSubscribed: (id) => {
+                set({
+                    members: get().members.map(m => m.id !== id ? m : {
+                        ...m, subscribed: true, subscribedAt: new Date().toISOString(), dripStatus: 'converted'
+                    })
+                });
+            }
+        }),
+        {
+            name: 'ibs_drip_v2',
+            storage: createJSONStorage(() => {
+                if (typeof window !== 'undefined') return sessionStorage;
+                return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+            }),
+        }
+    )
+);
+
+// 레거시 하위 호환성을 위한 래퍼
+export const dripStore = {
+    getAll: () => useDripStore.getState().members,
+    getById: (id: string) => useDripStore.getState().members.find(m => m.id === id),
+    getByLeadId: (leadId: string) => useDripStore.getState().members.find(m => m.leadId === leadId),
+    getByBizRegNo: (bizRegNo: string) => {
+        const digits = bizRegNo.replace(/-/g, '');
+        return useDripStore.getState().members.find(m => m.bizRegNo === digits);
     },
-
-
-    markSent: (id: string, day: number) => {
-        const updated = loadMembers().map(m => m.id !== id ? m : {
-            ...m,
-            sentDays: [...m.sentDays, day],
-            lastSentAt: new Date().toISOString(),
-        });
-        saveMembers(updated);
-    },
-
-    markSubscribed: (id: string) => {
-        const updated = loadMembers().map(m => m.id !== id ? m : ({
-            ...m, subscribed: true, subscribedAt: new Date().toISOString(), dripStatus: 'converted' as DripStatus,
-        } satisfies DripMember));
-        saveMembers(updated);
-    },
-
+    register: (data: Parameters<DripStoreState['register']>[0]) => useDripStore.getState().register(data),
+    markSent: (id: string, day: number) => useDripStore.getState().markSent(id, day),
+    markSubscribed: (id: string) => useDripStore.getState().markSubscribed(id),
+    
     getPendingEmails: () => {
         const now = Date.now();
         const pending: { member: DripMember; email: DripEmail }[] = [];
-        loadMembers().filter(m => m.dripStatus === 'active' && !m.subscribed).forEach(member => {
+        const members = useDripStore.getState().members;
+        
+        members.filter(m => m.dripStatus === 'active' && !m.subscribed).forEach(member => {
             const daysSinceJoin = Math.floor((now - new Date(member.joinedAt).getTime()) / 86400000);
             DRIP_SEQUENCE.forEach(email => {
                 if (email.day <= daysSinceJoin && !member.sentDays.includes(email.day)) {
@@ -272,7 +275,6 @@ export const dripStore = {
     },
 };
 
-// 템플릿 변수 치환
 export function fillTemplate(template: string, vars: Record<string, string>): string {
     return Object.entries(vars).reduce(
         (t, [k, v]) => t.replace(new RegExp(`\\{${k}\\}`, 'g'), v), template

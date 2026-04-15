@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { leadStore, Lead, LeadStatus } from '@/lib/leadStore';
 import { dataLayer } from '@/lib/dataLayer';
 import { Company } from '@/lib/types';
+import { useMounted } from '@/hooks/useMounted';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 const PIPELINE_STAGES: { status: LeadStatus; label: string; color: string; bg: string }[] = [
     { status: 'pending', label: '미분석', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
@@ -30,6 +32,7 @@ const QUICK_LINKS = [
 ];
 
 export default function SalesDashboardPage() {
+    const isMounted = useMounted();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [pendingCompanies, setPendingCompanies] = useState<Company[]>([]);
 
@@ -89,6 +92,8 @@ export default function SalesDashboardPage() {
         note: <FileText className="w-3.5 h-3.5" style={{ color: '#818cf8' }} />,
         meeting: <Users className="w-3.5 h-3.5" style={{ color: '#a855f7' }} />,
     };
+
+    if (!isMounted) return <DashboardSkeleton />;
 
     return (
         <div className="min-h-screen pb-16" style={{ background: '#04091a', color: '#f0f4ff' }}>

@@ -97,6 +97,7 @@ export const CompanySchema = z.object({
     aiDraftReady: z.boolean().catch(false),
     source: z.enum(['manual', 'crawler']).catch('manual'),
     audit_report: z.string().optional().catch(undefined),
+    auditReport: z.string().optional().catch(undefined),
     riskScore: z.number().catch(0),
     riskLevel: z.enum(['HIGH', 'MEDIUM', 'LOW', '']).catch(''),
     issueCount: z.number().catch(0),
