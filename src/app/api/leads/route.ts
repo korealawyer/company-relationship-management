@@ -6,7 +6,7 @@ import { getServiceSupabase, IS_SUPABASE_CONFIGURED } from '@/lib/supabase';
 // ── [챗봇 리드 수신] POST /api/leads ─────────────────────────────
 // 인증 불필요 — 외부 챗봇에서 호출, rate limit은 별도 미들웨어로 처리
 export async function POST(req: NextRequest) {
-    let body: { customerName?: string; contact?: string; question?: string; source?: string } = {};
+    let body: { customerName?: string; contact?: string; question?: string; source?: string; preferredTime?: string } = {};
     try {
         body = await req.json();
     } catch {
@@ -24,16 +24,21 @@ export async function POST(req: NextRequest) {
 
     let dbErrorMsg: string | null = null;
     
+    // 챗봇 문의 메모 형식 구성
+    const timeNote = body.preferredTime ? `\n선호 연락 시간: ${body.preferredTime}` : '';
+    const chatbotMemoText = `[챗봇 문의]\n고객명: ${customerName}\n질문: ${question}${timeNote}\n\n[고객 남긴 연락처]\n${contact}`;
+
     // ── Mode 1: Supabase 연결됨 → companies 테이블에 저장 ──────────
     if (IS_SUPABASE_CONFIGURED) {
         const sb = getServiceSupabase() ?? (await import('@/lib/supabase').then(m => m.supabase));
         if (sb) {
-            const { error } = await sb.from('companies').insert({
+            const { data: newCompany, error } = await sb.from('companies').insert({
                 name: customerName,
                 biz_no: `CHATBOT-${Date.now()}`, // 임시 사업자번호 (추후 수집)
                 contact_name: customerName,
                 contact_email: isEmail ? contact : null,
                 contact_phone: !isEmail ? contact : null,
+                call_note: chatbotMemoText, // 메인 DB에 문의글 저장
                 store_count: 0,
                 plan: 'none',
                 status: 'pending',
@@ -42,12 +47,25 @@ export async function POST(req: NextRequest) {
                 source,
                 created_at: now,
                 updated_at: now,
-            });
+            }).select('id').single();
 
             if (error) {
                 console.error('[POST /api/leads] Supabase insert error:', error);
                 dbErrorMsg = error.message || JSON.stringify(error);
                 // Supabase 실패 시에도 200 반환 (챗봇 UX 중단 방지)
+            } else if (newCompany?.id) {
+                // company_memos 테이블에도 문의글(메모) 남기기
+                const { error: memoErr } = await sb.from('company_memos').insert({
+                    id: crypto.randomUUID(),
+                    company_id: newCompany.id,
+                    author: 'AI 챗봇',
+                    content: chatbotMemoText,
+                    created_at: now,
+                });
+                
+                if (memoErr) {
+                    console.error('[POST /api/leads] Memo insert error:', memoErr);
+                }
             }
         } else {
             dbErrorMsg = 'Supabase client could not be initialized';

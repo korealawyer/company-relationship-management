@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe, X, Search, Loader2, AlertTriangle, CheckCircle2, Calendar, ExternalLink } from 'lucide-react';
 import { CourtCaseResult } from '@/types/cases';
+import { getBrowserSupabase } from '@/lib/supabase';
 
 interface CourtSearchPanelProps {
     isOpen: boolean;
@@ -32,13 +33,80 @@ export default function CourtSearchPanel({ isOpen, onClose, registeredCases = []
             const json = await res.json();
             if (!res.ok) {
                 setCourtError(json.error || '검색에 실패했습니다.');
-            } else {
-                setCourtResult(json.data);
-                setCourtFetchedAt(new Date(json.fetchedAt).toLocaleString('ko-KR'));
+                setCourtLoading(false);
+                return;
             }
+
+            const caseId = json.caseId;
+            if (!caseId) {
+                setCourtError('오류: 사건 ID를 받지 못했습니다.');
+                setCourtLoading(false);
+                return;
+            }
+
+            // 만약 이미 완료된 사건이라면 바로 표시 (선택적)
+            if (json.status && json.status !== 'search_only') {
+                // 이미 크롤링되어 정보가 있는 경우지만, 이 데모에서는
+                // 프론트엔드에서 실시간 채널을 그대로 유지하거나 별도 fetch
+            }
+
+            const supabase = getBrowserSupabase();
+            const channel = supabase.channel(`case_search_${caseId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'cases',
+                        filter: `id=eq.${caseId}`
+                    },
+                    (payload: any) => {
+                        console.log('Realtime update:', payload.new);
+                        const data = payload.new;
+                        
+                        if (data.crawling_status === 'error') {
+                            setCourtError('크롤링 중 오류가 발생했습니다. 잠시 후 시도해주세요.');
+                            setCourtLoading(false);
+                            supabase.removeChannel(channel);
+                            return;
+                        }
+
+                        // 크롤링 성공 후 결과가 넘어온 경우
+                        if (data.crawler_data) {
+                            const crawlerData = data.crawler_data;
+                            
+                            // CourtCaseResult 형태로 매핑
+                            const mappedResult: CourtCaseResult = {
+                                caseNumber: data.case_number || courtQuery,
+                                caseName: data.title || crawlerData.caseName || '',
+                                court: crawlerData.court || '',
+                                courtSection: crawlerData.courtSection || '',
+                                caseType: data.case_type || 'other',
+                                filedDate: crawlerData.filedDate || '',
+                                status: crawlerData.progress || data.status,
+                                plaintiff: crawlerData.plaintiff || '',
+                                defendant: crawlerData.defendant || '',
+                                judge: crawlerData.judge || '',
+                                nextDate: crawlerData.nextDate || null,
+                                nextEvent: crawlerData.nextEvent || null,
+                                events: crawlerData.events || []
+                            };
+
+                            setCourtResult(mappedResult);
+                            setCourtFetchedAt(new Date(data.last_crawled_at).toLocaleString('ko-KR'));
+                            setCourtLoading(false);
+                            supabase.removeChannel(channel);
+                        }
+                    }
+                )
+                .subscribe((status: any) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Successfully subscribed to case realtime channel');
+                    }
+                });
+
         } catch {
             setCourtError('서버 연결에 실패했습니다.');
-        } finally {
             setCourtLoading(false);
         }
     };

@@ -179,15 +179,20 @@ export default function ContractDetailPage({ params }: Props) {
 
         setDownloadingPDF(true);
         try {
-            // HTML2Canvas 백업 적용 (서명 포함 깔끔한 흰 배경 계약서 컨테이너 캡처)
-            const html2canvas = (await import('html2canvas')).default;
+            // html-to-image 적용 (서명 포함 깔끔한 흰 배경 계약서 컨테이너 캡처)
+            const { toCanvas } = await import('html-to-image');
             const { jsPDF } = await import('jspdf');
 
             const element = document.getElementById('pdf-export-container');
             if (element) {
                 // To capture accurately, it shouldn't have display: none. 
                 // It is positioned absolutely off-screen.
-                const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+                const canvas = await toCanvas(element, {
+                    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+                    backgroundColor: '#ffffff',
+                    skipFonts: false,
+                    cacheBust: true
+                });
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
                 
                 const pdfObj = new jsPDF('p', 'mm', 'a4');

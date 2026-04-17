@@ -346,3 +346,77 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
+export async function GET(request: NextRequest) {
+    console.log('[Analyze API] GET request received.');
+    
+    // Auth Check
+    const auth = await requireSessionFromCookie(request);
+
+    const { searchParams } = new URL(request.url);
+    const targetId = searchParams.get('targetId');
+
+    if (!targetId) {
+        return NextResponse.json({ error: 'targetId query parameter is required' }, { status: 400 });
+    }
+
+    try {
+        const { getServiceSupabase } = await import('@/lib/supabase');
+        const sb = getServiceSupabase();
+        
+        if (!sb) {
+            return NextResponse.json({ error: 'Supabase configuration is missing' }, { status: 500 });
+        }
+
+        const { data: company, error } = await sb
+            .from('companies')
+            .select('*')
+            .eq('id', targetId)
+            .single();
+
+        if (error || !company) {
+            return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+        }
+
+        // Auth enforcement: Only allow if unguessable targetId is used. UUID is naturally unguessable.
+        // Or if you only allow users belonging to this company. But task said UUID capability URL.
+
+        let issues = company.issues || [];
+        if (typeof issues === 'string') {
+            try { issues = JSON.parse(issues); } catch(e) {}
+        }
+
+        // Subscription / Premium Check
+        // Usually plan is basic/standard/premium. 'none' means free.
+        const isPremium = company.plan === 'premium' || company.plan === 'standard' || company.plan === 'basic' || company.lawyer_confirmed || company.lawyerConfirmed;
+
+        if (!isPremium) {
+            // Masking Logic (Blind Treatment)
+            let highRiskCount = 0;
+            issues = issues.map((issue: any) => {
+                if (issue.level === 'HIGH' && highRiskCount < 2) {
+                    highRiskCount++;
+                    return issue; // Leave 1~2 HIGH issues exactly as they are completely visible
+                } else {
+                    return {
+                        ...issue,
+                        customDraft: 'BLIND_TREATMENT',
+                        lawyerNote: 'BLIND_TREATMENT',
+                        riskDesc: issue.riskDesc ? 'BLIND_TREATMENT' : undefined,
+                    };
+                }
+            });
+            company.issues = issues;
+        }
+
+        return NextResponse.json({
+            success: true,
+            company,
+            isPremium
+        });
+
+    } catch (e: any) {
+        console.error('[Analyze API] GET Error:', e);
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+}

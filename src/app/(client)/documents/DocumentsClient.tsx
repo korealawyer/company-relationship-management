@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useRequireAuth } from '@/lib/AuthContext';
 import { Document, DocumentCategory, DocumentStatus } from '@/lib/types';
 import { ServiceRequestModal } from '@/components/ServiceRequestModal';
+import { getBrowserSupabase } from '@/lib/supabase';
 
 /* ── 메타데이터 매핑 ──────────────────────────────────────── */
 const DOC_TYPE_META: Record<DocumentCategory, { label: string; icon: React.ElementType; color: string }> = {
@@ -250,7 +251,7 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
         return () => window.removeEventListener('ibs-docs-updated', load);
     }, [session?.companyId]);
 
-    const handleFileUpload = (files: FileList | null) => {
+    const handleFileUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         const companyId = session?.companyId;
         if (!companyId) {
@@ -258,31 +259,81 @@ export function DocumentsClient({ initialUser }: { initialUser: any }) {
             return;
         }
 
-        Array.from(files).forEach(file => {
+        const supabase = getBrowserSupabase();
+        if (!supabase) {
+            alert("데이터베이스 연결에 문제가 발생했습니다.");
+            return;
+        }
+
+        for (const file of Array.from(files)) {
             if (file.size > 10 * 1024 * 1024) {
                 alert(`${file.name}은(는) 10MB 이하만 가능합니다.`);
-                return;
+                continue;
             }
             
-            // TODO: Supabase Storage 업로드 로직으로 교체 필요
-            const newDoc: any = {
-                id: `temp-${Date.now()}-${Math.random()}`,
-                companyId,
-                authorRole: 'client',
-                name: file.name,
-                size: file.size,
-                type: file.type || 'application/octet-stream',
-                category: '기타',
-                status: '검토 대기',
-                url: URL.createObjectURL(file),
-                isNewForClient: false,
-                isNewForLawyer: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-            
-            setDocs(prev => [newDoc, ...prev]);
-        });
+            try {
+                // 1. Upload to Supabase Storage directly (bypass Vercel)
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${companyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('documents')
+                    .upload(fileName, file, { upsert: false });
+
+                if (uploadError) {
+                    console.error('Storage Upload Error:', uploadError);
+                    alert(`${file.name} 업로드에 실패했습니다.`);
+                    continue;
+                }
+
+                // 2. Insert metadata into documents table
+                const newDocInfo = {
+                    tenant_id: companyId,
+                    title: file.name,
+                    file_size: file.size,
+                    file_type: file.type || 'application/octet-stream',
+                    doc_type: 'contract', // Must match valid CHECK constraints (e.g. 'contract', 'court_filing', 'opinion', etc! Wait! Let me check constraints)
+                    doc_source: 'internal',
+                    status: 'draft',
+                    file_url: fileName,
+                };
+
+                const { data: insertedDoc, error: insertError } = await supabase
+                    .from('documents')
+                    .insert([newDocInfo])
+                    .select()
+                    .single();
+
+                if (insertError) {
+                    console.error('Metadata Insert Error:', insertError);
+                    alert(`파일 정보를 저장하지 못했습니다.`);
+                    continue;
+                }
+
+                // 3. Obtain public URL for UI display and update state
+                const publicUrlData = supabase.storage.from('documents').getPublicUrl(insertedDoc.file_url).data;
+                const newUI: UIDocument = {
+                    id: insertedDoc.id,
+                    companyId: insertedDoc.tenant_id,
+                    authorRole: 'client',
+                    name: insertedDoc.title,
+                    size: insertedDoc.file_size,
+                    type: insertedDoc.file_type,
+                    category: '기타',
+                    status: '검토 대기',
+                    url: publicUrlData.publicUrl,
+                    isNewForClient: false,
+                    isNewForLawyer: true,
+                    createdAt: insertedDoc.created_at,
+                    updatedAt: insertedDoc.updated_at,
+                };
+                
+                setDocs(prev => [newUI, ...prev]);
+            } catch (e) {
+                console.error(e);
+                alert(`${file.name} 처리 중 오류가 발생했습니다.`);
+            }
+        }
     };
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };

@@ -74,6 +74,7 @@ export async function POST(req: Request) {
       last_crawled_at: new Date().toISOString(),
       captcha_fail_count: 0,
       notes: newNotes,
+      crawler_data: data
     }).eq('id', caseId);
 
     if (updateError) throw updateError;

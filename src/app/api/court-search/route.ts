@@ -1,179 +1,116 @@
 import { requireSessionFromCookie } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSupabase } from '@/lib/supabase';
 
 /**
- * 대법원 나의사건검색 API
- * 
- * 실제 구현 시: https://safind.scourt.go.kr 에서 크롤링
- * 현재는 사건번호 기반 mock 데이터 반환
- * 
- * 향후 puppeteer / cheerio 기반 실제 크롤링으로 교체 예정
+ * 대법원 나의사건검색 API (크롤러 큐 등록)
  */
 
-interface CourtEvent {
-    date: string;
-    type: string;
-    result: string;
-    courtroom?: string;
-}
-
-interface CourtCaseResult {
-    caseNumber: string;
-    caseName: string;
-    court: string;
-    courtSection: string;
-    caseType: string;
-    filedDate: string;
-    status: string;
-    plaintiff: string;
-    defendant: string;
-    judge: string;
-    nextDate: string | null;
-    nextEvent: string | null;
-    events: CourtEvent[];
-}
-
-// ── 목업 대법원 데이터 (실제로는 크롤링) ───────────────────
-const MOCK_COURT_DB: Record<string, CourtCaseResult> = {
-    '2026가합12345': {
-        caseNumber: '2026가합12345',
-        caseName: '손해배상(기)',
-        court: '서울중앙지방법원',
-        courtSection: '제12민사부',
-        caseType: '민사',
-        filedDate: '2026-01-15',
-        status: '진행',
-        plaintiff: '주식회사 놀부엔비지',
-        defendant: '김○○',
-        judge: '김영수',
-        nextDate: '2026-04-08',
-        nextEvent: '변론',
-        events: [
-            { date: '2026-03-10', type: '변론기일', result: '변론속행', courtroom: '제523호' },
-            { date: '2026-02-20', type: '변론기일', result: '변론속행', courtroom: '제523호' },
-            { date: '2026-01-25', type: '변론기일', result: '변론속행', courtroom: '제523호' },
-            { date: '2026-01-15', type: '소장접수', result: '접수', courtroom: '' },
-        ],
-    },
-    '2025나67890': {
-        caseNumber: '2025나67890',
-        caseName: '과징금부과처분취소',
-        court: '서울행정법원',
-        courtSection: '제5부',
-        caseType: '행정',
-        filedDate: '2025-11-20',
-        status: '진행',
-        plaintiff: '주식회사 놀부엔비지',
-        defendant: '개인정보보호위원회',
-        judge: '박진영',
-        nextDate: '2026-03-25',
-        nextEvent: '증인신문',
-        events: [
-            { date: '2026-03-05', type: '변론기일', result: '증인채택결정', courtroom: '제301호' },
-            { date: '2026-02-10', type: '변론기일', result: '변론속행', courtroom: '제301호' },
-            { date: '2025-12-15', type: '변론기일', result: '변론속행', courtroom: '제301호' },
-            { date: '2025-11-20', type: '소장접수', result: '접수', courtroom: '' },
-        ],
-    },
-    '2026가단34567': {
-        caseNumber: '2026가단34567',
-        caseName: '구상금',
-        court: '수원지방법원',
-        courtSection: '제8민사부',
-        caseType: '민사',
-        filedDate: '2026-03-01',
-        status: '진행',
-        plaintiff: '이○○',
-        defendant: '주식회사 놀부엔비지',
-        judge: '(미배정)',
-        nextDate: '2026-04-15',
-        nextEvent: '변론',
-        events: [
-            { date: '2026-03-01', type: '소장접수', result: '접수', courtroom: '' },
-        ],
-    },
-    '2025가합78901': {
-        caseNumber: '2025가합78901',
-        caseName: '부당이득금',
-        court: '서울중앙지방법원',
-        courtSection: '제9민사부',
-        caseType: '민사',
-        filedDate: '2025-06-10',
-        status: '종국(판결)',
-        plaintiff: '주식회사 놀부엔비지',
-        defendant: '주식회사 ○○마케팅 외 3',
-        judge: '이현정',
-        nextDate: null,
-        nextEvent: null,
-        events: [
-            { date: '2026-02-28', type: '판결확정', result: '원고승소', courtroom: '' },
-            { date: '2026-01-20', type: '선고', result: '원고전부승소', courtroom: '제412호' },
-            { date: '2025-12-10', type: '변론기일', result: '변론종결', courtroom: '제412호' },
-            { date: '2025-10-15', type: '변론기일', result: '변론속행', courtroom: '제412호' },
-            { date: '2025-08-20', type: '변론기일', result: '변론속행', courtroom: '제412호' },
-            { date: '2025-06-10', type: '소장접수', result: '접수', courtroom: '' },
-        ],
-    },
-};
-
-// ── 실제 크롤링 구현 (향후) ────────────────────────────────
-// async function scrapeCourtCase(caseNumber: string): Promise<CourtCaseResult | null> {
-//     // 1) puppeteer로 https://safind.scourt.go.kr 접속
-//     // 2) 사건번호 입력 후 검색
-//     // 3) 결과 테이블 파싱
-//     // 4) CourtCaseResult 형태로 반환
-//     return null;
-// }
+// 간단한 인메모리 Rate Limiting (Vercel Serverless의 cold start 간에는 리셋되지만 어뷰징 임시 방지용)
+const rateLimitMap = new Map<string, number>();
 
 export async function POST(request: NextRequest) {
-  const __auth = await requireSessionFromCookie(request as any);
-  if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+  const __auth = await requireSessionFromCookie(request);
+  if (!__auth.ok) {
+      return NextResponse.json({ error: __auth.error }, { status: __auth.status });
+  }
 
-    try {
-        const { caseNumber } = await request.json();
+  try {
+      const body = await request.json();
+      const caseNumber = body.caseNumber;
 
-        if (!caseNumber) {
-            return NextResponse.json({ error: '사건번호를 입력해주세요.' }, { status: 400 });
-        }
+      if (!caseNumber) {
+          return NextResponse.json({ error: '사건번호를 입력해주세요.' }, { status: 400 });
+      }
 
-        // 사건번호 정규화 (공백 제거)
-        const normalized = caseNumber.replace(/\s/g, '');
+      // 사건번호 정규화 (공백 제거)
+      const normalized = caseNumber.replace(/\s/g, '');
 
-        // 목업 DB에서 검색 (실제로는 크롤링)
-        const result = MOCK_COURT_DB[normalized];
+      // Rate limit check: 1 request per 10 seconds per IP/User
+      const ip = request.headers.get('x-forwarded-for') || 'unknown';
+      const rateKey = `${ip}_${normalized}`;
+      const now = Date.now();
+      const lastRequest = rateLimitMap.get(rateKey) || 0;
+      
+      if (now - lastRequest < 10000) {
+          return NextResponse.json({ error: '요청이 너무 많습니다. 10초 후 다시 시도해주세요.' }, { status: 429 });
+      }
+      rateLimitMap.set(rateKey, now);
 
-        if (!result) {
-            return NextResponse.json({
-                error: `사건번호 "${caseNumber}"에 해당하는 사건을 찾을 수 없습니다.`,
-                suggestion: '사건번호 형식: 2026가합12345',
-            }, { status: 404 });
-        }
+      const supabase = await getServerSupabase();
+      if (!supabase) throw new Error('DB connection failed');
 
-        // 크롤링 시뮬레이션 딜레이
-        await new Promise(resolve => setTimeout(resolve, 800));
+      const companyId = __auth.companyId;
+      if (!companyId) {
+          return NextResponse.json({ error: '소속 회사 정보가 없습니다.' }, { status: 403 });
+      }
 
-        return NextResponse.json({
-            success: true,
-            source: '대법원 사건검색시스템 (safind.scourt.go.kr)',
-            fetchedAt: new Date().toISOString(),
-            data: result,
-        });
-    } catch {
-        return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-    }
+      // 1. Insert an empty search_only case into cases
+      const { data: newCase, error: insertError } = await supabase
+          .from('cases')
+          .insert([{
+              tenant_id: companyId,
+              title: normalized,
+              case_number: normalized,
+              case_type: 'other',
+              status: 'search_only'
+          }])
+          .select('id')
+          .single();
+
+      if (insertError) {
+          // If already exists, we simply tell the client to listen via realtime
+          if (insertError.code === '23505') {
+              const { data: existing } = await supabase
+                  .from('cases')
+                  .select('id, status')
+                  .eq('case_number', normalized)
+                  .single();
+                  
+              return NextResponse.json({
+                  success: true,
+                  message: '이미 검색 진행 중이거나 등록된 사건입니다.',
+                  caseId: existing?.id,
+                  status: existing?.status
+              });
+          }
+          console.error('[court-search] Insert error:', insertError);
+          return NextResponse.json({ error: '사건 등록 중 오류가 발생했습니다.' }, { status: 500 });
+      }
+
+      // 성공: 클라이언트는 즉시 반환받고 Supabase Realtime으로 대기함
+      return NextResponse.json({
+          success: true,
+          message: '크롤링 대기열에 등록되었습니다. 실시간으로 결과를 수신합니다.',
+          caseId: newCase.id
+      });
+  } catch (error) {
+      console.error('[court-search] Server error:', error);
+      return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  }
 }
 
-// GET: 등록된 사건번호 목록 반환 (관리용)
-export async function GET(req: any) {
-  const __auth = await requireSessionFromCookie(req as any);
+// GET: 등록된 사건번호 (search_only 상태 등) 목록 반환 (관리용)
+export async function GET(req: NextRequest) {
+  const __auth = await requireSessionFromCookie(req);
   if (!__auth.ok) return NextResponse.json({ error: __auth.error }, { status: __auth.status });
-
-    const cases = Object.values(MOCK_COURT_DB).map(c => ({
-        caseNumber: c.caseNumber,
-        caseName: c.caseName,
-        court: c.court,
-        status: c.status,
-    }));
-
-    return NextResponse.json({ cases });
+  
+  const supabase = await getServerSupabase();
+  if(!supabase) return NextResponse.json({cases: []});
+  
+  const { data } = await supabase
+      .from('cases')
+      .select('case_number, title, status')
+      .eq('tenant_id', __auth.companyId)
+      .eq('status', 'search_only')
+      .order('created_at', { ascending: false })
+      .limit(20);
+  
+  const cases = (data || []).map(c => ({
+      caseNumber: c.case_number,
+      caseName: c.title,
+      status: c.status,
+  }));
+  
+  return NextResponse.json({ cases });
 }

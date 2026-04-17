@@ -181,20 +181,20 @@ export interface Company {
     customScript?: { call?: string; email?: string; lastEditedAt?: string };
     lawyerNote?: string;
     // ── 계약 프로세스 필드 ──
-    contractSentAt?: string;
-    contractSignedAt?: string;
-    contractMethod?: 'email' | 'system' | 'offline';
-    contractNote?: string;
+    contractSentAt?: string | null;
+    contractSignedAt?: string | null;
+    contractMethod?: 'email' | 'system' | 'offline' | null;
+    contractNote?: string | null;
     // ── 자동화 필드 ──
-    callbackScheduledAt?: string;
-    followUpStep?: number;
-    aiMemoSummary?: string;
-    aiNextAction?: string;
-    aiNextActionType?: string;
-    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy';
-    lastCallAt?: string;
-    lastCalledBy?: string;
-    callAttempts?: number;
+    callbackScheduledAt?: string | null;
+    followUpStep?: number | null;
+    aiMemoSummary?: string | null;
+    aiNextAction?: string | null;
+    aiNextActionType?: string | null;
+    lastCallResult?: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy' | null;
+    lastCallAt?: string | null;
+    lastCalledBy?: string | null;
+    callAttempts?: number | null;
 }
 
 // ── 송무팀 사건 ─────────────────────────────────────────────────

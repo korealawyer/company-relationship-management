@@ -75,6 +75,7 @@ export default function InlinePanel({
     const [tab, setTab] = useState<'script' | 'info' | 'memo' | 'recordings'>('script');
     const [manualCaller, setManualCaller] = useState(user?.name || '영업담당자');
     const [localResult, setLocalResult] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // 메모 작성 관련 상태
     const authorName = user?.name || '알 수 없음';
@@ -118,59 +119,104 @@ export default function InlinePanel({
     }, [user]);
 
     const handleManualLog = async (res: 'connected' | 'no_answer' | 'callback' | 'rejected' | 'invalid_site' | 'no_homepage' | 'promo_only' | 'no_policy', nextAction?: 'review' | 'memo' | 'alarm' | 'pass') => {
+        if (isSubmitting) return;
+
+        const isToggleOff = (localResult || co.lastCallResult) === res;
+        const finalRes = isToggleOff ? null : res;
+
+        setIsSubmitting(true);
+        const snapshot = structuredClone(co); // 깊은 복사 백업
+
         try {
-            setLocalResult(res);
+            setLocalResult(finalRes);
             
             // --- 즉각적인 UI 반영 (Optimistic UI) ---
-            co.lastCallResult = res as any;
-            co.lastCallAt = new Date().toISOString();
-            co.lastCalledBy = manualCaller;
+            if (isToggleOff) {
+                co.lastCallResult = undefined;
+                co.lastCallAt = undefined;
+                co.lastCalledBy = undefined;
+                co.status = 'pending';
+            } else {
+                co.lastCallResult = res as any;
+                co.lastCallAt = new Date().toISOString();
+                co.lastCalledBy = manualCaller;
+            }
             
             let extraUpdate: any = {};
-            if (nextAction === 'review' && co.status === 'analyzed') {
-                extraUpdate = { status: 'reviewing' };
-                co.status = 'reviewing';
-            } else if (res === 'rejected' || res === 'invalid_site' || res === 'no_homepage' || res === 'promo_only' || res === 'no_policy') {
-                extraUpdate = { status: res };
-                co.status = res as unknown as 'pending'; // Hack to satisfy TS temporarily, pessimistic UI will correct it if needed, or optimistic will use it directly.
+            if (isToggleOff) {
+                extraUpdate = { status: 'pending', lastCallResult: null, lastCallAt: null, lastCalledBy: null };
+            } else {
+                if (nextAction === 'review' && co.status === 'analyzed') {
+                    extraUpdate = { status: 'reviewing' };
+                    co.status = 'reviewing';
+                } else if (res === 'rejected' || res === 'invalid_site' || res === 'no_homepage' || res === 'promo_only' || res === 'no_policy') {
+                    extraUpdate = { status: res };
+                    co.status = res as unknown as 'pending'; // 상태 추론 일관성 
+                }
             }
             
             // --- 백그라운드 DB 저장 (UI 딜레이 제거) ---
-            supabaseCompanyStore.update(co.id, {
-                lastCallResult: res,
-                lastCallAt: co.lastCallAt,
-                lastCalledBy: manualCaller,
-                callAttempts: (co.callAttempts || 0) + 1,
-                ...extraUpdate
-            }).catch(e => {
+            const payload = isToggleOff 
+                ? { ...extraUpdate }
+                : {
+                    lastCallResult: res,
+                    lastCallAt: co.lastCallAt,
+                    lastCalledBy: manualCaller,
+                    ...extraUpdate
+                };
+
+            if (isToggleOff) co.callAttempts = Math.max(0, (co.callAttempts || 0) - 1);
+            else co.callAttempts = (co.callAttempts || 0) + 1;
+
+            const updateTask = async () => {
+                // 카운터 기반 동시성 이슈 방지를 위해 RPC 사용
+                if (isToggleOff) await supabaseCompanyStore.decrementCallAttempts(co.id);
+                else await supabaseCompanyStore.incrementCallAttempts(co.id);
+                
+                if (Object.keys(payload).length > 0) {
+                    await supabaseCompanyStore.update(co.id, payload);
+                }
+            };
+
+            updateTask().catch(e => {
                 console.error('Manual log failed:', e);
-                setToast('❌ 기록 저장 실패');
-                setLocalResult(null); // 실패 시 원복
+                setToast('❌ 기록 저장 실패, 원래 상태로 복구됩니다.');
+                
+                // 에러 시 깊은 복사본(snapshot)으로 속성 덮어쓰기 (Rollback)
+                setLocalResult(snapshot.lastCallResult ? (snapshot.lastCallResult as string) : null);
+                Object.assign(co, snapshot); 
+                onRefresh();
+            }).finally(() => {
+                setIsSubmitting(false);
             });
 
-            // --- 통화 내역(RecordingsTab)에도 수동 이력 추가 ---
-            import('@/lib/callRecordingService').then(({ CallRecordingStore }) => {
-                CallRecordingStore.save({
-                    companyId: co.id,
-                    companyName: co.name,
-                    salesUserName: manualCaller,
-                    fileSizeBytes: 0,
-                    durationSeconds: 0,
-                    transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백요청' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`,
-                    transcriptSummary: '수동 통화 기록',
-                    callResult: res as 'connected'|'no_answer'|'callback', // DB type may still need to be compatible, but keeping as res for now.
-                    sttStatus: 'completed',
-                    sttProvider: 'mock',
-                    contactName: co.contactName || '',
-                    contactPhone: co.contactPhone || co.phone,
+            if (!isToggleOff) {
+                // --- 통화 내역(RecordingsTab)에도 수동 이력 추가 ---
+                import('@/lib/callRecordingService').then(({ CallRecordingStore }) => {
+                    CallRecordingStore.save({
+                        companyId: co.id,
+                        companyName: co.name,
+                        salesUserName: manualCaller,
+                        fileSizeBytes: 0,
+                        durationSeconds: 0,
+                        transcript: `수동 상태 변경: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백요청' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`,
+                        transcriptSummary: '수동 통화 기록',
+                        callResult: res as 'connected'|'no_answer'|'callback', 
+                        sttStatus: 'completed',
+                        sttProvider: 'mock',
+                        contactName: co.contactName || '',
+                        contactPhone: co.contactPhone || co.phone,
+                    });
                 });
-            });
+            }
             
-            setToast(`✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`);
-            onRefresh(); // 부모 컴포넌트에 즉시 리렌더링 트리거
+            setToast(isToggleOff ? '✅ 상태 기록이 취소되었습니다.' : `✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`);
+            onRefresh(); 
         } catch(e) {
             setToast('❌ 기록 처리 오류');
-            setLocalResult(null);
+            setLocalResult(snapshot.lastCallResult ? (snapshot.lastCallResult as string) : null);
+            Object.assign(co, snapshot);
+            setIsSubmitting(false);
         }
     };
 

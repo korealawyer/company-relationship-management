@@ -11,10 +11,8 @@ import {
 import { SALES_REPS } from '@/lib/constants';
 import { useAutoSettings, usePaginatedCompanies, useCompanyStats, useCompanyMutations } from '@/hooks/useDataLayer';
 import {
-    CallQueueManager, AutoEmailService, FollowUpService,
-    RiskAlertService, AIMemoService, NewsLeadService, AutoKakaoService,
-    AutoSignatureService, AutoSubscriptionService, EmailTrackingService, ConversionPredictionService,
-    type AIMemoResult, type CallQueueItem, type RiskAlert, type KakaoScheduleItem, NEWS_FEED,
+    RiskAlertService, AutoKakaoService, AutoSignatureService, AutoSubscriptionService, EmailTrackingService, ConversionPredictionService,
+    NewsLeadService, type AIMemoResult, type CallQueueItem, type RiskAlert, type KakaoScheduleItem, NEWS_FEED,
 } from '@/lib/salesAutomation';
 import {
     CallRecorder, STTService, CallRecordingStore, AudioVisualizer,
@@ -206,9 +204,27 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
     }, [dbSettings]);
 
     /* ── effects ── */
-    useEffect(() => { refresh(); const id = setInterval(refresh, 2000); return () => clearInterval(id); }, [refresh]);
+    useEffect(() => { refresh(); }, [refresh]);
     useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3000); return () => clearTimeout(t); }, [toast]);
-    useEffect(() => { if (companies.length > 0) { setRiskAlerts(RiskAlertService.generateAlerts(companies)); setCallQueue(CallQueueManager.getQueue()); } }, [companies]);
+    useEffect(() => { 
+        if (companies.length > 0) { 
+            setRiskAlerts(RiskAlertService.generateAlerts(companies)); 
+            
+            // Reconstruct callQueue from companies for the dashboard UI (deprecated CallQueueManager)
+            const computedQueue = companies
+                .filter(c => c.lastCallResult === 'callback' || c.lastCallResult === 'no_answer')
+                .filter(c => c.callbackScheduledAt)
+                .map(c => ({
+                    companyId: c.id,
+                    companyName: c.name,
+                    scheduledAt: c.callbackScheduledAt as string,
+                    reason: c.lastCallResult as any,
+                    attempts: c.callAttempts || 0,
+                    priority: c.lastCallResult === 'callback' ? 2 : 4
+                }));
+            setCallQueue(computedQueue);
+        } 
+    }, [companies]);
 
     // 🎙️ 모바일 음성 메모 실시간 동기화 리스너
     useEffect(() => {
@@ -226,6 +242,10 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
 
     // 이메일 발송 상태인 기업에 카카오 자동 예약 + 이메일 트래킹
     useEffect(() => {
+        const map: Record<string, KakaoScheduleItem> = {};
+        AutoKakaoService.getAll().forEach(k => { map[k.companyId] = k; });
+        setKakaoStatuses(map);
+
         companies.forEach(c => {
             if (['emailed', 'client_viewed', 'client_replied'].includes(c.status)) {
                 const existing = AutoKakaoService.getStatus(c.id);
@@ -234,50 +254,6 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
             }
         });
     }, [companies]);
-
-    // 2초마다 자동화 상태 업데이트 (데모성 자동 상태 변경 로직은 주석 처리)
-    useEffect(() => {
-        const poll = setInterval(() => {
-            const map: Record<string, KakaoScheduleItem> = {};
-            AutoKakaoService.getAll().forEach(k => { map[k.companyId] = k; });
-            setKakaoStatuses(map);
-
-            /* 
-            // 사용자의 요청("멋대로 움직이는거 같아")으로 인해, 
-            // 이메일 열람, 서명 감지, 카카오 발송이 "시간 지나면 자동으로" 처리되던 데모 로직을 방지합니다.
-            
-            const pending = AutoKakaoService.getPendingSends();
-            pending.forEach(p => {
-                AutoKakaoService.markSent(p.companyId);
-                setToast(`💬 카카오 알림톡 자동 발송 → ${p.companyName}`);
-            });
-
-            const signed = AutoSignatureService.checkSigned();
-            signed.forEach(s => {
-                updateCompany(s.companyId, { status: 'contract_signed' });
-                setToast(`✍️ 전자서명 자동 감지 → ${s.companyName}`);
-                setTimeout(() => {
-                    const co = dbCompanies.find(c => c.id === s.companyId);
-                    if (co) {
-                        AutoSubscriptionService.convertToSubscribed(s.companyId);
-                        AutoSubscriptionService.sendOnboardingEmail(co);
-                        setToast(`🎉 구독 자동 전환 + 온보딩 이메일 → ${s.companyName}`);
-                        refresh();
-                    }
-                }, 2000);
-                refresh();
-            });
-
-            const opened = EmailTrackingService.checkOpened();
-            opened.forEach(o => {
-                setToast(`👁️ 이메일 열람 감지! → ${o.companyName} (${o.contactName}님) — 지금 전화하세요!`);
-                updateCompany(o.companyId, { status: 'client_viewed' as any });
-                refresh();
-            });
-            */
-        }, 2000);
-        return () => clearInterval(poll);
-    }, [refresh, dbCompanies, updateCompany, setToast]);
 
     const isToday = (dateStr?: string) => {
         if (!dateStr) return false;
@@ -512,20 +488,23 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
 
         if (result === 'rejected' || isInvalidSite) {
             patchData.status = result === 'rejected' ? 'rejected' : 'invalid_site';
+            patchData.callbackScheduledAt = null as any; // Remove from queue
+            setToast(result === 'rejected' ? '❌ 거절 처리되었습니다.' : '⚠️ 사이트 이상 분류 완료'); 
+        } else if (result === 'no_answer') { 
+            patchData.callbackScheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            setToast('📵 부재중 → 24시간 후 자동 재배치'); 
+        } else if (result === 'callback') { 
+            setShowCallbackModal(true); 
+            // modal will handle scheduling
+        } else {
+            patchData.callbackScheduledAt = null as any; // Remove from queue
+            if (selected.status === 'analyzed') {
+                patchData.status = 'reviewing';
+                patchData.assignedLawyer = SALES_REPS[0];
+            }
         }
 
         updateCompany(selected.id, patchData);
-        
-        if (result === 'no_answer') { CallQueueManager.scheduleNoAnswer(selected); setToast('📵 부재중 → 24시간 후 자동 재배치'); }
-        else if (result === 'callback') { setShowCallbackModal(true); }
-        else if (result === 'rejected' || isInvalidSite) { 
-            CallQueueManager.removeFromQueue(selected.id); 
-            setToast(result === 'rejected' ? '❌ 거절 처리되었습니다.' : '⚠️ 사이트 이상 분류 완료'); 
-        }
-        else { 
-            CallQueueManager.removeFromQueue(selected.id); 
-            if (selected.status === 'analyzed') updateCompany(selected.id, { status: 'reviewing', assignedLawyer: SALES_REPS[0] }); 
-        }
 
         if (isRecording) {
             if (waveformInterval.current) { clearInterval(waveformInterval.current); waveformInterval.current = null; }
@@ -592,8 +571,15 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
 
     const confirmCallback = () => {
         if (selected && callbackTime) {
-            CallQueueManager.scheduleCallback(selected, callbackTime);
-            setToast(`📋 콜백 예약: ${new Date(callbackTime).toLocaleString('ko-KR')}`);
+            // ISO 8601 string - assuming callbackTime is local datetime-local value.
+            // Converting explicitly to standardized ISO format
+            const d = new Date(callbackTime);
+            updateCompany(selected.id, {
+                lastCallResult: 'callback',
+                callbackScheduledAt: d.toISOString()
+            });
+
+            setToast(`📋 콜백 예약: ${d.toLocaleString('ko-KR')}`);
             setShowCallbackModal(false); setCallbackTime('');
         }
     };

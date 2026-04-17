@@ -1,4 +1,4 @@
-import html2canvas from 'html2canvas';
+import { toCanvas } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
 // 팩토리 패턴 추상 인터페이스
@@ -34,12 +34,12 @@ export class PDFReportGenerator implements IReportGenerator {
             // 1. html2canvas 실행 전 UI 업데이트(로딩 스피너 등)를 위해 제어권 양보
             await yieldToMain();
 
-            // 2. DOM을 캔버스로 변환
-            const canvas = await html2canvas(el, {
-                scale: 2, // 고해상도 캡처
-                useCORS: true,
-                logging: false,
+            // 2. DOM을 캔버스로 변환 (html-to-image 최적화)
+            const canvas = await toCanvas(el, {
+                pixelRatio: Math.min(window.devicePixelRatio || 1, 2), // 고해상도 메모리 관리
                 backgroundColor: '#f8f9fc',
+                skipFonts: false, // 폰트 직렬화 오류 방지
+                cacheBust: true   // Tainted canvas 방어용
             });
 
             // 3. 캔버스 데이터를 이미지로 추출 전 제어권 양보

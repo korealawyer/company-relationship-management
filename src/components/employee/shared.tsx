@@ -422,7 +422,7 @@ export function ExpandedRow({ c, refresh }: { c: Company; refresh: () => void })
 
     return (
         <tr>
-            <td colSpan={11}>
+            <td colSpan={12}>
                 <div className="px-6 py-4" style={{ background: '#f8fafc', borderTop: `1px solid ${T.border}` }}>
                     <div className="grid grid-cols-2 gap-6">
                         

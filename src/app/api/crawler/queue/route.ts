@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const { data: cases, error: fetchError } = await supabase
       .from('cases')
       .select('id, case_number, title, tenant_id')
-      .eq('status', 'active')
+      .in('status', ['active', 'search_only'])
       .neq('crawling_status', 'error') // 연속 에러된 건은 일단 패스
       .or('locked_until.is.null,locked_until.lt.now()')
       .order('last_crawled_at', { ascending: true, nullsFirst: true })

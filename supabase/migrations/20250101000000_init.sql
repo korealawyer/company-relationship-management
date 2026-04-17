@@ -290,7 +290,15 @@ BEGIN
     ])
   LOOP
     EXECUTE format(
+      'DROP POLICY IF EXISTS "Allow authenticated full access" ON %I',
+      tbl
+    );
+    EXECUTE format(
       'CREATE POLICY "Allow authenticated full access" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)',
+      tbl
+    );
+    EXECUTE format(
+      'DROP POLICY IF EXISTS "Allow anon read" ON %I',
       tbl
     );
     EXECUTE format(

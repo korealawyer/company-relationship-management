@@ -109,7 +109,12 @@ function LoginContent() {
     useEffect(() => {
         const session = getSession();
         if (session) {
-            router.replace(ROLE_HOME[session.role] || '/');
+            const dest = ROLE_HOME[session.role] || '/';
+            if (dest.startsWith('http')) {
+                window.location.replace(dest);
+            } else {
+                router.replace(dest);
+            }
         }
     }, [router]);
 
@@ -153,7 +158,11 @@ function LoginContent() {
                 setCookie('ibs_role', session.role);
                 const dest = from || ROLE_HOME[session.role] || '/';
                 setLoading(false);
-                router.replace(dest);
+                if (dest.startsWith('http')) {
+                    window.location.replace(dest);
+                } else {
+                    router.replace(dest);
+                }
             }
         } else {
             setError(result.error);
@@ -172,7 +181,12 @@ function LoginContent() {
                 setCookie('ibs_session', session.id);
                 setCookie('ibs_role', session.role);
                 setBizLoading(false);
-                router.replace(from || '/dashboard');
+                const dest = from || '/dashboard';
+                if (dest.startsWith('http')) {
+                    window.location.replace(dest);
+                } else {
+                    router.replace(dest);
+                }
             }
         } else {
             setBizError(result.error);
@@ -191,7 +205,12 @@ function LoginContent() {
                 setCookie('ibs_session', session.id);
                 setCookie('ibs_role', session.role);
                 setPersonalLoading(false);
-                router.replace(from || '/personal-litigation');
+                const dest = from || '/personal-litigation';
+                if (dest.startsWith('http')) {
+                    window.location.replace(dest);
+                } else {
+                    router.replace(dest);
+                }
             }
         } else {
             setPersonalError(result.error);

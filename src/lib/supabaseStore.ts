@@ -408,16 +408,32 @@ export const supabaseCompanyStore = {
     return fetchCompaniesWithRelations();
   },
 
-  getQueue: async (): Promise<Company[]> => {
+  getQueue: async (scope: 'all' | 'mine' = 'all', userName?: string): Promise<Company[]> => {
     const sb = getEffectiveSupabase();
     if (!sb) return [];
     
-    // 오로지 세일즈 큐(Sales Queue)에서 콜 할 수 있는 컴퍼니 위주로 50개만 호출하여 Egress 최소화
-    const { data: rows } = await sb.from('companies')
-      .select('id, name, domain, url, email, phone, contact_name, contact_phone, ceo_name, biz_category, franchise_type, status, risk_score, call_note, last_call_result, last_call_at')
-      .in('status', ['analyzed', 'assigned'])
-      .order('risk_score', { ascending: false })
-      .limit(50);
+    // Get KST today string for callback comparison
+    const today = new Date();
+    today.setHours(today.getHours() + 9);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // 오로지 세일즈 큐(Sales Queue)에서 콜 할 수 있는 컴퍼니 호출
+    // status in ('analyzed', 'assigned')
+    let query = sb.from('companies')
+      .select('id, name, domain, url, email, phone, contact_name, contact_phone, ceo_name, biz_category, franchise_type, status, risk_score, call_note, last_call_result, last_call_at, callback_scheduled_at, last_called_by')
+      .in('status', ['analyzed', 'assigned']);
+
+    if (scope === 'mine' && userName) {
+      // 본인 담당(or 이전에 본인이 통화한) 데이터 + 아직 아무도 통화하지 않은(미배정) 데이터
+      query = query.or(`last_called_by.eq.${userName},last_called_by.is.null`);
+    }
+    
+    // 복합 인덱스와 callback 우선순위를 위해 데이터 가져오기 (100개 fetch 하여 JS 단에서 정렬/필터)
+    // 콜백은 riskScore와 무관하게 최우선 배치해야 하므로 여기서 적당히 넓게 가져옵니다.
+    const { data: rows } = await query
+      .order('callback_scheduled_at', { ascending: true, nullsFirst: false }) // 1순위: 콜백 (null은 뒤로)
+      .order('risk_score', { ascending: false }) // 2순위: 위험도
+      .limit(100);
       
     if (!rows) return [];
     
@@ -505,6 +521,22 @@ export const supabaseCompanyStore = {
     const sb = getEffectiveSupabase();
     if (!sb) return;
     
+    if (company.name) {
+      const normalizedName = company.name.replace(/\s+/g, '');
+      const searchPattern = '%' + normalizedName.split('').join('%') + '%';
+      
+      const { data: existingMatches } = await sb
+          .from('companies')
+          .select('name')
+          .ilike('name', searchPattern);
+
+      if (existingMatches && existingMatches.length > 0) {
+         const isDuplicate = existingMatches.some(e => e.name.replace(/\s+/g, '') === normalizedName);
+         if (isDuplicate) {
+            throw new Error(`이미 등록된 기업명입니다: ${company.name}`);
+         }
+      }
+    }
     
     // Explicitly generate a UUID if not provided 
     // This handles the case where companies table lacks `DEFAULT gen_random_uuid()` 
@@ -571,6 +603,22 @@ export const supabaseCompanyStore = {
       return cleanCompanyRow(company, true);
     });
 
+    // 엑셀 업로드 시 중복 비교를 위해 전체 기업명 캐싱 (띄어쓰기 무시)
+    const existingNameSet = new Set<string>();
+    let page = 0;
+    while(true) {
+        const { data: dbNames } = await sb.from('companies').select('name').range(page * 1000, (page + 1) * 1000 - 1);
+        if (dbNames && dbNames.length > 0) {
+            dbNames.forEach(d => {
+                if (d.name) existingNameSet.add(d.name.replace(/\s+/g, ''));
+            });
+            if (dbNames.length < 1000) break;
+            page++;
+        } else {
+            break;
+        }
+    }
+
     let successCount = 0;
     
     // 100건씩 쪼개서 Bulk Insert (GET 파라미터 URL 길이 제한 회피)
@@ -578,34 +626,24 @@ export const supabaseCompanyStore = {
       const chunk = rows.slice(i, i + 100);
       const originalChunk = companies.slice(i, i + 100);
 
-      // (1) 청크 내 중복 및 기존 DB 중복 검증 로직 추가 (UNIQUE 제약조건 부재 시 upsert 에러 방지)
-      const validBizNos = chunk.map(c => c.biz_no).filter(b => b && !b.startsWith('T'));
-      const existingBizSet = new Set<string>();
-
-      if (validBizNos.length > 0) {
-        const { data: existingRecords } = await sb
-            .from('companies')
-            .select('biz_no')
-            .in('biz_no', validBizNos);
-        
-        if (existingRecords) {
-          existingRecords.forEach(r => existingBizSet.add(r.biz_no));
-        }
-      }
-
       const deduplicatedChunk = [];
-      const chunkBizSet = new Set<string>();
+      const chunkNameSet = new Set<string>();
 
       for (const c of chunk) {
-        // 이미 DB에 존재하는 사업자번호면 스킵
-        if (c.biz_no && !c.biz_no.startsWith('T') && existingBizSet.has(c.biz_no)) {
+        if (!c.name || c.name.trim() === '') {
+           deduplicatedChunk.push(c);
+           continue; 
+        }
+
+        const normalized = c.name.replace(/\s+/g, '');
+        // 이미 DB에 존재하는 기업명이면 스킵 (띄어쓰기 무시)
+        if (existingNameSet.has(normalized)) {
           continue;
         }
-        // 청크 내부에서 동일한 사업자번호가 여러개 있을 경우 첫번째만 넣음
-        if (c.biz_no && !c.biz_no.startsWith('T')) {
-           if (chunkBizSet.has(c.biz_no)) continue;
-           chunkBizSet.add(c.biz_no);
-        }
+        // 청크 내부 중복 스킵
+        if (chunkNameSet.has(normalized)) continue;
+        
+        chunkNameSet.add(normalized);
         deduplicatedChunk.push(c);
       }
 
@@ -615,7 +653,7 @@ export const supabaseCompanyStore = {
       const { data, error } = await sb
         .from('companies')
         .insert(deduplicatedChunk)
-        .select('id, biz_no');
+        .select('id, name');
 
       if (error) {
         console.error('Bulk import error mapping chunk:', error);
@@ -626,7 +664,7 @@ export const supabaseCompanyStore = {
         const memosToInsert: any[] = [];
         data.forEach(inserted => {
           // find original company
-          const original = originalChunk.find(c => c.biz === inserted.biz_no || (c.biz === '' && c.id === inserted.id));
+          const original = originalChunk.find(c => c.name === inserted.name || c.id === inserted.id);
           if (original && original.memos && original.memos.length > 0) {
             original.memos.forEach(m => {
               memosToInsert.push({
@@ -770,6 +808,26 @@ export const supabaseCompanyStore = {
     if (!sb) return;
     await sb.from('companies').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
   },
+
+  incrementCallAttempts: async (id: string): Promise<void> => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return;
+    const { error } = await sb.rpc('increment_call_attempts', { target_company_id: id });
+    if (error) {
+      console.error('Failed to increment call attempts:', error);
+      throw new Error(error.message);
+    }
+  },
+
+  decrementCallAttempts: async (id: string): Promise<void> => {
+    const sb = getEffectiveSupabase();
+    if (!sb) return;
+    const { error } = await sb.rpc('decrement_call_attempts', { target_company_id: id });
+    if (error) {
+      console.error('Failed to decrement call attempts:', error);
+      throw new Error(error.message);
+    }
+  },
 };
 
 // ── Litigation CRUD ──────────────────────────────────────────
@@ -799,11 +857,30 @@ export const supabaseLitigationStore = {
     if (!sb) return;
     if (!litCase.id) litCase.id = crypto.randomUUID();
     const { deadlines, ...flat } = litCase as Record<string, unknown>;
-    await sb.from('litigation_cases').insert(objToRow(flat as Record<string, unknown>));
+    const row = objToRow(flat as Record<string, unknown>);
+
+    const { error } = await sb.from('litigation_cases').insert(row);
+    if (error) {
+      console.error("Litigation Create Error:", error);
+      // Fallback: older 'litigation_cases' schema might missing 'title'
+      const fallbackRow = { ...row };
+      if (fallbackRow.hasOwnProperty('title')) {
+        fallbackRow.notes = `[사건명: ${fallbackRow.title}]\n${fallbackRow.notes || ''}`;
+        delete fallbackRow.title;
+      }
+      
+      const { error: fallbackError } = await sb.from('litigation_cases').insert(fallbackRow);
+      if (fallbackError) {
+        console.error("Litigation Create Fallback Error:", fallbackError);
+        throw new Error(fallbackError.message);
+      }
+    }
+
     if (Array.isArray(deadlines)) {
       for (const dl of deadlines) {
         if (!(dl as any).id) (dl as any).id = crypto.randomUUID();
-        await sb.from('litigation_deadlines').insert({ ...objToRow(dl as Record<string, unknown>), case_id: flat.id });
+        const { error: dlError } = await sb.from('litigation_deadlines').insert({ ...objToRow(dl as Record<string, unknown>), case_id: flat.id });
+        if (dlError) console.error("Litigation Deadline Create Error:", dlError);
       }
     }
   },

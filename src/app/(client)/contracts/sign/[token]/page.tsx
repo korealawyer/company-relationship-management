@@ -290,14 +290,15 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
                 const contractElement = document.getElementById('contract-document');
                 if (!contractElement) throw new Error('계약서 문서를 찾을 수 없습니다.');
 
-                // 3. Client-side PDF generation (html2canvas -> jsPDF)
-                const html2canvas = (await import('html2canvas')).default;
+                // 3. Client-side PDF generation (html-to-image -> jsPDF)
+                const { toCanvas } = await import('html-to-image');
                 const { jsPDF } = await import('jspdf');
 
-                const canvas = await html2canvas(contractElement, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#faf9f6'
+                const canvas = await toCanvas(contractElement, {
+                    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+                    backgroundColor: '#faf9f6',
+                    skipFonts: false,
+                    cacheBust: true
                 });
 
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
@@ -479,6 +480,9 @@ export default function ContractSignPage(props: { params: Promise<{ token: strin
 
     return (
         <div className="min-h-screen relative" style={{ backgroundColor: '#e5e3db' }}>
+            {submitting && (
+                <div className="fixed inset-0 z-[9999] bg-black/5 backdrop-blur-[1px] cursor-wait pointer-events-auto" />
+            )}
             {/* ─── 상단 툴바 ─── */}
             <div className="sticky top-0 z-[150] backdrop-blur-xl border-b" style={{ backgroundColor: 'rgba(245,243,238,0.92)', borderColor: '#e8e5de' }}>
                 <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-14 flex items-center justify-between">

@@ -53,7 +53,7 @@ export interface PendingMember {
 export const ROLE_HOME: Record<RoleType, string> = {
     super_admin: '/employee',
     admin: '/employee',
-    sales: '/employee',
+    sales: 'https://ibsbase.com/sales/call',
     lawyer: '/lawyer',
     litigation: '/litigation',
     general: '/admin',

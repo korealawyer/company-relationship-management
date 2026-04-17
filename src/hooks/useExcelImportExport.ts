@@ -152,7 +152,35 @@ export function useExcelImportExport(
         setExcelUploading(true);
 
         if (importMode === 'update_privacy') {
-            const mappedUpdates: Partial<Company>[] = [];
+            const sb = (await import('@/lib/supabase')).getBrowserSupabase();
+            if (!sb) {
+                showToast('❌ DB 연결을 확인할 수 없습니다.');
+                setExcelUploading(false);
+                return;
+            }
+
+            // 전체 DB 기업 목록을 가져와서 매칭 (페이지네이션 된 상태가 아닌 전체 데이터셋)
+            // Supabase API의 1000건 제한을 우회하기 위해 반복 조회합니다.
+            let allDbCompanies: {id: string, name: string}[] = [];
+            let hasMore = true;
+            let offset = 0;
+            const limit = 1000;
+            
+            while (hasMore) {
+                const { data: dbComps, error } = await sb.from('companies')
+                    .select('id, name')
+                    .range(offset, offset + limit - 1);
+                
+                if (error || !dbComps || dbComps.length === 0) {
+                    hasMore = false;
+                } else {
+                    allDbCompanies.push(...dbComps);
+                    offset += limit;
+                    if (dbComps.length < limit) hasMore = false;
+                }
+            }
+
+            const updatesToProcess: { id: string, payload: Partial<Company> }[] = [];
             let skipped = 0;
             
             for (const row of excelData) {
@@ -160,19 +188,48 @@ export function useExcelImportExport(
                 const nameStr = String(row['기업명'] || row['회사명'] || values[0] || '').trim();
                 const privacyUrl = String(row['개인정보처리방침url'] || row['개인정보처리방침 URL'] || values[1] || '').trim();
                 const privacyText = String(row['개인정보처리방침전문'] || row['개인정보처리방침 전문'] || values[2] || '').trim();
+                let memoContent = String(row['메모'] || row['memo'] || '').trim();
+                const salesNameInput = String(row['영업자'] || row['담당영업자'] || row['salesName'] || '').trim();
                 
                 if (!nameStr) {
                     skipped++;
                     continue;
                 }
 
-                const matchedCompany = companies.find(c => c.name === nameStr);
+                const normalizedNameStr = nameStr.replace(/\s+/g, '');
+                const matchedCompany = allDbCompanies.find((c: any) => c.name && c.name.replace(/\s+/g, '') === normalizedNameStr);
+                
                 if (matchedCompany) {
-                    if (privacyUrl || privacyText) {
-                        const payload = { ...matchedCompany };
-                        if (privacyUrl) payload.privacyUrl = privacyUrl;
-                        if (privacyText) payload.privacyPolicyText = privacyText;
-                        mappedUpdates.push(payload);
+                    let hasUpdate = false;
+                    const payload: Partial<Company> = {};
+                    
+                    if (privacyUrl) { payload.privacyUrl = privacyUrl; hasUpdate = true; }
+                    if (privacyText) { payload.privacyPolicyText = privacyText; hasUpdate = true; }
+                    
+                    if (salesNameInput) {
+                        const foundUser = users.find(u => u.name === salesNameInput);
+                        if (foundUser) {
+                            payload.assignedSalesId = foundUser.id;
+                            payload.assignedSalesName = foundUser.name;
+                            hasUpdate = true;
+                        } else {
+                            const notice = `[시스템] 일괄 업데이트: 지정된 영업자 '${salesNameInput}' 정보가 시스템에 없어 자동 연결되지 않았습니다.`;
+                            memoContent = memoContent ? `${memoContent}\n\n${notice}` : notice;
+                        }
+                    }
+
+                    if (memoContent) {
+                        payload.memos = [{
+                            id: crypto.randomUUID(),
+                            createdAt: new Date().toISOString(),
+                            author: '시스템',
+                            content: memoContent
+                        }];
+                        hasUpdate = true;
+                    }
+
+                    if (hasUpdate) {
+                        updatesToProcess.push({ id: matchedCompany.id, payload });
                     } else {
                         skipped++;
                     }
@@ -181,7 +238,7 @@ export function useExcelImportExport(
                 }
             }
             
-            if (mappedUpdates.length === 0) {
+            if (updatesToProcess.length === 0) {
                 showToast(`❌ 매칭된 기업이 없거나 업데이트할 데이터가 없습니다. (스킵 ${skipped}건)`);
                 setExcelUploading(false);
                 setShowExcelUpload(false);
@@ -193,11 +250,34 @@ export function useExcelImportExport(
             }
 
             try {
-                const result = await updateBulk(mappedUpdates);
-                showToast(result.success > 0 
-                    ? `✅ 대량 업데이트 성공: ${result.success}건 완료. (스킵/실패: ${result.skipped + skipped}건)` 
-                    : `❌ 업데이트할 데이터가 없습니다. (스킵 ${skipped}건)`
-                );
+                // 1. 기업 DB Bulk Update (자동으로 50개씩 청크 분할 및 refresh 1회 실행 보장)
+                const bulkPayload = updatesToProcess.map(u => ({ id: u.id, ...u.payload }));
+                await updateBulk(bulkPayload);
+
+                // 2. 추가되는 메모만 따로 모아서 Bulk Upsert (단일 HTTP 요청 최소화, Vercel/Supabase 부하 Zero)
+                const newMemos: any[] = [];
+                updatesToProcess.forEach(u => {
+                    if (u.payload.memos && u.payload.memos.length > 0) {
+                        u.payload.memos.forEach(m => {
+                            newMemos.push({
+                                company_id: u.id,
+                                id: m.id || crypto.randomUUID(),
+                                created_at: m.createdAt || new Date().toISOString(),
+                                author: m.author || '시스템',
+                                content: m.content
+                            });
+                        });
+                    }
+                });
+
+                if (newMemos.length > 0) {
+                    // 메모가 너무 많은 경우를 대비해 500개씩 청크로 보냅니다.
+                    for (let i = 0; i < newMemos.length; i += 500) {
+                        await sb.from('company_memos').upsert(newMemos.slice(i, i + 500));
+                    }
+                }
+
+                showToast(`✅ 대량 업데이트 성공: ${updatesToProcess.length}건 완료. (스킵/실패: ${skipped}건)`);
             } catch (err) {
                 console.error('Bulk update error:', err);
                 showToast('❌ 대량 업데이트 중 오류가 발생했습니다.');

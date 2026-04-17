@@ -27,6 +27,7 @@ const SWR_OPTS = {
   revalidateOnFocus: false,       // 탭 전환 시 불필요한 재요청 방지
   revalidateOnReconnect: true,    // 네트워크 재연결 시만 재검증
   errorRetryCount: 2,             // 에러 시 재시도 2회 제한
+  refreshInterval: 60_000,        // 60초 주기로 전역 SWR 폴링 (DB/Vercel 부하 방지)
   onError: (error: any) => {
     // 401 에러 감지 시 서킷 브레이커 작동 (무한 리로드 스로틀링)
     if (error?.status === 401 || error?.message?.includes('401') || error?.message?.includes('JWT')) {
@@ -169,26 +170,28 @@ export function useCompanies() {
   return { companies: data || EMPTY_COMPANIES, isLoading, error, mutate, addCompany, updateCompany, updateBulk, deleteCompany, importBulk };
 }
 
+export const EMPTY_PAGINATED_COMPANIES = { data: EMPTY_COMPANIES, count: 0 };
+export const EMPTY_COMPANY_STATS: CompanyStats = { total: 0, subscribers: 0, premium: 0, standard: 0, starter: 0, atRisk: 0, totalStores: 0, unreviewedIssues: 0, reviewedIssues: 0, statusCounts: {} };
+
 export function usePaginatedCompanies(options: PaginationOptions) {
   const keyStr = JSON.stringify(options);
   const { data, error, isLoading, mutate } = useSWR<{data: Company[], count: number}>(
     [CACHE_KEYS.PAGINATED_COMPANIES, keyStr],
     async () => await dataLayer.companies.getPaginated(options),
-    { fallbackData: { data: [], count: 0 }, ...SWR_OPTS }
+    { fallbackData: EMPTY_PAGINATED_COMPANIES, ...SWR_OPTS }
   );
 
-  return { companies: data?.data || [], count: data?.count || 0, isLoading, error, mutate };
+  return { companies: data?.data || EMPTY_COMPANIES, count: data?.count || 0, isLoading, error, mutate };
 }
 
 export function useCompanyStats() {
-  const defaultStats: CompanyStats = { total: 0, subscribers: 0, premium: 0, standard: 0, starter: 0, atRisk: 0, totalStores: 0, unreviewedIssues: 0, reviewedIssues: 0, statusCounts: {} };
   const { data, error, isLoading, mutate } = useSWR<CompanyStats>(
     'company-stats',
     async () => await dataLayer.companies.getStats(),
-    { fallbackData: defaultStats, ...SWR_OPTS }
+    { fallbackData: EMPTY_COMPANY_STATS, ...SWR_OPTS }
   );
 
-  return { stats: data || defaultStats, isLoading, error, mutate };
+  return { stats: data || EMPTY_COMPANY_STATS, isLoading, error, mutate };
 }
 
 export function useCompanyMutations() {
@@ -378,14 +381,15 @@ export function useAutoSettings() {
   return { settings: data, isLoading, error, mutate, updateSettings };
 }
 
+const EMPTY_USERS: any[] = [];
 export function useUsers() {
   const { data, error, isLoading, mutate } = useSWR<any[]>(
     'users',
     async () => await dataLayer.users.getAll(),
-    { fallbackData: [], ...SWR_OPTS }
+    { fallbackData: EMPTY_USERS, ...SWR_OPTS }
   );
 
-  return { users: data || [], isLoading, error, mutate };
+  return { users: data || EMPTY_USERS, isLoading, error, mutate };
 }
 
 export function useAutoLogs() {

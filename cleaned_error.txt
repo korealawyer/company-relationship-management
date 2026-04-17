@@ -1,0 +1,80 @@
+﻿Need to install the following packages:
+supabase@2.92.0
+node.exe : Initialising login role...
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe"
+ "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpec 
+   ified: (Initialising login role..  
+  .:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeC 
+   ommandError
+ 
+Connecting to remote database...
+Skipping migration 020_CALL_QUEUE_READ
+ME.md... (file name must match pattern
+ "<timestamp>_name.sql")
+Skipping migration fix_rls.sql... (fil
+e name must match pattern "<timestamp>
+_name.sql")
+Do you want to push these migrations t
+o the remote database?
+ ??20250101000002_call_recordings.sql
+ ??20250101000003_sprint_c_esign.sql
+ ??20250101000004_mvp_cases.sql
+ ??20250101000005_c3_payment.sql
+ ??20250101000006_pg_cron_kakao.sql
+ ??20250101000007_e_contracts.sql
+ ??20250101000008_signature_data_url.s
+ql
+ ??20250101000009_add_missing_company_
+columns.sql
+ ??20250101000010_add_privacy_policy_c
+olumns.sql
+ ??20250101000011_add_privacy_policy_t
+ext.sql
+ ??20250101000012_update_auto_settings
+.sql
+ ??20250101000013_add_franchise_type.s
+ql
+ ??20250101000014_add_industry.sql
+ ??20250101000015_call_queue_locks.sql
+ ??20250101000016_add_issue_columns.sq
+l
+ ??20250101000017_add_legal_basis.sql
+ ??20250101000018_setup_storage_bucket
+s.sql
+ ??20250101000019_add_audit_report.sql
+ ??20250101000020_setup_signatures_buc
+ket.sql
+ ??20250101000021_add_chat_history.sql
+ ??20250101000022_enable_realtime_call
+_locks.sql
+ ??20250101000023_crawler_status_colum
+ns.sql
+ ??20250101000024_rpc_company_stats.sq
+l
+ ??20250101000025_storage_rls_hardenin
+g.sql
+ ??20250101000026_add_contract_columns
+.sql
+ ??20250101000027_enable_realtime_and_
+search_status.sql
+ ??20250101000028_add_is_read_to_consu
+ltations.sql
+ ??20250101000029_fix_all_tenant_rls.s
+ql
+ ??20250101000030_storage_mime_types.s
+ql
+ ??20250101000031_strict_storage_rls.s
+ql
+ ??20250101000032_enforce_active_statu
+s_rls.sql
+ ??20260401000000_finance_schema.sql
+ ??20260414063024_add_sales_call_logs.
+sql
+ ??20260416000000_add_call_attempts_rp
+c.sql
+

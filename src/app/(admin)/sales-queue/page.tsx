@@ -9,6 +9,7 @@ import type { Company, Issue } from '@/lib/types';
 import type { CallLock } from '@/lib/types';
 import { useCallLocks } from '@/hooks/useCallLocks';
 import ScriptTab from '@/components/sales/call/ScriptTab';
+import { runCallbackMigrationToSupabase } from '@/lib/salesAutomation/callQueueService';
 import styles from './sales-queue.module.css';
 
 const GOAL_CALLS = 30;
@@ -24,10 +25,26 @@ export default function SalesQueuePage() {
     const [toastMsg, setToastMsg] = useState(""); // Toast Message
     const [isEditingContact, setIsEditingContact] = useState(false);
     const [editContactName, setEditContactName] = useState("");
+    const [queueScope, setQueueScope] = useState<'mine' | 'all'>('mine');
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Hydration 방어: 클라이언트 마운트 후 로컬 스토리지 읽기
+    useEffect(() => {
+        const stored = localStorage.getItem('ibs_sales_queue_scope');
+        if (stored === 'all' || stored === 'mine') {
+            setQueueScope(stored);
+        }
+        setIsMounted(true);
+    }, []);
     
+    const handleScopeChange = (scope: 'mine' | 'all') => {
+        setQueueScope(scope);
+        localStorage.setItem('ibs_sales_queue_scope', scope);
+    };
+
     // Wrap-up state
     const [callState, setCallState] = useState<'calling' | 'wrapup'>('calling');
-    const [selectedResult, setSelectedResult] = useState<'연결-메일'|'연결-콜백'|'연결-거절'|'부재중(24h)'|'사이트이상(패스)' | null>(null);
+    const [selectedResult, setSelectedResult] = useState<'연결-메일'|'연결-콜백'|'연결-거절'|'부재중(24h)'|'사이트이상(패스)'|'홈페이지없음(패스)'|'홍보전용(패스)'|'동의서없음(패스)' | null>(null);
     
     // Stats for today
     const [stats, setStats] = useState({ connected: 0, missed: 0, callback: 0, rejected: 0, invalid: 0 });
@@ -35,8 +52,9 @@ export default function SalesQueuePage() {
     const { sec, fmt, start, reset, pause } = useTimer();
 
     const loadData = useCallback(async () => {
+        if (!isMounted) return;
         try {
-            const comps = await supabaseCompanyStore.getQueue();
+            const comps = await supabaseCompanyStore.getQueue(queueScope, user?.name);
             
             // Calc stats for today from DB O(1) via logs
             if (user?.name) {
@@ -50,27 +68,157 @@ export default function SalesQueuePage() {
                 });
             }
             
-            // Sort by not called today first, then riskScore DESC
-            const todayStr = new Date().toISOString().split('T')[0];
-            const uncalled = comps.filter(comp => {
-                const calledToday = comp.lastCallAt && comp.lastCallAt.startsWith(todayStr);
+            // The items from getQueue are already sorted by callback priority and risk score.
+            // We just need to filter out items called today *unless* they are due for a callback today.
+            const KST_OFFSET = 9 * 60 * 60 * 1000;
+            const nowKst = new Date(Date.now() + KST_OFFSET);
+            const todayStrKst = nowKst.toISOString().split('T')[0];
+            
+            const filtered = comps.filter(comp => {
+                // If it has a callback scheduled the past or today, we KEEP it in queue regardless if it was "called today"
+                // because maybe they asked to be called back later the same day.
+                if (comp.callbackScheduledAt) {
+                    const cbDate = new Date(comp.callbackScheduledAt);
+                    const cbKst = new Date(cbDate.getTime() + KST_OFFSET);
+                    if (cbKst <= nowKst || cbKst.toISOString().split('T')[0] === todayStrKst) {
+                        return true;
+                    }
+                }
+                
+                if (!comp.lastCallAt) return true;
+                const lastCallDate = new Date(comp.lastCallAt);
+                const lastCallKstDate = new Date(lastCallDate.getTime() + KST_OFFSET);
+                const calledToday = lastCallKstDate.toISOString().split('T')[0] === todayStrKst;
+                
                 return !calledToday;
             });
             
-            const sorted = uncalled.sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0));
-            setCompanies(sorted);
+            setCompanies(filtered);
         } catch (e) {
             console.error('Failed to load queue data', e);
         } finally {
             setLoading(false);
         }
-    }, [user?.name]);
+    }, [user?.name, queueScope, isMounted]);
 
     useEffect(() => {
-        loadData();
-        const int = setInterval(loadData, 30000); // 30s auto refresh back to normal
-        return () => clearInterval(int);
-    }, [loadData]);
+        if (!isMounted) return;
+        
+        let channel: any;
+        let hasConnectedBefore = false; // Self-Healing 추적기
+        
+        runCallbackMigrationToSupabase().then(async () => {
+             await loadData();
+             
+             // 무한 폴링(setInterval) 제거 및 안전한 CDC 실시간 구독 도입
+             const { getBrowserSupabase } = await import('@/lib/supabase');
+             const supabase = getBrowserSupabase();
+             
+             // 모든 이벤트(*)를 수신하여 'Invisible Leads' 렌더링 누락 버그 해결
+             channel = supabase.channel('sales_queue_cdc')
+                 .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, (payload: any) => {
+                     // [치명적 버그 방어 1 - DELETE 크래시 방지]
+                     if (payload.eventType === 'DELETE') {
+                         setCompanies((prev) => prev.filter(c => c.id !== payload.old.id));
+                         return; // 즉시 종료
+                     }
+
+                     // N+1 Fetch 방지를 위한 타겟 캐시 정밀 업데이트 (상태 불변성 준수)
+                     setCompanies((prev) => {
+                         const newRow = payload.new;
+                         
+                         // Ghost Zombie 검사 및 추방
+                         const KST_OFFSET = 9 * 60 * 60 * 1000;
+                         const nowKst = new Date(Date.now() + KST_OFFSET);
+                         const todayStrKst = nowKst.toISOString().split('T')[0];
+                         
+                         let shouldKeep = true;
+                         
+                         // 배정 권한 범위 확인 (`queueScope`)
+                         if (queueScope === 'mine') {
+                             if (newRow.last_called_by && newRow.last_called_by !== user?.name) shouldKeep = false;
+                         }
+                         
+                         // 오늘 통화한 내역 필터링 규칙 (어제 통화했거나, 콜백요청이 있으면 남겨둠)
+                         if (shouldKeep && !newRow.callback_scheduled_at && newRow.last_call_at) {
+                             const lastCallDate = new Date(newRow.last_call_at);
+                             const lastCallKstDate = new Date(lastCallDate.getTime() + KST_OFFSET);
+                             const calledToday = lastCallKstDate.toISOString().split('T')[0] === todayStrKst;
+                             if (calledToday) shouldKeep = false;
+                         }
+                         
+                         // 콜백 일정이 부여된 경우는 무조건 살림 (단, 큐 스코프는 만족해야함)
+                         if (newRow.callback_scheduled_at && queueScope === 'mine' && newRow.last_called_by && newRow.last_called_by !== user?.name) {
+                             shouldKeep = false; // 타인의 콜백
+                         } else if (newRow.callback_scheduled_at) {
+                             shouldKeep = true;
+                         }
+                         
+                         // 유효하지 않으면 즉시 퇴출 (Ghost 제거)
+                         if (!shouldKeep) {
+                             return prev.filter(c => c.id !== newRow.id);
+                         }
+                         
+                         // [치명적 버그 방어 2 - DB snake_case -> 프론트 camelCase 매핑으로 표기 누락 방지]
+                         const mappedNewRow: Partial<Company> = {
+                             ...newRow,
+                             lastCallAt: newRow.last_call_at,
+                             callbackScheduledAt: newRow.callback_scheduled_at,
+                             lastCallResult: newRow.last_call_result,
+                             riskScore: newRow.risk_score,
+                             contactName: newRow.contact_name,
+                             contactPhone: newRow.contact_phone,
+                             bizType: newRow.biz_type,
+                             franchiseType: newRow.franchise_type,
+                             callNote: newRow.call_note,
+                         };
+
+                         // React 불변성(Immutability) O(1) Upsert 연산
+                         const exists = prev.some(c => c.id === newRow.id);
+                         let nextArray: Company[];
+                         
+                         if (exists) {
+                             // 기존 데이터 매핑 덮어쓰기 (업데이트)
+                             nextArray = prev.map(c => c.id === newRow.id ? { ...c, ...mappedNewRow } as Company : c);
+                         } else {
+                             // 신규 배정 데이터(투명 인간) 즉각 표시
+                             nextArray = [...prev, mappedNewRow as Company];
+                         }
+
+                         // Auto-Sort: 위험도 기준 및 콜백 우선순위 적용
+                         return nextArray.sort((a, b) => {
+                             const aCBCond = a.callbackScheduledAt ? 1 : 0;
+                             const bCBCond = b.callbackScheduledAt ? 1 : 0;
+                             if (aCBCond !== bCBCond) return bCBCond - aCBCond; // 약속된 건 최우선
+                             
+                             const aRisk = a.riskScore || 0;
+                             const bRisk = b.riskScore || 0;
+                             return bRisk - aRisk; // 고위험 최우선
+                         });
+                     });
+                 })
+                 .subscribe(async (status) => {
+                     if (status === 'SUBSCRIBED') {
+                         // [치명적 버그 방어 4 - 단절 후 재연결 유실 복구 (Self-Healing)]
+                         if (!hasConnectedBefore) {
+                             hasConnectedBefore = true; // 최초 연결은 스킵 (이미 loadData 했음)
+                         } else {
+                             console.log('Realtime Self-Healing Triggered: Fetching missed void data...');
+                             await loadData(); 
+                         }
+                     }
+                 });
+        });
+        
+        return () => {
+            if (channel) {
+                // 커넥션 풀 고갈 방어: 컴포넌트 이탈 시 연결 삭제
+                import('@/lib/supabase').then(({ getBrowserSupabase }) => {
+                     getBrowserSupabase().removeChannel(channel);
+                });
+            }
+        };
+    }, [loadData, queueScope, isMounted, user?.name]);
 
     // 새로고침/재진입 시 본인이 잡고 있는 Lock이 있다면 화면 복구(Auto-resume)
     useEffect(() => {
@@ -221,12 +369,12 @@ export default function SalesQueuePage() {
             await releaseCompany(activeCall.id, user.id).catch(() => {});
             
             let callRes: 'connected'|'no_answer'|'callback'|'rejected'|'invalid_site'|'no_homepage'|'promo_only'|'no_policy' = 'connected';
-            if (selectedResult === '부재중(24h)' as any) callRes = 'no_answer';
-            else if (selectedResult === '연결-콜백' as any) callRes = 'callback';
-            else if (selectedResult === '연결-거절' as any) callRes = 'rejected';
-            else if (selectedResult === '홈페이지없음(패스)' as any) callRes = 'no_homepage';
-            else if (selectedResult === '홍보전용(패스)' as any) callRes = 'promo_only';
-            else if (selectedResult === '동의서없음(패스)' as any) callRes = 'no_policy';
+            if (selectedResult === '부재중(24h)') callRes = 'no_answer';
+            else if (selectedResult === '연결-콜백') callRes = 'callback';
+            else if (selectedResult === '연결-거절') callRes = 'rejected';
+            else if (selectedResult === '홈페이지없음(패스)') callRes = 'no_homepage';
+            else if (selectedResult === '홍보전용(패스)') callRes = 'promo_only';
+            else if (selectedResult === '동의서없음(패스)') callRes = 'no_policy';
             
             const payload: Partial<Company> = {
                 lastCallResult: callRes,
@@ -243,9 +391,12 @@ export default function SalesQueuePage() {
 
             // 자동 콜백 24시간 처리
             if (callRes === 'no_answer' || callRes === 'callback') {
-                const tomorrow = new Date();
-                tomorrow.setHours(tomorrow.getHours() + 24);
-                payload.callbackScheduledAt = tomorrow.toISOString();
+                const KST_OFFSET = 9 * 60 * 60 * 1000;
+                // Schedule 24h later from now
+                const tomorrowUtc = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                payload.callbackScheduledAt = tomorrowUtc.toISOString();
+            } else {
+                payload.callbackScheduledAt = null; // Clear callback
             }
 
             // Also append a memo if needed, optional
@@ -317,9 +468,20 @@ export default function SalesQueuePage() {
     };
 
     const getStatusInfo = (c: Company) => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const calledToday = c.lastCallAt && c.lastCallAt.startsWith(todayStr);
-        if (calledToday && c.lastCallResult) {
+        const KST_OFFSET = 9 * 60 * 60 * 1000;
+        const nowKst = new Date(Date.now() + KST_OFFSET);
+        const todayStrKst = nowKst.toISOString().split('T')[0];
+        
+        if (c.callbackScheduledAt) {
+            const cbDate = new Date(c.callbackScheduledAt);
+            const cbKst = new Date(cbDate.getTime() + KST_OFFSET);
+            if (cbKst <= nowKst || cbKst.toISOString().split('T')[0] === todayStrKst) {
+                 return { label: `🚨 콜백 요망 (${c.lastCallResult === 'no_answer' ? '부재중' : '요청'})`, cls: styles.callbackAlert };
+            }
+        }
+        
+        const calledToday = c.lastCallAt && new Date(new Date(c.lastCallAt).getTime() + KST_OFFSET).toISOString().split('T')[0] === todayStrKst;
+        if (calledToday && !c.callbackScheduledAt) {
             return { label: `✅ 완료 (${c.lastCallResult})`, cls: styles.done };
         }
         
@@ -376,12 +538,37 @@ export default function SalesQueuePage() {
                 </div>
             </div>
 
-            {/* Main Button */}
+            {/* Main Button with Options */}
             {!activeCall && (
-                <div className={styles.mainBtnContainer}>
+                <div className={styles.mainBtnContainer} style={{ flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginBottom: '8px' }}>
+                        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                            <input 
+                                type="radio" 
+                                name="queueScope" 
+                                value="mine" 
+                                checked={queueScope === 'mine'} 
+                                onChange={(e) => handleScopeChange(e.target.value as any)} 
+                            />
+                            나의 담당+미배정
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
+                            <input 
+                                type="radio" 
+                                name="queueScope" 
+                                value="all" 
+                                checked={queueScope === 'all'} 
+                                onChange={(e) => handleScopeChange(e.target.value as any)} 
+                            />
+                            전체 대기열 보기
+                        </label>
+                    </div>
                     <button className={styles.mainButton} onClick={() => handleNextCall(0)}>
-                        ▶ 다음 전화하기
+                        ▶ 다음 전화하기 ({queueScope === 'mine' ? '내 큐' : '전체 큐'})
                     </button>
+                    <div className="text-center text-xs text-slate-400 mt-2">
+                        💡 우선순위: 지정 콜백 대상 &gt; 위험점수 70점 이상 &gt; 미응답/미연락
+                    </div>
                 </div>
             )}
 
@@ -578,11 +765,11 @@ export default function SalesQueuePage() {
                             <div className={styles.wrapupSection}>
                                 <div className={styles.wrapupMsg}>
                                     현재 [<strong>{selectedResult}</strong>] 상태로 정리 중입니다. 
-                                    {(selectedResult as any === '부재중(24h)' || selectedResult as any === '연결-콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
+                                    {(selectedResult === '부재중(24h)' || selectedResult === '연결-콜백') && ' (24시간 뒤 자동 콜백 예약됨)'}
                                 </div>
                                 <button className={styles.saveWrapupBtn} onClick={() => {
                                     finishCall().then(() => {
-                                        if (selectedResult as any === '홈페이지없음(패스)' || selectedResult as any === '홍보전용(패스)' || selectedResult as any === '동의서없음(패스)') {
+                                        if (selectedResult === '홈페이지없음(패스)' || selectedResult === '홍보전용(패스)' || selectedResult === '동의서없음(패스)') {
                                             setTimeout(() => handleNextCall(0), 500); // 자동 다음 호출
                                         }
                                     });
@@ -620,6 +807,11 @@ export default function SalesQueuePage() {
                                     <tr key={c.id} className={styles.tr}>
                                         <td className={styles.td}>
                                             <strong>{c.name}</strong>
+                                            {c.callbackScheduledAt && st.label.includes('콜백 요망') && (
+                                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 animate-pulse">
+                                                    우선순위
+                                                </span>
+                                            )}
                                         </td>
                                         <td className={styles.td}>{c.riskScore ?? 0}점</td>
                                         <td className={styles.td}>

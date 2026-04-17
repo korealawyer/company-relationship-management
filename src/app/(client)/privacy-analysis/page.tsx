@@ -14,7 +14,11 @@ import { useCompanies } from '@/hooks/useDataLayer';
 import { dataLayer } from '@/lib/dataLayer';
 import { getSession } from '@/lib/auth';
 import { useAuth } from '@/lib/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
+
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
@@ -33,7 +37,7 @@ const fadeUp = {
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
 
 /* ───── 개별 이슈 아코디언 (e-book 스타일) ───── */
-const IssueItem = ({ issue, index }: { issue: any; index: number }) => {
+const IssueItem = ({ issue, index, isBlinded }: { issue: any; index: number; isBlinded?: boolean }) => {
     const [expanded, setExpanded] = useState(false);
     const isHighRisk = issue.level === 'HIGH';
 
@@ -48,7 +52,7 @@ const IssueItem = ({ issue, index }: { issue: any; index: number }) => {
                 marginBottom: '2px',
                 borderBottom: '1px solid rgba(0,0,0,0.05)'
             }}
-            className="transition-all relative z-10"
+            className={`transition-all relative z-10 ${isBlinded ? 'pointer-events-none' : ''}`}
         >
             <button
                 onClick={() => setExpanded(!expanded)}
@@ -64,7 +68,7 @@ const IssueItem = ({ issue, index }: { issue: any; index: number }) => {
                         </span>
                         <span className="text-[11px] font-bold text-gray-400">{issue.law}</span>
                     </div>
-                    <h3 className="text-[15px] font-black text-gray-900 leading-snug">{issue.title}</h3>
+                    <h3 className={`text-[15px] font-black text-gray-900 leading-snug ${isBlinded ? 'blur-[5px] opacity-70 select-none' : ''}`}>{isBlinded ? '비공개 법적 위반 경고사항' : issue.title}</h3>
                 </div>
                 <ChevronDown
                     className={`w-4 h-4 text-gray-300 mt-1 flex-shrink-0 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
@@ -72,7 +76,7 @@ const IssueItem = ({ issue, index }: { issue: any; index: number }) => {
             </button>
 
             <AnimatePresence>
-                {expanded && (
+                {expanded && !isBlinded && (
                     <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -141,13 +145,22 @@ const TrustBadge = ({ icon: Icon, label, sub }: { icon: any; label: string; sub:
 /* ───── 메인 페이지 ───── */
 export default function PrivacyAnalysisClientPage() {
     const router = useRouter();
-    const { companies, isLoading } = useCompanies();
+    const { companies, isLoading: companiesLoading } = useCompanies();
     const { user, loading: authLoading } = useAuth();
-    const [company, setCompany] = useState<any>(null);
+    const [targetId, setTargetId] = useState<string | null>(null);
     const bookRef = useRef<HTMLDivElement>(null);
     const { scrollYProgress, scrollY } = useScroll();
     const progressWidth = useTransform(scrollYProgress, [0, 1], ['0%', '100%']);
     const [showBottomBanner, setShowBottomBanner] = useState(false);
+
+    const { data: analysisData, isLoading: analysisLoading } = useSWR(
+        targetId ? `/api/analyze?targetId=${targetId}` : null,
+        fetcher
+    );
+    
+    const company = analysisData?.company;
+    const isPremium = analysisData?.isPremium ?? true;
+    const isLoading = analysisLoading || targetId === null;
 
     useEffect(() => {
         const unsubscribe = scrollY.on('change', (latest) => {
@@ -161,70 +174,46 @@ export default function PrivacyAnalysisClientPage() {
     }, [scrollY]);
 
     useEffect(() => {
-        if (authLoading || isLoading) return;
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('targetId');
+            if (id) {
+                setTargetId(id);
+                return;
+            }
+        }
+        
+        if (authLoading || companiesLoading) return;
         const session = user || getSession();
-
-        const resolveCompany = async () => {
-            let match = null;
-            if (session) {
-                // 1. Initial array check
-                if (session.companyId) {
-                    match = companies?.find((c) => c.id === session.companyId);
-                }
-                
-                // 3. Fallback to bizNo from companyId string
-                if (!match && session.companyId) {
-                    const digits = session.companyId.replace(/\D/g, '');
-                    if (digits.length >= 10) {
-                        match = companies?.find((c: any) => c.biz === digits || c.biz?.replace(/\D/g, '') === digits);
-                    }
-                }
-
-                // 4. Fallback to bizNo from email
-                if (!match && session.email) {
-                    const prefix = session.email.split('@')[0].replace(/\D/g, '');
-                    if (prefix.length >= 10) {
-                        match = companies?.find((c: any) => c.biz === prefix || c.biz?.replace(/\D/g, '') === prefix);
-                    }
-                }
-                
-                // If it's a UUID but not matched above, maybe use the ID directly
-                let targetId = match ? match.id : (session.companyId && session.companyId.length > 20 ? session.companyId : null);
-                
-                // If nothing is found, use the first company
-                if (!targetId && companies && companies.length > 0) {
-                    targetId = companies[0].id;
-                }
-
-                // Upgrade to full model to retrieve `lawyerProfile` and full nested relations
-                if (targetId) {
-                    try {
-                        const fullComp = await dataLayer.companies.getById(targetId);
-                        if (fullComp) {
-                            match = fullComp;
-                        }
-                    } catch (e) {
-                        console.error('Failed to fetch full company', e);
-                    }
-                }
-            } else if (companies && companies.length > 0) {
-                // If no session but companies exist, load the full profile of the first one
-                try {
-                    const fullComp = await dataLayer.companies.getById(companies[0].id);
-                    if (fullComp) {
-                        match = fullComp;
-                    }
-                } catch (e) {
-                    console.error('Failed to fallback full company', e);
+        
+        let match = null;
+        if (session) {
+            if (session.companyId) {
+                match = companies?.find((c) => c.id === session.companyId);
+            }
+            if (!match && session.companyId) {
+                const digits = session.companyId.replace(/\D/g, '');
+                if (digits.length >= 10) {
+                    match = companies?.find((c: any) => c.biz === digits || c.biz?.replace(/\D/g, '') === digits);
                 }
             }
-
-            // Set final match
-            setCompany(match || (companies && companies.length > 0 ? companies[0] : null));
-        };
-
-        resolveCompany();
-    }, [companies, user, isLoading, authLoading]);
+            if (!match && session.email) {
+                const prefix = session.email.split('@')[0].replace(/\D/g, '');
+                if (prefix.length >= 10) {
+                    match = companies?.find((c: any) => c.biz === prefix || c.biz?.replace(/\D/g, '') === prefix);
+                }
+            }
+            let fallbackId = match ? match.id : (session.companyId && session.companyId.length > 20 ? session.companyId : null);
+            if (!fallbackId && companies && companies.length > 0) {
+                fallbackId = companies[0].id;
+            }
+            setTargetId(fallbackId || null);
+        } else if (companies && companies.length > 0) {
+            setTargetId(companies[0].id);
+        } else {
+            setTargetId(null);
+        }
+    }, [companies, user, authLoading, companiesLoading]);
 
     if (!isLoading && !company) {
         return (
@@ -252,8 +241,9 @@ export default function PrivacyAnalysisClientPage() {
     const finalAuditReport = auditReport || audit_report;
     const displayIssues = issues || [];
     const effectiveTotalIssues = displayIssues.length > 0 ? displayIssues.length : issueCount;
-    const hasAnalysis = !!lawyerConfirmed || effectiveTotalIssues > 0;
+    const hasAnalysis = !!lawyerConfirmed || effectiveTotalIssues > 0 || !!finalAuditReport;
     const hasIssues = effectiveTotalIssues > 0;
+    const shouldShowReport = hasAnalysis && (hasIssues || !!finalAuditReport);
     const effectiveRiskLevel = riskLevel || (hasIssues ? 'HIGH' : 'LOW');
     const highRiskCount = displayIssues.filter((i: any) => i.level === 'HIGH').length;
     const mediumCount = displayIssues.filter((i: any) => i.level === 'MEDIUM').length;
@@ -379,7 +369,7 @@ export default function PrivacyAnalysisClientPage() {
                         </motion.div>
 
                         {/* ── 본문 영역: 마크다운 보고서 or 이슈 리스트 ── */}
-                        {hasAnalysis && hasIssues && (
+                        {shouldShowReport && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -457,10 +447,32 @@ export default function PrivacyAnalysisClientPage() {
                                                     </div>
                                                     <p className="text-xs text-gray-400 font-medium">각 항목을 클릭하면 상세 리스크 및 권고안을 확인할 수 있습니다</p>
                                                 </div>
-                                                <div>
-                                                    {displayIssues.map((issue: any, idx: number) => (
-                                                        <IssueItem key={idx} issue={issue} index={idx} />
-                                                    ))}
+                                                <div className="relative pb-32">
+                                                    {displayIssues.map((issue: any, idx: number) => {
+                                                        const isBlinded = issue.customDraft === 'BLIND_TREATMENT';
+                                                        return <IssueItem key={idx} issue={issue} index={idx} isBlinded={isBlinded} />
+                                                    })}
+                                                    {!isPremium && (
+                                                        <div className="absolute bottom-0 left-0 right-0 h-[300px] bg-gradient-to-t from-[#faf9f6] via-[#faf9f6]/95 to-transparent flex flex-col items-center justify-end pb-8 z-20 pointer-events-auto">
+                                                            <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl shadow-2xl flex flex-col items-center border border-gray-100 max-w-sm text-center mx-auto">
+                                                                <Lock className="w-10 h-10 mb-3 text-amber-500" />
+                                                                <h3 className="text-lg font-black text-gray-900 mb-2">프리미엄 세부 검토안 잠김</h3>
+                                                                <p className="text-sm font-medium text-gray-500 mb-5 leading-relaxed">
+                                                                    상세 권고안을 확인하고 법적 리스크를<br/>해결하려면 전문 변호사에게 조문 개정을 위임하세요.
+                                                                </p>
+                                                                <button
+                                                                    onClick={() => router.push(`/contracts/sign/${company?.id}`)}
+                                                                    className="w-full flex justify-center items-center gap-2 px-6 py-4 rounded-xl font-black text-[15px] transition-all hover:scale-105 shadow-xl"
+                                                                    style={{
+                                                                        background: `linear-gradient(135deg, ${'#c9a84c'}, ${'#e8c87a'})`,
+                                                                        color: '#0a0e1a',
+                                                                    }}
+                                                                >
+                                                                    <FileSignature className="w-5 h-5" /> 방침 전면 개정 위임하기
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -477,11 +489,33 @@ export default function PrivacyAnalysisClientPage() {
                                             </div>
                                             <p className="text-xs text-gray-400 font-medium">각 항목을 클릭하면 상세 리스크 및 권고안을 확인할 수 있습니다</p>
                                         </div>
-                                        <div>
-                                            {displayIssues.map((issue: any, idx: number) => (
-                                                <IssueItem key={idx} issue={issue} index={idx} />
-                                            ))}
-                                        </div>
+                                        <div className="relative pb-32">
+                                                    {displayIssues.map((issue: any, idx: number) => {
+                                                        const isBlinded = issue.customDraft === 'BLIND_TREATMENT';
+                                                        return <IssueItem key={idx} issue={issue} index={idx} isBlinded={isBlinded} />
+                                                    })}
+                                                    {!isPremium && (
+                                                        <div className="absolute bottom-0 left-0 right-0 h-[300px] bg-gradient-to-t from-[#faf9f6] via-[#faf9f6]/95 to-transparent flex flex-col items-center justify-end pb-8 z-20 pointer-events-auto">
+                                                            <div className="bg-white/95 backdrop-blur-md p-6 rounded-2xl shadow-2xl flex flex-col items-center border border-gray-100 max-w-sm text-center mx-auto">
+                                                                <Lock className="w-10 h-10 mb-3 text-amber-500" />
+                                                                <h3 className="text-lg font-black text-gray-900 mb-2">프리미엄 세부 검토안 잠김</h3>
+                                                                <p className="text-sm font-medium text-gray-500 mb-5 leading-relaxed">
+                                                                    상세 권고안을 확인하고 법적 리스크를<br/>해결하려면 전문 변호사에게 조문 개정을 위임하세요.
+                                                                </p>
+                                                                <button
+                                                                    onClick={() => router.push(`/contracts/sign/${company?.id}`)}
+                                                                    className="w-full flex justify-center items-center gap-2 px-6 py-4 rounded-xl font-black text-[15px] transition-all hover:scale-105 shadow-xl"
+                                                                    style={{
+                                                                        background: `linear-gradient(135deg, ${'#c9a84c'}, ${'#e8c87a'})`,
+                                                                        color: '#0a0e1a',
+                                                                    }}
+                                                                >
+                                                                    <FileSignature className="w-5 h-5" /> 방침 전면 개정 위임하기
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                     </div>
                                 )}
 
@@ -524,7 +558,7 @@ export default function PrivacyAnalysisClientPage() {
                         )}
 
                         {/* 분석 완료 but 이슈 없음 */}
-                        {hasAnalysis && !hasIssues && (
+                        {hasAnalysis && !hasIssues && !finalAuditReport && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
@@ -542,7 +576,7 @@ export default function PrivacyAnalysisClientPage() {
                         )}
 
                         {/* ─── 하단: 신뢰 & 프로세스 보증 영역 ─── */}
-                        {hasAnalysis && hasIssues && (
+                        {shouldShowReport && (
                             <>
                                 {/* 보증 섹션 */}
                                 <motion.div 
@@ -629,7 +663,7 @@ export default function PrivacyAnalysisClientPage() {
                     {/* ═══════════════════════════════════════════
                         우측: Sticky 사이드바 (데스크톱)
                     ═══════════════════════════════════════════ */}
-                    {hasAnalysis && hasIssues && (
+                    {shouldShowReport && (
                         <div className="hidden xl:block w-[320px] shrink-0 sticky top-20">
                             <motion.div
                                 initial={{ opacity: 0, x: 20 }}
@@ -731,7 +765,7 @@ export default function PrivacyAnalysisClientPage() {
                  하단 고정 배너 (Bottom Sheet 형태)
             ═══════════════════════════════════════════ */}
             <AnimatePresence>
-                {showBottomBanner && hasAnalysis && hasIssues && (
+                {showBottomBanner && shouldShowReport && (
                     <motion.div
                         initial={{ y: '100%', opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
