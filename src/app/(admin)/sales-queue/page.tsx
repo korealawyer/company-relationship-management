@@ -197,7 +197,7 @@ export default function SalesQueuePage() {
                          });
                      });
                  })
-                 .subscribe(async (status) => {
+                 .subscribe(async (status: string) => {
                      if (status === 'SUBSCRIBED') {
                          // [치명적 버그 방어 4 - 단절 후 재연결 유실 복구 (Self-Healing)]
                          if (!hasConnectedBefore) {

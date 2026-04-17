@@ -326,7 +326,7 @@ export function useCallPage(userId: string = '', userName: string = ''): UseCall
         if (c.id === selectedId) return true;
 
         if (statusFilter === 'my_calls_today') {
-            if (!(isToday(c.lastCallAt) && c.lastCalledBy === userName)) return false;
+            if (!(isToday(c.lastCallAt || undefined) && c.lastCalledBy === userName)) return false;
         } else if (statusFilter !== 'all' && c.status !== statusFilter) {
             return false;
         }
