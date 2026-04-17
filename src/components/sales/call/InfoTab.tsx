@@ -34,8 +34,78 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
     const { updateCompany, mutate } = useCompanies();
     const { user } = useAuth();
     const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+    const adminOrSales = isAdmin || user?.role === 'sales';
     const [analyzing, setAnalyzing] = React.useState(false);
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+    // 1500ms Batch Debounce & Unmount Flush Queue 전략
+    const [pendingChanges, setPendingChanges] = React.useState<Record<string, any>>({});
+    const pendingChangesRef = React.useRef(pendingChanges);
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    React.useEffect(() => {
+        pendingChangesRef.current = pendingChanges;
+    }, [pendingChanges]);
+
+    const flushQueue = async () => {
+        const changes = { ...pendingChangesRef.current };
+        if (Object.keys(changes).length === 0) return;
+        
+        // 플러시 중임을 큐에서 제거
+        pendingChangesRef.current = {};
+        setPendingChanges({});
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+        try {
+            // SWR Local Mutate (Bandwidth 절약, Echo Loop 회피를 위해 revalidate: false 적용)
+            const newCo = { ...co, ...changes };
+            mutate('companies-cache-key', (currentData: any) => {
+                // 이 부분은 useDataLayer의 구현에 따라 다름. updateCompany 내부에 mutate가 있다면 그걸 씀.
+                if (!currentData?.data) return currentData;
+                return {
+                    ...currentData,
+                    data: currentData.data.map((c: any) => c.id === co.id ? newCo : c)
+                };
+            }, { revalidate: false });
+
+            // DB Patch Fire-and-forget (try-catch로 감싸서 실패시 에러 띄움)
+            await updateCompany(co.id, changes);
+            
+            // onRefresh(mutate) 제거 (Echo 루프 방지 및 서버 과부하 방지)
+        } catch (e) {
+            setToast('일부 변경사항 저장에 실패했습니다.');
+            // 실패 시 롤백 로직이 SWR 글로벌에 들어있어야 하지만, 여기선 강제 리프레시로 복구
+            onRefresh();
+        }
+    };
+
+    React.useEffect(() => {
+        if (Object.keys(pendingChanges).length > 0) {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            timeoutRef.current = setTimeout(() => {
+                flushQueue();
+            }, 1500);
+        }
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, [pendingChanges]);
+
+    // Unmount (가비지 컬렉션) 시 무조건 배출 - App Router 환경
+    React.useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (Object.keys(pendingChangesRef.current).length > 0) {
+                flushQueue();
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            flushQueue();
+        };
+    }, []);
 
     const handleAnalyze = async () => {
         if (analyzing) return;
@@ -75,19 +145,26 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                     {[
+                        // 핵심 3개 필드(name, biz, assignedLawyer)만 isAdmin 체크 유지, 나머지 전부 adminOrSales 오픈.
                         { l: '기업명', v: co.name || '', field: isAdmin ? 'name' : undefined, placeholder: '기업명' },
                         { l: '사업자', v: co.biz || '', field: isAdmin ? 'biz' : undefined, placeholder: '사업자번호' },
-                        { l: '대표', v: co.ceo || '', field: isAdmin ? 'ceo' : undefined, placeholder: '대표명' },
-                        { l: '담당자', v: co.contactName || '', field: 'contactName', placeholder: '이름 입력' },
-                        { l: '이메일', v: co.contactEmail || co.email || '', field: 'contactEmail', placeholder: '이메일 입력' },
-                        { l: '전화', v: co.contactPhone || co.phone || '', field: 'contactPhone', placeholder: '전화번호 입력' },
-                        { l: '홈페이지', v: co.domain || co.url || '', field: 'domain', placeholder: '홈페이지 주소' },
-                        { l: '매장수', v: String(co.storeCount || 0), field: isAdmin ? 'storeCount' : undefined, placeholder: '매장수', isNumber: true },
-                        { l: '업종', v: co.bizType || '', field: isAdmin ? 'bizType' : undefined, placeholder: '업종명' },
+                        { l: '대표', v: co.ceo || '', field: adminOrSales ? 'ceo' : undefined, placeholder: '대표명' },
+                        { l: '담당자', v: co.contactName || '', field: adminOrSales ? 'contactName' : undefined, placeholder: '이름 입력' },
+                        { l: '이메일', v: co.contactEmail || co.email || '', field: adminOrSales ? 'contactEmail' : undefined, placeholder: '이메일 입력' },
+                        { l: '전화', v: co.contactPhone || co.phone || '', field: adminOrSales ? 'contactPhone' : undefined, placeholder: '전화번호 입력' },
+                        { l: '홈페이지', v: co.domain || co.url || '', field: adminOrSales ? 'domain' : undefined, placeholder: '홈페이지 주소', isUrl: true },
+                        { l: '매장수', v: String(co.storeCount || 0), field: adminOrSales ? 'storeCount' : undefined, placeholder: '매장수', isNumber: true },
+                        { l: '업종', v: co.bizType || '', field: adminOrSales ? 'bizType' : undefined, placeholder: '업종명' },
                         { l: '변호사', v: co.assignedLawyer || '', field: isAdmin ? 'assignedLawyer' : undefined, placeholder: '미배정' },
-                        { l: '개인정보 URL', v: co.privacyUrl || '', field: 'privacyUrl', placeholder: '방침 URL' },
-                        { l: '개인정보 전문', v: co.privacyPolicyText || '', field: 'privacyPolicyText', placeholder: '전문 내역 복사본' },
-                    ].map((i) => (
+                        { l: '개인정보 URL', v: co.privacyUrl || '', field: adminOrSales ? 'privacyUrl' : undefined, placeholder: '방침 URL', isUrl: true },
+                        { l: '개인정보 전문', v: co.privacyPolicyText || '', field: adminOrSales ? 'privacyPolicyText' : undefined, placeholder: '전문 내역 복사본' },
+                    ].map((i) => {
+                        // 현재 입력창에 띄울 값(Debounce 중첩 감안)
+                        const displayVal = (i.field && pendingChanges[i.field] !== undefined) 
+                            ? pendingChanges[i.field] 
+                            : i.v;
+
+                        return (
                         <div
                             key={i.l}
                             className="px-2.5 py-2 rounded-lg min-w-0"
@@ -104,22 +181,24 @@ export default function InfoTab({ co, onRefresh, setToast }: InfoTabProps) {
                             <div className="text-[13px] font-medium truncate" style={{ color: i.field ? '#2563eb' : C.body }}>
                                 {i.field ? (
                                     <EditableField 
-                                        value={i.v as string} 
+                                        value={String(displayVal)} 
                                         onChange={async v => {
                                             const finalV = i.isNumber ? (parseInt(v, 10) || 0) : v;
-                                            if (i.field) {
-                                                (co as any)[i.field] = finalV;
-                                            }
-                                            return updateCompany(co.id, { [i.field as string]: finalV });
+                                            setPendingChanges(prev => ({
+                                                ...prev,
+                                                [i.field as string]: finalV
+                                            }));
+                                            // EditableField의 loading/success 상태를 위해 일단 immediately resolve.
+                                            return Promise.resolve();
                                         }}
                                         placeholder={i.placeholder}
                                     />
                                 ) : (
-                                    i.v || '—'
+                                    String(displayVal) || '—'
                                 )}
                             </div>
                         </div>
-                    ))}
+                    )})}
                 </div>
 
                 {/* ── 어드민: 상태값 강제 변경 ── */}

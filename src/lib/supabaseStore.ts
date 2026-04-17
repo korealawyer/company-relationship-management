@@ -371,7 +371,7 @@ function cleanCompanyRow(companyData: Partial<Company>, isCreate: boolean = fals
     'biz_category', 'franchise_type', 'store_count', 'plan', 'status', 'risk_level',
     'risk_score', 'issue_count', 'privacy_url', 'privacy_policy_text', 'assigned_lawyer_id',
     'email_sent_at', 'lawyer_confirmed', 'lawyer_confirmed_at', 'source', 'biz_no', 'id',
-    'created_at', 'updated_at',
+    'created_at', 'updated_at', 'assigned_sales_id',
     // 영업 프로세스
     'sales_confirmed', 'sales_confirmed_at', 'sales_confirmed_by',
     // 이메일 / 클라이언트 응답
@@ -814,8 +814,8 @@ export const supabaseCompanyStore = {
     if (!sb) return;
     const { error } = await sb.rpc('increment_call_attempts', { target_company_id: id });
     if (error) {
-      console.error('Failed to increment call attempts:', error);
-      throw new Error(error.message);
+      console.error('Failed to increment call attempts:', JSON.stringify(error));
+      throw new Error(error.message || 'increment_call_attempts RPC failed');
     }
   },
 
@@ -824,8 +824,8 @@ export const supabaseCompanyStore = {
     if (!sb) return;
     const { error } = await sb.rpc('decrement_call_attempts', { target_company_id: id });
     if (error) {
-      console.error('Failed to decrement call attempts:', error);
-      throw new Error(error.message);
+      console.error('Failed to decrement call attempts:', JSON.stringify(error));
+      throw new Error(error.message || 'decrement_call_attempts RPC failed');
     }
   },
 };

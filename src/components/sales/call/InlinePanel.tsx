@@ -152,10 +152,16 @@ export default function InlinePanel({
                 } else if (res === 'rejected' || res === 'invalid_site' || res === 'no_homepage' || res === 'promo_only' || res === 'no_policy') {
                     extraUpdate = { status: res };
                     co.status = res as unknown as 'pending'; // 상태 추론 일관성 
+                } else {
+                    // 거절 등에서 부재중/콜백 등 일반 상태로 덮어씌울 때, status도 pending으로 롤백해줍니다.
+                    if (['rejected', 'invalid_site', 'no_homepage', 'promo_only', 'no_policy'].includes(co.status as string)) {
+                        extraUpdate = { status: 'pending' };
+                        co.status = 'pending';
+                    }
                 }
             }
             
-            // --- 백그라운드 DB 저장 (UI 딜레이 제거) ---
+            // --- 백그라운드 DB 저장 (UI 딜레이 제거 및 SWR Race Condition 방지) ---
             const payload = isToggleOff 
                 ? { ...extraUpdate }
                 : {
@@ -170,15 +176,26 @@ export default function InlinePanel({
 
             const updateTask = async () => {
                 // 카운터 기반 동시성 이슈 방지를 위해 RPC 사용
-                if (isToggleOff) await supabaseCompanyStore.decrementCallAttempts(co.id);
-                else await supabaseCompanyStore.incrementCallAttempts(co.id);
+                try {
+                    if (isToggleOff) await supabaseCompanyStore.decrementCallAttempts(co.id);
+                    else await supabaseCompanyStore.incrementCallAttempts(co.id);
+                } catch (rpcErr) {
+                    // RPC 누락 혹은 RLS 이슈 시 fallback (클라이언트에서 직접 카운트)
+                    console.warn("RPC Failed, falling back to direct update", rpcErr);
+                    const safeAttempts = Math.max(0, co.callAttempts || 0);
+                    await supabaseCompanyStore.update(co.id, { callAttempts: safeAttempts });
+                }
                 
                 if (Object.keys(payload).length > 0) {
                     await supabaseCompanyStore.update(co.id, payload);
                 }
             };
 
-            updateTask().catch(e => {
+            // execute network request in background
+            updateTask().then(() => {
+                // SWR mutate AFTER db finishes to avoid stale state override
+                onRefresh();
+            }).catch(e => {
                 console.error('Manual log failed:', e);
                 setToast('❌ 기록 저장 실패, 원래 상태로 복구됩니다.');
                 
@@ -211,7 +228,6 @@ export default function InlinePanel({
             }
             
             setToast(isToggleOff ? '✅ 상태 기록이 취소되었습니다.' : `✅ 수동 기록됨: ${res === 'connected' ? '연결됨' : res === 'no_answer' ? '부재중' : res === 'callback' ? '콜백' : res === 'rejected' ? '거절' : res === 'no_homepage' ? '홈페이지 없음' : res === 'promo_only' ? '홍보 전용' : res === 'no_policy' ? '동의서 없음' : '사이트 이상'}`);
-            onRefresh(); 
         } catch(e) {
             setToast('❌ 기록 처리 오류');
             setLocalResult(snapshot.lastCallResult ? (snapshot.lastCallResult as string) : null);
